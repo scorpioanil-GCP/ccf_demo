@@ -68,6 +68,7 @@ from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 
 import dataclasses
 
+import hashlib
 import os
 import stat
 import types
@@ -430,9 +431,10 @@ _NOT_VERIFIED_WHY = {
         " state, text the SDK did not write, or not a regular file this process can read)"
     ),
     "claimed": (
-        "appeared at the path after the boot looked, was replaced by another file between the boot's look"
-        " and its replacement of it, or was replaced or rewritten while the boot that created it was"
-        " verifying its store, so something outside the SDK's boots writes beside the store"
+        "appeared at the path after the boot looked, was replaced by another file or rewritten with other"
+        " bytes between the boot's look and its replacement of it, or was replaced or rewritten while the"
+        " boot that created it was verifying its store, so something outside the SDK's boots writes beside"
+        " the store"
     ),
     "lock-unavailable": "cannot be checked, because the store-creation lock beside it cannot be taken",
 }
@@ -515,13 +517,13 @@ class DeploymentStoreNotVerified(ValueError):
               boot cannot replace;
             * ``"claimed"`` — a marker appeared at the path after this boot
               looked and before it created its own, the stale marker it found
-              was replaced by another file (another device or inode) before it
-              could replace it, or the marker this boot created was replaced or
-              rewritten before the boot could make it read ``verified``:
-              something outside the SDK's boots writes beside the store. A
-              stale marker rewritten in place before the boot replaces it keeps
-              its file and is not told apart (see
-              :func:`_replace_stale_deployment_marker`);
+              was replaced by another file, or rewritten with other bytes,
+              between that look and its replacement of it, or the marker this
+              boot created was replaced or rewritten before the boot could make
+              it read ``verified``: something outside the SDK's boots writes
+              beside the store. A stale marker rewritten to identical bytes, or
+              changed after the boot's re-check and before its rename, is not
+              told apart (see :func:`_replace_stale_deployment_marker`);
             * ``"lock-unavailable"`` — the store-creation lock beside the marker
               cannot be opened or locked (no ``flock`` on this platform or
               filesystem, something other than a regular file at its path, or
@@ -796,16 +798,74 @@ def _promote_deployment_marker(owned: _OwnedMarker) -> _OwnedMarker:
     return _OwnedMarker(path=owned.path, token=owned.token, device=staged[0], inode=staged[1])
 
 
-def _identity_at(path: Path) -> tuple[int, int] | None:
-    """The device and inode of what stands at ``path`` (not following a symbolic link), or ``None`` when nothing can be found there."""
+@dataclass(frozen=True)
+class _MarkerSnapshot:
+    """What a boot's look found at a deployment marker's path: which file, of what type, holding what.
+
+    SEC-020 decision 17 (b) (``D-IMPL-378``; Dave, 2026-10-09 16:38 MST: *"(b)
+    Compare the marker’s bytes."*). ``device`` and ``inode`` name the file and
+    ``kind`` its type (``stat.S_IFMT``). ``content`` is the SHA-256 digest of a
+    regular file's bytes or of a symbolic link's target, and ``None`` for
+    anything else (a directory, a FIFO, a socket, a device) and for a regular
+    file or a link whose content this process cannot read. Two snapshots are
+    equal only when all four are.
+    """
+
+    device: int
+    inode: int
+    kind: int
+    content: bytes | None
+
+
+def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
+    """What stands at ``marker`` now, as a :class:`_MarkerSnapshot`, or ``None`` when nothing can be found there.
+
+    Never follows a symbolic link: a link's own target is read
+    (``os.readlink``), never what it names, and nothing that is not a regular
+    file is opened. A regular file is opened without following a link and
+    without blocking, and its bytes are read through that one descriptor, up
+    to the size the descriptor reported when it was opened, so a writer that
+    keeps the file growing cannot keep the read going. The device, inode and
+    type recorded for it are that descriptor's own, so a file put at the path
+    between the ``lstat`` and the open is recorded as the file that was read.
+    """
     try:
-        status = os.lstat(path)
+        status = os.lstat(marker)
     except OSError:
         return None
-    return status.st_dev, status.st_ino
+    device, inode, kind = status.st_dev, status.st_ino, stat.S_IFMT(status.st_mode)
+    content: bytes | None = None
+    if stat.S_ISLNK(status.st_mode):
+        try:
+            content = hashlib.sha256(os.fsencode(os.readlink(marker))).digest()
+        except OSError:
+            content = None
+    elif stat.S_ISREG(status.st_mode):
+        try:
+            descriptor = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError:
+            return _MarkerSnapshot(device=device, inode=inode, kind=kind, content=None)
+        try:
+            opened = os.fstat(descriptor)
+            device, inode, kind = opened.st_dev, opened.st_ino, stat.S_IFMT(opened.st_mode)
+            if stat.S_ISREG(opened.st_mode):
+                digest = hashlib.sha256()
+                remaining = opened.st_size
+                while remaining > 0:
+                    chunk = os.read(descriptor, min(remaining, 1 << 16))  # read in 64 KiB pieces
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+                content = digest.digest()
+        except OSError:
+            content = None
+        finally:
+            os.close(descriptor)
+    return _MarkerSnapshot(device=device, inode=inode, kind=kind, content=content)
 
 
-def _replace_stale_deployment_marker(path: Path, found: tuple[int, int]) -> _OwnedMarker:
+def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _OwnedMarker:
     """Replace the deployment marker that stands with no store beside ``path`` by this boot's own, reading ``pending``.
 
     SEC-020 repair 1.2 (``D-IMPL-378``; Dave, 2026-10-09 10:54 MST: *"Run the
@@ -822,20 +882,26 @@ def _replace_stale_deployment_marker(path: Path, found: tuple[int, int]) -> _Own
     creates no deployment marker. So no live boot's creation is in progress at
     the path, and the marker found was left by a boot that is no longer
     running — killed, or one whose store was since deleted — or by a writer
-    outside the SDK. The marker's file identity (device and inode) is read
-    again immediately before it is replaced: another file put at the path since
-    the look — renamed over it — was put there by a writer outside the SDK's
-    boots, and the boot is refused (:class:`DeploymentStoreNotVerified`,
-    ``"claimed"``; measured by
-    ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left``).
-    **What this check does not see:** a change that keeps the file's identity.
-    The same file rewritten in place, or deleted and created again where the
-    filesystem hands the new file the same inode number (measured by lane
-    ``378j-boot`` on ext4: an immediate recreation kept it in 200 of 200 tries),
-    is not told apart, and is replaced like any stale marker. The boot then
-    verifies the store it opens itself either way, so what it serves does not
-    rest on this check: it is a tripwire for a writer outside the SDK's boots,
-    not the store's verification.
+    outside the SDK. What the boot's look found at the marker's path — the file
+    (device and inode), its type, and its content, a regular file's bytes or a
+    symbolic link's target compared by their SHA-256 digest
+    (:func:`_marker_snapshot`; decision 17 (b), ``D-IMPL-378``: *"(b) Compare
+    the marker’s bytes."*) — is read again immediately before the marker is
+    replaced, and any difference refuses the boot
+    (:class:`DeploymentStoreNotVerified`, ``"claimed"``): another file put at
+    the path since the look (measured by
+    ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left``),
+    or the same file rewritten in place with other bytes (measured by
+    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_claimed_and_left``),
+    was put there by a writer outside the SDK's boots. **What this check does
+    not see:** a change made after the re-check and before the rename; a
+    rewrite to identical bytes, which changes nothing a boot reads (measured by
+    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified``);
+    and the content of a marker this process cannot read (a regular file it has
+    no permission to open), whose file and type alone are compared, as before
+    decision 17 (b). The boot then verifies the store it opens itself either
+    way, so what it serves does not rest on this check: it is a tripwire for a
+    writer outside the SDK's boots, not the store's verification.
 
     The replacement is atomic: this boot's marker is written to a staging file
     beside it, synced, and renamed over whatever stands at the marker's path (a
@@ -858,7 +924,7 @@ def _replace_stale_deployment_marker(path: Path, found: tuple[int, int]) -> _Own
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        if _identity_at(marker) != found:
+        if _marker_snapshot(marker) != found:
             raise DeploymentStoreNotVerified(marker=marker, reason="claimed")
         try:
             os.replace(staging, marker)
@@ -1126,7 +1192,7 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
     creates_a_store = False
     for path in paths:
         marker = _deployment_store_marker(path)
-        found = _identity_at(marker)
+        found = _marker_snapshot(marker)
         if path.exists():
             if found is not None:
                 record, _identity = _read_deployment_marker(marker)
@@ -2254,9 +2320,9 @@ def load_and_boot(
             that created it never finished its read) or records no state in
             the form the SDK writes (a marker written before markers recorded
             their state included), a marker that appeared, or a stale marker
-            that was replaced by another file, while this boot held the
-            store-creation lock, or a store-creation lock that cannot be
-            taken. Later, as ``"claimed"``, after this boot created its store
+            that was replaced by another file or rewritten with other bytes,
+            while this boot held the store-creation lock, or a store-creation
+            lock that cannot be taken. Later, as ``"claimed"``, after this boot created its store
             and read it empty: the marker this boot created was replaced by
             another file, or rewritten in place, before it could read
             ``verified``. The boot then closes that store and leaves it where
