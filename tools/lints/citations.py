@@ -283,6 +283,21 @@ HISTORICAL_RECORDS: dict[str, str] = {
         " and amended until 2026-10-01; a dated record by D-IMPL-378 ruling"
         " C6 (c), so its citations are snapshots of the tree that wave worked on"
     ),
+    # D-IMPL-378 decision 14 (b) (Dave, 2026-10-09 16:38 MST, adopting Grok's
+    # recommendation): "(b) Exempt the dated records. Pin the rest. Do not edit
+    # records in place." Option (b) names one dated record, this file; the six
+    # other citations repair 1.7 made findings, in text that may not be edited,
+    # are pinned below. Measured at d128a30d, the exemption takes 40 citations
+    # out of this gate's reach (29 it checked, 8 with an ambiguous path, and
+    # repair 1.7's three cite03 findings) and none out of the citation
+    # ratchet's population.
+    "docs/D-IMPL-353-CLOSE-REVIEWS.md": (
+        "the D-IMPL-353 close-time panel's record: three external reviewers'"
+        " outputs for its three rounds, kept verbatim and unedited by the"
+        " record's own header (written 2026-09-25); a dated record by"
+        " D-IMPL-378 decision 14 (b), so its citations are snapshots of the"
+        " tree the panel reviewed"
+    ),
 }
 
 #: Pulled back into the gate despite matching a HISTORICAL_RECORDS pattern.
