@@ -1677,7 +1677,8 @@ FLOOR_COPY_REFUSAL = "FloorCopyDidNotAnswer"
 #: The outcome a limitation measurement reports such a cell under, by name: neither distinguishable nor
 #: indistinguishable, because no noise floor was measured. Decision 7 (a) reports the mirror (the nonexistent side
 #: raised where its copy answered) under this same label, as its option says ("or the limitation reports `floor copy
-#: raised`"); the positions it records say which side raised.
+#: raised`"). Neither the label nor the positions a limitation records with it say which side raised; the failure a
+#: gate cell meets (:class:`FloorCopyDidNotAnswer`) does.
 FLOOR_COPY_OUTCOME = "floor copy raised"
 
 _FLOOR_WITHHELD = {"outcome": "refused", "code": "subject-withheld", "detail": "refused"}
