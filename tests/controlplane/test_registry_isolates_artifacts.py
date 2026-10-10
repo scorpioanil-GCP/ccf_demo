@@ -186,20 +186,25 @@ def test_register_versioned_a_workflow_definition_changed_after_registration_is_
     definition = _workflow_definition()
     key = _workflow_fixture()["keys"]["workflow_definition"]
     as_built = canonical_bytes(definition)
-    start_as_built = definition.start
+    name_as_built = definition.name
+    handler, ref_as_built = next(iter(definition.exception_refs.items()))
     version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str), version
 
-    object.__setattr__(definition, "start", "rewritten-start")  # top-level rebinding
-    definition.exception_refs["injected"] = "acme/x"  # type: ignore[index]  # nested mutable value
+    # Rewrites that still re-validate. A registry that shared the object must
+    # SERVE the rewrite for this assertion to catch it; a rewrite the read door
+    # could only refuse would fail this test by an exception instead, and a
+    # severing that fails by an exception does not count (D-IMPL-380 §5).
+    object.__setattr__(definition, "name", "rewritten-name")  # top-level rebinding
+    definition.exception_refs[handler] = ref_as_built.replace("@1.0.0", "@2.0.0")  # type: ignore[index]  # nested
 
     served = registry.resolve(key, version)
     assert isinstance(served, WorkflowDefinition)
     problems = _served_as_built(served, as_built_bytes=as_built, version=version, what="register_versioned")
-    if served.start != start_as_built:
-        problems.append(f"register_versioned: the served start is {served.start!r}, not {start_as_built!r}")
-    if "injected" in served.exception_refs:
-        problems.append("register_versioned: the injected exception ref reached the registry")
+    if served.name != name_as_built:
+        problems.append(f"register_versioned: the served name is {served.name!r}, not {name_as_built!r}")
+    if served.exception_refs[handler] != ref_as_built:
+        problems.append("register_versioned: the rewritten exception ref reached the registry")
     if not isinstance(served.gate_routes, MappingProxyType):
         problems.append("register_versioned: the served gate_routes lost their mapping-proxy protection")
     assert not problems, "; ".join(problems)
