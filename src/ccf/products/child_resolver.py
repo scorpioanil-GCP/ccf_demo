@@ -1147,8 +1147,9 @@ class QuestionBoundChildResolver:
         not resolve the row to the bytes — and its URI, tenant, class and name
         are the ones that address files under this capability's tenant and the
         child-question class, or the row would name another question. Every
-        field is held as an exact string; the admitted-contract retention
-        holds the address the same way it was held here before (`D-IMPL-339`).
+        field is held as an exact string, and a store that hashed differently
+        is still refused here, loudly, as the admitted-contract retention
+        refuses it (`D-IMPL-339`).
         The URI returned, and recorded as the row's ``child_question_ref``, is
         the one the resolver derived, which the store's answer equals. A store
         that cannot file raises: the producer is then never asked, and no row
