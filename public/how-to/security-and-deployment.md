@@ -1761,7 +1761,8 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   identical bytes, which changes nothing a boot reads
   (`tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified`);
   and the bytes of a marker the boot cannot read (a file it has no permission
-  to open), whose file and type alone are compared. In each, the boot replaces
+  to open), whose file and type alone are compared (lane `378j-bootlock`'s
+  probe `probe_unreadable_stale_marker_rewritten.py`). In each, the boot replaces
   the marker like any stale one and verifies the new store itself, so it
   serves nothing it did not read, but it does not report that something
   outside the SDK wrote there.

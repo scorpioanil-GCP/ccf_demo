@@ -952,9 +952,12 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified``);
     and the content of a marker this process cannot read (a regular file it has
     no permission to open), whose file and type alone are compared, as before
-    decision 17 (b). The boot then verifies the store it opens itself either
-    way, so what it serves does not rest on this check: it is a tripwire for a
-    writer outside the SDK's boots, not the store's verification.
+    decision 17 (b) (lane ``378j-bootlock``'s probe
+    ``probe_unreadable_stale_marker_rewritten.py``: a write-only marker
+    rewritten in place is replaced). The boot then verifies the store it opens
+    itself either way, so what it serves does not rest on this check: it is a
+    tripwire for a writer outside the SDK's boots, not the store's
+    verification.
 
     The replacement is atomic: this boot's marker is written to a staging file
     beside it, synced, and renamed over whatever stands at the marker's path (a
