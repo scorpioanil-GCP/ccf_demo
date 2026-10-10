@@ -2489,6 +2489,7 @@
   "ccf.controlplane.registry": {
     "__all__": [
       "AmbiguousPinnedVersionError",
+      "ArtifactIsolationRefused",
       "AuditEvent",
       "ControlPlaneMissing",
       "ControlPlaneProtocol",
@@ -2508,6 +2509,10 @@
       "AmbiguousPinnedVersionError": {
         "kind": "class",
         "shape": "(key: 'str', declared_version: 'str', content_hashes: 'Sequence[str]') -> 'None'"
+      },
+      "ArtifactIsolationRefused": {
+        "kind": "class",
+        "shape": "(*, artifact_type: 'str', door: 'str', reason: 'str') -> 'None'"
       },
       "AuditEvent": {
         "kind": "contract",

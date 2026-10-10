@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2605 entries**, of which **2326** name a public Python surface.
+**2607 entries**, of which **2328** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1370 entries — 1324 public Python surface, 46 not public Python API.
+1371 entries — 1325 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19964,6 +19964,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
 
+#### ccf.controlplane.registry.ArtifactIsolationRefused
+
+- Surface: ccf.controlplane.registry.ArtifactIsolationRefused
+- Public surface: true
+- Change type: added
+- Before: no such refusal existed; every door shared the object it was given or held.
+- After: a `TypeError` raised by any of the five doors when the artifact's reconstruction would not preserve its type, its canonical bytes or its value, carrying `artifact_type`, `door` and `reason`. On a write door nothing has changed when it is raised; on a read door nothing is returned and the artifact is not reported missing (it is never the `LookupError` that `ControlPlaneMissing` is).
+- Why: `D-IMPL-380` sixth round, 15:50 MST: *"If copying fails, leave no newly published version, class binding or version-bump entry, and do not record a successful registration. On retrieval failure, do not return shared state or report the artifact as missing."* Tests: `tests/controlplane/test_registry_isolation_refusal.py`.
+- Migration: none for a caller whose artifacts round-trip through their own canonical form, which every SDK artifact class does (`tests/controlplane/test_artifact_roundtrip.py`). A plain mapping registered through `register` that holds a `Decimal`, a `datetime` or a tuple is now refused rather than served with those values' types silently changed; none of the 53 plain-mapping registrations measured in the suite carries one.
+
+*Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -31091,7 +31103,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-554 entries — 515 public Python surface, 39 not public Python API.
+555 entries — 516 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38870,6 +38882,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as for `ccf.skills.grants.GrantLedger`
 
 *Recorded by `380-05-the-approval-sink-is-handed-a-copy.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register`, `register_typed` and `register_versioned` stored the registrant's own object by reference, and `peek` and `resolve` returned the stored object by reference, so a registrant that changed its original after registering changed the registry's content under an unchanged version, and a reader that changed what it was handed changed what every later reader saw — including the grant ledger's own `SkillGrant`, reachable by an approval sink through `peek` at the address the sink's content-identical copy supplied.
+- After: each write door stores an independent reconstruction of the artifact — rendered to its canonical bytes, rebuilt through its own type's validators (or as the parsed document for a plain mapping), and verified to preserve the type, the canonical bytes and equality — built before any registration state changes; each read door returns a fresh reconstruction of the stored one. Two reads are independent at every depth; mapping-proxy protections survive because the validators re-create them. `peek` and `resolve` no longer return the same instance twice.
+- Why: `D-IMPL-380` sixth round (14:44, 15:10 and 15:50 MST). The Fable seat's finding on the fifth-round delta review, reproduced by the coordinator at `ef84f801`. Red tests: `tests/controlplane/test_registry_isolates_artifacts.py`, `tests/skills/test_grant_approval_sink_cannot_reach_the_ledgers_grant_through_the_registry.py`. Measured cost at this commit: see the lane record.
+- Migration: none for a caller that treats a resolved artifact as a value. A caller that compared two reads by identity, or mutated a returned artifact expecting a later read to show it, changes — no such caller was detected in the exercised tests (baseline 34 failures / 4 errors before and after, by id).
+
+*Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
 
 ### Not public Python API
 
