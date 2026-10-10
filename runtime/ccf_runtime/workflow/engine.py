@@ -2422,8 +2422,12 @@ class WorkflowEngine:
         Control Plane. That is the same hole as the artifact store, one writer
         over."*), and the engine keeps its own record. Every state write passes
         through this function (no other ``write_if`` or ``put_if`` exists in
-        ``runtime/ccf_runtime/workflow/``), and in every passage the state
-        write comes before :meth:`_write_trace`, so a state store that altered
+        ``runtime/ccf_runtime/workflow/``), and in every passage but
+        :meth:`_restore_request`, which writes the trace first (from a record
+        read back from the store), the state write comes before
+        :meth:`_write_trace` (``D-IMPL-380``, fourth round, ruling 3 (a);
+        Dave, 2026-10-10 10:58 MST: *"Always comes before"* *"is false on
+        `_restore_request`."*), so a state store that altered
         the record it held — its trace entries are the engine's own — would
         otherwise reach the trace artifact, a completed outcome's
         ``step_sequence_block`` and a suspension's approval binding. They are

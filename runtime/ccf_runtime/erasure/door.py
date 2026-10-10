@@ -548,8 +548,15 @@ class ErasureDoor:
         # record deterministic, and a terminal execution with this request's
         # entries is accepted above — as is a running one whose passage the
         # engine finishes, D-IMPL-378). A record with no entry cannot exist.
-        # The approval FIRST (fix round 3): an entry must never name an
-        # approval that is not on the substrate. Idempotent — content-addressed.
+        # The approval FIRST (fix round 3): the approval is saved, and the
+        # store's answer to it checked, before any entry names it. Idempotent —
+        # content-addressed. What that does not reach (`D-IMPL-380`, fourth
+        # round, ruling 3 (a); Dave, 2026-10-10 10:58 MST: *"The erasure
+        # comment must not say an index entry never names an unstored
+        # approval."*): a store that files altered bytes while answering the
+        # approval's own reference leaves the entry naming an address that
+        # holds nothing verifiable, and the consult then answers unsupported
+        # (`index-unsupported`) — the saved-bytes limit (:meth:`_checked_save`).
         #
         # Both saves hand the store a deep copy taken before the save, keep the
         # door's own object, and hold the store's answer to the reference the

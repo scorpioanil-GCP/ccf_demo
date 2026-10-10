@@ -804,8 +804,9 @@ def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[i
     does not close it. The record is ``None`` for a marker an earlier tree wrote
     (one line, no state), text the SDK did not write, a symbolic link, anything
     that is not a regular file, and a file this process cannot read: none of
-    them shows a completed verification. The identity is ``None`` when nothing
-    stands at the path, or when a regular file at it could not be opened.
+    them shows a completed verification. The identity is ``None`` when the
+    path cannot be examined with ``lstat`` (nothing stands at it, or it cannot
+    be reached), or when a regular file at it could not be opened.
     """
     longest = _longest_deployment_marker()
     try:
