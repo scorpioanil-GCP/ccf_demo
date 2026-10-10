@@ -29,6 +29,10 @@ What each test asserts, by mechanism:
   registration declares ``development_reference`` and re-registers one of the
   SDK's own stores, at composition and at the in-process door, while the SDK's
   own SQLite and in-memory adapters are admitted;
+* the store half of the guard is an exact-type test (decision 4 (a), Dave,
+  2026-10-09): a subclass of the SDK's ``FileArtifactStore``, one that
+  overrides nothing included, is refused by name, at composition and at the
+  in-process door;
 * the erasure consult keeps the composition's own clock (the declared instant is
   confined to the serve clock).
 
@@ -757,6 +761,105 @@ def test_a_third_party_adapter_declaring_development_reference_is_refused_at_the
         pytest.fail(
             "ADMITTED: the in-process door answered over third-party adapter"
             f" {THIRD_PARTY_ADAPTER!r} declaring development_reference=True"
+            f" (refusal {decoded.outcome.refusal!r}), served at"
+            f" {record.content_generation_path.served_at.isoformat()}; declared"
+            f" {DECLARED.isoformat()}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Decision 4 (a): the store half of the guard is an exact-type test.
+# ---------------------------------------------------------------------------
+
+
+class _SubclassStore(FileArtifactStore):
+    """A store class declared by inheriting the SDK's ``FileArtifactStore``, overriding nothing.
+
+    The strongest forger a subclass can be: it IS the SDK's own store in every
+    behavior, and differs from it only in its class.
+    """
+
+
+def test_a_subclass_of_the_sdks_file_store_is_refused_at_composition(
+    deployment_root: Path, tmp_path: Path
+) -> None:
+    """Decision 4 (a): a subclass of the SDK's file-backed store is refused by name at composition.
+
+    Dave, 2026-10-09 16:38 MST (``D-IMPL-378``), adopting Grok's
+    recommendation, decision 4: *"(a) Exact type."* The option ruled (lane
+    ``378i-devref``'s P-1 (a)): *"Tighten it to the SDK's own class: an
+    exact-type check (`type(store) is FileArtifactStore`). Consequences: a
+    subclass is refused with `artifact-store-not-development`."* The hole: the
+    store half of the guard was an ``isinstance`` test, which an instance of any
+    subclass passes. The graph adapter here is the SDK's own SQLite reference,
+    so the store is the only thing that can refuse. Refused by name:
+    ``DemonstrationServeInstantRefused`` with reason
+    ``artifact-store-not-development``.
+    """
+    from ccf.products.demonstration_clock import (
+        DemonstrationServeInstantRefused,
+        compose_serve_clock,
+    )
+    from ccf.products.resolver import _utc_now
+
+    store = _SubclassStore(root=tmp_path / "store", write_kinds=WriteKinds.declare({}))
+    # Preconditions, so the refusal below cannot be about anything else: the
+    # store is an instance of the SDK's class (an ``isinstance`` test admits
+    # it), and is not of that class itself.
+    assert isinstance(store, FileArtifactStore)
+    assert type(store) is not FileArtifactStore
+    booted, control_plane = boot_declared(
+        deployment_root, backend="sqlite", connection=connection_for("sqlite", deployment_root)
+    )
+    try:
+        assert booted.handle.adapter.name == "sqlite"
+        try:
+            clock = compose_serve_clock(
+                control_plane=control_plane,
+                fabric=booted,
+                artifact_store=store,
+                admission_clock=_utc_now,
+                sdk_clock=_utc_now,
+            )
+        except DemonstrationServeInstantRefused as refused:
+            assert refused.reason == "artifact-store-not-development", refused.reason
+            assert refused.key == f"{booted.tenant_id}/{CLASS_ID}", refused.key
+        else:
+            pytest.fail(
+                "ADMITTED: a subclass of the SDK's FileArtifactStore"
+                f" ({type(store).__name__}, overriding nothing) composed a"
+                f" {type(clock).__name__} serving at {clock().isoformat()}"
+            )
+    finally:
+        booted.handle.close()
+
+
+def test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same refusal where a deployment meets it: a question at the in-process door.
+
+    The in-process adapter builds its resolver over the store class its module
+    names; here that name is bound to a subclass of the SDK's
+    ``FileArtifactStore`` that overrides nothing, so the store serves from the
+    deployment's own store directory and differs from the SDK's own store only
+    in its class. Before decision 4 (a) the question was answered on the
+    declared serve instant.
+    """
+    from ccf.client.adapters import inprocess
+    from ccf.products.demonstration_clock import DemonstrationServeInstantRefused
+
+    monkeypatch.setattr(inprocess, "FileArtifactStore", _SubclassStore)
+    declare(seeded)
+    try:
+        decoded = ask(InProcessAdapter(str(seeded)), seeded, as_of=SEEDED_AT)
+    except DemonstrationServeInstantRefused as refused:
+        assert refused.reason == "artifact-store-not-development", refused.reason
+    else:
+        record = record_at(seeded, str(decoded.outcome.replay_ref))
+        pytest.fail(
+            "ADMITTED: the in-process door answered over a subclass of the SDK's"
+            f" FileArtifactStore ({_SubclassStore.__name__}, overriding nothing)"
             f" (refusal {decoded.outcome.refusal!r}), served at"
             f" {record.content_generation_path.served_at.isoformat()}; declared"
             f" {DECLARED.isoformat()}"
