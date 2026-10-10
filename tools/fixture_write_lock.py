@@ -19,7 +19,9 @@ relation, so an operator reads at once which database they pointed at.
 refuses an outside dependent. cp-03 drops without CASCADE."*) adds a second
 check to the same block, before any write: no object OUTSIDE the schema may
 depend on any of the twelve tables — a view or materialized view (through its
-rewrite rule), a foreign key from a table in another schema, or any other
+``_RETURN`` rewrite rule), any other rule (named as a rule on its table, never
+as a view: `D-IMPL-380` second round, ruling 4 (a)), a foreign key from a table
+in another schema, or any other
 normal dependency (``deptype = 'n'`` in ``pg_depend``) on a table or its row
 type. The relation-name check above inspects only the schema itself, so such a
 dependent passed it, and cp-03's former ``DROP TABLE ... CASCADE`` then dropped
@@ -83,9 +85,15 @@ def write_lock(schema: str) -> str:
         "    SELECT string_agg(DISTINCT dependent, ', ' ORDER BY dependent) INTO outside\n"
         "      FROM (\n"
         "        SELECT CASE WHEN d.classid = 'pg_rewrite'::regclass\n"
+        "                     AND r.rulename = '_RETURN'\n"
         "                    THEN format('%s %I.%I (schema %s)',\n"
         "                                CASE vc.relkind WHEN 'm' THEN 'materialized view'"
         " ELSE 'view' END,\n"
+        "                                vn.nspname, vc.relname, vn.nspname)\n"
+        "                    WHEN d.classid = 'pg_rewrite'::regclass\n"
+        "                    THEN format('rule %I on %s %I.%I (schema %s)', r.rulename,\n"
+        "                                CASE vc.relkind WHEN 'v' THEN 'view'"
+        " WHEN 'm' THEN 'materialized view' ELSE 'table' END,\n"
         "                                vn.nspname, vc.relname, vn.nspname)\n"
         "                    ELSE format('%s %s (schema %s)', o.type, o.identity,"
         " coalesce(o.schema, '-'))\n"

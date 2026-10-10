@@ -377,3 +377,57 @@ def test_a_clean_scratch_database_seeds_all_eight_and_cp03_twice(scratch: str) -
     with psycopg.connect(scratch, autocommit=True) as db, db.cursor() as cursor:
         cursor.execute((FIXTURES / CP03_SCHEMA).read_text(encoding="utf-8"))
     assert set(_relations(scratch)) == set(FIXTURE_TABLES)
+
+
+# ---------------------------------------------------------------------------
+# D-IMPL-380, second round, ruling 4 (a) (Dave, 2026-10-10 07:39 MST: *"A rule
+# is named as a rule."*). EXAMPLE-ONLY. The lock labeled every `pg_rewrite`
+# dependent "view" or "materialized view", so a rule on a table in another
+# schema that reads one of the twelve tables was refused as a "view". A
+# `_RETURN` rule is its view or materialized view; any other rule is named as a
+# rule on its table. What the lock refuses does not change.
+# ---------------------------------------------------------------------------
+
+RULE_TABLE = "zz_rule_target"
+RULE = "zz_reads_legal_entity"
+
+
+@pytest.mark.postgres
+def test_a_rule_dependent_is_refused_and_named_a_rule_not_a_view(scratch: str) -> None:
+    """A rule on a table in ANOTHER schema, whose condition reads
+    `ccf_v2.legal_entity`, is refused by the lock's own `RaiseException`, and the
+    refusal names it as a rule on its table, never as a view."""
+    import psycopg
+
+    _seed_all(scratch)
+    try:
+        with psycopg.connect(scratch, autocommit=True) as db:
+            db.execute(f"DROP SCHEMA IF EXISTS {OUTSIDE} CASCADE")
+            db.execute(f"CREATE SCHEMA {OUTSIDE}")
+            db.execute(f"CREATE TABLE {OUTSIDE}.{RULE_TABLE} (id int)")
+            db.execute(
+                f"CREATE RULE {RULE} AS ON INSERT TO {OUTSIDE}.{RULE_TABLE}"
+                f" WHERE EXISTS (SELECT 1 FROM {SCHEMA}.legal_entity) DO INSTEAD NOTHING"
+            )
+        refused: psycopg.Error | None = None
+        with psycopg.connect(scratch, autocommit=True) as db, db.cursor() as cursor:
+            try:
+                cursor.execute((FIXTURES / LOCKED_FILES[0]).read_text(encoding="utf-8"))
+            except psycopg.Error as exc:
+                refused = exc
+    finally:
+        with psycopg.connect(scratch, autocommit=True) as db:
+            db.execute(f"DROP SCHEMA IF EXISTS {OUTSIDE} CASCADE")
+
+    assert isinstance(refused, psycopg.errors.RaiseException), (
+        f"{LOCKED_FILES[0]} was not refused by the write lock with a rule depending on {SCHEMA}.legal_entity:"
+        f" {type(refused).__name__}: {refused}"
+    )
+    message = str(refused)
+    assert "D-IMPL-380" in message, message
+    assert re.search(rf"(?<!\w)rule {RULE} on table {OUTSIDE}\.{RULE_TABLE}(?!\w)", message), (
+        f"the refusal does not name the rule as a rule on its table: {message}"
+    )
+    assert not re.search(rf"(?<!\w)view {OUTSIDE}\.{RULE_TABLE}(?!\w)", message), (
+        f"the refusal calls a rule a view: {message}"
+    )

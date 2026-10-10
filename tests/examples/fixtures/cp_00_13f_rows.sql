@@ -86,8 +86,13 @@ BEGIN
     SELECT string_agg(DISTINCT dependent, ', ' ORDER BY dependent) INTO outside
       FROM (
         SELECT CASE WHEN d.classid = 'pg_rewrite'::regclass
+                     AND r.rulename = '_RETURN'
                     THEN format('%s %I.%I (schema %s)',
                                 CASE vc.relkind WHEN 'm' THEN 'materialized view' ELSE 'view' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN format('rule %I on %s %I.%I (schema %s)', r.rulename,
+                                CASE vc.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END,
                                 vn.nspname, vc.relname, vn.nspname)
                     ELSE format('%s %s (schema %s)', o.type, o.identity, coalesce(o.schema, '-'))
                END AS dependent,

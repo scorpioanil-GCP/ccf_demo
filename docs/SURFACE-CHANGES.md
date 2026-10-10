@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2593 entries**, of which **2314** name a public Python surface.
+**2596 entries**, of which **2317** name a public Python surface.
 
 ## Added
 
@@ -28021,7 +28021,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`, `"lock-held"`; a FIFO, a socket or a device at the marker's path with no store beside it was replaced; a regular-file marker was read to its full size, and one longer than any marker the SDK writes was refused `"unreadable"` beside a store and replaced with none.
-- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"` before anything is created, decided from its `lstat` type, never opened and never replaced.
+- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"` before any store or marker is created (the store-creation lock file is), its type checked from `lstat` before any open, with or without a store beside it, and never replaced. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened, without blocking and without following a link, and then refused from its descriptor's type.
 - Why: `D-IMPL-380` rulings 3 and 4 (a), 2026-10-10 05:34 MST. Red tests: `tests/products/test_deployment_marker_special_file_refused.py::test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unreadable_and_left` and `tests/products/test_deployment_marker_oversized_refused.py::test_380_4_a_sparse_1_gib_marker_is_refused_oversized_read_at_most_the_bound_and_left`.
 - Migration: a caller that branches on `reason` meets a sixth value. For `"oversized"` or a special file refused `"unreadable"`, find what wrote it at the marker's path, then remove it (and the store, if one stands there) so that a boot creates and verifies a new store (the security how-to, section 4.12).
 
@@ -31091,7 +31091,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-542 entries — 503 public Python surface, 39 not public Python API.
+545 entries — 506 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38726,6 +38726,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` handed the store its own admission record, whose `issuance` is the instance it returns in `AdmittedProduct`, so a store that altered the record while holding it and answered the record's original reference had its alteration returned to the caller.
+- After: the store is handed a deep copy of the record taken before `put`; the gate keeps its own, so `AdmittedProduct.issuance` is the issuance as built. The bytes the store files are still not re-read: such a store files altered bytes under the original's address, and a reader that re-hashes what it fetches finds the difference.
+- Why: `D-IMPL-380` second round, ruling 2 (a), 2026-10-10 07:39 MST. Red test: `tests/peering/test_admission_record_store_holds_a_copy.py::test_a_store_that_alters_the_record_and_answers_the_original_reference_leaves_the_admitted_issuance_as_built`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the store was handed the engine's own trace entries, the ones behind `step_sequence_block` and inside the state record, so a store that rewrote the trace while holding it and answered the trace's original reference had its rewrite reach the outcome, the state record and the record a recovering resumption wrote.
+- After: the store is handed deep copies of the entries taken before `put`; the engine keeps its own, so the outcome, the state record and the recovery path carry the trace as built. The bytes the store files are still not re-read, as for `ccf.peering.admission.PeeringAdmissionGate`.
+- Why: `D-IMPL-380` second round, ruling 2 (a). Red test: `tests/workflow/test_trace_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: beside a store, a FIFO, a socket or a device at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
+- After: the marker's type is checked from `lstat` before any open, beside a store too, so such a file is refused `"unreadable"` without being opened. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
+- Why: `D-IMPL-380` second round, ruling 1 (a). Red test: `tests/products/test_deployment_marker_special_file_refused.py`.
+- Migration: none; the refusals are unchanged.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
 
 ### Not public Python API
 
