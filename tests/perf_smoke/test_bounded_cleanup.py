@@ -208,3 +208,27 @@ def test_a_descendant_left_in_the_group_after_a_clean_exit_is_reported_and_kille
     assert result["survivors"], "a process left in the suite's own group was killed without being reported"
     assert any("time.sleep(60)" in cmd for _, cmd in result["survivors"]), result["survivors"]
     assert _marked_pids(marker) == []
+
+
+def test_a_group_member_the_marker_cannot_see_is_still_found(tmp_path: Path, marker: str) -> None:
+    """The group scan is load-bearing on its own: a leftover in the suite's group that replaced its
+    environment carries no marker, and is found because it is still a member of the group."""
+    token = f"in-group-unmarked-{marker}"
+    body = textwrap.dedent(
+        f"""
+        import subprocess, sys, time
+        subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)  # {token}"], env={{}})
+        time.sleep(0.3)
+        """
+    )
+    try:
+        result, _ = _drive(tmp_path, marker, body)
+        assert result["returncode"] == 0
+        assert any(token in cmd for _, cmd in result["survivors"]), result["survivors"]
+        assert not _pids_with_argv_token(token), "the unmarked group member is still running"
+    finally:
+        for pid in _pids_with_argv_token(token):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
