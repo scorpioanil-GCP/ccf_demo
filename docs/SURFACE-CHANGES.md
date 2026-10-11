@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2623 entries**, of which **2344** name a public Python surface.
+**2624 entries**, of which **2345** name a public Python surface.
 
 ## Added
 
@@ -31211,7 +31211,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-562 entries — 523 public Python surface, 39 not public Python API.
+563 entries — 524 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39084,6 +39084,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: both raise `TypeError` before validation, class binding, bump or audit state changes. Nothing is replaced. A typed idempotent re-registration is unchanged.
 - Why: `D-IMPL-381`, the refusal Dave selected; the Tuesday GO item 4. Red test: `tests/controlplane/test_registry_refuses_typed_over_untyped.py`.
 - Migration: register a key through one door: typed from the start, or untyped throughout.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: the in-process transport booted the deployment with the binding document's connection as declared.
+- After: when the binding declares exactly the SDK-managed lock directory under its own root (`writer_lease_lock_dir: {path: .ccf-writer-locks}`), the transport creates it through `ccf.graph.leases.sdk_managed_lock_directory`, with every check that function makes, before it boots. Any other declared directory is the deployment's to create and is judged as declared.
+- Why: P1 (a) and the Tuesday GO: *"Do not ship a refusal that breaks the ordinary product path."* An unseeded binding-document deployment (hw1's empty-fabric case) otherwise had no lock directory and was refused. Test: `tests/client/test_inprocess_creates_the_sdk_managed_lock_directory.py`; severing the call reddens it and the three hw1 empty-fabric tests.
+- Migration: a binding document whose deployment boots SQLite declares `writer_lease_lock_dir`.
 
 *Recorded by `20261011-01-tuesday-security-refusals.md`.*
 
