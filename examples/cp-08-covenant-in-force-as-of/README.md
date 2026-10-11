@@ -79,8 +79,9 @@ export CCF_CP_08_FLUREE_LEDGER=fibo-v2
 export CCF_CP_08_POSTGRES_DSN='postgresql://<user>:<pw>@192.168.4.76:5432/<db>'
 export CCF_CP_08_POSTGRES_SCHEMA=ccf_v2
 
-python examples/cp-08-covenant-in-force-as-of/run.py
-pytest tests/examples/test_cp_08_output.py      # 18 tests, same env
+PYTHONPATH=src:runtime:examples/cp-08-covenant-in-force-as-of \
+    .venv/bin/python examples/cp-08-covenant-in-force-as-of/run.py
+.venv/bin/python -m pytest tests/examples/test_cp_08_output.py      # same env
 ```
 
 Both stores are read with `SELECT`. **Nothing in this product, its examples or

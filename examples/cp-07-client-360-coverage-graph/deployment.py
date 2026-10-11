@@ -26,7 +26,7 @@ import os
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -36,7 +36,7 @@ import yaml
 import acquisition
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable, PerspectiveArtifact
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
@@ -135,7 +135,7 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
     this product exists to refuse.
     """
     declared = ProductRequestContract.from_declared(
-        booted.artifacts.get("request_contract"))
+        booted.artifacts.get(namespaced_key(tenant=booted.tenant_id, key="request_contract")))
     source = ProvenanceSource(kind="artifact", identity="request_contract",
                               version=content_hash(declared))
     outcome = ReferencePolicyConstraintResolver(
@@ -144,7 +144,8 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
         product_class=asked.schema_name, request=asked, declared=declared,
         declared_source=source, perspective=perspective(), intent=asked.intent,
         tenant=booted.tenant_id, capabilities=(),
-        class_defaults=declared.defaults, class_source=source)
+        class_defaults=declared.defaults, class_source=source,
+        served_at=datetime.now(UTC))
     return {} if outcome.refusal is not None else outcome.evidence.values()
 
 
