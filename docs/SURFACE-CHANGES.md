@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2609 entries**, of which **2330** name a public Python surface.
+**2612 entries**, of which **2333** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1372 entries — 1326 public Python surface, 46 not public Python API.
+1374 entries — 1328 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19988,6 +19988,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
 
+#### ccf.authz.capability.InvalidationRecordRegister
+
+- Surface: ccf.authz.capability.InvalidationRecordRegister
+- Public surface: true
+- Change type: added
+- Before: the invalidation sink held `Authorized[CompositionRegister]` for exactly one key per tenant.
+- After: a composition-only kind (`action_id` `composition.invalidation-record.register`), in `COMPOSITION_KINDS`, minted only by `mint_at_composition`; `kind_for_action` refuses it by name. Its resource is the tenant's invalidation prefix.
+- Why: `D-IMPL-382` option A — the one amendment to the one-key-per-capability rule of `D-IMPL-353` §1.2 / `D-IMPL-354`, confined by the registry to its own tenant's records of one class.
+- Migration: a composition root that built a `ControlPlaneInvalidationSink` mints this kind for `register_key(tenant)` instead of `CompositionRegister`; `ccf.boot` does so.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.controlplane.registry.invalidation_record_key
+
+- Surface: ccf.controlplane.registry.invalidation_record_key
+- Public surface: true
+- Change type: added
+- Before: no such function.
+- After: `invalidation_record_key(*, tenant_id, entity_uri) -> str`, the derived key `{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`; `INVALIDATION_RECORD_PREFIX`, `INVALIDATION_RECORD_CLASS_ID` and `TypedRegisterAuthority` are added beside it.
+- Why: `D-IMPL-382`, above.
+- Migration: none.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -31115,7 +31139,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-556 entries — 517 public Python surface, 39 not public Python API.
+557 entries — 518 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38918,6 +38942,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. A caller that never reached the registry's internals sees the same objects, the same versions and the same refusals; `ArtifactIsolationRefused.reason` on a read now names the parse ("the parse is not equal to the stored reconstruction") rather than the reconstruction.
 
 *Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register_typed` accepted the door kinds only and registered under the capability's resource.
+- After: `register_typed` also accepts `InvalidationRecordRegister`, and only for the `ccf.entity-invalidation-record` class, only when the capability was minted for exactly its own tenant's `ccf.entity-invalidation` prefix, and only for a record naming that tenant; the key is derived by `invalidation_record_key`, never supplied. `register` and `register_versioned` refuse the kind. Every record passes through the same write and read doors as any artifact (`D-IMPL-380`).
+- Why: `D-IMPL-382`, above.
+- Migration: none for existing callers.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
 ### Not public Python API
 
