@@ -325,27 +325,55 @@ class RevenueScenario:
 
 
 def read(booted: BootedFabric, asked: ProductRequest) -> RevenueScenario:
-    """Name this deployment's artifact keys and read this question's values."""
+    """Read this question's values off the booted fabric, by the keys it placed.
+
+    **Every key is read from ``booted.keys``, never spelled here** (gap
+    ``SEC353-G-07``; amended 2026-10-11, ``examples/AMENDMENTS-2026-10-11.md``).
+    The loader places each section's key under the deployment's tenant
+    (``{tenant}/request_contract``, ``D-IMPL-354``), so the bare section names
+    in the block above are what ``ccf_config.yaml`` *authors* and
+    ``booted.keys`` is what the fabric *holds*; a read by the bare name is a
+    ``KeyError``. The same placed strings are handed on to the resolver as
+    ``product_class_key`` / ``request_contract_key`` / ``policy_bundle_key``.
+    """
     artifacts = booted.artifacts
+    keys = booted.keys
+    if keys is None:  # pragma: no cover - only the multi-file form leaves it unset
+        raise RuntimeError(
+            f"{MANIFEST.name} booted without derived keys; this deployment is"
+            " the single-file form and reads its keys off `booted.keys`"
+        )
+    for section, placed in (
+        (KEY_REQUEST_CONTRACT, keys.request_contract),
+        (KEY_PERSPECTIVE, keys.default_perspective),
+        (KEY_HALF_LIFE_TABLE, keys.half_life),
+        (KEY_DEBT_PROFILE, keys.debt_profile),
+    ):
+        if placed is None:
+            raise RuntimeError(f"{MANIFEST.name} declares no `{section}:` section")
     return RevenueScenario(
         envelopes=envelopes(booted.tenant_id, at=asked.asked_at),
         request=asked,
         # The 16-22 papercut repair (D-IMPL-126 item 1). The four fields are NOT
         # hand-transcribed here; that workaround is what this call replaces.
         request_contract=ProductRequestContract.from_declared(
-            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+            cast(Any, artifacts[cast(str, keys.request_contract)])
         ),
-        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
-        product_class_key=KEY_PRODUCT_CLASS,
-        perspective=cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE]),
-        # ONE entry, so ONE operator (D-IMPL-132). The spine never counts them.
+        request_contract_key=cast(str, keys.request_contract),
+        policy_bundle_key=keys.policy_bundle,
+        product_class=cast(ProductClassDeclaration, artifacts[keys.product_class]),
+        product_class_key=keys.product_class,
+        perspective=cast(
+            PerspectiveArtifact, artifacts[cast(str, keys.default_perspective)]
+        ),
+        # However many `operators:` entries the config declares — ONE here, so
+        # ONE operator (D-IMPL-132). The spine never counts them.
         operator_parameters={
-            KEY_TEMPORAL: cast(
-                OperatorParametersArtifact, artifacts[KEY_TEMPORAL]
-            )
+            key: cast(OperatorParametersArtifact, artifacts[key])
+            for key in keys.operator_parameters
         },
-        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        half_life_table=cast(HalfLifeTable, artifacts[cast(str, keys.half_life)]),
+        debt_profile=cast(DebtProfile, artifacts[cast(str, keys.debt_profile)]),
     )
 
 
