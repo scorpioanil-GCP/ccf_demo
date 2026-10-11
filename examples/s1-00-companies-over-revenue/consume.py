@@ -41,7 +41,7 @@ import sys
 import tempfile
 
 import yaml
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # This example is a directory of modules rather than a package, so the two
@@ -70,7 +70,11 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--as-of", help="the instant to ask as of, ISO-8601 with a zone"
+        "--as-of",
+        help=(
+            "the instant to ask as of, ISO-8601 with a zone. Omitted, the"
+            " question is asked as of now: this file reads the clock once"
+        ),
     )
     parser.add_argument(
         "--explain", action="store_true", help="print the governance transcript"
@@ -90,6 +94,21 @@ def main() -> int:
         )
         min_revenue = int(question["demonstration"]["revenue_threshold"])
 
+    # The instant the question is asked as of. Omitted, it is NOW, read once,
+    # here, by the driver — never by the fabric (amended 2026-10-11, Dave's
+    # ruling 1: a default command must ask a valid question). The fabric
+    # refuses a question asked as of more than `temporal_boundary:`'s hour
+    # before it serves (`asked-at-outside-temporal-bound`), so the former
+    # pinned default, 2026-08-01, is now an expired question; the tests keep it
+    # as an ordinary passing refusal. The seeded rows keep their fixed
+    # `last_updated` instants, so D_c is measured honestly at the instant you
+    # ask — it is a run-varying value, and it rises as the rows age.
+    asked_at = (
+        datetime.fromisoformat(args.as_of)
+        if args.as_of
+        else datetime.now(timezone.utc).replace(microsecond=0)
+    )
+
     with provision.provisioned():
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
@@ -100,9 +119,7 @@ def main() -> int:
                 plan_class=deployment.plan_class(),
                 request=deployment.request(
                     parameters={deployment.THRESHOLD_PARAMETER: min_revenue},
-                    asked_at=(
-                        datetime.fromisoformat(args.as_of) if args.as_of else None
-                    ),
+                    asked_at=asked_at,
                 ),
                 root=root,
             )
@@ -112,7 +129,12 @@ def main() -> int:
                 # the question; `replay_reference` is the address of the
                 # decision record that authorized saying no, which is the half
                 # a bare verdict could not give a consumer (`D-IMPL-311`).
-                print(f"refused: {outcome.reason} — {outcome.key}")
+                # A refusal names a key only when it names one (a bound or a
+                # gate refusal names none) — the hw1 client's own rule.
+                print(
+                    f"refused: {outcome.reason}"
+                    + (f" — {outcome.key}" if outcome.key is not None else "")
+                )
                 print(f"    recorded at {outcome.replay_reference}")
                 return 1
             report(outcome, explain=args.explain)

@@ -48,18 +48,25 @@ from ccf.replay.record import DecisionReplayRecord
 
 pytestmark = pytest.mark.postgres
 
-#: D-IMPL-378 C4 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST).
-#: D-IMPL-355 (Option A) keeps s1-00 out of the repair. Its deployment reads the
-#: bare key 'request_contract', which the placed-key Control Plane no longer
-#: serves (SEC353-G-07), so each test below raises KeyError before it asserts.
-#: Quarantined under D-IMPL-261: strict, so the day one passes CI goes red, and
-#: raises=KeyError, so a failure of any other exception class is reported
-#: rather than absorbed. A different KeyError would still be absorbed: raises=
-#: checks the class only.
-_FROZEN_FAMILY_REASON = (
-    "SEC353-G-07: s1-00 reads the bare key 'request_contract' (KeyError); kept out of"
-    " the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4"
-)
+#: Ruling 6 (Dave, 2026-10-11 16:23 MST, `docs/DECISIONS.md` "Tuesday delivery —
+#: RULED, 2026-10-11 15:25 and 16:23 MST"): *"remove the obsolete missing-key
+#: expected-failure marks once the example is repaired. Run the served-path tests
+#: with a valid, controlled time setup so they reach their original assertions.
+#: Test expiry separately as an expected refusal in an ordinary passing test."*
+#: The nine `xfail(strict, raises=KeyError)` marks (SEC353-G-07, the bare
+#: `request_contract` read) are removed: `deployment.read` reads the placed keys
+#: since the 2026-10-11 repair. Their history is in git.
+#:
+#: THE CONTROLLED TIME SETUP. Every served-path question here is served on a
+#: fixed serve clock held at the instant it is asked as of — passed to the
+#: SDK's `admission_clock` seam through `produce.assemble_and_serve`'s
+#: `serve_clock` argument. The temporal bound and the expiry gate still run;
+#: they run against a known instant instead of whatever day the suite happens
+#: on, so the dated scenario (`deployment.DEFAULT_ASKED_AT`, 2026-08-01) and its
+#: fixed seed rows give the same answer every day. The real clock is exercised
+#: by the two tests at the end: a question asked now is served, and the dated
+#: question served on the real clock is refused.
+SCENARIO_ANCHOR = datetime(2026, 8, 1, tzinfo=timezone.utc)
 
 EXAMPLE = (
     pathlib.Path(__file__).resolve().parents[2]
@@ -131,21 +138,31 @@ def _expected(dsn: str, threshold: int) -> list[tuple[str, Decimal]]:
         return [(row[0], row[1]) for row in cursor.fetchall()]
 
 
+#: Sentinel: "serve on a clock held at the question's own instant" — the
+#: controlled default for every served-path test. `None` means the real clock.
+_AT_THE_QUESTION = object()
+
+
 def _assemble(
     root: pathlib.Path,
     *,
     parameters: Any,
     asked_at: datetime | None = None,
+    serve_at: Any = _AT_THE_QUESTION,
 ) -> Any:
     produce = _load("produce.py")
     deployment = _load("deployment.py")
+    request = deployment.request(parameters=parameters, asked_at=asked_at)
+    if serve_at is _AT_THE_QUESTION:
+        serve_at = request.asked_at
     return produce.assemble_and_serve(
         manifest=deployment.MANIFEST,
         connection=deployment.connection(root=root),
         read=deployment.read,
         plan_class=deployment.plan_class(),
-        request=deployment.request(parameters=parameters, asked_at=asked_at),
+        request=request,
         root=root,
+        serve_clock=None if serve_at is None else (lambda: serve_at),
     )
 
 
@@ -170,7 +187,6 @@ LOW = 100_000_000
 HIGH = 3_000_000_000
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     """A low threshold admits strictly more companies than a high one."""
     low = _over(tmp_path / "low", LOW)
@@ -184,7 +200,6 @@ def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     assert sorted(names) == [name for name, _ in _expected(seeded, LOW)]
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_two_thresholds_are_two_products(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -198,7 +213,6 @@ def test_two_thresholds_are_two_products(
     assert content_hash(low.product) != content_hash(high.product)
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_same_question_is_stable(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -208,7 +222,6 @@ def test_the_same_question_is_stable(
     assert content_hash(first.product) == content_hash(second.product)
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_a_missing_threshold_is_refused_not_defaulted(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -243,7 +256,6 @@ def test_a_missing_threshold_is_refused_not_defaulted(
     assert outcome.replay_reference != NO_REPLAY_REFERENCE
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_debt_is_driven_by_last_updated(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -263,7 +275,6 @@ def test_debt_is_driven_by_last_updated(
     assert late.product.debt.debt > early.product.debt.debt
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     """D_c is delivered WITH the answer and is inside its content address."""
     result = _over(tmp_path / "d", LOW)
@@ -272,7 +283,6 @@ def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     assert result.product.debt.signal is not None
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_one_operator_and_the_gates_agree(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -288,7 +298,6 @@ def test_one_operator_and_the_gates_agree(
     assert result.product.lineage.operators_invoked == frozenset(declared)
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_record_is_written_before_delivery(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -305,7 +314,6 @@ def test_the_record_is_written_before_delivery(
     assert recorded.parameters[deployment.THRESHOLD_PARAMETER] == LOW
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_answer_is_the_select_plus_four_things_it_cannot_return(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -321,3 +329,42 @@ def test_the_answer_is_the_select_plus_four_things_it_cannot_return(
     assert result.product.lineage.policy_bundle_versions
     assert content_hash(result.product)
     assert result.served.replay_ref.content_address
+
+
+def test_the_scenario_anchor_is_the_deployments_dated_instant() -> None:
+    """The controlled clock above is the scenario's own instant, not a second one."""
+    deployment = _load("deployment.py")
+    assert datetime.fromisoformat(deployment.DEFAULT_ASKED_AT) == SCENARIO_ANCHOR
+
+
+def test_a_question_asked_now_is_served_on_the_real_clock(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """The documented command's path: asked as of now, served on the SDK's clock.
+
+    No controlled clock here. This is what ``make example-s1-00`` does — the
+    driver reads the clock once for ``asked_at`` and the fabric serves on its
+    own — and it must reach the served answer, not a refusal.
+    """
+    asked = datetime.now(timezone.utc)
+    result = _over(tmp_path / "now", LOW, asked_at=asked, serve_at=None)
+    assert not isinstance(result, RefusalEnvelope), result
+    assert result.product.payload["count"] == len(_expected(seeded, LOW))
+    assert result.product.temporal_boundary == asked
+
+
+def test_an_expired_question_is_refused_on_the_real_clock(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """The dated question, served today, is refused by name and recorded.
+
+    An ordinary passing test, not an expected failure (ruling 6). The scenario's
+    2026-08-01 instant is more than the declared hour (`temporal_boundary:` in
+    `ccf_config.yaml`) before the real serve clock, so the fabric says no —
+    with the reason, as data, and with the record that authorized it.
+    """
+    outcome = _over(tmp_path / "expired", LOW, serve_at=None)
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert not hasattr(outcome, "product")
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE

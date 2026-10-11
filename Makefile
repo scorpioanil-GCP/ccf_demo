@@ -348,6 +348,10 @@ leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identic
 # `ENV_DOCS` rather than `ENV`: the gate imports the fence helper, so the repo root
 # has to be on the path. The variable is passed to the gate as well as to the run,
 # because fencing a value the run will not use would prove nothing.
+# The server (amended 2026-10-11; README "Run it"): a disposable, named,
+# memory-capped local instance, never a shared or curated one —
+#   docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p 8090:8090 fluree/server:4.1.4
+# and `docker stop ccf-s1-01-fluree` when done (--rm removes it and its graphs).
 example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
 	@$(ENV_DOCS) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m tools.estate_fence --label "example-s1-01 (writes Fluree transactions)"
@@ -364,6 +368,9 @@ example-s1-01: ## Run examples/s1-01-hello-context-product (three declared quest
 # question in `scenario/question.yaml`. The contract still requires the
 # parameter — a request without one is refused with `missing-required-parameter`
 # below this CLI (test_a_missing_threshold_is_refused_not_defaulted).
+# The question is asked AS OF NOW (amended 2026-10-11): `consume.py` reads the clock
+# once, so the as-of instant, D_c, the content address and the replay record vary
+# by run; the rows, counts and policy version do not (README §1).
 # THE ESTATE FENCE RUNS FIRST, AND `make` STOPS IF IT REFUSES (`D-IMPL-358` step 15
 # ruling). This target WRITES to a networked store, and before this gate existed it
 # took its destination from an operator-exported value with nothing on the path
