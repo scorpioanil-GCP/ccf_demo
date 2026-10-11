@@ -669,6 +669,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.PolicyConstraint.overridable",
         "ccf.controlplane.artifacts.PolicyConstraint.effective_until",
         "ccf.controlplane.artifacts.PolicyConstraint.priority",
+        # Blocker 1 (ruled 2026-10-11 12:35, Grok's review of GROK-BRIEF-7): the KIND of a
+        # ``preferred`` value. The one mark whose sentinel does not mean "the field did not exist":
+        # ``False`` means "this is the name form", so every accepted form keeps its address and
+        # numeric ``preferred`` guidance gains its own. A widening of the marker accepted for this
+        # field ONLY (*"Do not use the marker for any other field in this lane."*).
+        "ccf.controlplane.artifacts.PolicyConstraint.preferred_decimal",
         # The ninth reserved section. ``True`` and not ``False`` is
         # load-bearing rather than stylistic: a rendered
         # ``policy_constraints: null`` would move the content address of every
