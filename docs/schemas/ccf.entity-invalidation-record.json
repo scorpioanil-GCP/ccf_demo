@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "One tenant's invalidation boundary for one entity, and what moved it (``D-IMPL-382``).\n\nEach record is its own registry artifact under :func:`record_key`; a boundary that advances\nis a new version of the same key, so **each entity has its own version history**.\n\nArgs:\n    tenant_id: The tenant whose eligibility state this is. Every field participates in\n        identity: nothing was ever written under this class before it existed, so there is no\n        yesterday for hash transparency to preserve (``D-IMPL-243``).\n    entity_uri: The entity whose effective context changed.\n    invalidated_from: The instant from which a product built on older state is ineligible.\n        **The superseding observation's own instant**, not the instant the fabric performed\n        the write (``D-IMPL-332``'s reasoning, arriving at delivery).\n    reason: Why the boundary moved, in the mechanism's own vocabulary.\n    source: The claim identity that superseded \u2014 what a reader follows to see the change.",
+  "properties": {
+    "entity_uri": {
+      "title": "Entity Uri",
+      "type": "string"
+    },
+    "invalidated_from": {
+      "format": "date-time",
+      "title": "Invalidated From",
+      "type": "string"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id",
+    "entity_uri",
+    "invalidated_from",
+    "reason",
+    "source"
+  ],
+  "title": "EntityInvalidationRecord",
+  "type": "object",
+  "x-ccf-class-id": "ccf.entity-invalidation-record"
+}
