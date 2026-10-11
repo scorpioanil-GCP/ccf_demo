@@ -71,7 +71,8 @@ from ccf.products.gates import (
 )
 from ccf.products.request import ProductRequestViolation
 from ccf.replay.record import DecisionReplayRecord
-from ccf.deployment.pins import UnpinnedArtifactError
+from ccf.replay.serve import ServedProduct
+from tests.composition import register_at_composition
 
 pytestmark = pytest.mark.postgres
 
@@ -384,10 +385,6 @@ def _over(root: pathlib.Path, threshold: int, **kwargs: Any) -> tuple[Any, Any]:
 # --------------------------------------------------------------------------
 # 1 — the threshold selects.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_resolve_reaches_the_same_security(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -406,10 +403,6 @@ def test_the_resolve_reaches_the_same_security(
     assert resolved["candidates_considered"] == len(fanout)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     """The payload equals the SELECT oracle, row for row."""
     deployment = _load("deployment")
@@ -434,10 +427,6 @@ def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_a_row_exactly_at_the_threshold_is_served(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -462,10 +451,6 @@ def test_a_row_exactly_at_the_threshold_is_served(
     assert observed.product.payload["threshold"]["comparison"] == deployment.COMPARISON
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_band_is_carried_and_filtered_nowhere(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -492,10 +477,6 @@ def test_the_band_is_carried_and_filtered_nowhere(
 # --------------------------------------------------------------------------
 # 2, 3 — identity, not content.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_two_thresholds_are_two_products(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -510,10 +491,6 @@ def test_two_thresholds_are_two_products(
     assert content_hash(first.product) != content_hash(second.product)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_same_question_is_stable(tmp_path: pathlib.Path, seeded: str) -> None:
     """Identical question, identical address — determinism, not coincidence."""
     low, _high, _exact = _thresholds(seeded)
@@ -525,11 +502,6 @@ def test_the_same_question_is_stable(tmp_path: pathlib.Path, seeded: str) -> Non
 # --------------------------------------------------------------------------
 # 4 — refused at the door.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    raises=UnpinnedArtifactError,
-    reason="SEC353-G-07: frozen cp-00's deployment reads the bare manifest key 'policy' (UnpinnedArtifactError); kept out of the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4",
-)
 def test_a_missing_threshold_is_refused_not_defaulted(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -585,10 +557,6 @@ def test_a_missing_threshold_is_refused_not_defaulted(
 # --------------------------------------------------------------------------
 # 5 — the assembler seam is the path.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_assembler_seam_is_the_path(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -634,10 +602,6 @@ def test_the_assembler_seam_is_the_path(
 # --------------------------------------------------------------------------
 # 6 — the gate result is RECORDED, not assumed.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_gate_result_is_recorded_not_assumed(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -653,16 +617,28 @@ def test_the_gate_result_is_recorded_not_assumed(
     """
     low, _high, _exact = _thresholds(seeded)
     _outcome, observed = _over(tmp_path / "gate", low)
-    assert isinstance(observed.gated, ServableProduct)
+    # AMENDED 2026-10-11 (compatibility repair, examples/AMENDMENTS-2026-10-11.md):
+    # the gates now run inside the SDK's governed resolver, which hands the
+    # deployment its delivery — a `ServedProduct`, produced only by
+    # `DeliveryCapability.deliver` over a `ServableProduct` after the record is
+    # appended — rather than the `ServableProduct` itself. So the run's evidence
+    # is the delivery plus its record, readable from the store.
+    assert isinstance(observed.gated, ServedProduct)
+    assert observed.store.get(
+        content_address=observed.gated.replay_ref.content_address
+    )
 
     scenario = observed.scenario
     declared = scenario.product_class
     registry = ControlPlaneRegistry()
-    max_ttl_version = registry.register(
-        declared.max_ttl_key, MaxTTL(seconds=scenario.max_ttl_seconds)
+    # AMENDED 2026-10-11: a Control Plane registration needs a capability since
+    # D-IMPL-353; this test is a composition root and mints it by the suite's
+    # one recipe (`tests/composition.py`). The registrations are unchanged.
+    max_ttl_version = register_at_composition(
+        registry, declared.max_ttl_key, MaxTTL(seconds=scenario.max_ttl_seconds)
     )
-    request_contract_version = registry.register(
-        scenario.request_contract_key, scenario.request_contract
+    request_contract_version = register_at_composition(
+        registry, scenario.request_contract_key, scenario.request_contract
     )
     product_class = register_product_class(
         registry=registry,
@@ -765,10 +741,6 @@ def payload_shape_violations(payload: Any, declared: dict[str, Any]) -> list[str
     return problems
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_payload_validates_against_the_declared_contract(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -859,11 +831,6 @@ def printed(seeded: str) -> str:
     return buffer.getvalue()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=UnpinnedArtifactError,
-    reason="SEC353-G-07: frozen cp-00's deployment reads the bare manifest key 'policy' (UnpinnedArtifactError); kept out of the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4",
-)
 def test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal(
     seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -908,10 +875,6 @@ def test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal(
     assert "refused:" in buffer.getvalue(), buffer.getvalue()[:200]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_printed_specification_and_json_are_non_empty_and_the_json_validates(
     printed: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -991,10 +954,21 @@ def _alternate_period(dsn: str) -> str:
         return str(cursor.fetchone()[0])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
+def _config_serving_at(tmp_path: pathlib.Path, instant: Any) -> pathlib.Path:
+    """A copy of ``ccf_config.yaml`` declaring ``instant`` as its serve instant.
+
+    AMENDED 2026-10-11. Everything else in the copy is the deployment's own
+    document; only ``demonstration_serve_instant.serve_instant`` differs.
+    """
+    deployment = _load("deployment")
+    document = yaml.safe_load(deployment.CONFIG.read_text(encoding="utf-8"))
+    assert "demonstration_serve_instant" in document, "the config declares no serve instant"
+    document["demonstration_serve_instant"] = {"serve_instant": instant.isoformat()}
+    copy = tmp_path / f"ccf_config-{instant:%Y%m%dT%H%M%S}.yaml"
+    copy.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return copy
+
+
 def test_debt_is_driven_by_the_declared_freshness_anchor(
     tmp_path: pathlib.Path, seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1022,18 +996,24 @@ def test_debt_is_driven_by_the_declared_freshness_anchor(
     # 3 refuses. That is `24-CONTEXT.md` `D-43` and spec §E.5 — the gate
     # working — and it is asserted below rather than merely avoided.
     forward = (early.product.expires_at - early.scenario.request.asked_at) / 2
-    _b, late = _over(
-        tmp_path / "late", low, asked_at=early.scenario.request.asked_at + forward
-    )
+    # AMENDED 2026-10-11 (compatibility repair): before the repair the spine
+    # judged its gates at the question's own `asked_at`. The governed resolver
+    # judges them at its serve clock, which this dated specimen declares in
+    # `ccf_config.yaml` (`demonstration_serve_instant:`) as the question's
+    # instant. A run asked at another instant therefore declares ITS instant —
+    # one time anchor per run, never a caller-moved clock — through a copy of
+    # the config, exactly as Movement 2 below repoints the question artifact.
+    later = early.scenario.request.asked_at + forward
+    monkeypatch.setattr(deployment, "CONFIG", _config_serving_at(tmp_path, later))
+    _b, late = _over(tmp_path / "late", low, asked_at=later)
     assert late.product.debt.factors.freshness < early.product.debt.factors.freshness
     assert late.product.debt.debt > early.product.debt.debt
 
+    expired = early.product.expires_at + timedelta(days=1)
+    monkeypatch.setattr(deployment, "CONFIG", _config_serving_at(tmp_path, expired))
     with pytest.raises(RuntimeError, match="ttl-bounds"):
-        _over(
-            tmp_path / "expired",
-            low,
-            asked_at=early.product.expires_at + timedelta(days=1),
-        )
+        _over(tmp_path / "expired", low, asked_at=expired)
+    monkeypatch.undo()
 
     document = yaml.safe_load(deployment.QUESTION.read_text(encoding="utf-8"))
     document[deployment.DECLARATION][deployment.COLUMN_PERIOD] = _alternate_period(
@@ -1063,10 +1043,6 @@ def test_debt_is_driven_by_the_declared_freshness_anchor(
 # --------------------------------------------------------------------------
 # 10 — the record is written before delivery.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_record_is_written_before_delivery(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1278,10 +1254,6 @@ def _integer_leaves(value: Any, path: str = "payload") -> list[tuple[str, int]]:
     return []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g01_every_served_row_cusip_equals_the_resolved_security(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1340,10 +1312,6 @@ def test_ih_g01_every_served_row_cusip_equals_the_resolved_security(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g02_every_served_row_report_period_equals_the_pinned_period(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1396,10 +1364,6 @@ def test_ih_g02_every_served_row_report_period_equals_the_pinned_period(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1436,10 +1400,6 @@ def test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_empty(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1485,10 +1445,6 @@ def test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g06_every_declared_class_names_and_carries_its_classification_attribute(
     tmp_path: pathlib.Path, seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1609,10 +1565,6 @@ def test_ih_g06_every_declared_class_names_and_carries_its_classification_attrib
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serves(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1633,9 +1585,11 @@ def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serv
     deployment = _load("deployment")
     above = _max_position(seeded) + 1
     served = _assembled_or_fail("IH-G07", tmp_path / "g07-served", above)
-    assert isinstance(served.gated, ServableProduct), (
-        "IH-G07: the empty SERVED set did not come back through the gates"
-    )
+    # AMENDED 2026-10-11: the resolver's delivery is the evidence the gates
+    # ran (see `test_the_gate_result_is_recorded_not_assumed`).
+    assert isinstance(served.gated, ServedProduct) and served.store.get(
+        content_address=served.gated.replay_ref.content_address
+    ), "IH-G07: the empty SERVED set did not come back through the gates"
     assert served.product.payload["count"] == 0, (
         f"IH-G07: a threshold above every position served"
         f" {served.product.payload['count']} row(s)"
@@ -1667,10 +1621,6 @@ def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serv
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ih_g08_the_payload_carries_no_count_of_rows_read(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:

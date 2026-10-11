@@ -1110,13 +1110,40 @@ def _copied_named(tmp_path: pathlib.Path, name: str) -> pathlib.Path:
     return destination
 
 
-def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
-    """The first shipped example in the scan, copied under a fresh root.
+#: The hand-composed SEVEN-REGION spine, as frozen cp-00 shipped it — the
+#: file's bytes at the specimen's branch point (`fd902e27`), kept as a `.txt`
+#: so nothing imports, collects or lints it.
+#:
+#: AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11; compatibility repairs to
+#: the frozen cp-00..cp-05 specimens). Those specimens were the ladder's last
+#: spine-shaped trees, and their repair moved them onto the SDK's governed
+#: resolver — the canonical shape. The controls below are about the SEVEN
+#: regions, so their subject is now this preserved spine, dropped into a copy
+#: of cp-00's tree in place of its repaired `produce.py`, rather than whichever
+#: tree sorts first (which was cp-00, and is no longer spine-shaped). The
+#: controls' assertions are unchanged.
+SPINE_SHAPED_FIXTURE = (
+    pathlib.Path(__file__).parent / "fixtures" / "cp_00_hand_composed_spine.py.txt"
+)
 
-    For the controls whose subject is any conforming tree. The ones that need a
-    PARTICULAR tree call `_copied_named` instead.
+
+def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A SPINE-shaped tree, copied under a fresh root.
+
+    For the controls whose subject is a conforming seven-region spine. The ones
+    that need a PARTICULAR tree call `_copied_named` instead. See
+    :data:`SPINE_SHAPED_FIXTURE` for why the subject is assembled rather than
+    selected (AMENDED 2026-10-11).
     """
-    return _copied_named(tmp_path, split_examples(EXAMPLES_ROOT)[0].name)
+    source = EXAMPLES_ROOT / CONTEXT_PRODUCT_EXAMPLE
+    destination = tmp_path / source.name
+    shutil.copytree(source, destination)
+    (destination / "produce.py").write_text(
+        SPINE_SHAPED_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    assert shape_of(destination) == "spine", shape_of(destination)
+    assert not spine_problems(destination), "the unmodified subject must pass"
+    return destination
 
 
 def _canonical_subject(tmp_path: pathlib.Path) -> pathlib.Path:

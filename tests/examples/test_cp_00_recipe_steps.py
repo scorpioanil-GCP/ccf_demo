@@ -56,7 +56,8 @@ import psycopg
 import pytest
 import yaml
 
-from ccf.products.gates import ServableProduct
+from ccf.products.gates import ServableProduct  # noqa: F401 — named in the witness docs
+from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequestViolation
 
 pytestmark = pytest.mark.postgres
@@ -316,7 +317,15 @@ def resolve_witness(witness: str, assembled: Any) -> bool:
     if kind == WITNESS_PLAN_ID_MATCHES:
         return bool(product.plan_id == argument)
     if kind == WITNESS_SERVABLE_PRODUCT_HELD:
-        return isinstance(assembled.gated, ServableProduct)
+        # AMENDED 2026-10-11 (compatibility repair): the gates run inside the
+        # SDK's governed resolver, which hands back its delivery — a
+        # `ServedProduct`, produced only over a `ServableProduct` after the
+        # record is appended — so the witness is the delivery AND its record,
+        # readable from the store it names.
+        gated = assembled.gated
+        return isinstance(gated, ServedProduct) and bool(
+            assembled.store.get(content_address=gated.replay_ref.content_address)
+        )
     return argument in product.payload
 
 
@@ -334,10 +343,6 @@ def unresolved(steps: list[dict[str, Any]], assembled: Any) -> list[str]:
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_every_declared_step_is_witnessed_by_the_run(run: Any) -> None:
     """Criterion 2. A step nothing executes is RED, and this is where it goes red."""
     steps = _recipe_declaration()[KEY_STEPS]
@@ -345,10 +350,6 @@ def test_every_declared_step_is_witnessed_by_the_run(run: Any) -> None:
     assert unresolved(list(steps), run) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_every_witness_kind_the_vocabulary_declares_is_used(run: Any) -> None:
     """The vocabulary and the steps agree, so no kind is dead vocabulary.
 
@@ -418,10 +419,6 @@ class _NotGated:
 
 
 @pytest.mark.parametrize("kind", sorted(CLOSED_VOCABULARY))
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_each_witness_kind_can_go_red(kind: str, run: Any) -> None:
     """Five kinds, five controls. A kind that cannot fail must not be in the
     vocabulary.
@@ -463,10 +460,6 @@ def test_each_witness_kind_can_go_red(kind: str, run: Any) -> None:
 # --------------------------------------------------------------------------
 # HALF FOUR — an unknown kind RAISES rather than being skipped.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_an_unknown_witness_kind_raises(run: Any) -> None:
     """A silently-skipped step is criterion 2's failure mode wearing a tick."""
     with pytest.raises(UnknownWitnessKind, match="closed vocabulary"):

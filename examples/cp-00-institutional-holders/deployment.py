@@ -65,6 +65,7 @@ from ccf.controlplane.artifacts import (
     PerspectiveArtifact,
     ProductClassDeclaration,
 )
+from ccf.controlplane.registry import namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
 from ccf.halflife.assessment import DebtAssessment, DebtFactors
@@ -158,7 +159,12 @@ CLASS_MANAGER = "institutional_manager"
 
 #: The λ_c entry in `ccf_config.yaml`'s `half_life:` section these rows decay
 #: by. One observation type: a filed position.
-OBSERVATION_TYPE = "reported_position"
+#:
+#: AMENDED 2026-10-11 (compatibility repair): was ``"reported_position"``. The
+#: SDK's evidence clock types an observation by its entity class, so the row is
+#: now keyed by the class the filed positions resolve to; see the comment on
+#: the row in ``ccf_config.yaml``.
+OBSERVATION_TYPE = CLASS_MANAGER
 
 #: The band value C_match counts. The other band is served, not filtered.
 BAND_STRONG = "strong"
@@ -859,8 +865,14 @@ class HoldersScenario:
     max_ttl_seconds: int
     halflife_debt_profile: str
 
-    request_contract_key: str = KEY_REQUEST_CONTRACT
-    policy_bundle_key: str = KEY_POLICY_BUNDLE
+    # AMENDED 2026-10-11 (compatibility repair): the loader places every key
+    # under the tenant (D-IMPL-354), and the governed resolver resolves the
+    # artifacts by the placed key. `read` supplies them; the bare names above
+    # stay the deployment's vocabulary.
+    request_contract_key: str
+    policy_bundle_key: str
+    product_class_key: str
+    half_life_key: str
     replay_record_class: str = REPLAY_RECORD_CLASS
     query_pin_class: str = QUERY_PIN_CLASS
     artifact_store_dirname: str = ARTIFACT_STORE_DIRNAME
@@ -958,6 +970,10 @@ class HoldersScenario:
             Observation(
                 observation_type=OBSERVATION_TYPE,
                 observed_at=record.claim.valid_from,
+                # AMENDED 2026-10-11 (compatibility repair): the same instant,
+                # now also on the field the declared `decay_basis: valid-from`
+                # reads. The decay arithmetic is unchanged.
+                valid_from=record.claim.valid_from,
                 subject=record.claim.entity_uri,
             )
             for record in rows
@@ -988,11 +1004,22 @@ class HoldersScenario:
         )
 
 
+def _placed(booted: BootedFabric, key: str) -> str:
+    """``key`` as the loader placed it under this deployment's tenant.
+
+    AMENDED 2026-10-11 (compatibility repair): since D-IMPL-354 every manifest
+    key is placed under the tenant, and a bare read raises naming the placed
+    key. The bare names stay this deployment's vocabulary; this is the one
+    place they are placed.
+    """
+    return namespaced_key(tenant=booted.tenant_id, key=key)
+
+
 def read(booted: BootedFabric, asked: ProductRequest) -> HoldersScenario:
     """Name this deployment's artifact keys and read this question's values."""
     artifacts = booted.artifacts
     ttl = _declaration(TTL)
-    policy_bundle_version = booted.pins.version_for(KEY_POLICY_BUNDLE)
+    policy_bundle_version = booted.pins.version_for(_placed(booted, KEY_POLICY_BUNDLE))
     read_source = source_read(
         booted.tenant_id,
         at=asked.asked_at,
@@ -1005,18 +1032,26 @@ def read(booted: BootedFabric, asked: ProductRequest) -> HoldersScenario:
         report_period=reported_period(),
         request=asked,
         request_contract=ProductRequestContract.from_declared(
-            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+            cast(Any, artifacts[_placed(booted, KEY_REQUEST_CONTRACT)])
         ),
-        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
-        perspective=cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE]),
+        product_class=cast(
+            ProductClassDeclaration, artifacts[_placed(booted, KEY_PRODUCT_CLASS)]
+        ),
+        perspective=cast(
+            PerspectiveArtifact, artifacts[_placed(booted, KEY_PERSPECTIVE)]
+        ),
         # TWO entries, so two operators. The spine never counts them.
         operator_parameters={
-            key: cast(OperatorParametersArtifact, artifacts[key])
+            _placed(booted, key): cast(
+                OperatorParametersArtifact, artifacts[_placed(booted, key)]
+            )
             for key in (KEY_POLICY_OPERATOR, KEY_TEMPORAL_OPERATOR)
         },
-        resolution=cast(EntityResolutionSpec, artifacts[KEY_RESOLUTION]),
-        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        resolution=cast(EntityResolutionSpec, artifacts[_placed(booted, KEY_RESOLUTION)]),
+        half_life_table=cast(
+            HalfLifeTable, artifacts[_placed(booted, KEY_HALF_LIFE_TABLE)]
+        ),
+        debt_profile=cast(DebtProfile, artifacts[_placed(booted, KEY_DEBT_PROFILE)]),
         ttl_seconds=int(ttl["declared_ttl_seconds"]),
         max_ttl_seconds=int(ttl["max_ttl_seconds"]),
         # A pinned reference, never the resolved artifact: the profile has its
@@ -1024,8 +1059,13 @@ def read(booted: BootedFabric, asked: ProductRequest) -> HoldersScenario:
         # identities. The pin is a content hash of what was registered.
         halflife_debt_profile=(
             f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
-            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
+            f"{KEY_DEBT_PROFILE}@"
+            f"{booted.pins.version_for(_placed(booted, KEY_DEBT_PROFILE))}"
         ),
+        request_contract_key=_placed(booted, KEY_REQUEST_CONTRACT),
+        policy_bundle_key=_placed(booted, KEY_POLICY_BUNDLE),
+        product_class_key=_placed(booted, KEY_PRODUCT_CLASS),
+        half_life_key=_placed(booted, KEY_HALF_LIFE_TABLE),
     )
 
 
