@@ -340,7 +340,7 @@ Rows by coupling shape:
 | `tests/lints/test_examples_scope.py` | 90 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 104 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 112 | `archive/examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/perf_smoke/test_smoke.py` | 79 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
+| `tests/perf_smoke/test_smoke.py` | 95 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/products/test_gate_two_call_shape.py` | 207 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 425 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 426 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |

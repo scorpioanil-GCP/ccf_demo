@@ -1403,7 +1403,11 @@ def inline_tree_witness_rows(
 # at the test, so the row is reported there with the intermediate file named.
 # ---------------------------------------------------------------------------
 
-_SUBPROCESS_CALLS = frozenset({"Popen", "run", "call", "check_call", "check_output"})
+#: ``run_bounded`` is the perf smoke harness's own launcher (``tests/perf_smoke/bounded.py``,
+#: ``D-IMPL-380`` / ``GROK-BRIEF-9``): it starts a subprocess with the argv its caller passes, so a
+#: call to it couples the caller exactly as a direct ``Popen`` would. Without it the sweep lost the
+#: smoke module's indirect coupling when the launch moved into the helper.
+_SUBPROCESS_CALLS = frozenset({"Popen", "run", "call", "check_call", "check_output", "run_bounded"})
 
 
 def _argv_prefixes(node: ast.Call) -> list[str]:
