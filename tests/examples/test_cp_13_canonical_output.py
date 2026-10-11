@@ -54,7 +54,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_content import frozen_by_content_violations
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -617,20 +617,54 @@ def test_the_structural_classifier_reads_this_tree_as_paved() -> None:
         assert not (forbidden & (bound | called)) or path.name == "serve.py" and (forbidden & (bound | called)) == {"serve"}, (path, forbidden & (bound | called))
 
 
+#: `CXRC-G17`'s freeze, BY CONTENT (Dave, 2026-10-11, ruling 3: "Update affected
+#: specimen checks explicitly"). Every file of the cp-13 specimen not named in
+#: `SPECIMEN_AMENDED` must hold these bytes — recorded from `a280082e`, the
+#: Tuesday baseline, where the specimen was byte-identical to its freeze.
+SPECIMEN_FROZEN = {
+    "FINDINGS.md": "439f68a3a016ba087e309519f507f19ff9d2952a9866986aa6370cccd508d915",
+    "acquisition.py": "b63f171446cabb89bc66b29c76b26c9ac59c9c60ac96a1443bb01c7d68fda81f",
+    "artifacts/gates.yaml": "c6b7ce4f70072af978286532a64611bad5b4b0b7eee1aa19100ef3d3d183c760",
+    "artifacts/question.yaml": "18d843c648dba5d23baf9a5e96ac64cd80d66c9feb26fb1ef31140b04adcd394",
+    "artifacts/source-vocabulary.yaml": "dd51ce507324a9681d97fb53ae28fd99b2da06265244ade7fc2f1387eaadef48",
+    "page/build_page.py": "f7a43b4fb816c49c4f2d1f9970cc226b9004beb0442dada710a2497e3f9e76de",
+    "page/run-transcript.txt": "caa3b21b2a63c9420336213f0a64485d9fb615fdf5176c4a854bc480cfab6b5e",
+    "page/template.html": "bc2a2dc3774213ce2faa7fa6690091b74d936a7fe0c78f93c62ab89c95906182",
+    "projection.py": "392efa42879f89f8bf484536ea78ab6f5834b1087356c626d6e894e4d8dc2adf",
+    "run.py": "81a313071b6404f1f410f6ddd083a1d938ab6c15c4f4b8b4c4496fcd58c6ea29",
+    "spec/CP-SPEC-013_Covenant_Cross_Reference.md": "1c372ce8955b5ddeed7259432d516f29fb54b6d9c0c641fc3ff6eaaba2d86e17",
+    "summary_explanations.md": "3a77512b3f4ff303fa9a16b8596e41336f9c19d4243e6c228eaf7aa45815ae65",
+}
+
+#: The specimen's files amended by authorized compatibility repairs, and why
+#: (`examples/AMENDMENTS-2026-10-11.md`). Nothing else may differ.
+SPECIMEN_AMENDED = {
+    "README.md": "2026-10-11 round 2: the demonstration clock disclosed (ruling 1)",
+    "backends.yaml": "2026-10-11: the SQLite identity-lock directory (P1 (a))",
+    "ccf_config.yaml": "2026-10-11: temporal_boundary (D-IMPL-358) and the labelled demonstration_serve_instant (ruling 1)",
+    "deployment.py": "2026-10-11: tenant-placed keys, served_at, the identity-lock directory",
+    "produce.py": "2026-10-11: write_kinds, tenant-placed keys, the deployment `config` parameter",
+}
+
+
 def test_the_specimen_is_untouched_and_no_identity_is_reused(served: _Answer) -> None:
-    """cp-13 is frozen under `D-IMPL-261`: ZERO files changed by this work,
-    measured against the branch point; and this tree reuses none of the
-    specimen's identities — tenant, producer id, plan-id prefix, gate id,
-    class ids.
+    """cp-13 is a frozen specimen (`D-IMPL-261`), amended ONLY where named; and
+    this tree reuses none of the specimen's identities — tenant, producer id,
+    plan-id prefix, gate id, class ids.
+
+    **Rewritten 2026-10-11 (ruling 3).** The gate used to assert ZERO files
+    changed against the branch point, which reads red on a branch carrying an
+    authorized compatibility repair and green once that repair reaches `main`
+    — evidence of where a commit is, not of what the specimen holds. It now
+    names the amended files and asserts every other file frozen by its bytes,
+    with no file added or removed (`tests/examples/specimen_content.py`).
 
     Declared product gate `CXRC-G17` (`CP-SPEC-013C` §G.1).
     """
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    problems = frozen_by_content_violations(
+        REPO_ROOT, SPECIMEN, frozen=SPECIMEN_FROZEN, amended=SPECIMEN_AMENDED
+    )
+    assert problems == [], f"the frozen specimen moved outside its named amendments: {problems}"
     specimen_config = yaml.safe_load((SPECIMEN / "ccf_config.yaml").read_text(encoding="utf-8"))
     assert CONFIG["tenant_id"] != specimen_config["tenant_id"]
     assert CONFIG["product_class"]["declared_product_gate"]["gate_id"] != specimen_config["product_class"]["declared_product_gate"]["gate_id"]
