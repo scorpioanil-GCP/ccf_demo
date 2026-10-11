@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020, D-IMPL-378 repair 1.2: every plain boot that creates a store reads it; creation is serialized; stale is refused.
 
 Dave, 2026-10-09 10:54 MST, verbatim: *"Run the emptiness check whenever a plain

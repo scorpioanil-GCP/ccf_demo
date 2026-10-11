@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.temporal.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 # The ONLY operator category this product declares (D-IMPL-132).
 #
 # Two lines, and they exist because Gate 1 refuses a product computed by

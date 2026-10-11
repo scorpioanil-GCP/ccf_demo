@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 # Findings — door-cp-05
 
 Findings raised while exposing frozen cp-05 through the SDK's standard door (the CP-14

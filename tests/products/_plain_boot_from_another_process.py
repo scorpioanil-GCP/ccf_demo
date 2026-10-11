@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """A plain boot of one store path, run in its own process, for the deployment-marker tests (SEC-020, D-IMPL-378 1.1/1.2).
 
 Run by ``tests/products/test_deployment_marker_owned_and_crash_safe.py`` and

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-06 / D-08 / D-IMPL-80 — what ``load_and_boot`` refuses, and what it pins.
 
 Whitepaper §7.8 (the Control Plane declares what the fabric may do) and §7.10

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """R-01 — the record must describe the product that is about to leave.
 
 `D-IMPL-279` (Dave, 2026-09-08), narrowing `D-IMPL-278` row 1: *"The fabric must

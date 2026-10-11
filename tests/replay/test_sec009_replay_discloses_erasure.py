@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-009 step (3) — replay over erased retained content stays POSITIVE, the erasure disclosed (`D-IMPL-374` (4)).
 
 Design ``D-IMPL-367`` §5.2: a replay that meets an erased address does not

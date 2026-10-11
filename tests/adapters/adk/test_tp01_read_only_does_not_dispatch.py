@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """TP-01 on the ADK leg — a read-only binding must not dispatch (D-IMPL-361, I-1).
 
 The controller's ruling on the whole-branch review's I-1: ``effects:

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """A run left ``suspended`` with no pending approval request gets that request back (D-IMPL-378, Dave's decision 8 (a)).
 
 The hole (the final panel's seat F2, finding F2-01). A suspension is three

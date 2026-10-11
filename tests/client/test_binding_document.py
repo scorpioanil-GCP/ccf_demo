@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`D-IMPL-141` (RESOLVED) — the binding document, and the refusals it owes.
 
 `binding.yaml` is **data**, with exactly one permitted `<module>:<attribute>`

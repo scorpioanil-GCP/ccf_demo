@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Property suite ON the fallback — the oracle audited by what it does not define.
 
 D-05 ordering: the prose (``docs/GRAPH_QUERY_SEMANTICS.md``) decides;

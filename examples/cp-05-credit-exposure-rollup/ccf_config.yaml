@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 #
 # THE CONTROL PLANE DOCUMENT for cp-05 — what this deployment is PERMITTED to
 # do. `deployment.py` interprets it; it is data, and the program that reads it

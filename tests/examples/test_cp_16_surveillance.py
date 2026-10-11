@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """What `examples/cp-16-abs-securitization-surveillance` serves, and to whom.
 
 Eleven of the twenty-one declared gates of `CP-SPEC-016` §G.1 execute here;

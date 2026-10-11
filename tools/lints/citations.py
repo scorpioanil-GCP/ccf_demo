@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Cross-file citation drift, checked mechanically (SDK-defined; CLAUDE.md §11).
 
 A citation of the form ``path/to/file.py:NNN`` is an *assertion about another
@@ -373,27 +379,27 @@ _FROZEN_TEST_REASON = (
     " D-IMPL-378 decision 14 (b)"
 )
 _LANDED_FRAGMENT_SHA = "66700aeb90aff07ee76e9c3d57c5b6f4727c543eb3d53298d6ac0994d10da9c1"
-_FROZEN_TEST_SHA = "c2b03b947b9b8cbb744cbae343e0cff5dee24eed0d46742705124641033f8869"
+_FROZEN_TEST_SHA = "4ccbf24ffa741b3b890db14e4211348cd32e350adc1510a848988e3fd92dee54"
 PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=258,
+        line=264,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        sha256="41b60965992d74989fd09e1872df3285594c1f7232ceec58065096948c1f5a22",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=2821,
+        line=2827,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        sha256="41b60965992d74989fd09e1872df3285594c1f7232ceec58065096948c1f5a22",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/projection.py",
-        line=169,
+        line=175,
         citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
-        sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
+        sha256="e1a18192e7b7e7c8da92f8bdf64d04c3690c12e38cfcc8d160aa671bc6cf5533",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
@@ -419,7 +425,7 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     ),
     PinnedCitation(
         path="tests/examples/test_cp_04_debt.py",
-        line=818,
+        line=824,
         citation="runtime/ccf_runtime/http_api/routes/product.py::retrieve",
         sha256=_FROZEN_TEST_SHA,
         reason=_FROZEN_TEST_REASON,

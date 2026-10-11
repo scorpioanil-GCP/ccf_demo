@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """FW-3 (whole-branch review I-2): an erasure crosses the MCP doors only as its disclosure level allows (SEC-009 x SEC-024; `D-IMPL-374`).
 
 The whole-branch review measured it (probes X1 and X2, ported here): an

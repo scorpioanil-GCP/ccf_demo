@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """An erasure request whose approval request never reached the queue gets it back from its retry (D-IMPL-378, decision 8 (a)).
 
 The erasure workflow's first node is its approval gate, so a request suspends

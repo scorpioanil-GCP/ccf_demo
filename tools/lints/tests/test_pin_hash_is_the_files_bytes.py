@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-IMPL-378, Dave 2026-10-09 20:22 MST: a file-hash pin is the file's raw bytes.
 
 Decision 13 (a) (16:38 MST; Grok's text, which Dave adopted): *"(a) Accept the

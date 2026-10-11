@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """At the MCP door, "you may not" and "there is no such thing" are one statement.
 
 ``D-IMPL-253`` D-27 as strengthened by **amendment 2 (4)** (Dave, verbatim):

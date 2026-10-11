@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """P3 (a)'s counterexample, kept visible: a mapping that ignores the request it is handed.
 
 ``D-IMPL-378``, Dave, 2026-10-08 12:29 MST, P3 (a), verbatim: *"as the API

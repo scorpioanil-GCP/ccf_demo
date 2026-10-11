@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Both listings, both configurations, at a REAL client — and the address answers the tool's bytes.
 
 Ledger rows ``24.5-L-08`` and ``24.5-L-09``, criterion 10 of Phase 24.5.

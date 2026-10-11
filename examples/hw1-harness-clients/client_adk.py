@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Leg 1 — a Google ADK client of the hw1 `mcp+stdio` door. Zero CCF imports.
 
 **What an adopter is looking at.** The whole of this program's CCF surface is

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """A record filed before dimension 5 carried the empty finding replays to its own address.
 
 Channel 7 of SEC-020 in the ``D-IMPL-377`` close-out (review finding M-5),

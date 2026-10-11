@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Within-tenant product entitlement on the token grant (SEC-017; D-IMPL-374 (2)).
 
 ``SEC-017`` is the finding of record: ``list_agents``, ``invoke_agent`` and

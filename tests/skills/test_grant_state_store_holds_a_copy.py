@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The approval sink decides on the grant as built, never on what the state store rewrote (``D-IMPL-380``, fourth round).
 
 Dave, 2026-10-10 10:58 MST (the ``D-IMPL-380`` amendment, ruling 1 (a)), verbatim: *"The skill-grant ledger is the

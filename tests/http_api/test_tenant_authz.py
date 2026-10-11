@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Authorization at the HTTP door, on all four axes (``SEC-001``/``SEC-002``).
 
 The successor to the HARD-04 matrix suite (10-03 T1). That one proved the

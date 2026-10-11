@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The aggregate-composition laws, chosen to be jointly falsifying (D-IMPL-31).
 
 ``tests/properties/test_lineage_union.py`` sets the standard this suite is

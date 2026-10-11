@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The `mcp+stdio` adapter — what it carries, and what it refuses to call an answer.
 
 ``D-07``/``D-10``/``D-15(d)``. The property under test is the one inversion the

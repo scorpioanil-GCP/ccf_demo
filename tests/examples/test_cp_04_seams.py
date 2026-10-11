@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The last five of cp-04's sixteen gates — the store, door and assembler seams.
 
 `CFT-G10`, `CFT-G11`, `CFT-G12`, `CFT-G13` and `CFT-G14`, discharging locked

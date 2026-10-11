@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 # THE DOOR'S ENVIRONMENT: the name the SDK's standard door (`open_door`) reads
 # its credential from (`D-IMPL-343`). No value appears here. A URL or a token in a document is what Dave's `D-IMPL-343` lock
 # refuses ("Do not put URLs or tokens in configuration."), and the SDK's reader

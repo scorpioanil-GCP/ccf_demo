@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The SEC-005 test signing key, for SEC-009's signature-bound erasure approvals (fix round 4).
 
 The erasure approval is bound to a SIGNED HITL attestation (`D-IMPL-363`), so

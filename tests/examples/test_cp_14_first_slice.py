@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """CP-14 Gate 2, slice 1 — the five-slot composite on the PAVED ROAD, asked its first real question.
 
 The consumer-side dogfood of `D-IMPL-343`. `examples/cp-14-credit-memo-context`

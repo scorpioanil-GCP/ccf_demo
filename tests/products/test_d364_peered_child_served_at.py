@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`SEC-010` B3: the peered child is judged at the SAME instant as an in-process one.
 
 `D-IMPL-364`, the criterion for `SEC-010`, clause B3, verbatim:

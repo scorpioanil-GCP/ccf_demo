@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-18 at the HTTP product door: a status by class, and never a 500.
 
 Ledger rows ``24.6-L-03`` and ``24.6-L-17``; ``D-IMPL-253`` Q18 with

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The supersede-only λ_c class — ledger row ``24.5-L-22`` (whitepaper §7.7.1–§7.7.2).
 
 Phase 24.5 criterion 17: ``HalfLifeEntry`` can express an event-driven class

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """FW-5 (round-5 re-review S5b): a SEC-009 control isolating "an eligible approver who is also the requester" (`D-IMPL-374` (4)).
 
 Fix round 4's ruling 2 refuses an erasure approved by its own requester, and the

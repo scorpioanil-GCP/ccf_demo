@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """T4-P1 at A2A admission: a nested protected header is a signature refusal by name, never a crash (`D-IMPL-374`, final fix wave FW-1).
 
 The whole-branch review found the defect in the shared parser

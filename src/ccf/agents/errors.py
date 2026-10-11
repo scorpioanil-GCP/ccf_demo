@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Typed failures of the agent-definition surface (CLAUDE.md §6 — SDK-defined).
 
 The taxonomy mirrors :class:`~ccf.controlplane.artifacts.ArtifactLoadError`:

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Run a perf suite in its own session and reap it, every wait timed against a stated allowance — ``GROK-BRIEF-9`` §2.
 
 **Not universally bounded.** Two limits are disclosed below: the ``/proc`` scan is not itself

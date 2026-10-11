@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Archive runners are marked ``archived``, and only archive runners are — D-IMPL-265.
 
 Dave's ruling (2026-09-06, verbatim in ``24.7-RULINGS.md`` §10): *"archive/examples/

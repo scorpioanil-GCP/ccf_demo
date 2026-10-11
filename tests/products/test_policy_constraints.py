@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The four worked cases as SDK tests, and the three defect classes they rule out.
 
 Ledger row ``24.6-L-07``; ``D-IMPL-253`` Q4/Q5/Q7/Q21 and ``D-IMPL-254``. The

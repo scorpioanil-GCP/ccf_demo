@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """An approval sink that reaches the Control Plane registry cannot reach the ledger's own grant (``D-IMPL-380``, sixth round).
 
 The fifth round handed the approval sink ``grant.model_copy(deep=True)``

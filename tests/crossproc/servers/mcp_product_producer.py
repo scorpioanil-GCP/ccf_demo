@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """A REAL producer door in ANOTHER PROCESS, for `D-IMPL-340`'s proofs.
 
 Boots the fixture child product (`tests/products/provider_boot.py`'s deployment)

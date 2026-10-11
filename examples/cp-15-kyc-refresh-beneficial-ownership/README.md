@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 # KYC Refresh / Beneficial Ownership — a finding is not an absence
 
 `compliance.beneficial-ownership` @ `1.0.0` · Tier 4 · PostgreSQL `ccf_v2` + MongoDB `fibo_v2` + Fluree `fibo-v2`, all read-only on the curated `.76` estate; nothing is written but a per-question scratch fabric · specification `spec/CP-SPEC-015_KYC_Refresh_Beneficial_Ownership.md`.

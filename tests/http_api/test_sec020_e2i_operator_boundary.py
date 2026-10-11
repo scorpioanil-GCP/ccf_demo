@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Dave's E2 (i): the boundary between the operator's record reads and an agent's, measured.
 
 ``D-IMPL-378``, Dave, 2026-10-08 12:29 MST, E2 (i), verbatim: *"yes, narrowly:

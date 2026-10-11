@@ -1,3 +1,9 @@
+-- Copyright (c) 2026 David Castillo. All rights reserved.
+-- Use, copying, modification, and distribution of the covered material
+-- are governed by the CCF SDK Interim Software and Patent License
+-- in the repository-root LICENSE.md and any controlling signed agreement.
+-- Rights under that interim license begin only upon its execution
+-- and are limited to its stated scope and term.
 -- The source system, as it exists before any fabric does.
 --
 -- THIS IS NOT CCF. It is the table an adopter already has, and it is the whole

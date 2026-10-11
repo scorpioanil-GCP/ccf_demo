@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """``POST /artifact`` answers a write whose store credential is rejected exactly as it answers an outage: one ``500``.
 
 The disclosed limit of decision 21 (a) (``D-IMPL-378``). Decision 21 (a) typed the answer at the three HTTP evidence

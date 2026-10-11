@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-15A — the two inputs to ``run_gates`` stay separately assembled.
 
 Whitepaper §7.6 / INV-CH7-47 (lineage strict equality); CLAUDE.md §6.4 and §10

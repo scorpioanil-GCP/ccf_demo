@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.policy.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 # Policy category parameters (whitepaper §7.4; D-IMPL-76; KYC/UBO domain, phase
 # 16 CONTEXT D-03).
 #

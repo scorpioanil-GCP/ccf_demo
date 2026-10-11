@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The static tooth at the HITL transport handle, measured (D-IMPL-353 §1.5b, §9).
 
 Mirrors ``tests/authz/test_capability_static.py`` for the two handles this

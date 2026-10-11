@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The stop rule, measured against cp-05 rather than inferred from ``s1-01``.
 
 ``24.10-05``. ``D-IMPL-280``'s stop rule names one product and this module is

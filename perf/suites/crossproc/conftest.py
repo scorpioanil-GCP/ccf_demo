@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Session-scoped cross-process server fixture (Phase 11 D-15/D-18/D-20).
 
 Spawns ``archive/examples/04-cross-process/producer_child.py`` — a real ``/runtime``

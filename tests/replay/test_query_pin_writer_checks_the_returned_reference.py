@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The query-pin writer hands out only the references of the query bytes it wrote (``D-IMPL-378`` decision 5 (a)).
 
 Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation on the "j" batch's decision 5, verbatim: *"(a) Fix

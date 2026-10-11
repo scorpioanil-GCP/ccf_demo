@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 # The exposure door — frozen cp-05 reached through the SDK's standard door
 
 `credit-risk.exposure-rollup` @ `1.0.0` · producer `cp-05-credit-exposure-rollup-egress` under

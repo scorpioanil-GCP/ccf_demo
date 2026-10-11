@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-013 (D-IMPL-374 (1)): a network-store writer refuses to mint without a declared, held lease.
 
 Whitepaper §7.3 and INV-CH7-10 (exactly one writer per graph); CLAUDE.md §10

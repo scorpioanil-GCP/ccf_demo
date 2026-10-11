@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Frozen cp-05's exposure rollup reached through the SDK's standard door — the escape hatch, proven.
 
 `examples/door-cp-05-credit-exposure-rollup` is a binding adapter (the CP-14

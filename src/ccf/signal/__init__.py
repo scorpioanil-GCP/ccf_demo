@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """L1 — Signal Layer contracts (whitepaper §7.1/§8.3, CLAUDE.md §10).
 
 L1 ingests and normalizes; it does **not** interpret (INV-CH7-02). Everything

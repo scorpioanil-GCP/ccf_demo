@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The ONE structural declared-obligations gate, and the tolerance step that is NOT one — ``24.5-L-26``, ``24.6-L-04``, ``24.6-L-05``.
 
 ``D-IMPL-237`` amended ``D-IMPL-224`` for exactly one thing: the SDK may ship

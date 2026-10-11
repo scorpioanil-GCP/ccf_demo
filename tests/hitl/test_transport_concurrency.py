@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """WR-02 — the HITL transport's concurrency contract under a live hammer.
 
 Claims pinned here (Phase-9 CONTEXT D-05/D-06/D-07/D-15; D-IMPL-69

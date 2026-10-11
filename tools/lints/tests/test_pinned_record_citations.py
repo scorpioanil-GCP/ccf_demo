@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-IMPL-378 decision 14 (b): the review record exempted, the other six citations pinned.
 
 Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation, decision 14:
@@ -74,7 +80,7 @@ HASH_PINNED_SITES: list[tuple[str, int, str]] = [
     (FRAGMENT, 28, "runtime/ccf_runtime/mcp/experience.py::get_context"),
     (FRAGMENT, 162, "tests/crossproc/servers/mcp_experience_child.py::read_replay_record"),
     (FRAGMENT, 164, "examples/external/00-hello-context/serve.py::replay_record_reader"),
-    (FROZEN_TEST, 818, "runtime/ccf_runtime/http_api/routes/product.py::retrieve"),
+    (FROZEN_TEST, 824, "runtime/ccf_runtime/http_api/routes/product.py::retrieve"),
 ]
 
 #: The two citations pinned on the citing line's text. Both stand on one line of

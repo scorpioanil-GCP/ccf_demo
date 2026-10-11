@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The product door's first typed refusal status — ``409`` for ONE kind.
 
 Ledger rows ``24.5-L-26`` and ``24.6-L-04`` (door half), ``D-IMPL-237``;

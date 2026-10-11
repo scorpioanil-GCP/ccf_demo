@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Re-export of :mod:`ccf.authz.capability` (D-IMPL-353). The capability moved to
 ``src/`` so library handles can require it without importing ``runtime/``
 (D-29). Every public name is re-exported here so the gate, the MCP wrapper and
