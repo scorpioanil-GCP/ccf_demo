@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2615 entries**, of which **2336** name a public Python surface.
+**2616 entries**, of which **2337** name a public Python surface.
 
 ## Added
 
@@ -31175,7 +31175,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-557 entries — 518 public Python surface, 39 not public Python API.
+558 entries — 519 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38978,6 +38978,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. A caller that never reached the registry's internals sees the same objects, the same versions and the same refusals; `ArtifactIsolationRefused.reason` on a read now names the parse ("the parse is not equal to the stored reconstruction") rather than the reconstruction.
 
 *Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
+
+#### ccf.controlplane.artifacts.PolicyConstraint
+
+- Surface: ccf.controlplane.artifacts.PolicyConstraint
+- Public surface: true
+- Change type: behavior
+- Before: `preferred` guidance with a `Decimal` value and with the equal-looking name shared one canonical form and content address; the registry refused the decimal form.
+- After: a hash-transparent field `preferred_decimal: bool = False` records the kind: set by the class when the operator is `preferred` and the value a `Decimal`; a document's quoted value is read as a `Decimal` only when it carries `preferred_decimal: true`; any other combination of flag, operator and value is refused. Existing accepted forms keep their bytes and addresses; numeric `preferred` guidance gains its own and round-trips the registry as a `Decimal`.
+- Why: blocker 1 of the `D-IMPL-380` sixth round, ruled 2026-10-11 12:35 MST (option A of `GROK-BRIEF-7`).
+- Migration: none. An author never states the flag; a document that states it must agree with its operator and value.
+
+*Recorded by `380-09-preferred-guidance-carries-its-kind.md`.*
 
 #### ccf.controlplane.registry.ControlPlaneRegistry
 
