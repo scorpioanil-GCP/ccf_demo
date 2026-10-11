@@ -38,6 +38,10 @@ import deployment
 import projection
 from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.controlplane.registry import namespaced_key
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
 from ccf.graph.protocols import GraphView
@@ -169,14 +173,14 @@ def assemble_and_serve(*, asked: ProductRequest,
             return None
 
         scenario = deployment.CoverageScenario(coverage=coverage, asked=asked)
-        store = FileArtifactStore(root=root / "artifact-store")
+        store = FileArtifactStore(root=root / "artifact-store", write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.graph-query": (ReplayMint,), ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,)}))
         resolve = build_governed_resolver(
             fabric=booted,
             control_plane=registry,
-            product_class_key=scenario.product_class_key,
-            request_contract_key=scenario.request_contract_key,
-            operator_parameter_keys=scenario.operator_parameter_keys,
-            policy_bundle_key=scenario.policy_bundle_key,
+            product_class_key=namespaced_key(tenant=booted.tenant_id, key=scenario.product_class_key),
+            request_contract_key=namespaced_key(tenant=booted.tenant_id, key=scenario.request_contract_key),
+            operator_parameter_keys=tuple(namespaced_key(tenant=booted.tenant_id, key=k) for k in scenario.operator_parameter_keys),
+            policy_bundle_key=namespaced_key(tenant=booted.tenant_id, key=scenario.policy_bundle_key),
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
             product_gate=product_gate,

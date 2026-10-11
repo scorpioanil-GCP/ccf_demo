@@ -29,7 +29,7 @@ import yaml
 import acquisition
 
 from ccf.controlplane.artifacts import PerspectiveArtifact
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.products.constraints import (
     ReferencePolicyConstraintResolver,
@@ -152,7 +152,7 @@ def effective(
     :func:`acquire_for` then touches no source store.
     """
     declared = ProductRequestContract.from_declared(
-        booted.artifacts.get("request_contract")
+        booted.artifacts.get(namespaced_key(tenant=booted.tenant_id, key="request_contract"))
     )
     source = ProvenanceSource(
         kind="artifact", identity="request_contract", version=content_hash(declared)
@@ -164,6 +164,7 @@ def effective(
         declared_source=source, perspective=perspective(), intent=asked.intent,
         tenant=booted.tenant_id, capabilities=(traversal_capability(),),
         class_defaults=declared.defaults, class_source=source,
+        served_at=datetime.now(UTC),
     )
     return {} if outcome.refusal is not None else outcome.evidence.values()
 

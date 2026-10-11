@@ -51,6 +51,9 @@ from ccf.products.entitlement import (
     product_entitlement_key,
 )
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
@@ -221,7 +224,7 @@ def door(*, root: Path) -> Iterator[Door]:
         # disclosed at the caller's level, and addressed, exactly as a fulfilled
         # one is.
         refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=replay_root),
+            artifact_store=FileArtifactStore(root=replay_root, write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.graph-query": (ReplayMint,), ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,)})),
             replay_record_class="ccf.replay-record",
             tenant_id=tenant,
             assembly_mode=str(config["product_class"]["assembly_mode"]),

@@ -24,6 +24,10 @@ import projection
 
 from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.controlplane.registry import namespaced_key
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
 from ccf.products.refusal import RefusalEnvelope
@@ -125,14 +129,14 @@ def assemble_and_serve(
     scenario = deployment.CovenantScenario(
         window=window, asked=asked, booted_at=asked.asked_at
     )
-    store = FileArtifactStore(root=root / "artifact-store")
+    store = FileArtifactStore(root=root / "artifact-store", write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.graph-query": (ReplayMint,), ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,)}))
     resolve = build_governed_resolver(
         fabric=booted,
         control_plane=registry,
-        product_class_key=scenario.product_class_key,
-        request_contract_key=scenario.request_contract_key,
-        operator_parameter_keys=scenario.operator_parameter_keys,
-        policy_bundle_key=scenario.policy_bundle_key,
+        product_class_key=namespaced_key(tenant=booted.tenant_id, key=scenario.product_class_key),
+        request_contract_key=namespaced_key(tenant=booted.tenant_id, key=scenario.request_contract_key),
+        operator_parameter_keys=tuple(namespaced_key(tenant=booted.tenant_id, key=k) for k in scenario.operator_parameter_keys),
+        policy_bundle_key=namespaced_key(tenant=booted.tenant_id, key=scenario.policy_bundle_key),
         plan_factory=plan_factory,
         # NO `debt_scorer`, deliberately: the SDK's REFERENCE assessment
         # applies (`CP-SPEC-008` §E.2). This product had a scorer of its own —
@@ -158,8 +162,8 @@ def assemble_and_serve(
         # the claim this implements: the platform's assessment applies. What
         # was removed before was not a working signal but a per-run ratio
         # DRESSED as one; what moves now is the reference curve on real dates.
-        half_life_key="half_life",
-        debt_profile_key="debt_profile",
+        half_life_key=namespaced_key(tenant=booted.tenant_id, key="half_life"),
+        debt_profile_key=namespaced_key(tenant=booted.tenant_id, key="debt_profile"),
         declared_completeness=Decimal(deployment.declared_debt_factor("completeness")),
         declared_semantic_consistency=Decimal(
             deployment.declared_debt_factor("semantic_consistency")
