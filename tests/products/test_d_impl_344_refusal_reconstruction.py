@@ -55,7 +55,7 @@ from __future__ import annotations
 import json
 import pathlib
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -68,7 +68,7 @@ from ccf.products.composite import (
     CHILD_REFUSAL_REASONS,
     ChildAdmissionRefusal,
 )
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract
 from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
 from ccf.replay.engine import (
@@ -142,24 +142,35 @@ OPTIONAL_REQUIREMENT = {
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory` or
+    # `tests/products/test_d_impl_339_child_contract_view.py::_ChildReadingFactory`,
+    # whose projection never raises the withheld signal (`ProjectionOutput.withheld`
+    # stays False), so the class states it never withholds its subject (every fixture in
+    # this module alike).
+    yield from boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
 
 
 @pytest.fixture
 def booted_with_a_sibling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """Two required children; the fixture can produce exactly one of them."""
-    yield from boot_composite(tmp_path, product_class_overrides=TWO_REQUIREMENTS)
+    yield from boot_composite(
+        tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER, product_class_overrides=TWO_REQUIREMENTS
+    )
 
 
 @pytest.fixture
 def booted_with_an_optional_child(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    yield from boot_composite(tmp_path, product_class_overrides=OPTIONAL_REQUIREMENT)
+    yield from boot_composite(
+        tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER, product_class_overrides=OPTIONAL_REQUIREMENT
+    )
 
 
 @pytest.fixture
 def booted_with_a_tight_tolerance(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     yield from boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
         product_class_overrides={"serve_obligations": {"default_debt_tolerance": "0.10"}},
         request_contract_overrides=TOLERANCE_ARGUMENT,
     )
@@ -592,7 +603,7 @@ def test_case_7_a_store_that_cannot_retain_fails_the_determination_before_any_re
 # --- case 8: an optional child invoked, then refused ---------------------------------
 
 
-def _a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
+def _a_day_late(requirement: Any, request: Any) -> dict[str, str]:
     """The child answers at a different instant, so admission refuses it
     (`as-of-mismatch`) AFTER it was genuinely dispatched and served."""
     # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
@@ -600,7 +611,7 @@ def _a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
     # while Gate 3 measured its ceiling from the child's own (future) decision.
     # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
     # the child refuses `ttl-bounds` before this test's subject is reached.
-    return {"subject": "acct-1", "asked_at": (asked_at + timedelta(minutes=1)).isoformat(), "threshold": "1000"}
+    return {"subject": "acct-1", "asked_at": (request.asked_at + timedelta(minutes=1)).isoformat(), "threshold": "1000"}
 
 
 def test_case_8_an_optional_child_invoked_and_refused_blocks_and_reconstructs_as_optional(
@@ -779,6 +790,7 @@ def booted_with_the_sibling_first(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     re-binding refusal is the one the walk records (first refusal wins)."""
     yield from boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
         product_class_overrides={"requires": list(reversed(TWO_REQUIREMENTS["requires"]))},
     )
 

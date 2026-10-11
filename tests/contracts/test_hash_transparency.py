@@ -348,6 +348,23 @@ _MARKED_IN_THE_TREE = frozenset(
         # moves, while a real finding is a real claim and is rendered.
         "ccf.projection.plan.ProjectionOutput.withheld",
         "ccf.replay.record.ContentGenerationPath.computed_empty",
+        # Dave's Q11 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the answer's
+        # per-answer issuance. `NO_ISSUANCE` on every record written before it
+        # existed and on every record no determination issued, so no stored
+        # record's address moves; a real issuance is a real claim and renders.
+        "ccf.replay.record.ContentGenerationPath.issuance",
+        # Dave's Q12 (`D-IMPL-378`, lane 378-s020record PROPOSAL) — THREE marks,
+        # ticked deliberately. A product class's affirmation that it never
+        # withholds its subject (`"may-withhold"` on every declaration written
+        # before it existed), the tenant's list of classes whose records an
+        # owner may read back (empty on every policy written before it existed:
+        # default-deny), and the affirmation the record carries
+        # (`"unstated"` on every record written before it existed, which the
+        # governed read refuses). No stored declaration, policy or record moves
+        # its address; a real value is a real claim and renders.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.subject_withholding",
+        "ccf.products.entitlement.ProductEntitlementPolicy.evidence_readable_classes",
+        "ccf.replay.record.ContentGenerationPath.subject_withholding",
         # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource
@@ -419,6 +436,14 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.graph.backends.fluree_write.FlureeConnection.writer_lease_lock_dir",
         "ccf.graph.backends.mongo_write.MongoConnection.writer_lease_lock_dir",
         "ccf.graph.backends.neo4j_write.Neo4jConnection.writer_lease_lock_dir",
+        # `D-IMPL-378` (SEC-013, option (C), Dave 2026-10-08 21:24 MST) — one
+        # mark, ticked deliberately, on the same reasoning as the three above:
+        # the SQLite connection's declared lock directory
+        # (`src/ccf/graph/backends/sqlite_write.py::SqliteConnection`) is
+        # deployment placement, `None` on every connection written before the
+        # field existed, so such a connection canonicalizes byte-for-byte as
+        # it did; a declared directory is a real claim and is rendered.
+        "ccf.graph.backends.sqlite_write.SqliteConnection.writer_lease_lock_dir",
         # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —
         # six marks, ticked deliberately. `attestation` REPLACES
         # `signed_binding` on both contracts (E1; the submission's old name is
@@ -450,11 +475,30 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.DeploymentConfig.door",
         "ccf.controlplane.artifacts.DeploymentConfig.agent",
         "ccf.controlplane.artifacts.DeploymentConfig.skills",
+        # `D-IMPL-378` C1: the optional `demonstration_serve_instant:` section,
+        # `None` on every config authored before it existed, so no committed
+        # config's content address or pin moves (the `temporal_boundary`
+        # precedent above).
+        "ccf.controlplane.artifacts.DeploymentConfig.demonstration_serve_instant",
+        # `D-IMPL-378` decision 19 (b): the optional
+        # `store_creation_lock_wait_seconds` on the manifest and its config twin,
+        # `None` on every document authored before it existed, so no committed
+        # manifest's or config's content address moves (the
+        # `demonstration_serve_instant` precedent above); measured by
+        # `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_document_declaring_no_wait_hashes_as_it_did_before_the_field_existed`.
+        "ccf.controlplane.artifacts.DeploymentManifest.store_creation_lock_wait_seconds",
+        "ccf.controlplane.artifacts.DeploymentConfig.store_creation_lock_wait_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter",
         "ccf.deployment.environment.EnvironmentDocument.config",
         "ccf.deployment.environment.EnvironmentDocument.sources",
         "ccf.deployment.environment.EnvironmentDocument.door",
         "ccf.deployment.environment.EnvironmentDocument.remote",
+        # `D-IMPL-378` C2-A2 (a): the door block's two address names became
+        # optional, defaulting to `None`. Marked on the precedent of the four
+        # defaults above: the environment document is never content-hashed
+        # into anything, and the mark says so structurally.
+        "ccf.deployment.environment.DoorEnvironment.issuer_url",
+        "ccf.deployment.environment.DoorEnvironment.resource_server_url",
         "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
         "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
         "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
@@ -484,6 +528,10 @@ _MARKED_IN_THE_TREE = frozenset(
         # existed keeps its content address, and therefore its version.
         "ccf.controlplane.artifacts.ProductClassDeclaration.requires",
         "ccf.replay.record.ContentGenerationPath.child_resolutions",
+        # SEC-020 Q10 (`D-IMPL-378`): recorded only when the walk did not start
+        # at the question's own subject, so every other record — and every one
+        # written before the member existed — keeps its content address.
+        "ccf.replay.record.ContentGenerationPath.executed_seeds",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
         # 24.6-03: the Authority layer's value in dimension 2
         # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
@@ -493,6 +541,9 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
+        # SEC-020 Q10: the seeds an execution was asked to walk from; `None`
+        # on every result built before the member existed.
+        "ccf.projection.engine.ExecutionResult.seeds",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",
         # `D-IMPL-332`. `valid_from` became nullable when the fabric stopped
         # substituting ingestion time for a valid-time no source supplied.
@@ -618,6 +669,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.PolicyConstraint.overridable",
         "ccf.controlplane.artifacts.PolicyConstraint.effective_until",
         "ccf.controlplane.artifacts.PolicyConstraint.priority",
+        # Blocker 1 (ruled 2026-10-11 12:35, Grok's review of GROK-BRIEF-7): the KIND of a
+        # ``preferred`` value. The one mark whose sentinel does not mean "the field did not exist":
+        # ``False`` means "this is the name form", so every accepted form keeps its address and
+        # numeric ``preferred`` guidance gains its own. A widening of the marker accepted for this
+        # field ONLY (*"Do not use the marker for any other field in this lane."*).
+        "ccf.controlplane.artifacts.PolicyConstraint.preferred_decimal",
         # The ninth reserved section. ``True`` and not ``False`` is
         # load-bearing rather than stylistic: a rendered
         # ``policy_constraints: null`` would move the content address of every
@@ -665,6 +722,13 @@ _MARKED_IN_THE_TREE = frozenset(
         # a rendered `"error_code": "product_class_unentitled"` differ in
         # shape, and shape is a leak channel (``D-IMPL-253`` am.2 (4)).
         "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+        # D-IMPL-378 (Dave, 2026-10-07, ruling Q3): the read-refusal marker.
+        # `None` is what every resource identity minted before the marker
+        # already said — nothing about where its tenant came from — so every
+        # delivery-boundary denial and read refusal recorded before it keeps its
+        # content address and still replays to it; only the governed evidence
+        # read writes `"capability"`.
+        "ccf.products.refusal.ResourceRequestIdentity.tenant_from",
         # 24.6-08: the disclosure posture in force (``24.6-L-16``,
         # ``D-IMPL-253`` Q17). Both are hash-transparent at their sentinels —
         # ``minimal`` on the policy and ``None`` on the grant — so every

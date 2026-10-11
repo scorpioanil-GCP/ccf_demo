@@ -36,7 +36,7 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
 1. The consumer's child resolver calls the producer's MCP tool with the wire question.
 2. The egress tool handler builds the typed `ProductRequest` verbatim from the wire and
    calls the resolver it was built with — `resolver(...)` at
-   `runtime/ccf_runtime/mcp/egress.py::_answer_question`.
+   `runtime/ccf_runtime/mcp/egress.py::build_egress_server._answer_question`.
 3. The resolver is the wrapper adapter's `resolve`
    (`examples/door-cp-05-credit-exposure-rollup/adapter.py::ExposureProducer.resolve`), which, after its own
    two recorded pre-assembly refusals and the instant guard, calls the frozen specimen's
@@ -56,7 +56,7 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
    carries `.refusal` only.
 7. The exception propagates through the adapter untouched.
 8. The door's failure clause catches it — `except (ValueError, TypeError, LookupError,
-   OSError)` at `runtime/ccf_runtime/mcp/egress.py:1254` — and `_opaque_failure`
+   OSError)` at `runtime/ccf_runtime/mcp/egress.py::build_egress_server._answer_question` — and `_opaque_failure`
    (`runtime/ccf_runtime/mcp/egress.py::_opaque_failure`) logs it under a fresh id and raises
    `ToolError("ccf-runtime-failure:<id>")`. By that function's own docstring this is the
    right treatment for *"CCF or its runtime failed"*; it is the wrong treatment for a
@@ -127,7 +127,7 @@ layer manufactures the marker from omission. `ResolutionNotApplicable` already e
 ### 3.2 The door converts exactly that type, before its failure clause
 
 In the egress tool handler, immediately before the generic clause at
-`runtime/ccf_runtime/mcp/egress.py::_answer_question`:
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server._answer_question`:
 
 ```
 except GovernedRefusalRaised as raised:
@@ -142,7 +142,7 @@ except GovernedRefusalRaised as raised:
 `govern_raised_refusal` mirrors `govern_absence` line for line: build the envelope with
 `envelope_for(raised.refusal, request=identity, provenance=<the evidence when it is an
 EffectiveRequest>)` unless an envelope was raised; record it through the ONE recorder
-(`ReplayRefusalRecorder.record`, `src/ccf/products/resolver.py:1107`) with
+(`ReplayRefusalRecorder.record`, `src/ccf/products/resolver.py::ReplayRefusalRecorder.record`) with
 `recorded_at=asked.asked_at` — the question's instant, as the SDK's own pre-resolution
 refusals are stamped — and `resolution=raised.resolution`; return what the recorder
 returned. `door_answer` then delivers it through the one emission site, and the existing

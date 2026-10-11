@@ -27,6 +27,7 @@ from ccf.agents.definitions import (
 from ccf.agents.factory import AgentFactory
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.hitl.approval_policy import APPROVAL_POLICY
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import Workflow, WorkflowFactory
 
@@ -50,8 +51,45 @@ class FactoryEnv(NamedTuple):
     workflow_execute: Any
 
 
-def _register_references(registry: ControlPlaneRegistry, doc: Any) -> None:
+def _register_approval_policies(registry: ControlPlaneRegistry) -> frozenset[str]:
+    """Register every typed ``ccf.approval-policy`` the perf battery declares.
+
+    SEC-006 (`D-IMPL-366` §4 (5)): the factory refuses a gate policy whose key
+    the Control Plane binds to any class but ``ccf.approval-policy``. The
+    typed policies live in ``perf/synth/artifacts/approval_policies.yaml``,
+    added beside ``workflow.yaml`` under the SAME keys at the SAME semver (the
+    rule ``tests/fixtures/banking/approval_policies.yaml`` follows; `D-IMPL-378`
+    C7 (b)), and are registered through ``register_typed`` against the real
+    contract: adopter registration, since the class is not manifest-addressable
+    by ruling.
+
+    Returns the keys registered. Each supersedes a fixture's pre-change
+    DeclaredArtifact entry under the same key (see :func:`_register_references`).
+    """
+    loaded = load_artifact("approval_policies.yaml")
+    keys: set[str] = set()
+    for entry in loaded["policies"].values():
+        policy = parse_artifact(entry["policy"], APPROVAL_POLICY)
+        register_typed_at_composition(registry, entry["key"], policy, APPROVAL_POLICY)
+        keys.add(entry["key"])
+    return frozenset(keys)
+
+
+def _register_references(
+    registry: ControlPlaneRegistry, doc: Any, *, superseded: frozenset[str]
+) -> None:
+    """Register a fixture's ``referenced_artifacts``, minus the superseded keys.
+
+    An entry whose key a typed approval policy already holds is the PRE-CHANGE
+    DeclaredArtifact shape the historical fixture keeps as text. It is skipped
+    by KEY, not by class id: the registry binds a key to one artifact class for
+    its whole life and refuses a rebind, so registering it would fail; and a
+    pre-change gate-policy entry with no typed policy under its key still
+    registers, and the factory then refuses it by name.
+    """
     for reference in doc.get("referenced_artifacts", {}).values():
+        if reference["key"] in superseded:
+            continue
         artifact_class = declared_artifact_class(reference["class_id"])
         declared = parse_artifact(
             {
@@ -73,8 +111,9 @@ def factory_env() -> FactoryEnv:
     workflow_doc = load_artifact("workflow.yaml")
 
     registry = ControlPlaneRegistry()
+    superseded = _register_approval_policies(registry)
     for doc in (agent_doc, task_doc, workflow_doc):
-        _register_references(registry, doc)
+        _register_references(registry, doc, superseded=superseded)
 
     prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
     assert isinstance(prompt, PromptArtifact)

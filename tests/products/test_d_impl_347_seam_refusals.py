@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.refusal import (
     RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
@@ -43,6 +44,35 @@ from tests.products.test_paved_road import (  # noqa: F401 — `tree` is a fixtu
     _write_tree,
     tree,
 )
+
+# `D-IMPL-378` ruling P6 (a): every tree here is opened with the paved fixture's
+# `_Acquire`, which returns one constant envelope whatever subject it is asked
+# about, and with a projection that never sets the withheld signal (the
+# fixture's own `_CountProjection`, or a factory that raises before any
+# projection exists). Such a tree that reaches the acquisition seam states its
+# stance, `never`, as `test_paved_road._write_tree`'s default tree does; at the
+# SDK's default stance the P6 probe would refuse it first, as a population read.
+#
+# `D-IMPL-378` ruling E2 (ii) (d) (Dave, 2026-10-08 16:40 MST): a class affirming
+# `never` is built only over a plan factory that positively declares that no
+# projection it builds withholds (`NonWithholdingPlanFactoryProtocol` in
+# `ccf.products.resolver`); silence is refused when the resolver is built. The
+# fixture's own factory, `tests/deployment/test_replay_binding.py::_plan_factory`,
+# declares it. Every factory this module substitutes under a `never` class raises
+# on every call, before it returns a plan, so it builds no projection at all: it
+# carries `_builds_no_projection`, which is true of it.
+
+
+def _builds_no_projection() -> bool:
+    """The positive declaration of a plan factory here that raises before it returns a plan (E2 (ii) (d)).
+
+    ``True`` only if no projection the factory builds sets the withheld signal
+    (``NonWithholdingPlanFactoryProtocol.withholds_no_subject``). A factory that
+    carries this raises on every call, before any plan exists, so it builds no
+    projection and none can withhold. A factory that returns a plan states its
+    own declaration, from what its projection does; this one is never lent to it.
+    """
+    return True
 
 
 def _refusal() -> SubjectUnavailableRefusal:
@@ -92,6 +122,8 @@ def test_a_refusal_raised_by_the_plan_factory_is_data_and_names_its_seam(
     def _refusing_project(**_: Any) -> Any:
         raise _raised()
 
+    _refusing_project.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_refusing_project) as opened:
         outcome = opened.answer(_question(opened))
         assert isinstance(outcome, RefusalEnvelope), outcome
@@ -111,6 +143,8 @@ def test_a_plan_factory_raising_a_domain_error_still_propagates(
 
     def _broken_project(**_: Any) -> Any:
         raise LookupError("a defect, not a determination")
+
+    _broken_project.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_broken_project) as opened:
         with pytest.raises(LookupError, match="a defect, not a determination"):
@@ -132,7 +166,7 @@ def test_a_refusal_raised_by_the_product_gate_is_data_and_names_its_seam(
     ``declared_product_gate`` are both-or-neither: the SDK refuses to stamp an
     identity on a refusal produced by a gate the class never declared.
     """
-    config = _config()
+    config = _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["declared_product_gate"] = {
         "gate_id": "fixture.gate",
         "gate_version": "1.0.0",
@@ -199,6 +233,11 @@ def test_a_refusal_raised_by_the_child_factory_refuses_the_COMPOSITE(
     config["product_class"]["requires"] = [
         {"product_class": "fixture.child", "required": True, "compatible_from": "1.0.0"}
     ]
+    # `D-IMPL-378` P2 (c): opened with `test_paved_road._open`'s plan factory,
+    # `tests/deployment/test_replay_binding.py::_plan_factory`, whose projection
+    # (`_CountProjection`) never raises the withheld signal, so the composite's
+    # class states it never withholds its subject.
+    config["product_class"]["subject_withholding"] = SUBJECT_WITHHOLDING_NEVER
     root = _write_tree(tmp_path / "composite", config=config)
     scratch = tmp_path / "composite" / "scratch"
 
@@ -235,7 +274,7 @@ class _ControlRoomUnreachable(RuntimeError):
 
 
 def _class_declaring_the_domain_error() -> dict[str, Any]:
-    config = _config()
+    config = _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["seam_refusals"] = [
         {
             "exception": f"{__name__}._ControlRoomUnreachable",
@@ -259,6 +298,8 @@ def test_a_declared_domain_exception_becomes_a_governed_refusal(
 
     def _unreachable(**_: Any) -> Any:
         raise _ControlRoomUnreachable("the control room did not answer")
+
+    _unreachable.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_unreachable) as opened:
         outcome = opened.answer(_question(opened))
@@ -286,6 +327,8 @@ def test_an_UNdeclared_domain_exception_still_propagates(
     def _other(**_: Any) -> Any:
         raise TimeoutError("undeclared, therefore a defect")
 
+    _other.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_other) as opened:
         with pytest.raises(TimeoutError, match="undeclared, therefore a defect"):
             opened.answer(_question(opened))
@@ -309,6 +352,8 @@ def test_a_subclass_of_a_declared_type_is_NOT_converted(
 
     def _subclassed(**_: Any) -> Any:
         raise _Narrower("a subclass nobody declared")
+
+    _subclassed.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_subclassed) as opened:
         with pytest.raises(_ControlRoomUnreachable, match="a subclass nobody declared"):
@@ -379,13 +424,15 @@ def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declarati
     the SDK knows what its own IdentityRefused means (a record naming no
     entity), so the paved road converts it under cause `nonexistent` even
     though no product class declares it. Before: an HTTP 500 with no record."""
-    root = _write_tree(tmp_path / "b3", config=_config())   # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))   # declares NO seam_refusals
     scratch = tmp_path / "b3" / "scratch"
 
     def _null_identity(**_: Any) -> Any:
         raise IdentityRefused(
             envelope_id="env-null", entity_class="company", key="lei", field="lei", reason="null"
         )
+
+    _null_identity.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_null_identity) as opened:
         outcome = opened.answer(_question(opened))
@@ -474,7 +521,7 @@ def test_the_sdks_own_temporal_write_refusal_is_a_governed_refusal_without_a_dec
 
     monkeypatch.setattr(AssemblyWorker, "ingest", counting_ingest)
 
-    config = fixture.producer_config()
+    config = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     # The tenant's OWN declared window, exactly as the step-8 suite declares it.
     config["temporal_boundary"] = {
         "max_past_seconds": 60,
@@ -670,11 +717,13 @@ def test_rebinding_the_module_attribute_does_NOT_change_dispatch(
     )
     assert smuggled in resolver_module.SDK_SEAM_REFUSALS, "the rebind itself must land"
 
-    root = _write_tree(tmp_path / "b3rebind", config=_config())  # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3rebind", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))  # declares NO seam_refusals
     scratch = tmp_path / "b3rebind" / "scratch"
 
     def _unreachable(**_: Any) -> Any:
         raise _ControlRoomUnreachable("a rebind must not buy this a governed 'no'")
+
+    _unreachable.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_unreachable) as opened:
         with pytest.raises(_ControlRoomUnreachable, match="must not buy this"):
@@ -928,7 +977,7 @@ def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
     class _DeploymentsOwnIdentityProblem(IdentityRefused):
         pass
 
-    root = _write_tree(tmp_path / "b3sub", config=_config())
+    root = _write_tree(tmp_path / "b3sub", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3sub" / "scratch"
 
     def _subclassed(**_: Any) -> Any:
@@ -939,6 +988,8 @@ def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
             field="lei",
             reason="null",
         )
+
+    _subclassed.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_subclassed) as opened:
         with pytest.raises(_DeploymentsOwnIdentityProblem, match="env-sub"):
@@ -987,11 +1038,13 @@ def test_the_match_is_MODULE_QUALIFIED_so_a_look_alike_name_is_not_converted(
         "this must not be the subclass case; that is pinned separately"
     )
 
-    root = _write_tree(tmp_path / "b3qual", config=_config())  # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3qual", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))  # declares NO seam_refusals
     scratch = tmp_path / "b3qual" / "scratch"
 
     def _look_alike(**_: Any) -> Any:
         raise _ForeignIdentityRefused("a deployment's own identity failure")
+
+    _look_alike.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_look_alike) as opened:
         with pytest.raises(_ForeignIdentityRefused, match="a deployment's own"):
@@ -1021,11 +1074,13 @@ def test_a_DIFFERENT_sdk_exception_at_a_seam_is_not_converted(
         SDK_SEAM_REFUSALS
     )
 
-    root = _write_tree(tmp_path / "b3other", config=_config())
+    root = _write_tree(tmp_path / "b3other", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3other" / "scratch"
 
     def _other_sdk_error(**_: Any) -> Any:
         raise SeamRefusalWidening("an SDK error the SDK did not bind")
+
+    _other_sdk_error.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_other_sdk_error) as opened:
         with pytest.raises(SeamRefusalWidening, match="did not bind"):
@@ -1104,7 +1159,13 @@ def test_the_REAL_route_converts_at_the_acquisition_seam_with_the_workers_own_re
             ),
         ),
     )
-    root = _write_tree(tmp_path / f"b3real-{reason}", config=_config())
+    # OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, Dave 2026-10-09 06:21 MST): this
+    # tree's acquire answers EVERY identifier with a record L2 refuses
+    # (`IdentityRefused`), the P6 probe's identifier included, and a held refusal
+    # at the probe now refuses the question at the SDK's default stance. Its
+    # projection is the fixture's own, which never withholds, so the tree states
+    # `never`, as this module's rule above says such a tree does.
+    root = _write_tree(tmp_path / f"b3real-{reason}", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / f"b3real-{reason}" / "scratch"
 
     def _acquire_a_bad_record(context: Any) -> Any:
@@ -1266,7 +1327,13 @@ def test_the_REAL_route_converts_an_empty_identity_declaration_with_the_workers_
             ),
         ),
     )
-    root = _write_tree(tmp_path / "b3real-undeclared", config=_config())
+    # OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, Dave 2026-10-09 06:21 MST): this
+    # tree's acquire answers EVERY identifier with a record L2 refuses
+    # (`IdentityRefused`), the P6 probe's identifier included, and a held refusal
+    # at the probe now refuses the question at the SDK's default stance. Its
+    # projection is the fixture's own, which never withholds, so the tree states
+    # `never`, as this module's rule above says such a tree does.
+    root = _write_tree(tmp_path / "b3real-undeclared", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3real-undeclared" / "scratch"
 
     def _acquire_under_an_empty_declaration(context: Any) -> Any:

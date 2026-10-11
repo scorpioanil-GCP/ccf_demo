@@ -5,9 +5,66 @@
 -- hand-transcribed. The SCHEMA NAME matches the real estate's, so the
 -- example's own queries run unchanged against the container.
 
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+-- (D-IMPL-380): it also refuses, naming each one with its schema, when
+-- any object outside `ccf_v2` depends on one of those tables.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+    outside text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+    SELECT string_agg(DISTINCT dependent, ', ' ORDER BY dependent) INTO outside
+      FROM (
+        SELECT CASE WHEN d.classid = 'pg_rewrite'::regclass
+                     AND r.rulename = '_RETURN'
+                    THEN format('%s %I.%I (schema %s)',
+                                CASE vc.relkind WHEN 'm' THEN 'materialized view' ELSE 'view' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN format('rule %I on %s %I.%I (schema %s)', r.rulename,
+                                CASE vc.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    ELSE format('%s %s (schema %s)', o.type, o.identity, coalesce(o.schema, '-'))
+               END AS dependent,
+               CASE WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN vn.nspname ELSE o.schema END AS dependent_schema
+          FROM pg_class t
+          JOIN pg_namespace tn ON tn.oid = t.relnamespace
+          JOIN pg_type rt ON rt.oid = t.reltype
+          JOIN pg_depend d
+            ON d.deptype = 'n'
+           AND ((d.refclassid = 'pg_class'::regclass AND d.refobjid = t.oid)
+             OR (d.refclassid = 'pg_type'::regclass
+                 AND d.refobjid IN (rt.oid, rt.typarray)))
+          CROSS JOIN LATERAL pg_identify_object(d.classid, d.objid, d.objsubid) o
+          LEFT JOIN pg_rewrite r
+            ON d.classid = 'pg_rewrite'::regclass AND r.oid = d.objid
+          LEFT JOIN pg_class vc ON vc.oid = r.ev_class
+          LEFT JOIN pg_namespace vn ON vn.oid = vc.relnamespace
+         WHERE tn.nspname = 'ccf_v2'
+           AND t.relname IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction')
+      ) dependents
+     WHERE dependent_schema IS DISTINCT FROM 'ccf_v2';
+    IF outside IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-380 write lock: % depend on the tables of schema %, from outside it. This is not a disposable test database; refusing to write.', outside, 'ccf_v2';
+    END IF;
+END
+$ccf_write_lock$;
+
 CREATE SCHEMA IF NOT EXISTS ccf_v2;
 
-DROP TABLE IF EXISTS ccf_v2.legal_entity CASCADE;
+DROP TABLE IF EXISTS ccf_v2.legal_entity;
 CREATE TABLE ccf_v2.legal_entity (
     lei character varying NOT NULL,
     legal_name text NOT NULL,
@@ -35,7 +92,7 @@ CREATE TABLE ccf_v2.legal_entity (
     hq_address_region text
 );
 
-DROP TABLE IF EXISTS ccf_v2.crosswalk CASCADE;
+DROP TABLE IF EXISTS ccf_v2.crosswalk;
 CREATE TABLE ccf_v2.crosswalk (
     internal_client_id text NOT NULL,
     lei character varying,
@@ -46,7 +103,7 @@ CREATE TABLE ccf_v2.crosswalk (
     created_at timestamp with time zone NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.filing_profile CASCADE;
+DROP TABLE IF EXISTS ccf_v2.filing_profile;
 CREATE TABLE ccf_v2.filing_profile (
     lei character(20) NOT NULL,
     cik integer NOT NULL,
@@ -60,7 +117,7 @@ CREATE TABLE ccf_v2.filing_profile (
     retrieved_at date NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.financial_fact CASCADE;
+DROP TABLE IF EXISTS ccf_v2.financial_fact;
 CREATE TABLE ccf_v2.financial_fact (
     lei character(20) NOT NULL,
     cik integer NOT NULL,
@@ -80,7 +137,7 @@ CREATE TABLE ccf_v2.financial_fact (
     retrieved_at date NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.principal CASCADE;
+DROP TABLE IF EXISTS ccf_v2.principal;
 CREATE TABLE ccf_v2.principal (
     principal_id text NOT NULL,
     name text NOT NULL,
@@ -92,14 +149,14 @@ CREATE TABLE ccf_v2.principal (
     sees_eu_person_data boolean NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.principal_jurisdiction CASCADE;
+DROP TABLE IF EXISTS ccf_v2.principal_jurisdiction;
 CREATE TABLE ccf_v2.principal_jurisdiction (
     principal_id text NOT NULL,
     jurisdiction_prefix text NOT NULL,
     provenance text NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.peer_entity CASCADE;
+DROP TABLE IF EXISTS ccf_v2.peer_entity;
 CREATE TABLE ccf_v2.peer_entity (
     cik integer NOT NULL,
     entity_name text NOT NULL,
@@ -109,7 +166,7 @@ CREATE TABLE ccf_v2.peer_entity (
     retrieved_at date NOT NULL
 );
 
-DROP TABLE IF EXISTS ccf_v2.peer_fact CASCADE;
+DROP TABLE IF EXISTS ccf_v2.peer_fact;
 CREATE TABLE ccf_v2.peer_fact (
     cik integer NOT NULL,
     tag text NOT NULL,

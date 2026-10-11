@@ -136,6 +136,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+from typing import Any
 
 import pytest
 
@@ -410,11 +411,36 @@ def test_every_example_roots_artifact_directory_is_non_vacuous() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "directory",
-    discover(require_all=True),
-    ids=lambda path: str(path.relative_to(REPO_ROOT)),
+#: D-IMPL-378 C5 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST).
+#: Two archived trees carry documents today's SDK refuses on purpose:
+#: `hitl-policy.yaml` under SEC-005 (D-IMPL-363) and `scope-mapping.yaml` under
+#: D-IMPL-353. D-IMPL-351 makes `archive/` a dated reference surface with no
+#: fixes, so each is a STRICT expected failure: the gate keeps running both, the
+#: day one passes CI goes red, and `raises=AssertionError` reports an error of
+#: any other class. A new header problem in these two directories is also an
+#: AssertionError and would be absorbed: `raises=` checks the class only.
+_ARCHIVED_REASON = (
+    "D-IMPL-351: archived tree; its hitl-policy.yaml omits the signature bounds SEC-005"
+    " (D-IMPL-363) requires and its scope-mapping.yaml lacks scopes.hitl.resource_patterns"
+    " (D-IMPL-353); quarantined, D-IMPL-261; D-IMPL-378 C5"
 )
+ARCHIVED_HEADER_REFUSALS: dict[str, str] = {
+    "archive/examples/05-workflow-hitl/artifacts": _ARCHIVED_REASON,
+    "archive/examples/06-decision-replay/artifacts": _ARCHIVED_REASON,
+}
+
+
+def _header_check_params() -> list[Any]:
+    params = []
+    for path in discover(require_all=True):
+        relative = str(path.relative_to(REPO_ROOT))
+        reason = ARCHIVED_HEADER_REFUSALS.get(relative)
+        marks = [pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason)] if reason else []
+        params.append(pytest.param(path, id=relative, marks=marks))
+    return params
+
+
+@pytest.mark.parametrize("directory", _header_check_params())
 def test_every_artifact_directory_passes_the_header_check(
     directory: pathlib.Path,
 ) -> None:
@@ -734,3 +760,10 @@ def test_every_permanently_deferred_document_still_exists() -> None:
     """An exemption for a vanished file is an exemption that silently grew."""
     for relative in PERMANENTLY_DEFERRED:
         assert (REPO_ROOT / relative).is_file(), relative
+
+
+def test_every_quarantined_archive_directory_is_still_discovered() -> None:
+    """A quarantine entry whose directory left the discovery marks nothing, and
+    would hide that the gate's population changed (D-IMPL-378 C5)."""
+    discovered = {str(path.relative_to(REPO_ROOT)) for path in discover(require_all=True)}
+    assert set(ARCHIVED_HEADER_REFUSALS) <= discovered, sorted(set(ARCHIVED_HEADER_REFUSALS) - discovered)

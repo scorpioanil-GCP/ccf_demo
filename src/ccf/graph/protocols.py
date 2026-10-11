@@ -1243,6 +1243,14 @@ class WriterLeaseHeld(RuntimeError):
     ``SingleWriterViolation`` an in-process second boot raises. It is a
     separate type only because a backend store may not import ``_writer``.
     The message names the lease kind and the resource, never a credential.
+
+    **Also raised when a SQLite store is opened** over a database file with
+    more than one name, for every open, readers included (SEC-013, P2 (b),
+    ``D-IMPL-378``;
+    ``src/ccf/graph/backends/sqlite.py::SqliteGraphStore``). That refusal
+    comes from the store's constructor, before any lease and before the
+    mint, so no mint translates it: a writer boot and a read-only boot both
+    raise it unchanged.
     """
 
 

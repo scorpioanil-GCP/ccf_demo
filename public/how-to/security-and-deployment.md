@@ -73,8 +73,18 @@ unchanged, so a product's content address is unchanged.
   judged against the `now` the gate is handed, never a clock of its own
   (`stale-issuance`).
 - **Replays are refused** (`replayed`) and write no second admission record.
-  Only an admission spends a nonce, so a presentation refused for any other
-  reason can be admitted later.
+  The nonce is spent after every other check and immediately before the
+  admission record is filed, so a presentation those checks refuse can be
+  admitted later
+  (`tests/peering/test_admission_refuses_replay.py::test_d_a_refused_presentation_does_not_spend_the_nonce`),
+  while one whose record the store does not persist (`AdmissionNotRecorded`,
+  or `ArtifactStoreUnauthenticated` where the store's server did not
+  authenticate the deployment's credential, `D-IMPL-378` decision 10 (b))
+  or answers with a reference that is not the record's own
+  (`AdmissionRecordReferenceMismatch`, `D-IMPL-378` decision 5) is not
+  admitted and is refused `replayed` if presented again
+  (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`,
+  `tests/peering/test_admission_record_write_401_is_the_typed_refusal.py::test_a_crossing_refused_at_its_record_for_the_credential_has_spent_its_nonce`).
 - **The replay scope is the signing key, not the peer id** (`SEC-022-C-01`).
   A nonce is spent under the key the envelope's signature verified under,
   named by its RFC 7638 thumbprint
@@ -332,10 +342,10 @@ holds both to `[project] name`.
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Ten decisions have to be made explicitly; §4.8 records two limitations the
+Eleven decisions have to be made explicitly; §4.8 records two limitations the
 SDK discloses rather than fixes, §4.12 an open row (SEC-020) a deployment must
-plan around, and §4.13 how far the SDK serializes the resumption of a suspended
-run, and what a deployment must serialize beyond that. Each decision is a construction-time argument
+plan around, and §4.13 how the SDK keeps one approval to one passage and what it
+asks of a deployment's own state store and HITL transport. Each decision is a construction-time argument
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
 first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
@@ -348,7 +358,8 @@ Agent SDK adapter's child process inherits; the sixth is how many processes may
 boot one graph, which depends on the graph store; the seventh is which sources
 may assert a classification; the eighth is which products a principal's grant
 may reach; the ninth is how the erasure index is declared and protected; the
-tenth is the default for a parameter a policy constraint bounds.
+tenth is the default for a parameter a policy constraint bounds; the eleventh,
+in §4.14, is how far into the past each tenant answers for.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -437,6 +448,17 @@ every caller of the process, and the door composes none of its own
 > remains single-principal by construction; a multi-principal deployment uses
 > `serve_loopback` or composes its own transport.
 
+The identity lasts as long as the call and no longer (`D-IMPL-378`, item 9
+(b)). `serve_stdio` sets it just before the server starts and, in a `finally`,
+restores the login identity the caller's context held before the call,
+whichever way the call ends: a normal return, an exception raised inside the
+transport, or cancellation
+(`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored`).
+So whatever the calling code does after the call no longer runs as the stdio
+identity.
+
 Two bounds hold on an identity composed with `ambient_stdio_identity`, and
 both are mechanism rather than convention. It is scoped to exactly the one
 tenant it names — pass the tenant the door was opened to serve — and it is
@@ -450,6 +472,27 @@ is for, and it is a legitimate posture. Anything that has to tell two callers
 apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
+
+The two addresses an HTTP door advertises for OAuth discovery, the issuer and
+the resource server, are not needed on stdio (`D-IMPL-378`, ruling C2-A (b)).
+An HTTP door publishes them in its protected-resource metadata and in the hint
+it sends with a 401, and stdio builds no HTTP application, so the stdio
+transport supplies its own reserved `.invalid` values and the door starts with
+both environment variables unset. It still refuses a call naming another
+tenant and a call for a class outside its scope mapping. The loopback
+transport advertises its own bound address, and a deployment that mounts
+`ProductDoor.server` under its own host passes both addresses itself: the
+method has no default for either.
+
+Because no SDK transport reads the two names, the environment document's
+`door:` block need not declare them (`D-IMPL-378`, ruling C2-A2 (a)): both are
+optional and the block needs only `credential`. A stdio door started from a
+document that names neither still answers, and still refuses another tenant and
+a class outside its scope mapping
+(`tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses`).
+A deployment that hosts the mount itself may still declare them for its own
+code to resolve; a value it leaves out is refused by name, never defaulted
+(`tests/mcp/test_stdio_door_addresses.py::test_a_door_composes_over_a_door_block_naming_only_the_credential`).
 
 ### 4.5 Declare the Claude adapter's child environment
 
@@ -496,7 +539,7 @@ boot token records it.
 
 | Store | Lease scope | What enforces it |
 | --- | --- | --- |
-| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path; with `writer_lease_lock_dir` declared, also one on `<writer_lease_lock_dir>/<sha256(database file identity)>.lock` (below) |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
 | Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
@@ -554,6 +597,63 @@ write a parent directory can rename the lock directory and put another in its
 place between the check and the lock file's open, so keep every ancestor
 writable only by the writers' user or root.
 
+**SQLite: declare a lock directory so the lease follows the database file, not
+its name (SEC-013, option (C), D-IMPL-378).** The sidecar is keyed on the
+database file's resolved path, so a writer that reaches the same file through
+another name is not excluded by it: through a hard link it is refused only
+because the file has two names, and through the new name of a renamed live
+file it boots. A deployment that declares `writer_lease_lock_dir` on the SQLite
+connection settings (the same setting, validation and directory rules as the
+network stores above) makes each writer also hold an exclusive `flock` on
+`<writer_lease_lock_dir>/<sha256(database file identity)>.lock`, where the
+identity is the file's device and inode, read when the store opens the file
+(`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`). A second process's
+writer through the renamed file's new name is then refused with
+`SingleWriterViolation` naming that lock, among writers that declare the same
+directory (`tests/graph/test_sqlite_writer_lease_file_identity.py`); one
+through a hard link is refused earlier, when its store opens (P2 (b), below).
+An in-memory
+database with a lock directory declared is refused when its store is built: it
+has no file to follow. What the declared lock does not close, each measured in
+`tests/graph/test_sqlite_writer_lease_file_identity_limits.py`:
+
+- **Writers that declare different directories, or none, are not excluded**
+  through another name. Declare one directory for every process that writes the
+  file.
+- **Do not rename or move a live database file; no lock makes it safe.** SQLite
+  keeps the writer's write-ahead log under the name it opened, so commits not
+  yet checkpointed are absent through the new name once the writer closes, and
+  SQLite's `integrity_check` still reports `ok`.
+- **A lock file stays behind for each database file identity ever leased, and
+  is harmless.** The kernel drops the `flock` when its holder exits or crashes,
+  so a lock file no process holds never blocks a boot, including one a deleted
+  file left whose inode number a new file was given; and while a writer holds
+  its file open, no other file can be given that file's inode number. Measured
+  on Linux (ext4); macOS not measured.
+
+**SQLite: a database file with more than one name is refused when its store
+opens, before any setup, for every open, readers included (SEC-013, P2 (b),
+D-IMPL-378).** The writer lease is taken when the writer is minted, after the
+store has opened the database and run its setup. Until P2 (b), a process that
+opened the file through a hard link, a writer the lease then refused or a
+read-only boot, had already written that setup into a write-ahead log beside
+the link, and that log rolled back what the holder committed once anything
+opened the file through the link, with `integrity_check` still reporting `ok`.
+The store (`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`) now counts
+the database file's names before SQLite connects and again before the setup's
+first statement, and refuses a file with more than one name with
+`WriterLeaseHeld`, naming the file and its number of names, so the refused open
+writes nothing through any name
+(`tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py`). A
+writer boot through a hard link is therefore refused when its store opens,
+before the mint, and is reported as `WriterLeaseHeld` rather than
+`SingleWriterViolation`. What the two counts do not see: a second name made in
+the instant between the second count and the setup; a file swapped in under the
+path between SQLite's open and the second count, because Python's `sqlite3`
+exposes no descriptor to count the opened file's names through; and any tool
+that opens the file with SQLite directly rather than through the SDK. Do not
+open a live database file through a second name, and remove hard links to it.
+
 Consequences for a deployment on the stores that do lease:
 
 - **Two processes that each boot the same deployment are mutually exclusive.**
@@ -573,6 +673,47 @@ Consequences for a deployment on the stores that do lease:
   lease to a file of its choosing. Keep that directory writable only by the
   account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
   recorded this residual as disclosed here before it was).
+- **SQLite: one name per database file, so no hard-link backups (`D-IMPL-378`,
+  option (B) and P2 (b)).** The store refuses to open a database file that
+  has more than one name, a hard link, through any of its names, for every
+  open, readers included: the boot is refused when the store opens, with
+  `WriterLeaseHeld`, whose message gives the file's number of names
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph`),
+  and the writer lease refuses a second name made after the store opened.
+  A backup that links the database file instead of copying it, as a
+  hard-link backup does inside the same filesystem, gives the file a second
+  name. While that name exists, every writer boot of the graph is refused, in
+  any process and through either name, even with no writer live
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`),
+  and so is every read-only boot: an examiner cannot open a SQLite file that
+  has a hard-link backup
+  (`tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_reader_open_of_a_file_with_two_names_is_refused_by_name_through_either_name`).
+  Removing the backup's name ends the refusal.
+  Back a SQLite graph up with a copy SQLite writes itself instead: its online
+  backup API (`sqlite3.Connection.backup`) or `VACUUM INTO`. Either can run
+  while a writer is live, and the database file keeps one name
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name`).
+  Keep the database file out of any backup that hard-links.
+- **SQLite: do not move a live database file. Without a declared lock
+  directory the lease does not follow a rename, and `SEC-013` stays open on
+  it.** A database file moved to a new
+  name while a writer holds it still has one name, so option (B) does not
+  refuse it, and a writer booted through the new name in a second process is
+  not refused while the first is live
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file`).
+  SQLite leaves the live write-ahead log beside the old name, so the new name
+  does not see what the writer committed; once both names have been written
+  through and closed, what was committed through the old name is gone, and
+  SQLite's integrity check still reports `ok`
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_moved_live_file_leaves_its_write_ahead_log_behind_and_its_commits_are_lost`).
+  Stop every process that has the database file open before you move or
+  rename it: a file moved while no process has it open is one graph under
+  its new name, and its lease refuses a second writer as usual
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name`).
+  Option (C) (`D-IMPL-378`, 2026-10-08), the lock that follows the database
+  file when `writer_lease_lock_dir` is declared (above), refuses that second
+  writer among writers that declare the same directory; a deployment that
+  declares none keeps this gap, and `SEC-013` stays open.
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:
@@ -600,9 +741,13 @@ the store's own open-time setup, exactly as a writer boot's open does. Each
 store creates what it needs if it is absent: SQLite its database file, tables
 and indexes; Postgres its schema, tables and indexes; MongoDB and Neo4j their
 indexes; Fluree its ledger. Credentials that cannot perform that setup can fail
-a read-only boot when the store is opened. A read-only boot is not coordinated
-with the writer: it reads what the store returns at each read. Replay reads the
-recorded snapshot boundary, which an append-only graph does not move.
+a read-only boot when the store is opened. On SQLite, a database file with more
+than one name is refused before that setup, for a read-only boot as for a
+writer boot (P2 (b), D-IMPL-378, above): an examiner cannot open a SQLite file
+that has a hard-link backup until the link is removed. A read-only boot is not
+coordinated with the writer: it reads what the store returns at each read.
+Replay reads the recorded snapshot boundary, which an append-only graph does
+not move.
 
 ### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
 
@@ -744,7 +889,7 @@ reaches a class off the roster is refused by name, after the tenant check and
 | MCP `get_context`, `get_lineage` | the declared `entitled_product_class` |
 | MCP `invoke_agent` | the agent's `product_classes`, from your agent directory |
 | MCP `list_agents` | lists only the agents `invoke_agent` would dispatch |
-| MCP `get_replay_record` | the declared `replay_record_product_class` |
+| MCP `get_replay_record` | the declared `replay_record_product_class`; the tool then refuses every call (section 4.12) |
 | MCP egress product resource, product tool, addressed resource | the class in the call |
 | HTTP `GET /product/{tenant}/{product_class}/{version}` | the class in the path |
 | HTTP `GET /replay/decisions`, `GET /replay/resolutions` | `create_app`'s declared `replay_record_product_class` |
@@ -920,10 +1065,62 @@ Two behaviors follow from the design and are stated rather than changed:
   `issued_at`, and the retry reuses the door signature its prior attempt
   appended (an ES256 signature is not deterministic, and the index takes only
   an identical entry again), after verifying it.
-- Over the MCP-backed store, a names read that the server refuses for a
-  governed address reaches the door looking like an outage. The door refuses
-  `class-unverifiable` either way, so it fails closed, but the two causes are
-  not told apart.
+- Over the MCP-backed store, a names read that the server answers with its
+  refusal shell reaches the door as a typed refusal, never as an outage: the
+  client raises `ArtifactReadRefused`, carrying the shell
+  (`src/ccf/artifacts/protocol.py::ArtifactReadRefused`; decision 1 (A),
+  D-IMPL-378). The server refuses it for a governed address the door may not
+  read and for an address the door's tenant never filed (F1-1, D-IMPL-378).
+  An address nobody filed and a governed address that holds no record, a
+  query pin above all, get the same answer, the governed read's `nonexistent`
+  shell
+  (`tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike`).
+  The door refuses all of them `class-unverifiable` ("cannot verify"), with
+  the typed refusal as the cause
+  (`tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_of_the_typed_refusal`),
+  so it fails closed, but the causes are not told apart: over the MCP-backed
+  store an address the tenant never filed is refused `class-unverifiable`,
+  where the door in process refuses it `address-not-in-tenant`
+  (`tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome`).
+  A credential the server's guard does not authenticate (HTTP 401) is
+  neither that refusal nor an outage: every read of the client, and its
+  write, raises the typed authentication refusal
+  `ArtifactStoreUnauthenticated` instead
+  (`src/ccf/artifacts/protocol.py::ArtifactStoreUnauthenticated`; repair 2.5
+  (a) for the reads and decision 10 (b) for the write, D-IMPL-378;
+  `tests/mcp/test_auth_401_typed_through_the_client.py`,
+  `tests/mcp/test_auth_401_typed_on_a_write.py`), a third type beside the two
+  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`),
+  and the door refuses it `class-unverifiable` with that cause
+  (`tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_door_over_a_store_whose_credential_is_refused_refuses_class_unverifiable_with_the_typed_cause`).
+  The guard's other refusals, a credential without a required scope (HTTP
+  403) and the tenancy guard's denials, still reach a read as
+  `McpServerUnreachable`, an outage
+  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
+  A write meets the 403 the same way
+  (`tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`)
+  and the tenancy guard's denial as the server's decline, `ArtifactStoreError`
+  (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too`).
+  At the store layer, a write's 401 is raised as the typed refusal,
+  `ArtifactStoreUnauthenticated`, not as an outage
+  (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`),
+  and the peering admission gate lets it through by name rather than
+  reporting `AdmissionNotRecorded`
+  (`tests/peering/test_admission_record_write_401_is_the_typed_refusal.py`).
+  Whether a caller over HTTP can tell a rejected credential from an outage
+  depends on the door, and only the three below make that distinction.
+  The HTTP evidence doors, `GET /replay/decisions`, `GET /replay/resolutions`
+  and `GET /artifact/{content_address}`, answer the typed refusal `503` with
+  `error_code` `artifact-store-unauthenticated` and one constant message,
+  the same for every ask, while an outage of the store is still answered
+  with the framework's opaque `500 Internal Server Error` (decision 21 (a),
+  D-IMPL-378;
+  `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py`).
+  Only these three doors tell a rejected credential from an outage (D-IMPL-378,
+  ruled by Dave on 2026-10-09 at 20:23 MST): no other HTTP door catches the
+  typed refusal, and `POST /artifact`, measured, answers it and an outage with
+  the same `500`, filing nothing
+  (`tests/http_api/test_upload_door_answers_a_rejected_credential_and_an_outage_with_one_500.py::test_post_artifact_answers_a_rejected_store_credential_and_an_outage_with_one_500_and_files_nothing`).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
@@ -961,6 +1158,17 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   key, but `HITLTransportProtocol` does not declare it. A transport that
   satisfies the Protocol without the attribute is refused, by name, when the
   door is constructed; the reference `InMemoryHitlTransport` exposes it.
+- **A HITL transport can stall a gate and change the queue key the caller is
+  told; it cannot change the approval binding** (`D-IMPL-380`, fifth round;
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend` and
+  `::WorkflowEngine._restore_request`). A HITL transport is handed the
+  engine's own pending event, which is not copied. A transport that alters it
+  can change the `event_key` the caller is told in `WorkflowSuspended`, and,
+  because resume looks for the key it recomputes (`_event_key`) among the
+  events the transport holds, a transport that alters the key can keep the
+  gate from ever opening, and each recovery queues another request. Nothing is
+  wrongly approved: the approval binding, the hash of the suspension record as
+  built, does not change.
 - **The index assumes a filesystem whose `flock` and `O_APPEND` work.**
   Appends are serialized by an exclusive `flock` on the index file and
   written with `O_APPEND`. On a multi-host shared filesystem where `flock`
@@ -992,8 +1200,9 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   does, and a store that cannot say who filed an address is refused by name
   (`runtime/ccf_runtime/authz/delivery_boundary.py::UnattributableDeliveryBoundaryError`).
   Within a tenant nothing changes: the
-  owner reads its own record, and another principal's genuine record answers
-  `unauthorized` at `full`. So a tenant's blob, presence and names answers,
+  owner reads its own record where owner read-back is open for it (section
+  4.12), and another principal's genuine record answers `unauthorized` at
+  `full`. So a tenant's blob, presence and names answers,
   and its erasure door over the MCP-backed store, do not depend on whether
   any other tenant filed the same bytes, under any class. Two properties of
   the store keep that attribution sound. A name is filed only together with
@@ -1015,35 +1224,134 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   tenant A erases an address that tenant B also filed, B's tenant-scoped reads
   still serve it and every tenantless read of it withholds it, with the
   reason redacted.
-- **The MCP client lane is not a governed read (forged-record review,
-  D-IMPL-376).** The artifact server serves a tenant's own client-lane filings
-  to every principal of that tenant as the exact stored bytes, whatever their
-  shape (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`).
-  Bytes a principal files on its tenant's client lane, shaped as another
-  principal's Decision Replay record, therefore cross the MCP blob and
-  presence resources to that tenant's principals — as a client-lane artifact,
-  and the answer does not say which lane served it. They never cross a
-  governed read: the HTTP evidence routes and the artifact server's governed
-  reads answer them as a missing address. Treat a record as evidence only
-  when a governed read returned it.
-- **A read-refusal record is attributed to the door's tenant (forged-record
-  re-review, D-IMPL-376).** The governed read records each refusal through the
-  recorder of the door that refused it, and the record names the door's
-  tenant whichever tenant the refused caller's capability named
-  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`); the
-  tenant hold attributes the record to that tenant, and the product-grant
-  hold does not apply to read refusals. On a door that serves several
-  tenants through one recorder, as the MCP artifact server is built, a
-  principal holding a capability for the door's tenant reads the read-refusal
-  records of a principal of another tenant that has the same client id, and
-  learns which reference that principal asked for: an address or a URI, never
-  any content. The refused principal reads them back only through a
-  capability for the door's tenant. Keep client ids distinct across tenants
-  that share a door, or give each tenant its own door and recorder.
+- **Record-shaped bytes on the MCP client lane answer as a missing address
+  (forged-record review, D-IMPL-376; client-lane ruling, D-IMPL-378).** The
+  artifact server serves a tenant's own client-lane filings to every principal
+  of that tenant as the exact stored bytes
+  (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`), and
+  the answer does not say which lane served it. It serves them only while
+  they hash to their address: bytes altered under it answer as a missing
+  address, decided by the governed read (Dave's E1 (a), D-IMPL-378;
+  `tests/replay/test_record_content_address_integrity.py::test_the_artifact_servers_client_lane_never_serves_bytes_altered_under_their_address`).
+  It does not serve bytes that validate as a Decision Replay record that way
+  either. "Validate" means
+  `DecisionReplayRecord.model_validate_json`, the parse the replay engine
+  (`src/ccf/replay/engine.py::resolve_artifact`) and every SDK reader of a
+  record make. The governed read decides those bytes, and on the blob and
+  presence resources it answers bytes a principal filed on its tenant's
+  client lane exactly as a missing address. Read through the MCP-backed store
+  (`src/ccf/artifacts/mcp_store.py::McpArtifactStore`) they are absent, so
+  the replay engine, `replay_refusal` and child admission do not take them as
+  a record when they read through it. Two things are not refused. The write
+  is not: the bytes are stored, and the names resource lists the tenant's own
+  filing under its stored class. Bytes the validator refuses, one key away
+  from a record included, are served as client artifacts. Read in process —
+  a store handed to the SDK directly — the same filing is refused too
+  (D-IMPL-378): `resolve_artifact`, `resolve_artifact_at_uri`, `replay`,
+  `replay_refusal`, child admission and `OpenedProduct.record_of` accept a
+  record only where the store's naming shows the fabric's record writer
+  filed it, under a class its `WriteKinds` declares under `ReplayMint`, under
+  the tenant the record names
+  (`src/ccf/replay/provenance.py::require_filed_by_record_writer`); the
+  replay engine answers anything else as a missing record,
+  `ReplayUnresolvable`; child admission and `record_of` raise
+  `RecordNotFiledByRecordWriter`, an `ArtifactNotFound`; a store that cannot
+  say who filed an address is refused by name
+  (`src/ccf/replay/provenance.py::UnattributableRecordStore`). Treat a record as
+  evidence only when a governed read returned it. The erasure door applies
+  record retention, the `replay-input` refusal, only to a record the fabric's
+  record writer filed under the requesting tenant, decided by the same
+  provenance check (`src/ccf/replay/provenance.py::filed_by_record_writer`;
+  D-IMPL-378). It judges the subject and that rule from the bytes at each
+  requested address only after re-hashing them against the address: bytes
+  altered under it are refused `subject-unverifiable`, and no approval starts
+  (Dave's E1 (a), D-IMPL-378;
+  `tests/replay/test_record_content_address_integrity.py::test_the_erasure_door_refuses_to_judge_a_record_from_bytes_altered_under_its_address`).
+  A door over the store in process reads such a filing directly
+  and erases it like any client artifact, even with the subject in a
+  replay-input field; a record the writer filed, with the subject in the same
+  field, is still refused `replay-input`. A store that cannot say who filed an
+  address is refused `class-unverifiable` rather than judged on the bytes' own
+  word: one that declares no `WriteKinds`, for an address whose subject is in
+  a replay-input field, and an erasure-consulting composition over a store
+  that answers no `names_at`, for any address
+  (`tests/erasure/test_replay_input_retention_provenance.py`). An erasure door
+  built over the MCP-backed store cannot read such a filing's bytes, and does
+  not need them (D3b, D-IMPL-378): where the blob resource answers a requested
+  address as absent, the door asks the artifact server's
+  `match_artifact_subject` tool, which judges the bytes where they are with
+  the in-process door's own judgment
+  (`src/ccf/erasure/subject_match.py::judge_subject`) and answers one verdict,
+  never the bytes. Measured: a request naming such a filing reaches the
+  in-process door's outcome (admitted, or `subject-not-found`), and no message
+  of the exchange, in either direction, carries the document
+  (`tests/mcp/test_erasure_subject_match.py`). The tool answers the erasure
+  door of the caller's tenant alone, decided before the substrate is read: the
+  deployment must grant `artifact.subject.match` by name to the door's MCP
+  credential; the caller's tenant must have an `ErasureAuthority` in the
+  server's `ErasureTrust`; and the query, rebuilt under the caller's tenant,
+  must carry a signature by that authority's declared door key, made for this
+  purpose (`src/ccf/erasure/subject_match.py::verify_subject_match_query`).
+  Every other caller gets one constant refusal — measured for a caller with no
+  identity, another tenant's bearer, this tenant's reader without the grant,
+  and a principal holding the grant but not the door key: the same bytes
+  whether the address exists, whether the filing is record-shaped, whether the
+  subject matches, and no read of the substrate. The tool judges only an
+  address the caller's tenant filed on its client lane: governed evidence and
+  addresses the tenant never filed answer `subject-unverifiable` without a
+  byte read. Not closed by this: the door key is the trust root here as for
+  the door's records, so a party holding it and a credential granted
+  `artifact.subject.match` can ask about any of that tenant's client-lane
+  addresses, as the door does; over the MCP-backed store a record the fabric's
+  record writer filed is still refused `class-unverifiable` before any
+  subject match (in process: `replay-input`); and the erasure claim this
+  bullet qualifies (SEC-009) stays open until the final panel verifies it.
+- **A read-refusal record names who asked; one minted before its marker
+  reads as missing for everyone, its owner included (forged-record re-review,
+  D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
+  the recorder of the door that refused it. The record names the tenant the
+  refused capability was verified for, beside its principal, and carries a
+  marker saying so (`src/ccf/products/refusal.py::ResourceRequestIdentity`,
+  member `tenant_from`) that only the governed read writes
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`), so
+  the tenant and principal holds bind a later reader to that pair. On a door
+  that serves several tenants through one recorder, as the MCP artifact server
+  is built, a principal holding a capability for the door's tenant with the
+  same client id as another tenant's refused principal gets that principal's
+  read-refusal record answered exactly as a missing address is — measured at
+  the MCP blob and presence resources and at HTTP `/replay/decisions`,
+  `/replay/resolutions` and `/artifact`
+  (`tests/mcp/test_read_refusal_attribution_mcp.py`,
+  `tests/http_api/test_read_refusal_attribution_http.py`). The refused
+  principal cannot read its record back through that door either: the record
+  is decided under its tenant and filed under the recorder's, and the governed
+  read serves a record only where it is filed under the tenant it was decided
+  under. **Owner read-back of a read-refusal record minted before the marker
+  is lost.** Such a record named the door's tenant whichever tenant asked and
+  is byte-for-byte a legitimate record of the door's own principal, so the
+  governed read answers every read-refusal record without the marker exactly
+  as a missing address, for every caller — measured for the principal it
+  names and another tenant's principal with the same client id at both doors,
+  and for another principal of the door's tenant at the MCP door. The records
+  are not rewritten: they stay in the store and still reconstruct at their own
+  addresses through `replay_refusal` (the replay case in
+  `tests/mcp/test_read_refusal_attribution_mcp.py`); read them from the store,
+  not through a door. The marker counts only on a record the provenance check proved the
+  fabric's record writer filed: a marked read-refusal record filed on another
+  tenant's client lane or on the tenant's own answers as a missing address at
+  both doors and to the governed read called in process (same test modules).
+  The disclosure level a governed read is held to and the level a refusal
+  shell is disclosed at are each read for the caller's tenant and principal
+  together, never for a principal of the door's tenant with the same client id
+  (`tests/mcp/test_read_refusal_attribution_mcp.py`,
+  `tests/http_api/test_read_refusal_attribution_http.py`); so is the level
+  that picks the Experience door's answer to an erasure — measured on
+  `get_context` (`tests/mcp/test_experience_level_binds_the_tenant.py`).
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the
-  `get_context`, `get_lineage` and `get_replay_record` seams (FW-3). It maps
+  `get_context` and `get_lineage` seams (FW-3); `get_replay_record` refuses
+  every call before its seam (section 4.12). It maps
   one raised by the deployment's own agent invoker (`invoke_agent`) or agent
   directory (`list_agents`) at `minimal` only: a `minimal` caller of either
   tool gets the opaque `ccf-runtime-failure:<id>`, and the door records
@@ -1123,68 +1431,780 @@ before the call's declared acquisition seam ran
 **What that makes equal, as measured.** On the paved road's test fixture, a
 withheld subject's served product, every member of it, and its refusal shell,
 every member except `replay_reference`, matched a nonexistent subject's on both
-TTL anchors. That is a measurement, not a proof. The fixture meets four
+TTL anchors. That is a measurement, not a proof. The fixture meets three
 conditions, and the list below includes a measured break of each: your
 `acquire` is keyed on the subject, so an identifier it does not hold acquires
 nothing; the fabric is booted for the question, as the paved road boots one
-per question; the product class composes no child about the subject; and no
-similarity operator in the plan scores an entity the acquisition refreshed.
+per question; and the product class composes no child about the subject.
 The test is
 `tests/products/test_withheld_is_indistinguishable_from_absent.py::test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject`.
+
+**Similarity over an entity the acquisition refreshed (D-IMPL-378).** The
+plan run for a withheld subject now scores with an operator registry built
+from that same read before acquisition, so a similarity operator matches the
+subject's text as it stood before acquisition. On a test fabric that already
+held the subject, an acquisition keyed on the subject that changed its
+similarity text to the query used to make the two products differ at the empty
+finding and the debt. With the change they matched on both TTL anchors: every
+member of the served product, and the refusal shell except `replay_reference`.
+A subject the projection does not withhold is still matched against the text
+its own acquisition wrote. The test is
+`tests/products/test_withheld_similarity_registry.py`. This follows the rule
+the walk already follows, so it shares that rule's limit: with an acquisition
+not keyed on the subject left inside your `acquire` (below), a nonexistent
+subject's question is matched against the text the acquisition wrote and the
+withheld rendering is not. On that test fabric with such an acquisition, the
+two products differed at the empty finding and the debt under `from_decision`,
+and under `from_entity_freshness` the withheld subject was refused
+`ttl-anchor-refusal` while the nonexistent one was served. Before the change,
+the same shape differed at the debt and the expiry, with both served. With the
+same read declared as the population phase, or with the withhold decided early
+(both below), the two products matched on both anchors:
+`tests/products/test_withheld_similarity_registry.py::test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity`.
+
+**Population reads, composites and question fabrics (D-IMPL-378, Q7 to
+Q10).** The governed call now enforces four of Dave's rulings
+(`src/ccf/products/resolver.py::GovernedResolver`). Each was measured on test
+fixtures, in
+`tests/products/test_withheld_subject_population_composite_and_fabric.py`
+unless another test is named.
+
+- **One question per fabric that acquires (Q9).** When an acquisition phase is
+  declared, the fabric must be booted for its question:
+  `load_and_boot(..., for_question=True)` or
+  `load_config_and_boot(..., for_question=True)`, onto a store path that does
+  not exist yet. A path that exists is refused at boot
+  (`QuestionFabricNotFresh`). Under P4 (a), which Dave ruled on 2026-10-08,
+  the boot then reserves the path for itself alone: it creates the question
+  marker beside the path exclusively, before the store exists, so a second
+  boot for a question at a path another boot holds, and a store that appeared
+  at the path after the check, are refused by the same name
+  (`tests/products/test_unmarked_and_unverifiable_question_stores.py`, which
+  measures every P4 (a) refusal in this bullet). Under P4s-A (b), which Dave
+  ruled on 2026-10-08 at 16:40 MST, the store the adapter opened is then read
+  once through the governed reader, at the latest instant a timestamp can
+  name, after the boot takes its writer lease and before the fabric is handed
+  back. A store holding anything for the tenant is refused
+  (`QuestionStoreNotEmpty`), before any acquisition phase runs, with the same
+  refusal whatever the question asks. A boot for a question that is also
+  read-only would hold no writer lease, so it is refused before anything is
+  registered (`QuestionFabricNotExclusive`). From the read to the question's
+  end, a second boot for a question at the path, another writer boot of the
+  path and a read-only boot asked a governed question are each refused by
+  name, in this process and from another process, and so is a second governed
+  call over the question's fabric
+  (`tests/products/test_question_store_empty_at_boot_and_held_through_use.py`,
+  which measures the order too). A store whose settings name
+  no path, a network graph store and also the in-memory development store
+  although each boot of that one is new, cannot be shown fresh: a boot for a
+  question over it is refused (`QuestionFabricNotFresh`, measured for every
+  shipped adapter by lane probe `probe_per_adapter.py`, not by a test in this
+  tree), and an acquisition or population phase composed over it is refused
+  when the resolver is constructed (measured over the in-memory store), as is
+  the paved road over such a substrate when it is opened (measured over the
+  in-memory store and a network adapter, before anything connects), so before
+  any question runs (`AcquisitionOverUnverifiableStore`). Over a store with a
+  path, just before its first acquisition phase the call refuses a fabric not
+  booted for its question (`AcquisitionNeedsAQuestionFabric`) and claims the
+  fabric for its question. Every governed call over a fabric booted for its
+  question claims it, with an acquisition phase or without one, so a second
+  question on that fabric, after the first or at the same time, is refused
+  (`AcquiredFabricReused`) before anything is read or fetched for it (a
+  second call with no acquisition phase is measured in
+  `tests/products/test_withheld_subject_child_arguments_and_question_stores.py`).
+  A question's store booted again is refused for every governed call, and so
+  is a store that existed with no marker beside it (see "A question's store
+  the markers do not reach" below). The paved road already booted a new
+  fabric for each question; it now declares it.
+- **A population read as its own phase (Q7).** A read that fetches the same
+  content whatever is asked is declared as the population phase:
+  `open_product(..., population=...)` on the paved road, or
+  `GovernedResolver(population_acquisition=...)` by hand. It runs once per
+  question, first, and is handed no subject: a `PopulationAcquisitionContext`
+  on the paved road and a `PopulationQuestion` by hand. A walk of every object
+  reachable from what it is handed found no trace of the asked identifier.
+  Then the fabric is read (the state a withheld subject is rendered from), and
+  then your ordinary `acquire` runs once, with the asked subject. Two phases on
+  one object, or either phase holding the other or the object the other is
+  bound to, are refused at construction and at open
+  (`PopulationPhaseSharesAnOwner`). The check walks what each phase holds
+  (`D-IMPL-378` decision 3 (a)): the object a method is bound to and its
+  function; a function's closure cells, default arguments and attributes; an
+  object's declared slots and instance attributes; the members of a list,
+  tuple, set or frozenset and the keys and values of a dictionary. It follows
+  at most `src/ccf/products/resolver.py::SHARED_OWNER_WALK_DEPTH` (12)
+  references in a row, reads at most
+  `src/ccf/products/resolver.py::SHARED_OWNER_WALK_OBJECTS` (5,000) references
+  from each phase, and calls nothing your objects define. A declared slot
+  never assigned and an empty closure cell hold nothing, and the walk reads
+  them so
+  (`tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing`,
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing`).
+  Where reading what an object holds raises otherwise, such as another
+  class's member descriptor in a slotted class's namespace, the walk cannot
+  complete, and the two phases are refused rather than admitted
+  (`SharedOwnerWalkIncomplete`, a `PopulationPhaseSharesAnOwner`;
+  `D-IMPL-378` repair 1.8;
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`).
+  What it cannot
+  detect: anything past either bound; state the two phases share through a
+  third object, such as a common dictionary; state reached only through a
+  property, another descriptor, `__getattr__` or `__getattribute__`, or held
+  by a class that replaces `__dict__`; what a C-extension object keeps in its
+  own fields, which the walk does not read: a `functools.partial`'s
+  arguments, a `collections.deque`'s members, a `types.MappingProxyType`'s
+  mapping, a generator's frame, an `operator.methodcaller`'s arguments, and a
+  closure cell's contents where the cell is held anywhere but in a function's
+  closure; module globals and class attributes; and anything reached only
+  through a weak reference or an external store. Each limit is asserted as
+  the documented behavior in
+  `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_state_the_walk_does_not_read_is_not_seen`,
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_limit_a_holder_the_walk_does_not_read_is_not_seen`
+  and the tests beside them. The walk also reads the SDK's own state a phase
+  holds, which grows as a service runs. On the paved road each question's
+  walk reads the L2 worker, the Control Plane registry and the registry's
+  audit log, which gains events at every question, so after a few questions
+  of one opened product the walk needs more than its reference bound, is cut
+  off, and admits the two phases: what lies past the cut-off is not checked.
+  A resolver you build whose population phase holds its fabric reads the same
+  state: a holding of the other phase's object that the walk reached and
+  refused on a fresh registry was admitted once resolvers built against that
+  registry had grown its audit log. So, as built (`D-IMPL-378` decision 3
+  (a); repair 2.4 is not built), the guard's coverage shrinks as a service
+  runs (both measured in
+  `tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py`).
+  So keep the population phase free of anything the other phase writes.
+  Declared this way, a population source and a hybrid source each matched a
+  nonexistent subject's answer on both anchors.
+  A declared parameter that itself names an entity still reaches the
+  population phase.
+- **An early decision, before anything is fetched (Q8).** A plan factory may
+  declare a `SubjectDisclosurePolicy` through `subject_disclosure()`: the
+  subjects each principal or role is not told about, and an identifier that
+  names nothing, to ask in their place. The decision reads only the asked
+  identifier, the principal's identity and role, and that declaration, and it
+  was the same for a subject the source holds and one it does not. For a
+  subject not disclosed, your ordinary `acquire`, the composite's children and
+  the walk are asked about that stand-in instead (the population phase is
+  never handed a subject), and the product is computed once, along the path a
+  nonexistent subject's question takes. Your projection must withhold the same
+  subjects; if it answers one, the call raises `UndisclosedSubjectAnswered`
+  before the decision is recorded or served. A class that composes children
+  withholds only this way. Construction refuses a composite whose plan
+  factory's `subject_disclosure()` returns no policy
+  (`CompositeNeedsAnEarlyPolicy`), and an early policy over a child resolver
+  that is never handed the request (`EarlyPolicyNeedsRequestAwareChildren`).
+  It also refuses a composite that declares no stance at all, neither an
+  early policy nor `subject_withholding: never` on its class
+  (`CompositeNeedsAWithholdingStance`, measured by
+  `tests/products/test_sec020_p2c_composite_stance.py`): Dave's ruling P2 (c),
+  2026-10-08. Since his E2 (ii) (d), later that day, `never` is a stance only
+  over a plan factory that positively declares it never withholds (the bullet
+  on the record behind an answer, below).
+  With the early policy, a withheld composite matched a nonexistent subject's
+  on both child anchors. That the stand-in names nothing is checked, not
+  assumed (Dave's decision 4 (a), `D-IMPL-378`, 2026-10-09). For every
+  question of a class with an early policy, whatever the policy decides for
+  the asked subject: the graph read before your subject-keyed acquisition must
+  not name the stand-in (an entity, or a relationship end); your acquisition
+  is asked about `UNHELD_SUBJECT_PROBE` and then about the stand-in, and must
+  acquire nothing for the stand-in that it does not acquire for the probe
+  identifier; and the graph the plan reads must not name it. A failed check
+  refuses the question as `UndisclosedSubjectSubstituteIsHeld`, with one message
+  whatever was asked, before your acquisition is handed the question (the
+  check after acquisition: before anything is computed or recorded). On test
+  fixtures, a source holding the stand-in under its own URI or under another,
+  or a population phase writing it, was refused alike for a withheld subject,
+  two nonexistent ones and a served one, and the withheld and nonexistent
+  answers did not differ by the closing test's rules at any door
+  (`tests/products/test_sec020_stand_in_is_verified_absent.py`); before the
+  check, a source holding the stand-in told them apart, at the empty finding
+  and the debt under `from_decision` and by the refusal kind under
+  `from_entity_freshness`. What the two calls leave is compared as entities,
+  relationships and claim values, with each lineage entry's source and passage
+  anchor; the envelope id and the receipt instant a delivery carries are set
+  aside (Dave's repair 1.3, `D-IMPL-378`, 2026-10-09). So a read that acquires
+  the same content whatever is asked is not refused, also when your adapter
+  gives each delivery its own envelope id or receipt instant, while a claim
+  value, a relationship, a source or a passage anchor that only the stand-in's
+  call brings is still refused, for every question alike
+  (`tests/products/test_sec020_stand_in_delivery_lineage.py`; on that fixture
+  an envelope id reached neither an answer nor any artifact in the
+  deployment's store, only the question's own graph store). It costs two more
+  calls to your acquisition and two more graph
+  reads per question of such a class (measured on the paved road's test
+  fixture: three calls and five reads, against one and three for a class
+  affirming `never`). Not detected: a source that recognizes the stand-in and
+  answers nothing for it while it answers other identifiers it does not hold
+  with content, and what a composite's children's sources hold for it; and
+  the check after acquisition reads what the question's own acquisition wrote,
+  so a source that writes the stand-in for some subjects only is refused for
+  those questions only. Declare a stand-in that nothing in your deployment
+  holds. For every question of a class with an early policy, a refusal your
+  subject-keyed acquisition raises (a `GovernedRefusalRaised`, whatever it
+  carries, or a type your class or the SDK declares at the seam) is served and
+  recorded as one constant, `EARLY_POLICY_ACQUISITION_REFUSAL`:
+  `subject-unavailable`, cause `undisclosed`, no code, and one SDK sentence
+  (Dave's 2.2 (a), `D-IMPL-378`, 2026-10-09). Before it, a source answering
+  "no record for" the identifier it was asked put the stand-in's identifier in
+  the withheld subject's answer and record, and a source could choose a
+  refusal's code, cause or kind by what it was asked. On test fixtures the
+  withheld and nonexistent refusals now differ, in process, only at the hash of
+  each caller's own question, and the closing test's own rules find no other
+  difference at any door
+  (`tests/products/test_sec020_early_policy_acquisition_refusal.py`). Neither
+  the answer nor the record keeps your source's own text, code, cause or kind
+  for such a refusal; a declared population phase's refusal is kept as your
+  source stated it.
+- **Each phase once for the question, and one computation (Q10, as
+  amended).** Each declared phase runs once per question for the question
+  itself. Before that call, a class that may withhold and declares no early
+  policy asks your subject-keyed acquisition once more, about
+  `UNHELD_SUBJECT_PROBE` (ruling P6 (a)), and a class with an early policy asks
+  it twice more, about `UNHELD_SUBJECT_PROBE` and then its stand-in (decision
+  4 (a)); a class affirming `never` asks it nothing more. On the paved road's
+  test fixture that is three calls and five graph reads per question with an
+  early policy, two and four with the probe, and one and three for `never`
+  (the early sequence is pinned by
+  `tests/products/test_withheld_subject_population_composite_and_fabric.py::test_q10_each_phase_is_called_once_and_the_stand_in_replaces_the_subject`).
+  Under the early decision the stand-in replaces the
+  subject; the subject is never fetched as well. The product is computed once
+  on that path, counted at the projection, including when the fabric already
+  held the withheld subject, and the decision replays to its own address. The
+  record keeps the caller's question and names the stand-in the walk started
+  from (`ContentGenerationPath.executed_seeds`, absent from every other
+  record), so anyone who can read the record can tell the subject was not
+  disclosed (see "The record behind it" below). A withhold decided inside the
+  projection of a class with no children still re-runs the plan as described
+  above (`D-IMPL-371`, `D-IMPL-376`).
+
+**Migrating a composition you build by hand (Q9).** If you construct
+`GovernedResolver` yourself with an acquisition phase, boot a new fabric for
+every question with `for_question=True` onto a store path that does not exist
+yet, ask it one question, and close it, as the paved road does. A composition
+that asks one long-lived fabric several questions now raises
+`AcquisitionNeedsAQuestionFabric` at its first question. State
+`population_acquisition=None` where you construct `GovernedResolver` directly;
+`build_governed_resolver` and the paved road default it. A composition with no
+acquisition phase is unaffected by Q9 alone. Under P4 (a), a fabric booted for
+its question answers one governed call even with no acquisition phase, and a
+question's store booted again answers none: a composition that asked one
+question fabric several questions with no acquisition phase now raises
+`AcquiredFabricReused` at the second (lane probe
+`probe_question_fabric_two_plain_calls.py`). A composition over a store whose
+connection names no path raises `AcquisitionOverUnverifiableStore` when it is
+constructed if it declares an acquisition or population phase; without one it
+serves as before (lane probe `probe_pathless_serves_without_acquisition.py`).
+Every boot through a deployment door that creates its store at a path leaves a
+marker beside it (`<resolved path>.ccf-deployment-store`, or the question
+marker), so delete or copy a store together with its marker. A store created
+before this change, or outside the doors, still boots, and every governed call
+over it is refused (`UnmarkedStoreNotPresumedFresh`, or
+`AcquisitionNeedsAQuestionFabric` with an acquisition phase) until it is
+recreated through a door. Boot a question's fabric as a writer:
+`for_question=True` with `read_only=True` raises `QuestionFabricNotExclusive`.
+To read a question's store back for replay, boot it read-only and not for a
+question; a record served over a fresh question store still replays to its
+own address that way (P4s-A (b)).
+
+**When a boot is refused over its deployment marker (`D-IMPL-378` repairs 1.1
+and 1.2).** A plain boot through a deployment door that creates its store at a
+path first creates the deployment marker beside it
+(`<resolved path>.ccf-deployment-store`) reading `state: pending`, with a third
+line naming the boot (`boot: <token>`), and rewrites it to read
+`state: verified` only once its one read has found the store empty for its
+tenant. A boot that fails anywhere after creating the marker removes it, and a
+boot killed before its read completed leaves it reading `pending`. Every plain
+boot whose store's directory exists, read-only included, holds
+`<resolved path>.ccf-store-creation.lock`, an
+exclusive `flock`, from its look at the path until it hands the fabric back,
+so no two boots of the path create or verify its store at once. A boot that
+finds the lock held is never left waiting without bound (`D-IMPL-378`
+decision 19 (b), ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's
+recommendation: *"Wait a bounded time, then refuse by name. An unbounded wait
+is not a lock."*). It is refused by name, `DeploymentStoreNotVerified` with
+reason `lock-held`, naming the lock, and no store and no marker is created
+at the path (the lock file itself is created when the boot opens it):
+at once, unless the deployment declares `store_creation_lock_wait_seconds`, a
+positive whole number of seconds, in its manifest or its `ccf_config.yaml`
+(question 2, option (a), adopted by Dave at 17:53 MST); the SDK supplies no
+value. With one declared, the boot first waits up to that long for the holder
+to let go
+(`tests/products/test_deployment_store_creation_lock_bounded.py`), and a boot
+that gets the lock within it reopens the store the first boot verified,
+reading nothing (measured across two processes, with a wait declared,
+`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`).
+A deployment whose boots of one store can overlap, several workers starting
+together for example, declares a wait; without one, a boot that meets another
+boot's creation is refused and must be booted again.
+A boot whose store's directory does not exist takes no lock and creates
+nothing there, not even the directory: it is left to the adapter, and the
+SDK's SQLite adapter refuses it with SQLite's own error
+(`sqlite3.OperationalError`), so there is nothing to serialize
+(`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`).
+Which stale markers a boot verifies again by itself, and which it refuses:
+
+- **Verified again, with no operator step: a deployment marker of any state
+  with no store beside it, that the boot can read.** That covers `pending` from
+  a boot killed before its store existed, `verified` with its store deleted or
+  moved, a marker written before repair 1.1 (one line, no state), text the SDK
+  does not write, and a symbolic link. One the boot cannot read is refused
+  instead (below). The boot is creating a new store there, so, holding the
+  lock, it replaces that marker with its own (`pending`), reads the new store
+  once and marks it verified, exactly as at a fresh path
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified`).
+  A store planted at the path before the boot opens it is refused by that read
+  (`DeploymentStoreNotEmpty`) and the boot's marker removed
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_store_planted_after_the_look_beside_a_stale_marker_is_refused_by_the_read_and_the_marker_removed`),
+  and of two boots racing there under a declared wait, one creates and
+  verifies the store and the other waits and reopens it
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_store_they_did_not_verify`).
+  The lock is what makes the replacement safe: every boot that creates or
+  verifies a marker holds it until it has handed its fabric back or removed
+  its own marker, so the marker a boot finds there belongs to no boot still
+  running.
+- **Refused until an operator resolves it**, with
+  `DeploymentStoreNotVerified`, which names the marker and its `reason` and
+  leaves the marker as it is: a marker beside
+  an existing store that reads `pending`
+  (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
+  or is `unreadable`, which includes the one-line marker written before repair
+  1.1 (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for_an_operator`);
+  with no store beside it, a marker the boot cannot read (a file it has no
+  permission to open), also `unreadable`, whether left untouched or rewritten
+  in place after the boot looked: its bytes cannot be compared, so the boot
+  does not replace it (P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*; the option's text, from lane
+  `378j-bootlock`'s final report: *"Refuse it `unreadable` before replacing
+  it."*; `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left`);
+  with or without a store beside it, anything at the marker's path that is
+  neither a regular file nor a symbolic link (a FIFO, a socket, a device, a
+  directory), also `unreadable`: its type is checked from `lstat` before any
+  open and it is not replaced. The `lstat` narrows, and does not close, one
+  race: a special file swapped in for a regular one between the `lstat` and
+  the open is opened, without blocking and without following a link, and then
+  refused from its descriptor's type (`D-IMPL-380` ruling 3, Dave, 2026-10-10
+  05:34 MST, and the second round's ruling 1 (a), 07:39 MST;
+  `tests/products/test_deployment_marker_special_file_refused.py`);
+  a marker that appeared at a fresh path while the boot held the lock
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`),
+  or a stale marker replaced by another file, or rewritten with other bytes,
+  between the boot's look and its replacement of it
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left`,
+  `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_claimed_and_left`), `claimed`;
+  and a store-creation lock that cannot be taken, `lock-unavailable`
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`).
+  Each of these is refused at the boot's look, before the boot creates a store
+  or a marker. A `claimed` refusal can also come later, after the boot has
+  created its store and read it empty: the marker the boot created was
+  replaced by another file, or rewritten in place, before the boot could mark
+  it verified. The boot then closes that store and leaves it where it stands,
+  beside the foreign marker, and every later boot of the path meets that
+  marker beside a store. Measured with a marker whose text the SDK does not
+  write, each later boot, writer or read-only, is refused `unreadable` and
+  changes nothing there
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses`).
+  The SDK never clears a marker that stands beside a store. A stale marker's
+  bytes, or a symbolic link's target, read at the boot's look, are compared
+  again immediately before the boot replaces it (`D-IMPL-378` decision 17 (b),
+  ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's recommendation:
+  *"(b) Compare the marker’s bytes."*). So a stale marker rewritten in place
+  with other bytes is refused `claimed` and left, and so is one deleted and
+  created again with other bytes under the same inode number (lane
+  `378j-bootlock`'s probe `probe_recreated_same_inode.py`, for a regular file
+  and a symbolic link, where the filesystem reused the inode). What remains: a
+  change made after that comparison and before the rename; a rewrite to
+  identical bytes, which changes nothing a boot reads
+  (`tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified`).
+  In each, the boot replaces the marker like any stale one and verifies the
+  new store itself, so it serves nothing it did not read, but it does not
+  report that something outside the SDK wrote there. A marker whose bytes the
+  boot cannot read is not replaced at all: it is refused `unreadable` (above).
+  A marker longer than the longest marker the SDK writes, with or without a
+  store beside it, is refused `oversized`: the boot reads at most one byte
+  past that length and neither compares nor replaces the file (`D-IMPL-380`
+  ruling 4 (a), Dave, 2026-10-10 05:34 MST;
+  `tests/products/test_deployment_marker_oversized_refused.py`).
+- **Refused with nothing to resolve unless the holder has stopped or hung: a
+  store-creation lock another holds**, `lock-held`, at once or after the
+  declared wait
+  (`tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_that_finds_the_lock_held_and_no_wait_declared_is_refused_at_once_by_name`,
+  `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_with_a_declared_wait_waits_that_long_for_a_held_lock_then_is_refused_by_name`).
+  Nothing is created at the path and the marker is not touched; a later boot
+  proceeds once the holder lets go.
+
+To resolve a refusal:
+
+1. Make sure no process is booting or serving the store. `fuser` or `lsof` on
+   `<resolved path>.ccf-store-creation.lock` shows a boot in progress, and on
+   the SQLite writer lease `<resolved path>.ccf-writer.lock` a writer's open
+   fabric, but neither shows a read-only fabric: one that is open and reading
+   holds neither lock. So run them on the store file itself too, `<path>`,
+   and on its `<path>-wal` and `<path>-shm` files: an open fabric, read-only
+   or not, holds its store file open until it is handed back
+   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open`).
+   Change nothing while any of them shows a holder.
+2. Read the marker. `pending` (the boot that created it never finished its
+   read), `unreadable` (one line and no `state:`, text the SDK does not
+   write, or a file the deployment's user cannot read) and `claimed` (a marker
+   that appeared, or was replaced by another
+   file or rewritten, while a boot held the lock; find what writes into the
+   store's directory first) all mean that
+   nothing shows the store beside it was read. Move the store (`<path>`,
+   `<path>-wal`, `<path>-shm`) aside, with the marker if you want to keep it
+   as evidence, and boot again: with no store beside it, any marker the boot
+   can read is replaced, and the boot creates a new store, reads it once and
+   marks it verified. One it cannot read is refused again until you remove it
+   or make it readable. Then write the deployment's data into it again through its
+   writer.
+3. `lock-unavailable`: make `<resolved path>.ccf-store-creation.lock` a regular
+   file the deployment's user can open and lock, on a local filesystem whose
+   `flock` works. The store and its marker are untouched.
+4. `lock-held`: another holds `<resolved path>.ccf-store-creation.lock`. A boot
+   in progress lets go when it hands its fabric back or fails; boot again
+   then. If `fuser` or `lsof` on the lock file shows a process that has
+   stopped or hung, end that process; its lock goes with it. Never delete the
+   lock file while a process holds it: the next boot creates a new one and
+   runs beside that holder (lane `378j-bootlock`'s probe
+   `probe_lock_file_removed_while_held.py`). The store and its marker are
+   untouched.
+
+Never write or edit a deployment marker by hand: a marker an operator writes
+vouches for a store nobody read, which is what the refusal exists to prevent.
+A marker binds to its store by path, beside it rather than inside it, so it
+does not stand against an actor who can write into the store's directory
+(below).
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
 
-- **The answer's replay reference.** Every answer names its decision record:
-  `ServedProduct.replay_ref`, the MCP egress door's `replay_ref`, the HTTP
-  product route's `X-CCF-Replay-Ref` header, and a refusal's
-  `replay_reference`. The record is filed under its graph snapshot id, a hash
-  of what the plan actually read together with the tenant and the question's
-  instant (`src/ccf/replay/serve.py::ReplayWriter`). When the plan's walk
-  reaches the subject's acquired records, as a class-seeded plan on the paved
-  road does, the withheld answer's reference carried a different record name
+- **The answer's replay reference (D-IMPL-378, Q11; Dave approved it as E1 (a)
+  on 2026-10-08).** Every answer names its decision record: `ServedProduct.replay_ref`,
+  the MCP egress door's `replay_ref`, the HTTP product route's
+  `X-CCF-Replay-Ref` header, and a refusal's `replay_reference`. The record
+  was filed under its graph snapshot id, a hash of what the plan actually
+  read, and the withheld answer's reference carried a different record name
   from the one two nonexistent subjects' answers shared, on both anchors, with
-  no dereference at all. The vessels still matched, so this channel is the
-  reference, not the product.
-- **The record behind it.** Dimension 1 of a withheld decision's record lists
-  what the plan actually read, the acquired subject included, and an owner at
-  full disclosure can read its own record through the governed dereference
-  (D-IMPL-345). Each half was measured on its own; reading a withheld
-  decision's record end to end through the dereference was not run. Protect
-  access to records as you would the subject itself.
-- **Composite children.** A class that declares `requires` resolves its
-  children for the asked subject before its plan runs and composes them
-  afterward: the composed factors replace the debt, and the composed expiry
-  and lineage stand in the product
-  (`src/ccf/products/resolver.py::GovernedResolver`). None of that is
-  re-rendered for a withheld subject. With a required child asked about the
-  composite's own subject from a source keyed on it, the two products differed
-  at `debt.debt` and `debt.factors.freshness`; with the child asked about a
-  fixed subject, they did not.
-- **Similarity over an entity the acquisition refreshed.** The re-run reuses
-  the operator registry built from the view read after acquisition, so the
-  similarity operator scores the subject against the text acquisition just
-  wrote. On a fabric that already held the subject, an acquisition that
-  changed its similarity attribute made the two products differ at the empty
-  finding and the debt. Without the similarity operator, with the attribute
-  unchanged, or with the registry built from the view read before
-  acquisition, they did not.
-- **A fabric that outlives the question.** The withheld subject's acquisition
-  stays in the fabric, and later questions read it. After one question about a
-  withheld subject the source holds, a later answer about an identifier that
-  names nothing moved at `debt.debt` and `debt.factors.freshness`; when the
-  source held nothing, it did not. The paved road boots a fabric for each
-  question; a deployment composed by hand over a long-lived fabric does not.
-- **An acquisition not keyed on the subject.** If your `acquire` reads the same
-  content whatever is asked (a population read), a nonexistent subject's
-  question walks that content and the withheld rendering does not. The two
-  differ at the empty finding under `from_decision`, and as `ttl-refusal`
-  against `ttl-anchor-refusal` under `from_entity_freshness`.
+  no dereference at all. Now each product answer's record carries a fresh
+  256-bit issuance identifier (`src/ccf/replay/record.py::new_issuance`) and is
+  filed under its own content address
+  (`src/ccf/replay/serve.py::ReplayWriter`), so equal references name
+  byte-identical records. Measured in process, at the HTTP product route and
+  at the MCP product door, served and refused, on both anchors: the same
+  question asked twice is handed two references, two answers whose records
+  differ never share a reference identifier, and neither a reference nor a
+  name the store holds for the record is dimension 1's snapshot id
+  (`tests/http_api/test_sec020_replay_reference_issuance.py`). The price: one
+  question asked twice in the same governed state at the same instant is now
+  two records with two references (it was one, `D-IMPL-253` amendment 3), so
+  a deployment that compared two answers' references for equality can no
+  longer do so. E1 (a) restates the three rulings that promised one record,
+  `D-IMPL-253` amendment 3, `D-IMPL-358` ruling 1 and `D-IMPL-148` Addendum A,
+  modulo the per-answer issuance: two answers to one question are one
+  determination whose records differ only in their issuance
+  (`tests/products/test_delivery_determinism.py`), and the client
+  conformance suite compares `replay_ref` by the record it resolves to rather
+  than by its string (`tests/client/conformance/suite.py::assert_served_parity`).
+  SEC-020's closing test judges references by distribution, not equality: the
+  two sides' references have one form, and their references and issuances
+  pass a two-sample test pooled over every cell of a comparison
+  (`tests/products/test_sec020_combined_proof.py::test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`,
+  which states the test's power). A reference names a record by the hash of
+  its stored bytes, so its integrity is arithmetic. These SDK readers of a
+  record by its reference re-hash the bytes before anything uses them, and
+  refuse bytes altered under it: the replay engine's reads
+  (`resolve_artifact`, `resolve_artifact_at_uri`, `replay`,
+  `replay_refusal`), `OpenedProduct.record_of`, the governed evidence read,
+  child admission's read of a child's record
+  (`src/ccf/products/child_resolver.py::GrantBoundChildResolver._touched_entities`,
+  which raises `ChildRecordAltered` before the admission gate sees anything),
+  and the erasure door's read of each requested address, refused
+  `subject-unverifiable` before an approval starts
+  (`tests/replay/test_record_content_address_integrity.py`). A store's own
+  `get` returns whatever it holds and checks nothing: code that reads a
+  record straight from a store, rather than through one of those readers,
+  must re-hash it itself.
+- **The record behind it (D-IMPL-378, Q12; Dave ruled its three details on
+  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected at 12:29 and ruled
+  option (d) at 16:40).**
+  Dimension 1 of a withheld decision's record lists what the plan actually
+  read, the acquired subject included. Before this change, read end to end
+  through the governed dereference by their owner at full disclosure, the
+  records behind a withheld answer and a nonexistent subject's answer differed
+  at dimension 1 and nowhere else; the same test now finds both reads refused
+  alike (`tests/http_api/test_sec020_withheld_record_dereference.py`). Owner
+  read-back is now default-deny. The governed read hands a product
+  record to its owner only when the tenant's entitlement policy lists the
+  record's class in `evidence_readable_classes` and the record carries its
+  class's affirmation that its answers never withhold their subject
+  (`subject_withholding: never` on the class declaration, stamped on each
+  record), or the record read nothing. No record written before the
+  affirmation existed carries it, so existing records stay sealed. A tenant
+  that lists a class without the affirmation, composite or not, is refused
+  when the resolver is built
+  (`src/ccf/products/resolver.py::WithholdingClassListedReadable`); a class
+  that affirms it and then withholds a subject is refused before anything is
+  recorded (`src/ccf/products/resolver.py::NeverWithholdingContradicted`). The
+  MCP Experience door's `get_replay_record` names no address and refuses every
+  call (`runtime/ccf_runtime/mcp/experience.py::ExperienceReplayReadRefused`).
+  Measured at HTTP `/replay/decisions`, `/replay/resolutions` and
+  `/artifact`, at the MCP artifact server's blob, presence and names
+  resources, at the Experience door and through the `ccf` CLI
+  (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
+  keep their owner read-back (section 4.10). A class that affirms `never` over
+  a plan factory declaring that it withholds (an early policy that withholds
+  some subject, or `subject_disclosure()` returning `None`) is refused when its
+  resolver is built, the same for every subject
+  (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
+  `tests/products/test_sec020_never_capability.py`). The SDK cannot see a
+  withhold that the plan factory does not declare, so under Dave's E2 (ii)
+  option (d) a class that affirms `never` is built only over a plan factory
+  that positively declares that its projection never withholds:
+  `withholds_no_subject()` returning `True`
+  (`src/ccf/products/resolver.py::NonWithholdingPlanFactoryProtocol`). Silence,
+  or any other value, counts as able to withhold and is refused when the
+  resolver is built, before anything is fetched, the same for every subject
+  (`src/ccf/products/resolver.py::NeverWithholdingNeedsAPositiveDeclaration`;
+  `tests/products/test_sec020_never_capability.py::test_e2ii_d_the_paved_road_refuses_every_subject_alike_before_anything_is_fetched`).
+  In the closing test every configuration whose plan factory declares that it
+  withholds, or declares nothing, is now refused that way on every side, held
+  against a positively declaring twin that answers
+  (`tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable`).
+  **The positive declaration is trusted deployment code, an explicit
+  assumption limited to code no caller can influence.** The SDK reads it once,
+  with no argument, where the resolver is built, from the plan factory you
+  composed it with; no request, parameter, door payload, harness or agent
+  input, or caller-supplied document supplies, selects or alters it (measured
+  statically and at the in-process, HTTP and MCP doors, with a control in which
+  deployment code lets a caller in:
+  `tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration`).
+  A FALSE declaration is the residual and stays visible: the class is built,
+  and its withheld question raises where a nonexistent subject's is served (an
+  HTTP 500 against a 200)
+  (`tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart`),
+  and every run of the closing test reports it outside its gate
+  (`tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`).
+  Declare `withholds_no_subject()` only over a projection that never sets the
+  withheld signal, never let it read anything a caller sends, and do not
+  affirm `never` for a class whose projection can withhold.
+  **Where default-deny applies, and where it does not (E2 (i)).** Every read
+  an agent can reach holds it: the governed evidence reads above, and the
+  Experience door, which refuses. In process, what an agent, a harness
+  adapter or a product client is handed (`ProductClient`, its `Result`, the
+  in-process adapter) carries a record's reference and never the record. The
+  reads that do not hold it are the operator's and the auditor's:
+  `OpenedProduct.record_of` and the replay engine (`replay`,
+  `replay_refusal`, `resolve_artifact`, `resolve_artifact_at_uri`). Each is
+  handed, or carries, your ArtifactStore, and its caller can read the same
+  bytes straight from the store, so Dave ruled them unrestricted. Never hand
+  an opened product, or anything else holding the store, to an agent: that
+  hands the agent the store. Measured on one withheld answer by
+  `tests/http_api/test_sec020_e2i_operator_boundary.py`: the owner's governed
+  read is refused `evidence-class-sealed`, and the operator's handles return
+  the record.
+  **A refusal recorder must take `subject_withholding=` (E2 (iii)).** The
+  resolver passes it on every refusal it records. A recorder written to the
+  earlier signature, without the keyword or `**kwargs`, is refused where the
+  resolver or an entitling door is built (`IncompatibleRefusalRecorder`),
+  instead of raising `TypeError` at its first refusal
+  (`tests/products/test_sec020_e2iii_recorder_at_construction.py`).
+- **Composite children whose arguments come from captured state (P3 (a), which
+  Dave approved on 2026-10-08 "as the API improvement, but not as enforcement
+  proof").** The deployment's child-arguments mapping is handed the request
+  its composite asks the children about, the same request the child questions
+  are minted from (`src/ccf/products/child_resolver.py::ChildArguments`); under
+  the early policy it names the stand-in in place of the subject. A mapping
+  that took the child's subject from that request asked its child about the
+  stand-in, and the composite was answered as a nonexistent subject's
+  composite was, on both child anchors
+  (`tests/products/test_withheld_subject_child_arguments_and_question_stores.py`).
+  **Trusted deployment code is an explicit assumption.** The SDK cannot see
+  where a mapping's values come from. A mapping that ignores what it is
+  handed and uses a subject it captured itself still asks the child about the
+  withheld subject: under `from_decision` the composite was then refused
+  `composite-child-refusal` (the child answered a question other than the one
+  the composite asked) where a nonexistent subject's composite was served,
+  and under `from_entity_freshness` both were refused alike. That
+  counterexample is kept as a measured limitation:
+  `tests/products/test_sec020_p3_captured_subject_counterexample.py`. A
+  mapping is your code, bound where your child resolver is built: no request,
+  parameter, door payload, harness or agent input, or document supplies or
+  selects one (measured: a mapping-shaped parameter is refused
+  `undeclared-parameter` before any child is asked,
+  `tests/products/test_sec020_p3_captured_subject_counterexample.py::test_p3_condition_iii_no_caller_input_supplies_or_selects_the_child_arguments_mapping`).
+  A caller's declared parameters do reach your mapping, unchanged, so take
+  every child's subject from the request's `subject`, never from a parameter.
+  A composite that declares nothing is refused when its resolver is built
+  (P2 (c), above), and `CompositeWithheldLate` remains for a composite whose
+  early policy does not cover a subject its projection withholds
+  (`tests/products/test_sec020_never_capability.py::test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject`).
+  A composite whose class affirms `never` is built only over a plan factory
+  positively declaring that it never withholds (E2 (ii) (d)); one whose
+  declaration is false and that withholds anyway is refused as
+  `NeverWithholdingContradicted`, which is checked first (`D-IMPL-378` CT-D
+  (a), diagnostic precedence only;
+  `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
+  its withheld question still raises where a nonexistent subject's is
+  answered, the residual the bullet on the record behind an answer names.
+- **A composite child's own decision record, under an early policy (disclosed
+  by Dave's decision 18 (A), `D-IMPL-378`, 2026-10-09).** The parent's early
+  policy asks its children about the stand-in in place of a withheld subject,
+  and each child's own door files the child's own decision record, under the
+  child's product class, in the deployment's store. That record keeps the
+  question the child was asked: for a withheld subject it names the stand-in,
+  whatever the child's source answers, and for a nonexistent subject the
+  identifier asked. A child source that refuses an identifier it does not
+  hold with text that names it (`no record for <identifier>`) puts it in that
+  record's refusal text too: repair 2.2 (a)'s constant applies to the
+  parent's subject-keyed acquisition, not to a child's, and is not extended to
+  children in this batch. The parent's answers to the two were alike at every
+  door by the closing test's own rules, the answers name neither the child's
+  record nor the stand-in, and the parent's records do not name the child's
+  record, so no door shows it; whatever reads the deployment's store, as the
+  operator's and the auditor's handles above do, tells the two apart at rest
+  (`tests/products/test_sec020_composite_child_record_names_the_stand_in.py`).
+  Whether a governed read hands a child's record to a principal, where the
+  child's class affirms `never` and is listed in `evidence_readable_classes`,
+  is not measured here.
+- **A question's store the markers do not reach.** The withheld subject's
+  acquisition stays in the store its question wrote, and the paved road leaves
+  that store on disk when it closes the fabric (the replay road reopens it).
+  Under P4 (a) a store booted for a question carries a marker beside it, and a
+  governed call over that store booted again, in the same process or another,
+  is refused before the graph is read: `QuestionStoreReopened` with no
+  acquisition phase, `AcquisitionNeedsAQuestionFabric` with one. A store that
+  existed with no marker beside it, booted for a question before the markers
+  existed, copied without its marker, or created outside the deployment doors,
+  is not presumed fresh and is refused the same way, with
+  `UnmarkedStoreNotPresumedFresh` in place of `QuestionStoreReopened`, on both
+  anchors and with the same text whatever its first question acquired
+  (`tests/products/test_unmarked_and_unverifiable_question_stores.py`; for a
+  store booted again,
+  `tests/products/test_withheld_subject_child_arguments_and_question_stores.py`;
+  for a call with an acquisition phase, lane probe
+  `probe_acquiring_call_over_reopened.py`). Records served over such stores
+  still replay to their own addresses (both test modules). What the markers do
+  not reach is measured by lane probes, not by a test in this tree
+  (`probe_p4_strict_limits.py`, `probe_question_boot_window.py`,
+  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`,
+  `probe_emptiness_limits.py`). A marker binds to its store by path, beside
+  it rather than inside it, and the SDK checks and reserves a path while the
+  adapter creates the store at the boot. So a copy of a used question store with a deployment marker forged
+  beside it answered a later question: after a question
+  about a withheld subject the source holds, that later answer about an
+  identifier that names nothing moved at `debt.debt` and
+  `debt.factors.freshness`, and under `from_entity_freshness` also at
+  `expires_at` and `ttl_anchor_at`, against the same store after a question
+  that acquired nothing. A used question store written at a path after a
+  plain boot left its marker there answered too, until OWED-RULINGS-3 item 2A
+  (b) (`D-IMPL-378`, Dave, 2026-10-09), with the trigger repair 1.2 restores
+  (Dave, 2026-10-09 10:54 MST): every plain boot that creates its store, at a
+  path that held no store when the boot looked, whoever made a marker beside
+  it, now reads the store it opened once, the read a question boot takes,
+  and refuses one holding anything for its tenant
+  (`DeploymentStoreNotEmpty`), removing the marker it created, so a later
+  boot of that path answers no governed call
+  (`tests/products/test_plain_boot_creating_its_store_finds_it_empty.py`,
+  `tests/products/test_deployment_marker_serialized_and_stale_refused.py`).
+  Under repair 1.1 (Dave, 2026-10-09 10:54 MST) that holds for every failed
+  boot, not only a refused read: a boot that fails in `boot()` (a planted
+  store given a second name, or its writer lease held elsewhere), in its
+  read, while marking its marker verified, or in `close()` removes the
+  deployment marker it created, only while that marker is still the one it
+  created, and a retry over a store planted in that window opens it
+  unmarked and answers no governed call
+  (`tests/products/test_deployment_marker_owned_and_crash_safe.py`); before
+  the repair the marker stayed and the retry served the plant (the panel's
+  probes `p_2ab_marker_survives_a_failed_boot.py`,
+  `p_2ab_variant_b_lease_held.py` and `p_b3_close_raises.py`). A plain boot
+  whose path already carried a deployment marker with no store beside it
+  (the store deleted, its marker kept) created its store without that read,
+  and a used store written there was booted and answered, its later answers
+  moving at the same fields as the forged marker's (lane probes
+  `probe_stale_deployment_marker.py` and
+  `probe_unreached_stores_distinguish_l4b.py`); under repair 1.2 such a boot
+  replaces that marker with its own, under the store-creation lock, and takes
+  the read a fresh creation takes, so a used store written there before the
+  boot opens it is refused (`DeploymentStoreNotEmpty`) and the boot's marker
+  removed (above). A store written at a question
+  boot's path after the SDK's last check was booted as that question's
+  fabric; it is now refused when the boot reads it (`QuestionStoreNotEmpty`,
+  above), and that one read does not reach three things. A store whose
+  every claim was superseded
+  before the latest instant with no current successor, which no SDK writer
+  leaves, written there by raw SQL, was booted, and its question read its
+  rows. A raw SQLite connection, outside the SDK's writer lease, wrote into a
+  question's store while the question ran, and the question read what it
+  wrote. A store holding rows only for another tenant was booted, and the
+  paved fixture's answer over it matched its answer over a fresh store. A
+  deployment's own writes into a reopened store go through. A marker left
+  after its store is deleted makes a later boot for a question at that path
+  refuse, and every
+  governed call over a plain boot there refuse: it fails closed. Ask new
+  questions only of fabrics booted for them, and protect a question's store,
+  and the directory it sits in, as you would its decision record.
+- **A population read left inside your `acquire` (ruling P6 (a); not
+  closure).** Declared as the population phase, or under an early policy, such
+  a read matched (above). Left inside your ordinary `acquire`, with the
+  withhold decided inside the projection, a nonexistent subject's question
+  walks that content and the withheld rendering does not; the two differed at
+  the empty finding under `from_decision`, and as `ttl-refusal` against
+  `ttl-anchor-refusal` under `from_entity_freshness`. Dave's ruling P6 (a)
+  (`D-IMPL-378`, 2026-10-08, a conditional implementation go) refuses that
+  configuration with a probe. For a class that may withhold and declares no
+  early policy, the governed call first asks your subject-keyed acquisition
+  about `UNHELD_SUBJECT_PROBE` (`ccf-sdk:unheld-subject-probe`), reads the
+  graph again, and refuses the question with
+  `PopulationReadInSubjectKeyedPhase` if anything was written. It does so
+  before your acquisition is handed the question's subject, and decides by
+  nothing about the asked subject, so on test fixtures a withheld subject and
+  a nonexistent one were refused alike, with one message, on the paved road
+  and the low road: `tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py`,
+  whose order tests log your acquisition's calls and every graph read in one
+  sequence. That the probe identifier names nothing is checked, not assumed:
+  a graph that names it (an entity, or a relationship end) before the probe,
+  or after it, is refused as `UnheldSubjectProbeIsHeld` instead
+  (`tests/products/test_sec020_p6_unheld_subject_probe_is_verified_absent.py`).
+  The ruling amends Q10's "each phase once" to exactly this one extra call. It
+  costs one more call to your acquisition and one more graph read per question
+  of such a class (measured on one test fixture: two calls and three reads,
+  against one and two). A class affirming `subject_withholding: never` is not
+  probed; a class with a declared early policy is not refused by the probe,
+  and its stand-in is verified instead, with the probe identifier as the
+  baseline (the early-decision bullet above). A source that answers the probe
+  identifier with a held refusal (a `GovernedRefusalRaised`, or a type your
+  class or the SDK declares at the seam, such as `IdentityRefused`) refused an
+  identifier nothing holds while a withheld subject was answered, on both
+  roads. Since Dave's OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09),
+  as repaired by his 2.3 (b) the same day, every question to such a class is
+  refused before your acquisition is handed the question's subject, answered
+  and recorded as one constant SDK refusal, `UNHELD_SUBJECT_PROBE_REFUSAL`
+  (`subject-unavailable`, cause `undisclosed`, no code, one SDK sentence), the
+  same for every subject; the decision record files it at the `acquisition`
+  seam beside the caller's question
+  (`tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py` and
+  `tests/products/test_sec020_held_refusal_at_the_probe.py`). That includes a
+  held refusal decided by the question rather than the identifier, such as an
+  intent, a parameter or a role your source refuses: such a question keeps one
+  decision record, but neither the answer nor the record keeps your source's
+  own kind, cause, code or text. Answer an identifier your sources do not hold
+  with nothing. To be served, declare the read as the population phase
+  (`open_product(population=...)`), declare an early policy, or affirm `never`
+  for a projection that never withholds. **The probe
+  is defeated by a source that recognizes it.** A source that answers nothing
+  for the probe identifier, matched exactly or by its shape, and reads the
+  population for every other identifier passes the probe, and the withheld
+  subject and a nonexistent one are then still told apart
+  (`tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py`;
+  reported every run of SEC-020's closing test in its own block,
+  `SEC-020 P6 PROBE LIMITATION`). The closing test holds the refused cells as
+  the refusal plus a twin that answers: the same source with its read declared
+  as the population phase. That is Dave's CT-A rule extended to this refusal,
+  not closure.
 
-**Until SEC-020 closes,** do not rely on `withheld=True` to keep a subject's
-existence from a caller that can see an answer's replay reference, whenever the
-plan's walk reaches the subject's records. The in-process answer, the MCP
-egress door and the HTTP product route all return one.
+**Until SEC-020 closes,** do not rely on `withheld=True` alone to keep a
+subject's existence from a caller. The composite-child, reopened-store and
+population channels above still tell the two apart, and list a class for owner
+read-back only if its projection never withholds a subject.
 
 - **One more read per question.** With an acquisition seam declared, every
   governed call reads the tenant's graph once more, before the seam, whether
@@ -1193,84 +2213,251 @@ egress door and the HTTP product route all return one.
   of the same call with no seam, over two runs of six calls. That is one
   fixture's figure, not a sizing guide.
 - **The withheld branch's own time, measured at one scale only.** A withheld
-  answer runs the plan a second time. On a test fabric of about 1,500
-  entities, withheld and nonexistent answers had medians within 2 percent of
-  each other and overlapping ranges over eight calls each. Larger fabrics and
+  answer decided inside the projection runs the plan a second time and, with
+  an acquisition seam declared, builds the operator registry a second time
+  (under an early policy the plan runs once; its time was not measured). On a
+  test fabric of about 1,500 entities, withheld and nonexistent answers had
+  medians within 2 percent of each other and overlapping ranges over eight
+  calls each. With a similarity
+  operator in the plan, the withheld median was 1.06 to 1.08 times the
+  nonexistent one over two runs of eight calls each, with overlapping ranges;
+  before the registry change it was 1.11 in one run. Larger fabrics and
   heavier plans are unmeasured.
 
-### 4.13 Resume a suspended run from one process, and serialize resumes beyond it (D-IMPL-377)
+### 4.13 One approval, one passage: resume over a shared store and a shared transport (D-IMPL-377, D-IMPL-378)
 
-A resumption takes a single-flight claim on its execution before it reads
-the execution's state record, and gives the claim back on every exit:
-completion, refusal, exception and cancellation
-(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). The claim
-is keyed by the Control Plane state store the record lives in and by the
-execution's state key, and every engine in the process over that store
-shares it. While one resumption of an execution is in flight in the
-process, a second is refused rather than queued. The refusal is a
-`WorkflowResumeRefused` audited `resolved=False`, and
-`POST /workflow/resumptions` answers it with the same 409 it gives the
-sequential refusal. Before the claim existed, two resumptions of one
-approved suspension both passed the gate. On one human approval, the step
-after the gate ran twice, two `workflow_resumed` rows named the one
-approver, and the next gate held two pending events, one of them bound to a
-state record that had already been overwritten.
+One human approval carries an execution past its gate once
+(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). Three
+mechanisms stand between an approval and a second passage, and each was
+measured going red when it was removed:
 
+- **In one process, the single-flight claim** (`D-IMPL-377`). A resumption
+  takes a claim on its execution before it reads the execution's state record,
+  and gives it back on every exit: completion, refusal, exception and
+  cancellation. The claim is keyed by the Control Plane state store the record
+  lives in and by the execution's state key, and every engine in the process
+  over that store shares it. While one resumption of an execution is in flight
+  in the process, a second is refused rather than queued: a
+  `WorkflowResumeRefused` audited `resolved=False`, which
+  `POST /workflow/resumptions` answers with the same 409 it gives the
+  sequential refusal.
+- **The gate's closure on the HITL transport** (`D-IMPL-378`). After every
+  check has passed and before it writes anything, the resumption asks the
+  transport to close the gate on exactly the verdicts it judged
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol.close_gate`). A verdict
+  recorded after the resumption read the verdicts makes the closure fail, and
+  the resumption is refused; presented again, it judges the verdicts that now
+  stand, and a rejection among them refuses it for the conflict. A verdict on a
+  gate that is already closed is refused at both doors with `hitl-gate-closed`
+  (HTTP 409) and nothing is recorded, and the HITL queue no longer lists the
+  closed gate's event.
+- **The conditional passage commit** (`D-IMPL-378`). The execution leaving its
+  gate is a state write, conditional on the version of the record the
+  resumption read (`src/ccf/controlplane/state.py::ConditionalStateStore`),
+  committed before the step after the gate runs. Of two resumptions in two
+  processes, or through two state-store objects over one durable store,
+  exactly one commit lands; the other is refused before it runs anything. The
+  attributed `workflow_resumed` row that names the approver is a second write,
+  appended to the audit log only after that commit lands
+  (`src/ccf/controlplane/state.py::AuditedStateWriter.write_if`), so a refused
+  commit leaves no row. The two writes are not atomic. If the append fails
+  after the commit landed, the resumption fails with the audit log's error and
+  the execution has left its gate with no `workflow_resumed` row. An operator
+  then finds its record `running` at the state after the gate, the gate's
+  closure on the HITL transport still naming the approver (`decided_by`), the
+  gate gone from the queue, and nothing in the audit log naming who approved
+  the passage. When that state is a step, the step has not run and every later
+  resumption is refused as an interrupted passage; when it is a terminal
+  state, a later resumption completes the execution, and the completed record
+  still has no `workflow_resumed` row
+  (`tests/controlplane/test_audited_write_is_two_writes.py`,
+  `tests/workflow/test_passage_commit_two_writes_limits.py`). The SDK does not
+  yet detect or repair a passage left without its row: Dave ruled on
+  2026-10-09 that such a transition be made detectable and recoverable
+  (decision 7 (b), `D-IMPL-378`), and that design is in progress, not built.
+
+Before these mechanisms, the following were measured on 2026-10-07:
+
+- Two resumptions of one approval, through two state-store objects over one
+  durable store, both passed the gate and ran the step after it twice.
+- A rejection recorded while a resumption was deciding was outvoted: the
+  execution completed at the approving terminal with both verdicts on record.
+- A passed gate's event stayed in the queue, so a later rejection was recorded
+  as a verdict on an open gate.
+- An execution id could be started twice.
+- A resumption that failed or was cancelled left an attributed
+  `workflow_resumed` row for a passage that never committed.
+
+Each is now a test that fails when its mechanism is removed
+(`tests/workflow/test_approval_gate_limits.py`,
+`tests/http_api/test_approval_gate_limits_door.py`,
+`tests/mcp/test_hitl_gate_closed_mcp.py`). An execution id is now started
+once, with a create-if-absent write before its first step; a second start of
+the same id is refused "already exists".
+
+- **Resume one execution from several processes only over a `shared` state
+  store and a `shared` HITL transport.** The engine refuses, at construction
+  and by name, three things: a state store that is not a
+  `ConditionalStateStore` declaring scope `process` or `shared`; a transport
+  that does not offer the whole `HITLTransportProtocol` with such a scope; and
+  a `shared` store paired with a transport that is not `shared`
+  (`tests/workflow/test_engine_refuses_unsupported_seams.py`). The shipped
+  `InMemoryStateStore` and `InMemoryHitlTransport` are `process`. A deployment
+  that supplies its own store or transport implements the conditional write
+  or the gate's closure atomically with its other writes, keeps closures as
+  durable as submissions, and runs
+  `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
+  The engine can refuse an implementation that lacks the members; it cannot
+  see whether one keeps the atomicity it declares.
+- **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
+  Suppose a resumption is cancelled, or its process dies, after its passage
+  committed. The execution stays `running`, and `GET /workflow/execution`
+  answers `status: "running"`. What happens next depends on where it stopped.
+  - **At a step.** Every later resumption, in any process, is refused with
+    "An interrupted passage is never retried", because that step may already
+    have had effects the engine cannot see. The SDK offers no primitive that
+    reconciles such an execution: an operator reads the gate's closure
+    (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
+    attributed `workflow_resumed` row, settles what the step did, and acts
+    outside the fabric
+    (`tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process`).
+  - **At a gate or a terminal state** (Dave's D2 ruling). This happens when a
+    gate's route leads straight to a terminal state, or when an execution's
+    first node is a gate, which the engine records as `running` before it
+    suspends. No step runs in that window, so a later resumption from any
+    process FINISHES the passage. It makes the version-fenced suspension or
+    completion write and, at a gate, the one queue event. It invokes no step
+    callable and writes no second attributed row. It finishes only when the
+    passage's durable claim names it. For a passage past a gate, the claim is
+    that gate's closure for the suspension the passage left, and its decided
+    verdict must route to that state. For a start, the claim is the
+    create-if-absent record, and the starter's own retried start finishes it
+    too. A passage no claim names is refused: "no durable claim on the HITL
+    authority path names it". If the original passage is still live, one
+    fenced write lands and the other raises `ExecutionFenced` in the engine
+    (`tests/workflow/test_finish_interrupted_passage.py`). The erasure door's
+    retries reach this path. An erasure request or completion interrupted in
+    that window completes on retry, and the record it files is the one its
+    write-ahead entries name
+    (`tests/erasure/test_interrupted_erasure_passage.py`).
+
+  A resumption whose commit never landed (the write itself failed) left the
+  execution `suspended` with no step run. Where its approval was resolved
+  through the gate primitive (`ApprovalGate`, a stamped verdict), presented
+  again from any process, it re-takes the same closure and runs the step
+  after the gate once
+  (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
+  Where the approval was recorded through the submit-only action door
+  instead (`POST /hitl/actions`, which records no stamp), the execution stays
+  stuck: the failed passage's closure retired the request, the engine counts
+  an unstamped approval only while its request is pending (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`),
+  so every resumption, from any process, is refused for want of an approval
+  and the step after the gate never runs
+  (`tests/workflow/test_door_approved_gate_whose_commit_failed_stays_stuck.py`;
+  disclosed by Dave's decision 3, `D-IMPL-378`, 2026-10-09 16:38 MST). Reconcile such
+  an execution outside the fabric.
+
+  A suspension whose approval request never reached the queue left the
+  execution `suspended` with no request: its suspension write landed, and its
+  process died, or its artifact store failed, before the enqueue. No verdict on
+  it could count. Dave's decision 8 (a) extends D2 to this shape. The starter's
+  retried start, or a resumption that finds no approval, restores that one
+  request: the request the suspension would have filed, bound to the
+  suspension's unchanged content hash. The recovery runs no step, records no
+  verdict and closes no gate, a verdict recorded while the request was missing
+  still never opens the gate, and a second recovery files nothing more. The
+  erasure door's retried request reaches this path
+  (`tests/workflow/test_restore_missing_approval_request.py`,
+  `tests/erasure/test_erasure_request_restored.py`). Three limits are
+  measured in the first file. When the suspension's own passage, or another
+  recovery, has written the record and not yet queued the request, a recovery
+  that runs in that window files a second identical request; the gate still
+  opens once on one approval, and its closure retires both. A request that a
+  gate primitive has claimed and not yet answered is filed again, and that
+  verdict is then recorded without the primitive's stamp and still opens the
+  gate once. The recovery files the request on its own engine's HITL
+  transport, so run one HITL transport per Control Plane state store: with
+  two, a request pending on one is filed again on the other. The recovery
+  trusts the record it reads: a writer outside the engine (a single-writer
+  violation) that rewinds a record to `suspended` at a gate the run already
+  passed gets a request restored for it, and one human approval then runs the
+  step after that gate a second time, as the same writer can already make that
+  step run again with no human at all by writing the record
+  `exception-routed` at it (disclosed by Dave's decision 1 (a), `D-IMPL-378`,
+  2026-10-09 16:38 MST;
+  `tests/workflow/test_outside_writer_can_rerun_the_step_after_a_gate.py`).
+- **A passage fenced by another writer is refused `execution-fenced`**
+  (`D-IMPL-378`). Every write that ends a passage is conditional on the
+  version the passage wrote
+  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._fenced_write`). If
+  a writer outside the engine, or a store that does not keep its conditional
+  write, moves the execution's record while a passage runs, that write raises
+  `ExecutionFenced` and writes, audits and enqueues nothing. So does a
+  finisher that loses its write to another finisher or to the original
+  passage (the bullet above). `POST /workflow/invocations` and
+  `POST /workflow/resumptions` answer it 409 with `error_code`
+  `execution-fenced`, a finished start's fenced suspension included; before
+  this change it reached the caller as an opaque 500
+  (`tests/http_api/test_execution_fenced_door.py`). The erasure door, which
+  drives the same engine in process, refuses it as an `ErasureRefused` with
+  reason code `execution-fenced`, at a request's start and at a completion's
+  last passage; after the last passage no erasure record is filed, and the
+  address stays withheld (`index-unsupported`) under the index entries the
+  completion appended (`tests/erasure/test_erasure_door_execution_fenced.py`).
+  The other writer's record stands. Where the passage ran a step before the
+  fenced write, that step may already have had effects, and a resumption
+  presented again is refused as an interrupted passage without running it
+  again (measured): reconcile the execution outside the fabric. No MCP door
+  executes or resumes a workflow, and no HTTP or MCP door serves the erasure
+  door.
+- **A conflicted gate stays suspended for good. This remains open**
+  (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
+  refuse every resumption, and the SDK offers no primitive that reopens the
+  gate (code reading). Three kinds of principal can hold a gate this way:
+  - any eligible approver, on a transport bound to a Control Plane;
+  - on a transport constructed without a Control Plane, which judges no
+    eligibility, any holder of `HitlSubmit` for the event
+    (`tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_still_holds_the_gate`);
+  - on any transport, a principal whose verdict is recorded after the gate
+    primitive claimed the gate's event and before the gate closed. No event
+    is left to judge it against, so it is recorded unjudged, and it still
+    counts as a disagreement (`D-IMPL-366` H2;
+    `tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict`).
+
+  Reconcile such an execution outside the fabric, and grant `HitlSubmit` for
+  an approval gate's events only to its approvers.
+- **Review the gates passed before the upgrade.** An execution that left a
+  gate before this change still has that gate's event in the queue, because
+  no closure exists for it, so a verdict presented on it is still recorded as
+  a verdict on an open gate (code reading). Find the executions that left a
+  gate before the upgrade and whose suspension holds both an approve and a
+  reject verdict, and route them to human review. For a gate passed after the
+  upgrade, the late verdict is refused instead.
 - **Present a refused resumption again only after the other one has
-  returned.** The 409 means another resumption of the same execution is in
-  flight in this process. A repeat presented after that one has returned is
-  judged on the execution as it then stands: if the other passed the gate,
-  at the gate the execution now waits on.
-- **Serialize resumptions per execution in front of the door when more
-  than one process can resume.** The claim lives in one process's memory.
-  It does not cover several processes, or several state-store objects that
-  front one durable store, because the state-store Protocol has no
-  compare-and-set (`src/ccf/controlplane/state.py::ControlPlaneStateStore`).
-  The shipped `InMemoryStateStore` is per process, so the shipped
-  composition never shares an execution between processes. A deployment
-  that supplies a shared store must route every resumption of one
-  execution through one process, or take its own per-execution lock before
-  the door.
-- **Keep the steps after a gate idempotent.** A resumption that fails or is
-  cancelled after its step has started gives the claim back, so a retry is
-  admitted and runs that step again.
-- **A verdict recorded while a resumption is in flight is still not seen.
-  This remains open.** A rejection recorded between a resumption's conflict
-  check and its commit is outvoted: the execution completes at the
-  approving terminal with both verdicts on record
-  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`,
-  residual 2(b)). The claim cannot reach this, because verdicts are recorded
-  through the HITL transport
-  (`src/ccf/hitl/transport.py::HITLTransportProtocol`), which the claim
-  never touches. Covering it means the submission path taking the same
-  per-execution claim, which changes the transport's contract for every
-  transport a deployment supplies. Until then, reconcile: find every
-  execution that has left a gate whose suspension holds both an approve and
-  a reject verdict, and route it to human review.
+  returned.** An in-flight 409 means another resumption of the same execution
+  is in flight in this process. A repeat presented after that one has returned
+  is judged on the execution as it then stands. If the other passed the gate,
+  the repeat is judged at the gate the execution now waits on. A resumption
+  refused because a verdict arrived while it was deciding may be presented
+  again at once.
 - **A step that never returns keeps the claim for the life of the
   process.** The SDK has no timeout and no operator override for the claim.
   The claim is given back only when the resumption itself exits, and
   cancelling the resumption counts as an exit (code reading of
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). While a
   step after a gate hangs, every later resumption of that execution in the
-  process is refused as in flight. Measured: refused at once and again two
-  seconds later, then admitted once the hung resumption was cancelled. If
-  you cannot cancel it, restart the process. What the restarted process
-  finds depends on where the execution's state lives. The shipped
-  composition keeps its state store, HITL transport and audit log in
-  memory, so a restart loses the execution. Measured: the restarted
-  process holds no state record and no recorded approval for it, a
-  resumption is refused "no execution exists", and the trace artifact its
-  suspension wrote to the artifact store survives. Starting it
-  again under the same execution id runs it from its first step to its
-  first gate, where it waits for a new approval (measured). The audit rows
-  the killed process wrote are gone with its memory (code reading). A
-  durable state store and HITL transport instead keep the execution
-  suspended at the gate the hung resumption was carrying it past, because
-  that resumption committed nothing. The next resumption passes on the same
-  recorded approval and runs the step after the gate again. This was
-  measured with the reference store and transport, persisted to disk after
-  every write, standing in for durable ones.
+  process is refused as in flight. Cancelling the hung resumption, or
+  restarting the process, makes it an interrupted passage. With a durable
+  state store, the execution stays `running`, and every later resumption is
+  refused as above rather than running the step again. With the shipped
+  composition, which keeps its state store, HITL transport and audit log in
+  memory, a restart loses the execution.
+  Measured before `D-IMPL-378`: the restarted process held no state record
+  and no recorded approval for it, and a resumption was refused "no execution
+  exists". Starting it again under the same execution id ran it from its first
+  step to its first gate, where it waited for a new approval. The audit rows
+  the killed process wrote are gone with its memory (code reading).
 - **The in-flight refusal tells a `Resume` holder that a resumption is
   running.** The claim is taken after the `Resume` capability is verified
   and before the gate's authority is checked (code reading of
@@ -1302,6 +2489,162 @@ state record that had already been overwritten.
   written and its record is not yet filed. Once the other completion files
   the record, the read is refused as erased with the request's reason, and
   a retry of the refused completion returns the same record (measured).
+
+### 4.14 Declare a temporal boundary for every tenant (D-IMPL-358)
+
+Every question served through the governed resolver
+(`src/ccf/products/resolver.py::GovernedResolver`, which `open_product` and
+`build_governed_resolver` compose) is first held to how far into the past its
+tenant answers for. The resolver reads the tenant's `TemporalBoundaryPolicy`
+(artifact class `ccf.temporal-boundary-policy`) from the Control Plane at the key
+`{tenant}/ccf.temporal-boundary-policy`, and judges the question before anything
+is acquired or read (`src/ccf/products/refusal.py::refuse_temporal_bound`).
+
+**There is no default, so an undeclared tenant serves nothing.** The SDK holds
+no duration (`D-IMPL-38`), and `D-IMPL-358` ruling 11 forbids inventing one:
+every governed question for such a tenant that is not refused earlier, for a
+reason of its own, is refused here. A deployment upgraded from a release that
+predates this check boots normally and then serves no governed question until
+it declares a policy for each tenant it serves.
+
+**What the refusal looks like.** It is a governed refusal, returned as data and
+recorded in Decision Replay like any other
+(`tests/products/test_resolver_seam.py::test_E2_no_declared_temporal_policy_refuses_before_acquisition`):
+
+- Its kind is `temporal-bound-refusal` and its reason is
+  `temporal-boundary-undeclared`.
+- At `minimal` disclosure the caller sees the statement *"this tenant does not
+  answer for the instant this question names"*, `max_past_seconds` and
+  `permitted_clock_skew_seconds` as `null`, and `policy_key`, `presented_at` and
+  `served_at` as `undisclosed`
+  (`tests/products/test_disclosure.py::test_G1_the_undeclared_reason_discloses_nothing_actionable_at_minimal`).
+- Over HTTP the status is 400. The request was not at fault, but the status is
+  assigned per refusal kind, and two of this kind's three reasons are the
+  caller's to fix; the code names this as a residual
+  (`runtime/ccf_runtime/http_api/refusal_status.py::_STATUS_BY_TYPE`).
+- The recorded refusal names the key that was required and a detail stating the
+  remedy, and it carries no policy binding for the absent policy.
+- A deployment that composes `IngressTemporalBound` on its own ingest path gets
+  `TemporalWriteRefused`, with the same reason, for every envelope of an
+  undeclared tenant
+  (`tests/signal_layer/test_step8_temporal_write_guard.py::test_a_missing_policy_REFUSES_and_names_the_key_and_the_absence`).
+  On the paved road the serve refuses first, before anything is acquired.
+
+**Declare it, once per tenant.**
+
+- **Single-file config (`ccf_config.yaml`).** Add a top-level
+  `temporal_boundary:` section holding exactly the two values. It requires a
+  top-level `tenant_id`, because the key is derived per tenant, and it refuses
+  `key`, `class_id`, `role` and `registration`, so two tenants cannot share one
+  boundary (`src/ccf/deployment/config.py::_derive_bare_typed_entry`;
+  `tests/deployment/test_namespaced_boot.py::test_CFG6_a_declared_temporal_boundary_registers_resolves_and_pins_exactly`).
+
+  ```yaml
+  tenant_id: your-tenant
+  temporal_boundary:
+    max_past_seconds: 2592000         # illustrative only: 30 days
+    permitted_clock_skew_seconds: 300 # illustrative only: 5 minutes
+  ```
+
+- **Deployment manifest.** Add an entry whose key is the class id exactly. The
+  loader places it under the manifest's `tenant_id`, which is the key the
+  resolver reads. The document holds the same two values and nothing else; a
+  `semver` line is refused, because the contract is closed.
+  `examples/s1-01-hello-context-product/artifacts/manifest.yaml` carries this
+  entry, and `examples/s1-01-hello-context-product/artifacts/temporal-boundary.yaml`
+  the document.
+
+  ```yaml
+  - path: temporal-boundary.yaml
+    key: ccf.temporal-boundary-policy
+    class_id: ccf.temporal-boundary-policy
+    role: register
+    registration: typed
+  ```
+
+- **More than one tenant.** Each config or manifest boots one tenant, so each
+  declares its own. A composition root serving several tenants registers one
+  `TemporalBoundaryPolicy` per tenant at the key
+  `src/ccf/controlplane/temporal_boundary.py::temporal_boundary_policy_key`
+  derives.
+
+**Choose the two values.** Both are your policy decisions; the SDK supplies
+neither and recommends neither. The numbers above only show the shape.
+
+- `max_past_seconds` is how far before the serve instant a question may reach.
+  The resolver judges the question's `asked_at`, and separately the decision
+  instant the product class derives (from a declared as-of parameter, where the
+  class has one), against the instant it serves at. An instant further back is
+  refused, as `asked-at-outside-temporal-bound` or
+  `decision-instant-outside-temporal-bound`, and never narrowed. Set it at least
+  as far back as the oldest as-of question the tenant must answer. On the paved
+  road the same window holds each acquired envelope at the write.
+- `permitted_clock_skew_seconds` is how far ahead of the serve instant a
+  presented instant may run before it is refused as impossible rather than
+  treated as current. Set it to the clock disagreement you accept between
+  callers and the fabric.
+- `0` is the strictest value, not "unbounded": a `max_past_seconds` of `0`
+  refuses a question asked as of any earlier instant. No value means "no bound";
+  a tenant that wants a wide reach declares a large number. Negative values are
+  refused.
+- A frozen dataset ages. A window chosen so that today's questions about a
+  fixed historical date pass will refuse those same questions later, as the
+  serve instant moves on.
+- The exact version of the policy in force is pinned on the record of every
+  served decision and of every refusal its window caused. Changing the window
+  registers a new version; records already written keep naming the one that
+  governed them
+  (`tests/products/test_resolver_seam.py::test_E6_the_resolved_temporal_policy_pins_its_exact_step3_binding`).
+
+**A demonstration over a frozen dataset can declare its serve instant instead**
+(`D-IMPL-378` C1; SDK-defined). A `demonstration_serve_instant:` section in
+`ccf_config.yaml` makes the resolver serve at the declared instant rather than
+today's, so a demonstration's pinned question does not expire. It is refused
+unless the fabric runs on the SDK's own approved development backends (decision
+6 (b), Dave, 2026-10-09: *"Restrict demonstration time to the SDK's own approved
+development backends. Explicitly amend the broader “declares itself”
+wording."*). The graph adapter must be one the SDK ships whose own registration
+is a development reference: the SQLite or the in-memory adapter. An adapter's
+declaration about itself does not count. This amends the earlier wording, under
+which a substrate that declared itself a development reference was admitted: a
+third-party adapter is refused even when its registration declares
+`development_reference` and re-registers one of the SDK's own stores. The
+artifact store's class must be the SDK's `FileArtifactStore` itself. That check
+is an exact-type test (decision 4 (a), 2026-10-09 16:38 MST (`D-IMPL-378`; the
+text is Grok's recommendation, which Dave adopted): *"(a) Exact type."*), so a
+subclass of `FileArtifactStore` is refused, even one that overrides nothing;
+this amends the earlier `isinstance` test, which a subclass passed
+(`tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition`,
+`::test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door`,
+`::test_the_sdks_own_development_backends_are_still_admitted_at_composition`,
+`::test_a_declaration_over_a_non_development_graph_substrate_is_refused`,
+`::test_a_declaration_over_a_non_file_artifact_store_is_refused`,
+`::test_a_subclass_of_the_sdks_file_store_is_refused_at_composition`,
+`::test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door`,
+`::test_a_subclass_of_the_sdks_file_store_fails_the_store_check`). Every record
+made under it, served or refused, pins it in Decision Replay dimension 2
+(`tests/client/test_demonstration_serve_instant.py::test_a_served_record_pins_the_declaration`,
+`::test_a_refusal_record_pins_the_declaration`). **A running service keeps the
+instant it was built with** (ruling C1-late (a), Dave: *"Running services retain
+their startup snapshot. Document that later registration takes effect only after
+rebuilding."*):
+
+- The declaration is read once, when the resolver is built. One registered
+  later does not reach that resolver, so a running service cannot be switched
+  into demonstration mode
+  (`tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_does_not_reach_the_resolver`).
+- It takes effect only in a resolver built after it is registered: a
+  composition root's next `build_governed_resolver` call over the same Control
+  Plane
+  (`tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it`).
+  The in-process adapter boots each deployment once per process from its
+  `ccf_config.yaml` (`src/ccf/client/adapters/inprocess.py::InProcessAdapter._ensure_booted`),
+  so there a declaration takes effect when the process next starts.
+- The paved road never honors a declaration. It builds a resolver for every
+  question but composes its own clock, so a declaration registered after
+  `open_product` makes the next question raise
+  `DemonstrationServeInstantConflict`, by name, before anything is acquired
+  (`tests/client/test_demonstration_serve_instant.py::test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question`).
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

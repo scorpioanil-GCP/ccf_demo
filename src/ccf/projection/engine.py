@@ -228,6 +228,15 @@ class ExecutionResult(CCFContract):
             amendment 2, on the same footing as ``store_snapshot_pin``:
             never content-hashed, the mark is inert until the model is, and
             the empty set then reads as absent.
+        seeds: The walk starting points this execution was asked to seed
+            with — the ``seeds`` argument of :meth:`ProjectionEngine.execute`,
+            exactly as given (``None``: the plan's own seed classes alone).
+            SEC-020, ``D-IMPL-378`` (Q10): the governed resolver seeds an early
+            withheld question with the declared undisclosed subject rather
+            than the question's own, and the decision record keeps that seed
+            so replay re-executes the walk that ran
+            (``src/ccf/replay/record.py::ContentGenerationPath``).
+            Hash-transparent at ``None``, on ``empty_results``' footing.
     """
 
     plan_id: str
@@ -245,6 +254,9 @@ class ExecutionResult(CCFContract):
     )
     empty_results: frozenset[str] = Field(
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    seeds: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     def touched_entities(self) -> tuple[str, ...]:
@@ -553,16 +565,20 @@ class ProjectionEngine:
 
         Every other input is the shadowed execution's: the same plan, boundary
         and perspective, on a fresh engine sharing this one's registry and
-        survivor cap (so this engine's telemetry is not replaced). The governed
-        resolver built that registry from the view read AFTER this request's
-        acquisition, so an index-backed operator in it — the similarity
-        operator's corpus — holds text the acquisition wrote although the walk
-        does not read the acquired records: measured to tell a withheld subject
-        from a nonexistent one when the acquisition refreshed an entity the
-        fabric already held (review finding I-2; section 4.12). Content the
-        real execution acquired at decision time is RE-FED rather than
-        re-acquired (the replay posture, INV-CH7-31). The result carries the
-        real execution's attestation and pin.
+        survivor cap (so this engine's telemetry is not replaced). An
+        index-backed operator in that registry, the similarity operator's
+        corpus, holds text read out of the view the registry was built from.
+        So a caller passing ``before_acquisition`` calls this on an engine
+        whose registry was built from that same read; on a registry built from
+        a later view, the walk over the records before acquisition is scored
+        against text the acquisition wrote, which was measured to tell a
+        withheld subject from a nonexistent one when the acquisition refreshed
+        an entity the fabric already held (review finding I-2; section 4.12).
+        The governed resolver builds that registry from ``before_acquisition``
+        for this call (``D-IMPL-378``). Content the real execution acquired at
+        decision time is RE-FED rather than re-acquired (the replay posture,
+        INV-CH7-31). The result carries the real execution's attestation and
+        pin.
 
         Args:
             executed: The real execution of the same plan, already run.
@@ -944,4 +960,5 @@ class ProjectionEngine:
             # second read could report a head the queries never saw.
             store_snapshot_pin=store_snapshot_pin,
             empty_results=frozenset(empty_results),
+            seeds=seeds,
         )

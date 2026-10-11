@@ -15,6 +15,63 @@
 -- and CIKs are real identifiers; the figures are `ccf_dataprep`'s
 -- educational estate.
 
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+-- (D-IMPL-380): it also refuses, naming each one with its schema, when
+-- any object outside `ccf_v2` depends on one of those tables.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+    outside text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+    SELECT string_agg(DISTINCT dependent, ', ' ORDER BY dependent) INTO outside
+      FROM (
+        SELECT CASE WHEN d.classid = 'pg_rewrite'::regclass
+                     AND r.rulename = '_RETURN'
+                    THEN format('%s %I.%I (schema %s)',
+                                CASE vc.relkind WHEN 'm' THEN 'materialized view' ELSE 'view' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN format('rule %I on %s %I.%I (schema %s)', r.rulename,
+                                CASE vc.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    ELSE format('%s %s (schema %s)', o.type, o.identity, coalesce(o.schema, '-'))
+               END AS dependent,
+               CASE WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN vn.nspname ELSE o.schema END AS dependent_schema
+          FROM pg_class t
+          JOIN pg_namespace tn ON tn.oid = t.relnamespace
+          JOIN pg_type rt ON rt.oid = t.reltype
+          JOIN pg_depend d
+            ON d.deptype = 'n'
+           AND ((d.refclassid = 'pg_class'::regclass AND d.refobjid = t.oid)
+             OR (d.refclassid = 'pg_type'::regclass
+                 AND d.refobjid IN (rt.oid, rt.typarray)))
+          CROSS JOIN LATERAL pg_identify_object(d.classid, d.objid, d.objsubid) o
+          LEFT JOIN pg_rewrite r
+            ON d.classid = 'pg_rewrite'::regclass AND r.oid = d.objid
+          LEFT JOIN pg_class vc ON vc.oid = r.ev_class
+          LEFT JOIN pg_namespace vn ON vn.oid = vc.relnamespace
+         WHERE tn.nspname = 'ccf_v2'
+           AND t.relname IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction')
+      ) dependents
+     WHERE dependent_schema IS DISTINCT FROM 'ccf_v2';
+    IF outside IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-380 write lock: % depend on the tables of schema %, from outside it. This is not a disposable test database; refusing to write.', outside, 'ccf_v2';
+    END IF;
+END
+$ccf_write_lock$;
+
 -- legal_entity: 156 rows
 INSERT INTO ccf_v2.legal_entity (lei, legal_name, gleif_legal_name, legal_jurisdiction, entity_status, registration_status, next_renewal_date, initial_registration, legal_form, legal_address_country, legal_address_city, legal_address_region, sic, sic_description, fiscal_year_end, is_anchor, lei_match_band, lei_match_score, provenance, source, retrieved_at, hq_address_country, hq_address_city, hq_address_region) VALUES
   ('0IDE18EMH1CUKQCUYE69', 'SP Plus Corp', 'SP PLUS CORPORATION', 'US-DE', 'ACTIVE', 'LAPSED', '2020-05-13', '2012-06-06', 'XTIQ', 'US', 'WILMINGTON', 'US-DE', '7510', 'Services-Auto Rental & Leasing (No Drivers)', '1231', TRUE, 'exact', '1.000', 'public', 'GLEIF LEI record API + SEC EDGAR submissions API', '2026-08-16', 'US', 'Chicago', 'US-IL'),

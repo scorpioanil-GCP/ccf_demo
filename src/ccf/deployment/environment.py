@@ -34,8 +34,8 @@ deployment's own acquisition as resolved strings.
         schema: {from_env: CCF_CP_03C_POSTGRES_SCHEMA, remedy: "the v2 namespace ..."}
     door:                              # the standard door's environment; every member a NAME
       credential:          {from_env: CCF_CP_03C_DOOR_TOKEN, remedy: "..."}
-      issuer_url:          {from_env: CCF_CP_03C_DOOR_ISSUER, remedy: "..."}
-      resource_server_url: {from_env: CCF_CP_03C_DOOR_RESOURCE, remedy: "..."}
+      issuer_url:          {from_env: CCF_CP_03C_DOOR_ISSUER, remedy: "..."}    # optional
+      resource_server_url: {from_env: CCF_CP_03C_DOOR_RESOURCE, remedy: "..."}  # optional
     remote:                            # consumers: the one MCP deadline every remote ask runs under
       call_timeout_seconds: 120
 
@@ -168,7 +168,7 @@ class SubstrateSettings(CCFContract):
 
 
 class DoorEnvironment(CCFContract):
-    """The standard door's environment: three names, no value.
+    """The standard door's environment: the credential's name, and two optional address names. No value.
 
     Attributes:
         credential: The bearer credential this boot is reached with. When the
@@ -177,17 +177,34 @@ class DoorEnvironment(CCFContract):
             development door reached by the process that spawned it has no
             operator to export a secret; a parent that wants to know the
             credential without a side channel SETS the variable.
-        issuer_url: The OAuth issuer the door's auth settings advertise.
-        resource_server_url: The resource-server address they advertise.
-            Both URL names are consulted by every transport EXCEPT the
-            loopback one, which binds its own port and therefore knows its
-            own address (see
-            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_loopback`).
+        issuer_url: Optional. The OAuth issuer an HTTP mount of the door
+            advertises.
+        resource_server_url: Optional. The resource-server address it
+            advertises. **No SDK transport reads either name** (C2-A (b),
+            ``D-IMPL-378``): the loopback transport binds its own port and
+            advertises its own address (see
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_loopback`),
+            and the stdio transport serves no HTTP, so it supplies reserved
+            values nothing advertises (see
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_stdio`). So
+            both are optional and default to ``None`` (C2-A2 (a), Dave
+            2026-10-08): configuration nothing reads is not required. A
+            deployment that mounts
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.server` under its
+            own host may declare them for its own code to resolve, and passes
+            the values; that method has no default for either and refuses a
+            missing one by name.
     """
 
     credential: EnvironmentValue
-    issuer_url: EnvironmentValue
-    resource_server_url: EnvironmentValue
+    # Hash-transparent at the default (`D-IMPL-243`), as every default in this
+    # document is: it is never content-hashed into anything.
+    issuer_url: EnvironmentValue | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    resource_server_url: EnvironmentValue | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class RemoteSettings(CCFContract):

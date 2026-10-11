@@ -21,7 +21,7 @@ import inspect
 import pathlib
 import re
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -32,6 +32,7 @@ from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_d
 from ccf.products import resolver as resolver_module
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.resolver import GovernedResolver
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -79,7 +80,11 @@ TOLERANCE_ARGUMENT = {
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject (the three fixtures below alike).
+    yield from boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
 
 
 @pytest.fixture
@@ -87,6 +92,7 @@ def booted_declaring_a_gate(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """The parent class declares a runtime invariant, by identity only."""
     yield from boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
         product_class_overrides={
             "declared_product_gate": {
                 "gate_id": "fixture.d-impl-338.refuses-every-candidate",
@@ -101,6 +107,7 @@ def booted_with_a_tight_tolerance(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """The parent class declares a default `D_c` tolerance the fixture exceeds."""
     yield from boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
         product_class_overrides={
             "serve_obligations": {"default_debt_tolerance": "0.10"}
         },
@@ -274,7 +281,7 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
     refusal reason survive on the row (`D-IMPL-336` Amendment 2).
     """
 
-    def a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
+    def a_day_late(requirement: Any, request: Any) -> dict[str, str]:
         return {
             "subject": "acct-1",
             # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
@@ -282,7 +289,7 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
             # while Gate 3 measured its ceiling from the child's own (future) decision.
             # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
             # the child refuses `ttl-bounds` before this test's subject is reached.
-            "asked_at": (asked_at + timedelta(minutes=1)).isoformat(),
+            "asked_at": (request.asked_at + timedelta(minutes=1)).isoformat(),
             "threshold": "1000",
         }
 

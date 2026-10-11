@@ -63,8 +63,9 @@ Everything is derived from the shipped checker
 predicate it applies — ``CITATION`` and ``NODE_ID`` for the two citation forms,
 ``prose_lines`` for the comments-and-docstrings-only rule inside ``.py`` files,
 ``exemption_reason`` for the ``HISTORICAL_RECORDS``-minus-``MAINTAINED_RECORDS``
-policy, ``is_historical`` for the historicity markers, and ``resolve_cited``
-plus ``parse_line_spec`` for target resolution. There is **no citation regex in
+policy, ``is_historical`` for the historicity markers, ``resolve_cited``
+plus ``parse_line_spec`` for target resolution, and ``checkable_anchor`` for
+whether ``cite02`` checks the citation at all. There is **no citation regex in
 this module**. A bespoke rule here would re-litigate a scope that
 ``tools/lints/citations.py`` says outright was *"written after scanning every
 top-level tracked directory for citations, not before"*, and would drift from
@@ -90,14 +91,17 @@ from __future__ import annotations
 
 import fnmatch
 import pathlib
+import sys
 from typing import NamedTuple
+
+import pytest
 
 from tools.lints.citations import (
     CITATION,
     NODE_ID,
     RULE_NODE_ID,
-    anchor_before,
     check_source,
+    checkable_anchor,
     exemption_reason,
     is_historical,
     iter_scanned_files,
@@ -306,11 +310,20 @@ def citations_read() -> list[str]:
 def citation_sites() -> list[Site]:
     """Every unanchored citation whose target is a Python file.
 
-    Reproduces the branch of ``tools.lints.citations.check_source`` that lands
-    a citation in ``Scan.no_anchor`` — not historical, target resolves, every
-    cited line inside the target, and no backticked anchor immediately before
-    it — then keeps only the ones citing a ``.py`` target. Every predicate is
-    the checker's own.
+    Reproduces the branches of ``tools.lints.citations.check_source`` that
+    land a citation in ``Scan.no_anchor`` or ``Scan.unusable_anchor`` — not
+    historical, target resolves, every cited line inside the target, and no
+    anchor ``cite02`` can check it against — then keeps only the ones citing a
+    ``.py`` target. Every predicate is the checker's own.
+
+    Until ``D-IMPL-378`` C6 this reproduced ``no_anchor`` alone, and dropped a
+    citation with *any* backticked span before it: another citation, a name
+    the cited file defines twice, an expression. Lane ``378e-c6`` measured 86
+    line citations of Python files hidden that way in the three remediation
+    documents. ``D-IMPL-123`` defines this population as *"citations the
+    checker declines to check because they carry no anchor to check
+    against"*, and those are such citations; see
+    ``tools/lints/citations.py::checkable_anchor``.
     """
     index = repo_index(REPO_ROOT)
     found: list[Site] = []
@@ -336,9 +349,10 @@ def citation_sites() -> list[Site]:
                 target_lines = target.read_text(
                     encoding="utf-8", errors="replace"
                 ).splitlines()
-                if max(parse_line_spec(match.group("lines"))) > len(target_lines):
+                numbers = parse_line_spec(match.group("lines"))
+                if max(numbers) > len(target_lines):
                     continue
-                if anchor_before(line, match.start()) is not None:
+                if checkable_anchor(line, match.start(), target, numbers) is not None:
                     continue
                 found.append(
                     Site(
@@ -402,6 +416,74 @@ def test_the_unanchored_python_citation_population_cannot_regrow() -> None:
         f" moves. {CEILING_RAISE_INSTRUCTION} Found:"
         + "".join(f"\n  - {site}" for site in found)
     )
+
+
+#: The cited module of the fixture below: ``go`` is defined twice and
+#: ``refuse`` once, so a citation of ``refuse`` can be checked and a citation of
+#: ``go`` cannot.
+_FIXTURE_MODULE = (
+    '"""A module."""\n'
+    "class A:\n"
+    "    def go(self) -> None:\n"
+    "        return None\n"
+    "\n"
+    "\n"
+    "class B:\n"
+    "    def go(self) -> None:\n"
+    "        return None\n"
+    "\n"
+    "\n"
+    "def refuse(x: int) -> None:\n"
+    "    raise ValueError(x)\n"
+)
+
+#: One citation shape per line of the fixture document, and whether the
+#: ceiling's population must contain it. Line 1 is the negative control: an
+#: anchor ``cite02`` checks keeps its citation out of the population. Line 2
+#: opens with the positive control the ratchet has always seen, then the case
+#: lane ``378e-c6`` found: a citation whose "anchor" is the citation before it.
+_FIXTURE_DOCUMENT = (
+    "The refusal `refuse` (`src/pkg/mod.py:12-13`) is checked.\n"
+    "See `src/pkg/mod.py:1`, `src/pkg/mod.py:12-13`.\n"
+    "See `src/pkg/mod.py::refuse`, `src/pkg/mod.py:12-13`.\n"
+    "The method `go` (`src/pkg/mod.py:3-4`) names two definitions.\n"
+    "The expression `x == 1` (`src/pkg/mod.py:13`) names no definition.\n"
+)
+
+
+def test_only_an_anchor_cite02_can_check_takes_a_citation_out_of_the_population(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-IMPL-378 C6: the population is every citation the checker declines.
+
+    ``D-IMPL-123`` defines this ceiling's subject as *"citations the checker
+    declines to check because they carry no anchor to check against"*. A
+    backticked span ``cite02`` cannot check the cited lines against -- another
+    citation, a name defined twice, an expression -- leaves its citation exactly
+    as unchecked as no span at all, and a line shift in the cited file is as
+    invisible. Before this test, ``citation_sites`` dropped any citation with
+    *some* span before it, which hid 86 line citations of Python files in the
+    three remediation documents (lane ``378e-c6``). Dave (2026-10-08 16:40
+    MST): *"zero findings from a blind checker is insufficient evidence."*
+
+    Run against a five-line fixture tree by pointing this module's own
+    ``REPO_ROOT`` at it, so the function under test is the ratchet's own
+    ``citation_sites``, unchanged.
+    """
+    (tmp_path / "src/pkg").mkdir(parents=True)
+    (tmp_path / "src/pkg/mod.py").write_text(_FIXTURE_MODULE, encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/note.md").write_text(_FIXTURE_DOCUMENT, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "REPO_ROOT", tmp_path)
+
+    found = sorted((site.host, site.line, site.lines) for site in citation_sites())
+    assert found == [
+        ("docs/note.md", 2, "1"),
+        ("docs/note.md", 2, "12-13"),
+        ("docs/note.md", 3, "12-13"),
+        ("docs/note.md", 4, "3-4"),
+        ("docs/note.md", 5, "13"),
+    ], found
 
 
 def test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident() -> None:

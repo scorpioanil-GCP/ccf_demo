@@ -124,6 +124,7 @@ from ccf.controlplane.registry import ControlPlaneProtocol, ControlPlaneRegistry
 from ccf.deployment import BootedFabric
 from ccf.deployment.config import load_config_and_boot
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from ccf.products.demonstration_clock import DeclaredServeClock
 from ccf.products.door import door_answer, door_question
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
@@ -173,6 +174,11 @@ class _BootedDeployment:
     resolver: ServedProductResolverProtocol
     document: BindingDocument
     schema_version: str
+    #: `D-IMPL-378` C1: the serve clock the deployment DECLARED, when it declared
+    #: one — the resolver serves at it, and :meth:`InProcessAdapter.ask` resolves
+    #: ``as_of=None`` to it, so one composition reads one now. ``None`` on every
+    #: deployment that declares none.
+    declared_clock: DeclaredServeClock | None = None
 
 
 #: Resolved absolute deployment root → the fabric booted from it. Process
@@ -367,12 +373,14 @@ def _boot(
             f"`debt:` in {BINDING_DOCUMENT_NAME} names a Control Plane key this"
             f" deployment does not have — {unwired}"
         ) from unwired
+    served_on = resolver.admission_clock
     return _BootedDeployment(
         fabric=fabric,
         control_plane=control_plane,
         resolver=resolver,
         document=document,
         schema_version=declaration.schema_version,
+        declared_clock=served_on if isinstance(served_on, DeclaredServeClock) else None,
     )
 
 
@@ -424,6 +432,16 @@ class InProcessAdapter:
         and a second adapter naming the same root inherits it. That is the
         cache's existing single-writer contract (``D-30``) rather than a new
         rule: one root is one fabric, and one fabric has one clock.
+
+        `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): a deployment that declares
+        a demonstration serve instant is served at that instant, and a ``clock``
+        supplied here beside such a declaration is refused by name at boot
+        (:class:`~ccf.products.demonstration_clock.DemonstrationServeInstantConflict`).
+        The declaration is read at that one boot, from the deployment's
+        ``ccf_config.yaml``, and the booted deployment keeps it: one declared
+        later takes effect at the deployment's next boot, in a new process
+        (C1-late, ruled (a), Dave 2026-10-08: running services retain their
+        startup snapshot).
         """
         self._address = address
         self._clock = clock
@@ -488,7 +506,11 @@ class InProcessAdapter:
         # The read stays CLIENT-SIDE. Relocating it to the door is the separate
         # design question `C-13` recorded and declined; this changes which clock
         # it reads, not where it is read.
-        asked_at = request.temporal_boundary or self._clock()
+        #
+        # `D-IMPL-378` C1: a deployment that DECLARES a demonstration serve
+        # instant is served at it, so its `as_of=None` is that instant too — the
+        # same one-clock rule, with the declaration as the clock.
+        asked_at = request.temporal_boundary or (booted.declared_clock or self._clock)()
         return self._door(
             canonical_bytes(request).decode("utf-8"),
             asked_at=asked_at,

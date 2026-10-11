@@ -11,6 +11,7 @@ whose ``on:`` key parsed as ``True``.
 from __future__ import annotations
 
 import pathlib
+from typing import Any
 
 import pytest
 import yaml
@@ -237,3 +238,64 @@ def test_a_tree_without_workflows_has_no_finding(tmp_path: pathlib.Path) -> None
 def test_the_rule_is_registered_and_has_its_own_flag() -> None:
     assert WHOLE_TREE_CHECKERS["ci-posture"] is lint.check_tree
     assert build_parser().parse_args(["--ci-posture"]).selected == ["ci-posture"]
+
+
+#: D-IMPL-378 C8 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST),
+#: extending D-IMPL-372: every substrate step runs even when an earlier step
+#: failed, so a red quick suite cannot leave the legs unmeasured. Coverage stays
+#: gated: it only repeats the quick suite (the D-IMPL-378 CI diagnosis, §4.1).
+ALWAYS_RUN_STEPS = (
+    "Harness adapter conformance (all three legs must run)",
+    "Postgres leg (service container)",
+    "SEC-013 Postgres lease, focused (service container)",
+    "Neo4j leg (service container)",
+    "MongoDB leg (service container)",
+    "Fluree leg (service container)",
+)
+GATED_STEPS = ("Coverage (informational)",)
+NOT_CANCELLED = "${{ !cancelled() }}"
+
+
+def _test_job_steps() -> dict[str, dict[str, Any]]:
+    doc = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    return {step["name"]: step for step in doc["jobs"]["test"]["steps"] if "name" in step}
+
+
+@pytest.mark.parametrize("name", ALWAYS_RUN_STEPS)
+def test_every_substrate_step_runs_after_an_earlier_failure(name: str) -> None:
+    steps = _test_job_steps()
+    assert name in steps, f"no step named {name!r}: a renamed leg is renamed here, never dropped"
+    assert steps[name].get("if") == NOT_CANCELLED, f"{name!r} is gated on every earlier step passing"
+
+
+@pytest.mark.parametrize("name", GATED_STEPS)
+def test_coverage_stays_gated_on_the_quick_suite(name: str) -> None:
+    steps = _test_job_steps()
+    assert name in steps, f"no step named {name!r}"
+    assert "if" not in steps[name], f"{name!r} must stay gated: it only repeats the quick suite"
+
+
+def test_no_substrate_step_escapes_the_always_run_list() -> None:
+    """A new `make leg-*`, conformance or `-m postgres` step joins ALWAYS_RUN_STEPS by an edit here."""
+    steps = _test_job_steps()
+    substrate = {
+        name
+        for name, step in steps.items()
+        if any(marker in str(step.get("run", "")) for marker in ("leg-", "conformance", "-m postgres"))
+    }
+    assert substrate == set(ALWAYS_RUN_STEPS), sorted(substrate ^ set(ALWAYS_RUN_STEPS))
+
+
+#: D-IMPL-378 C10 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST):
+#: GitHub moves `ubuntu-latest` to Ubuntu 26 from 2026-10-19, so a moving label
+#: would change the release run's operating system without a commit. `perf.yml`
+#: already pinned this image.
+PINNED_RUNNER = "ubuntu-24.04"
+
+
+@pytest.mark.parametrize("name", COMMITTED)
+def test_every_job_runs_on_the_pinned_image(name: str) -> None:
+    doc = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+    runners = {job_id: job.get("runs-on") for job_id, job in doc["jobs"].items() if "uses" not in job}
+    assert runners, f"{name} declares no job that runs on a runner; the check would be vacuous"
+    assert all(runner == PINNED_RUNNER for runner in runners.values()), f"{name}: {runners}"

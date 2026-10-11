@@ -1486,8 +1486,12 @@ def test_a_replay_reproduces_the_obligation_in_force_at_decision_time(
     that never took effect.
     """
     address, record = _serve(deployment)
+    # The typed model, not ``REBOUND_PROFILE.model_dump()``: an untyped document
+    # is JSON-native, and a python-mode dump keeps its ``Decimal`` and tuple
+    # values, which the registry refuses rather than coerces (D-IMPL-380,
+    # 2026-10-10 18:25 — blocker 2, option (a)).
     rebound_version = deployment.registry.register(
-        register_capability("test/debt-profile", Register), REBOUND_PROFILE.model_dump()
+        register_capability("test/debt-profile", Register), REBOUND_PROFILE
     )
 
     outcome = _replay(deployment, address)
@@ -2425,3 +2429,87 @@ def test_a_legacy_sentinel_record_is_exempt(deployment: _Deployment) -> None:
     outcome = _replay(deployment, address)
 
     assert outcome.record == legacy
+
+
+# --- blocker 1: a decision's pinned `preferred` constraint replays with its own value and type -------
+
+
+def _preferred_guidance(value: object) -> PolicyConstraint:
+    return PolicyConstraint(
+        semver="1.0.0",
+        policy_id="replay-fixture-guidance",
+        applies_to=ConstraintApplicability(product_class=SCHEMA_NAME),
+        parameter="leaf",
+        operator="preferred",
+        value=value,
+        source_authority="fixture-authority",
+        effective_from=T_MARCH,
+        reason="fixture guidance",
+    )
+
+
+@pytest.mark.parametrize("value", [Decimal("4"), "4"], ids=["numeric-guidance", "name-guidance"])
+def test_a_decisions_pinned_preferred_constraint_replays_with_its_own_value_and_type(
+    deployment: _Deployment, value: object
+) -> None:
+    """Blocker 1 (ruled 2026-10-11 12:35): Dave — *"prove that a decision's recorded policy pin resolves
+    the correct value and type during replay, for both Decimal("4") and "4". Merely clearing the two
+    existing resolver tests does not establish that."*
+
+    The decision pins the constraint and records it as applied guidance; the record is served, then
+    replayed, and what REPLAY resolves at the pinned version is captured. Before the kind flag the two
+    constraints shared one address, so the Decimal could not be registered at all and the name's pin
+    could not say which of the two it named. The two decisions here pin two different versions, and
+    each replays to exactly its own value and type.
+    """
+    from ccf.products.provenance import ParameterBound
+
+    constraint = _preferred_guidance(value)
+    version = deployment.registry.register(register_capability(POLICY_CONSTRAINT_KEY, Register), constraint)
+    other = _preferred_guidance("4" if isinstance(value, Decimal) else Decimal("4"))
+    assert version != content_hash(other), "the two kinds of guidance must not share an address"
+    resolution = EffectiveRequest(
+        parameters=(),
+        guidance=(
+            ParameterBound(
+                operator="preferred",
+                value=value,
+                authority="policy",
+                source=ProvenanceSource(kind="artifact", identity=POLICY_CONSTRAINT_KEY, version=version),
+                policy_id="replay-fixture-guidance",
+                reason="fixture guidance",
+            ),
+        ),
+        overrides=(),
+        applied=(ProvenanceSource(kind="artifact", identity=POLICY_CONSTRAINT_KEY, version=version),),
+        asked_at=BOUNDARY,
+    )
+    address, record = _serve_claiming(
+        deployment,
+        bindings=(PolicyBinding(key=POLICY_CONSTRAINT_KEY, version=version),),
+        resolution=resolution,
+    )
+
+    resolved_during_replay: list[object] = []
+    real_resolve = deployment.registry.resolve
+
+    def watching(key: str, pinned: str) -> object:
+        artifact = real_resolve(key, pinned)
+        if key == POLICY_CONSTRAINT_KEY:
+            resolved_during_replay.append(artifact)
+        return artifact
+
+    deployment.registry.resolve = watching  # type: ignore[method-assign]
+    try:
+        outcome = _replay(deployment, address)
+    finally:
+        del deployment.registry.resolve  # type: ignore[attr-defined]
+
+    assert outcome.record == record
+    pinned = [b for b in outcome.record.policy_bindings.bindings if b.key == POLICY_CONSTRAINT_KEY]
+    assert [b.version for b in pinned] == [version]
+    assert resolved_during_replay, "replay never resolved the pinned constraint"
+    for artifact in resolved_during_replay:
+        assert isinstance(artifact, PolicyConstraint)
+        assert type(artifact.value) is type(value) and artifact.value == value
+        assert artifact == constraint

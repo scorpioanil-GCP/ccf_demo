@@ -33,7 +33,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from starlette.requests import Request
 
-from ccf.artifacts.protocol import MovingTargetRefused
+from ccf.artifacts.protocol import ArtifactStoreUnauthenticated, MovingTargetRefused
 from ccf.authz.capability import ReplayRead, kind_for_action
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
@@ -54,6 +54,7 @@ from ccf_runtime.authz.route_declaration import (
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
+    _artifact_store_unauthenticated,
     canonical_response,
     governed_refusal_response,
 )
@@ -132,6 +133,11 @@ def build_router(
             # lookup: it reveals nothing about the store, and it answered 409
             # here before D-IMPL-345 as it does in-process.
             raise HTTPException(status_code=409, detail=str(moving)) from moving
+        except ArtifactStoreUnauthenticated as refused:
+            # `D-IMPL-378` decision 21 (a): the deployment's store credential,
+            # refused by its server (HTTP 401) — a typed 503, never the opaque
+            # 500 an outage of that store is still answered with.
+            raise _artifact_store_unauthenticated() from refused
         if isinstance(decided, RefusalEnvelope):
             return governed_refusal_response(decided)
         return canonical_response(decided.record)

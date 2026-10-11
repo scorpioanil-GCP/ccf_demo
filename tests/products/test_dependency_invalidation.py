@@ -40,10 +40,11 @@ import pytest
 from ccf.controlplane.invalidation import (
     KEY_PREFIX,
     ControlPlaneInvalidationSink,
-    EntityInvalidation,
-    EntityInvalidationRegister,
+    EntityInvalidationRecord,
+    invalidation_history,
+    record_key,
     register_key,
-    resolve_register,
+    resolve_record,
 )
 from ccf.authz.capability import COMPOSITION_PRINCIPAL
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -61,7 +62,7 @@ from ccf.products.gates import (
     run_gates,
 )
 from tests.composition import register_at_composition
-from tests.composition import composition_register, register_at_composition
+from tests.composition import composition_invalidation_records, composition_register, register_at_composition
 
 TENANT_A = "tenant-alpha"
 TENANT_B = "tenant-beta"
@@ -158,9 +159,14 @@ def _sink(registry: ControlPlaneRegistry) -> ControlPlaneInvalidationSink:
     return ControlPlaneInvalidationSink(
         registry=registry,
         authorities=tuple(
-            composition_register(registry, register_key(tenant)) for tenant in (TENANT_A, TENANT_B)
+            composition_invalidation_records(registry, tenant) for tenant in (TENANT_A, TENANT_B)
         ),
     )
+
+
+def _record(registry: ControlPlaneRegistry, tenant_id: str, entity_uri: str = ENTITY_X) -> EntityInvalidationRecord | None:
+    """One entity's invalidation record (D-IMPL-382: one record per entity)."""
+    return resolve_record(registry, tenant_id=tenant_id, entity_uri=entity_uri)
 
 
 def _supersede(
@@ -256,7 +262,7 @@ def test_an_untouched_register_refuses_nothing(
     what makes the gate additive rather than a behavior change.
     """
     registered = _registered(registry)
-    assert resolve_register(registry, tenant_id=TENANT_A) is None
+    assert invalidation_history(registry, tenant_id=TENANT_A) == {}
 
     outcome = _serve(
         registry, registered, tenant_id=TENANT_A, snapshot=T1,
@@ -295,10 +301,10 @@ def test_one_tenants_supersession_cannot_refuse_anothers_product(
 
     assert isinstance(refused, DependencyInvalidationRefusal)
     assert isinstance(served, ServableProduct)
-    # And the registers are separate objects under separate keys, so the
+    # And the records are separate objects under separate keys, so the
     # isolation is structural rather than a filter someone remembered to apply.
-    assert register_key(TENANT_A) != register_key(TENANT_B)
-    assert resolve_register(registry, tenant_id=TENANT_B) is None
+    assert record_key(TENANT_A, ENTITY_X) != record_key(TENANT_B, ENTITY_X)
+    assert invalidation_history(registry, tenant_id=TENANT_B) == {}
 
 
 # =========================================================================
@@ -392,22 +398,22 @@ def test_a_boundary_never_moves_backward(
         reason="entity-claim-superseded", source="earlier",
     )
 
-    register = resolve_register(registry, tenant_id=TENANT_A)
-    assert register is not None
-    assert register.boundary_for(ENTITY_X) == T2
+    record = _record(registry, TENANT_A)
+    assert record is not None
+    assert record.invalidated_from == T2 and record.source == "later"
     # And the no-op append registered NO new version: a version per write that
     # changed nothing would show an auditor activity that never happened.
-    assert len(registry.versions(register_key(TENANT_A))) == 1
+    assert len(registry.versions(record_key(TENANT_A, ENTITY_X))) == 1
 
 
-def test_the_register_is_append_only_and_versioned(
+def test_each_entitys_record_is_append_only_and_versioned(
     registry: ControlPlaneRegistry,
 ) -> None:
-    """Each boundary that moves is a distinct audited registry version.
+    """Each boundary that moves is a distinct audited registry version of that entity's record.
 
-    Nothing is removed and nothing is overwritten in place, so the history of
-    appends is recoverable from the version chain even though one version holds
-    only the current boundaries.
+    Nothing is removed and nothing is overwritten in place, so each entity's history of
+    boundaries is recoverable from its own key's version chain (D-IMPL-382: one record per
+    entity, its own version history; the whole-register address no longer exists).
     """
     sink = _sink(registry)
     sink.record(
@@ -418,15 +424,21 @@ def test_the_register_is_append_only_and_versioned(
         tenant_id=TENANT_A, entity_uri=ENTITY_Y, invalidated_from=T2,
         reason="entity-claim-superseded", source="y",
     )
+    sink.record(
+        tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T3,
+        reason="entity-claim-superseded", source="x-again",
+    )
 
-    versions = registry.versions(register_key(TENANT_A))
-    assert len(versions) == 2
-    first = registry.resolve(register_key(TENANT_A), versions[0])
-    assert isinstance(first, EntityInvalidationRegister)
-    # The earlier version still holds only what it held: appending did not
-    # rewrite it.
-    assert first.boundary_for(ENTITY_X) == T2
-    assert first.boundary_for(ENTITY_Y) is None
+    x_versions = registry.versions(record_key(TENANT_A, ENTITY_X))
+    assert len(x_versions) == 2
+    assert len(registry.versions(record_key(TENANT_A, ENTITY_Y))) == 1
+    first = registry.resolve(record_key(TENANT_A, ENTITY_X), x_versions[0])
+    assert isinstance(first, EntityInvalidationRecord)
+    # The earlier version still holds only what it held: advancing did not rewrite it.
+    assert first.invalidated_from == T2 and first.source == "x"
+    history = invalidation_history(registry, tenant_id=TENANT_A)
+    assert [r.invalidated_from for r in history[ENTITY_X]] == [T2, T3]
+    assert [r.source for r in history[ENTITY_Y]] == ["y"]
 
 
 def test_a_register_holding_the_wrong_type_is_refused_by_name() -> None:
@@ -436,26 +448,28 @@ def test_a_register_holding_the_wrong_type_is_refused_by_name() -> None:
     indistinguishable from an empty one, and every product would serve.
     """
     registry = ControlPlaneRegistry()
-    register_at_composition(registry, register_key(TENANT_A), MaxTTL(seconds=1))
+    # Since the review of b66ab4fa the range is reserved: something else cannot even be written
+    # there (D-IMPL-382). The reader's own type guard below that reservation is pinned by
+    # tests/controlplane/test_invalidation_namespace_reserved.py.
+    from ccf.authz.capability import CapabilityBypassError
 
-    with pytest.raises(TypeError, match="EntityInvalidationRegister"):
-        resolve_register(registry, tenant_id=TENANT_A)
+    with pytest.raises(CapabilityBypassError, match="entity-invalidation range"):
+        register_at_composition(registry, record_key(TENANT_A, ENTITY_X), MaxTTL(seconds=1))
+    assert resolve_record(registry, tenant_id=TENANT_A, entity_uri=ENTITY_X) is None
 
 
-def test_the_register_entry_carries_its_cause() -> None:
-    """An entry names what superseded, so an auditor can follow it."""
-    entry = EntityInvalidation(
-        entity_uri=ENTITY_X,
-        invalidated_from=T2,
-        reason="entity-claim-superseded",
-        source="claim-0001",
+def test_the_record_carries_its_cause(registry: ControlPlaneRegistry) -> None:
+    """A record names what superseded, so an auditor can follow it."""
+    _sink(registry).record(
+        tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T2,
+        reason="entity-claim-superseded", source="claim-0001",
     )
-    register = EntityInvalidationRegister(
-        semver="1.0.0", tenant_id=TENANT_A
-    ).with_boundary(entry)
-
-    assert register.entry_for(ENTITY_X) == entry
-    assert register.entry_for(ENTITY_Y) is None
+    record = _record(registry, TENANT_A)
+    assert record is not None
+    assert (record.tenant_id, record.entity_uri, record.invalidated_from, record.reason, record.source) == (
+        TENANT_A, ENTITY_X, T2, "entity-claim-superseded", "claim-0001",
+    )
+    assert _record(registry, TENANT_A, ENTITY_Y) is None
 
 
 # =========================================================================
@@ -546,7 +560,7 @@ def test_the_writer_reports_the_boundary_when_a_claim_is_superseded() -> None:
             policy_bundle_version=registry.versions(
                 __import__('conftest').POLICY_BUNDLE_KEY)[-1],
         )
-        assert resolve_register(registry, tenant_id=TENANT_A) is None
+        assert _record(registry, TENANT_A) is None
 
         # The SECOND write supersedes the first.
         writer.upsert_entity(
@@ -554,9 +568,7 @@ def test_the_writer_reports_the_boundary_when_a_claim_is_superseded() -> None:
             policy_bundle_version=registry.versions(
                 __import__('conftest').POLICY_BUNDLE_KEY)[-1],
         )
-        register = resolve_register(registry, tenant_id=TENANT_A)
-        assert register is not None
-        entry = register.entry_for(ENTITY_X)
+        entry = _record(registry, TENANT_A)
         assert entry is not None
         assert entry.entity_uri == ENTITY_X
         # THE SUPERSEDING OBSERVATION'S INSTANT, not the write's.
@@ -621,15 +633,14 @@ def test_the_boundary_through_L2_is_world_time_not_ingestion_time() -> None:
 
         worker = fabric.worker
         worker.ingest(_envelope(seq=0, world=T_WORLD - timedelta(days=30), rating="BB"))
-        assert resolve_register(registry, tenant_id=TENANT_A) is None, (
+        assert invalidation_history(registry, tenant_id=TENANT_A) == {}, (
             "the first write supersedes nothing, so no boundary exists yet"
         )
         worker.ingest(_envelope(seq=1, world=T_WORLD, rating="BB-"))
 
-        register = resolve_register(registry, tenant_id=TENANT_A)
-        assert register is not None, "the superseding write recorded no boundary"
-        entry = next(iter(register.entries), None)
-        assert entry is not None
+        history = invalidation_history(registry, tenant_id=TENANT_A)
+        assert len(history) == 1, f"the superseding write recorded {len(history)} entities' boundaries, not one"
+        entry = next(iter(history.values()))[-1]
 
         assert entry.invalidated_from == T_WORLD, (
             f"the boundary is {entry.invalidated_from.isoformat()}; it must be"
@@ -685,32 +696,36 @@ def test_the_sink_refuses_construction_with_no_authority_or_a_duplicate_tenant(
 ) -> None:
     from ccf.controlplane.invalidation import InvalidationUnauthorized
 
-    with pytest.raises(InvalidationUnauthorized, match="no Register capability"):
+    with pytest.raises(InvalidationUnauthorized, match="no invalidation-record capability"):
         ControlPlaneInvalidationSink(registry=registry, authorities=())
-    twice = composition_register(registry, register_key(TENANT_A))
-    with pytest.raises(InvalidationUnauthorized, match="two Register"):
+    twice = composition_invalidation_records(registry, TENANT_A)
+    with pytest.raises(InvalidationUnauthorized, match="two invalidation-record capabilities"):
         ControlPlaneInvalidationSink(
             registry=registry,
-            authorities=(twice, composition_register(registry, register_key(TENANT_A))),
+            authorities=(twice, composition_invalidation_records(registry, TENANT_A)),
         )
 
 
 def test_the_sink_refuses_a_capability_for_another_key_and_every_fabrication(
     registry: ControlPlaneRegistry,
 ) -> None:
-    """A `Register` for some other key opens nothing here; a forgery opens nothing anywhere."""
-    from ccf.authz.capability import CapabilityBypassError, Register
+    """A capability of another kind or for another key opens nothing here; a forgery opens nothing anywhere."""
+    from ccf.authz.capability import CapabilityBypassError, InvalidationRecordRegister
 
     from tests.controlplane.capabilities import fabrications
 
     with pytest.raises(CapabilityBypassError):
         ControlPlaneInvalidationSink(
-            registry=registry, authorities=(composition_register(registry, MAX_TTL_KEY),)
+            registry=registry, authorities=(composition_register(registry, MAX_TTL_KEY),)  # type: ignore[arg-type]
         )
-    for label, forged in fabrications(Register, tenant=TENANT_A, resource=register_key(TENANT_A)):
+    with pytest.raises(CapabilityBypassError):  # the old one-key kind, for the old register key
+        ControlPlaneInvalidationSink(
+            registry=registry, authorities=(composition_register(registry, register_key(TENANT_A)),)  # type: ignore[arg-type]
+        )
+    for label, forged in fabrications(InvalidationRecordRegister, tenant=TENANT_A, resource=register_key(TENANT_A)):
         with pytest.raises(CapabilityBypassError):
-            ControlPlaneInvalidationSink(registry=registry, authorities=(forged,))  # type: ignore[arg-type]
-        assert resolve_register(registry, tenant_id=TENANT_A) is None, label
+            ControlPlaneInvalidationSink(registry=registry, authorities=(forged,))
+        assert invalidation_history(registry, tenant_id=TENANT_A) == {}, label
 
 
 def test_a_supersession_under_a_tenant_the_fabric_was_not_composed_for_is_refused_and_writes_nothing(
@@ -719,7 +734,7 @@ def test_a_supersession_under_a_tenant_the_fabric_was_not_composed_for_is_refuse
     from ccf.controlplane.invalidation import InvalidationUnauthorized
 
     sink = ControlPlaneInvalidationSink(
-        registry=registry, authorities=(composition_register(registry, register_key(TENANT_A)),)
+        registry=registry, authorities=(composition_invalidation_records(registry, TENANT_A),)
     )
     assert sink.tenants == frozenset({TENANT_A})
     events_before = len(registry.audit_events())
@@ -728,16 +743,14 @@ def test_a_supersession_under_a_tenant_the_fabric_was_not_composed_for_is_refuse
             tenant_id=TENANT_B, entity_uri=ENTITY_X, invalidated_from=T1,
             reason="entity-claim-superseded", source="x",
         )
-    # Count FIRST: `resolve_register` below is itself an audited read (a
-    # `resolve_latest` miss), and it must not be mistaken for the refusal's.
     assert len(registry.audit_events()) == events_before, "a refused record audited nothing"
-    assert resolve_register(registry, tenant_id=TENANT_B) is None
+    assert invalidation_history(registry, tenant_id=TENANT_B) == {}
     # And the held tenant still records, under the composition principal.
     sink.record(
         tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T1,
         reason="entity-claim-superseded", source="x",
     )
-    registered = [e for e in registry.audit_events() if e.key == register_key(TENANT_A) and e.action == "register_typed"]
+    registered = [e for e in registry.audit_events() if e.key == record_key(TENANT_A, ENTITY_X) and e.action == "register_typed"]
     assert registered and registered[-1].actor == COMPOSITION_PRINCIPAL
 
 
@@ -780,11 +793,11 @@ def test_the_writer_refuses_a_supersession_under_an_uncomposed_tenant_and_the_co
     try:
         writer.upsert_entity(tenant_id=TENANT_A, claim=_claim(TENANT_A, T1, "BB"), policy_bundle_version=policy_version)
         writer.upsert_entity(tenant_id=TENANT_A, claim=_claim(TENANT_A, T2, "BB-"), policy_bundle_version=policy_version)
-        assert resolve_register(registry, tenant_id=TENANT_A) is not None
+        assert _record(registry, TENANT_A) is not None
         other = "tenant-nobody-composed-for"
         writer.upsert_entity(tenant_id=other, claim=_claim(other, T1, "BB"), policy_bundle_version=policy_version)
         with pytest.raises(InvalidationUnauthorized, match=other):
             writer.upsert_entity(tenant_id=other, claim=_claim(other, T2, "BB-"), policy_bundle_version=policy_version)
-        assert resolve_register(registry, tenant_id=other) is None
+        assert invalidation_history(registry, tenant_id=other) == {}
     finally:
         fabric.close()  # type: ignore[attr-defined]

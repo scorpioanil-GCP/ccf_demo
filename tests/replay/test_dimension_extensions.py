@@ -55,7 +55,7 @@ from ccf.replay.record import (
 )
 from tests.replay.authority import replay_store
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
-from tests.replay.test_query_sequence_pin import _stored_verbatim
+from tests.replay.test_query_sequence_pin import VERBATIM_RECORD_CLASS, _stored_verbatim
 
 NOW = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
 BOUNDARY = datetime(2026, 2, 1, tzinfo=UTC)
@@ -357,7 +357,7 @@ def test_a_record_written_before_the_adapter_pin_still_resolves(
     would serialize the three fields this plan added and reject an honest
     pre-extension record as tampered.
     """
-    store = replay_store(tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts", VERBATIM_RECORD_CLASS)
     address = _stored_verbatim(store, PRE_CHANGE_CANONICAL)
 
     record = resolve_artifact(

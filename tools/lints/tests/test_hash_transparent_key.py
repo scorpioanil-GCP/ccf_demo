@@ -343,6 +343,9 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # (`24.6-L-21`). Brand-new model, and the field a disclosed shell blanks
     # below `full` — so it renders absent rather than as an explicit null.
     "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+    # D-IMPL-378 (ruling Q3), the read-refusal marker. Silent at `None`, so
+    # every resource identity recorded before it keeps its content address.
+    "ccf.products.refusal.ResourceRequestIdentity.tenant_from",
     # 24.6-08, the disclosure posture in force (`24.6-L-16`, `D-IMPL-253`
     # Q17): `minimal` on the tenant policy, `None` on the per-principal
     # override. Silent at both sentinels, so no registered policy's content

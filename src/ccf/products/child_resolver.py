@@ -48,12 +48,19 @@ own authenticated, authorized access and is **not** reclassified as peering.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 
 from typing import Any
 
-from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    DerivedWrite,
+    artifact_uri,
+)
 from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -77,7 +84,9 @@ from ccf.products.contract import (
 )
 from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
 from ccf.products.request import ProductRequest
+from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.serve import _same_string
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import McpProductBinding
 from ccf.skills.dispatch import (
@@ -99,7 +108,9 @@ __all__ = [
     "MalformedDoorAnswer",
     "ChildArguments",
     "ChildQuestion",
+    "ChildQuestionReferenceMismatch",
     "ChildQuestions",
+    "ChildRecordAltered",
     "ChildRecordMismatch",
     "GrantBoundChildResolver",
     "QuestionBoundChildResolver",
@@ -149,10 +160,122 @@ class ChildRecordMismatch(ValueError):
     that door, not to `D-IMPL-336`.
     """
 
+
+class ChildRecordAltered(ChildRecordMismatch):
+    """The bytes a child's replay reference names do not hash to its address (Dave's E1 (a), `D-IMPL-378`).
+
+    A record's address is the sha256 of its stored canonical bytes
+    (`D-IMPL-89`), so bytes that hash to anything else are not the record the
+    reference names: altered at rest, or the wrong artifact answered by the
+    substrate. Nothing is read out of them, and no child is admitted on them.
+
+    Dave's E1 (a), 2026-10-08: *"Preserve record content-address integrity."*
+    Raised before the bytes are parsed, so before the record's provenance or
+    its product is checked and before any touched entity reaches the
+    admission gate.
+
+    **A** :class:`ChildRecordMismatch`, **and so a** ``ValueError``,
+    deliberately. Evidence that is not the child's record is the same defect
+    class as a record about another product, raised rather than refused for
+    the same reason, and wrapped opaque at the MCP egress door like it
+    (`D-IMPL-253` Q20): the message names a reference and two addresses.
+    """
+
+
+class ChildQuestionReferenceMismatch(ArtifactStoreError, RuntimeError):
+    """The parent's store answered a child question's retention with a reference that is not the question's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation):
+    *"(a) Fix the four writers in one small lane."* It extends decision 5 (a)
+    (06:21 MST), *"Verify the returned record address against the record
+    actually written."*, from
+    ``src/ccf/replay/serve.py::ReplayWriter.write_replay_record`` to the
+    question retention of :class:`QuestionBoundChildResolver` (`D-IMPL-342` /
+    `CP14-F-35`).
+
+    **What the resolver knows before the store answers.** Under ``D-IMPL-26``
+    the whole reference of a question it files is fixed by the question and
+    its capability: the content address is the question's
+    :attr:`~ccf.skills.dispatch.ProductQuestion.address` (the content hash of
+    its identity bytes), the name is that address, the tenant is the
+    capability's, the class is
+    :data:`~ccf.products.composite.CHILD_QUESTION_CLASS`, and the versioned URI
+    is ``ccf-artifact://{tenant}/{class}/{address}@{address}``. Every field of
+    the store's answer is held to that as an exact string. Before this check
+    only the content address was held, with ``!=``, and the URI the store
+    answered was recorded unchecked as
+    :attr:`~ccf.replay.record.ChildResolution.child_question_ref`. Measured on
+    ``dl-378-integ`` @ ``6cd6023e``: a parent store that answered with the
+    question's own address and another question's URI had that URI recorded,
+    and a changed name, tenant or class was accepted
+    (``tests/products/test_child_question_retention_checks_the_returned_reference.py``).
+
+    **Raised after the store's ``put`` returns and before the producer is
+    asked**, so no child row is built and the producer is never contacted. It
+    propagates out of :meth:`QuestionBoundChildResolver.resolve_for`; the
+    governed resolver re-raises it unless the product class declares it a
+    seam refusal (``src/ccf/products/resolver.py::GovernedResolver._declared_seam_refusal``),
+    so with no such declaration the composition records nothing and answers
+    nothing. The store may already hold the question's bytes.
+
+    **Also a** ``RuntimeError``: the content-address refusal this absorbs was
+    raised as one (`D-IMPL-342`'s record of what was built), and a caller
+    written against that still catches it. An
+    :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the store's
+    answer is what failed. The text names the fields that differ and no value
+    the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the question's own reference
+    while holding other bytes under it is found by replay's audit read,
+    :func:`~ccf.replay.engine.retained_child_question`, which re-hashes the
+    retained bytes before using them.
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            question's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the parent's artifact store answered a child question's retention"
+            f" with a reference whose {', '.join(fields)} are not the"
+            " question's own; the resolver records only the reference of the"
+            " question it filed, so the producer is not asked (D-IMPL-378"
+            " decision 5 (a))"
+        )
+
 #: How a deployment turns one declared requirement into the typed arguments its
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
 #: child needs to be asked is the deployment's to state (`D-IMPL-38`).
-ChildArguments = Callable[[ChildRequirement, datetime], Mapping[str, str]]
+#:
+#: **Handed the request the composite asks its children about** (Dave's P3
+#: (a), ``D-IMPL-378``, 2026-10-08: *"as the API improvement, but not as
+#: enforcement proof"*). That is the EFFECTIVE request ``resolve_for`` is
+#: handed, the one :data:`ChildQuestions` mints each child's question from, and
+#: its ``asked_at`` is the composite's. Under an early
+#: :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` it names the
+#: declared undisclosed subject in place of a subject the policy does not
+#: disclose, so a mapping that reads the subject off it asks the child exactly
+#: what a nonexistent subject's composite asks.
+#:
+#: **Trusted deployment code — an explicit assumption** (Dave: *"Trusted
+#: deployment code is an explicit assumption; caller-controlled mappings cannot
+#: use this exception."*). The SDK cannot see where a mapping's values come
+#: from, so P3 (a) makes the safe path easy and enforces nothing: a mapping
+#: that ignores what it is handed and uses a subject it captured itself still
+#: asks the child about the withheld subject (measured:
+#: ``tests/products/test_sec020_p3_captured_subject_counterexample.py``). A
+#: mapping is the deployment's code, bound where its child resolver is built;
+#: no request, parameter, door payload, harness or agent input, or document
+#: supplies or selects one (lane ``378e-s020``'s scan and probe). A caller's
+#: DECLARED parameters do reach it, unchanged, as data, so take a child's
+#: subject from the request's ``subject`` and never from a parameter: a subject
+#: read from a parameter is the caller's, and the assumption does not cover it.
+ChildArguments = Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]
 
 
 class ChildQuestion(CCFContract):
@@ -174,10 +297,12 @@ class ChildQuestion(CCFContract):
 
 #: How a deployment turns one requirement and the composite's EFFECTIVE
 #: request into the question its producer is asked. Deployment configuration,
-#: never SDK knowledge (`D-IMPL-38`); what differs from :data:`ChildArguments`
-#: is that the composite's own request — its subject, its resolved parameters
-#: — is in scope, so a per-request anchor reaches the child through the
-#: declared mapping rather than through state closed over beside it.
+#: never SDK knowledge (`D-IMPL-38`). The composite's own request — its
+#: subject, its resolved parameters — is in scope, so a per-request anchor
+#: reaches the child through the declared mapping rather than through state
+#: closed over beside it; :data:`ChildArguments` is handed the same request,
+#: and what differs is what each returns: the question the child's answer is
+#: held to, against the arguments its skill is dispatched with.
 ChildQuestions = Callable[[ChildRequirement, ProductRequest], ChildQuestion]
 
 
@@ -194,7 +319,13 @@ class GrantBoundChildResolver:
             per-agent (`D-07`), so this names the composing agent — it is not
             a fabric identity and no new identity axis is introduced.
         gate: The composite admission gate, which performs the fit checks.
-        child_arguments: Turns a requirement into its skill's arguments.
+        child_arguments: Turns a requirement and the request the composite asks
+            its children about into the skill's arguments (:data:`ChildArguments`).
+            Trusted deployment code, an explicit assumption (Dave's P3 (a),
+            ``D-IMPL-378``): the SDK hands it the request with any withheld
+            subject replaced, and cannot make it use that request — a mapping
+            that reads a subject it captured itself, or a caller's parameter,
+            asks the child about whatever it read.
         callable_registry: For ``local_callable`` entries.
         mcp_skills: For ``mcp`` entries. ``None`` means this deployment binds
             none, and an MCP-bound grant then fails loudly rather than being
@@ -300,9 +431,11 @@ class GrantBoundChildResolver:
         a required slot refuses, an optional one takes its declared treatment.
 
         **Request-less, so question-less (`SEC-025`).** Without the
-        composite's request no question can be minted, and the gate refuses a
-        ``local-dispatch`` or ``mcp`` child ``question-mismatch``; a composite
-        reaches :meth:`resolve_for` instead.
+        composite's request no question can be minted for a child and no
+        arguments derived for it (:data:`ChildArguments` is handed that
+        request), so every granted requirement is refused
+        ``question-mismatch`` and its skill is not dispatched (SEC-020 P3
+        (a)); a composite reaches :meth:`resolve_for` instead.
         """
         return self._resolve(
             requirements=requirements,
@@ -332,16 +465,30 @@ class GrantBoundChildResolver:
                 # refused is a refusal, never an omission (`F1`).
                 outcomes[requirement.product_class] = None
                 continue
+            if request is None:
+                # SEC-020 P3 (a): the arguments mapping is handed the request,
+                # and a request-less call has none — nor a question to hold the
+                # answer to (`SEC-025`), so the gate would refuse whatever the
+                # child said. The child is not asked at all.
+                outcomes[requirement.product_class] = _refusal_for(requirement)(
+                    "question-mismatch",
+                    "this call carries no composite request, so no question can"
+                    " be minted for this child and no arguments derived for it;"
+                    " the child is not asked (SEC-025)",
+                )
+                continue
             # `SEC-025`: the question the composite asks THIS child, minted from
             # its own request — never read back off the skill's arguments.
             asked = (
                 self._child_questions(requirement, request)
-                if self._child_questions is not None and request is not None
+                if self._child_questions is not None
                 else None
             )
             dispatched = dispatch_skill(
                 producer.entry,
-                arguments=self._child_arguments(requirement, asked_at),
+                # SEC-020 P3 (a): the SAME request the question above is
+                # minted from — under an early policy, the stand-in's.
+                arguments=self._child_arguments(requirement, request),
                 callable_registry=self._callables,
                 mcp_skills=self._mcp,
                 peering_skills=self._peering,
@@ -597,21 +744,66 @@ class GrantBoundChildResolver:
         statement that its execution record is not resolvable here, which the
         admission gate must not read as *"nothing was touched"*.
 
-        **The binding, stated because it is the whole guarantee.** The
+        **Byte fidelity first** (Dave's E1 (a), `D-IMPL-378`). The bytes the
+        reference resolves to are re-hashed against that address before they
+        are parsed, exactly as
+        :meth:`~ccf.products.product.OpenedProduct.record_of` and the replay
+        engine verify them (`D-IMPL-89`): bytes altered under the reference
+        are refused, and no entity read out of them reaches the gate.
+
+        **Then provenance** (`D-IMPL-378`). The bytes the reference names are
+        a record only where the store shows the fabric's record writer filed
+        them under the tenant they name
+        (:func:`~ccf.replay.provenance.require_filed_by_record_writer`); a
+        record-shaped artifact filed on a client lane is refused before
+        anything is read out of it.
+
+        **Then the binding.** The
         referenced record's own ``product_content_address`` is held against the
         child's **recomputed** address — ``content_hash(contract)``, never the
         address the producer reported — and that comparison happens **before**
         any dependency evidence is read out of the record.
 
         Raises:
+            ChildRecordAltered: the stored bytes do not hash to the address the
+                reference resolves to.
+            ccf.replay.provenance.RecordNotFiledByRecordWriter: the store shows
+                no filing of the referenced bytes by the fabric's record writer
+                under the tenant they name — they are not the child's record.
+                An :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as a
+                reference naming nothing is.
+            ccf.replay.provenance.UnattributableRecordStore: this resolver's
+                store cannot say who filed an address.
             ChildRecordMismatch: the referenced record describes a different
                 product. Raised rather than refused: evidence about another
                 product is not a fact about this child's eligibility.
         """
         if replay_ref is None:
             return None
-        record = DecisionReplayRecord.model_validate_json(
-            self._store.get(content_address=self._store.resolve_uri(uri=replay_ref))
+        record_address = self._store.resolve_uri(uri=replay_ref)
+        payload = self._store.get(content_address=record_address)
+        # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+        # integrity." Byte fidelity FIRST, as `OpenedProduct.record_of` and the
+        # replay engine hold it (`D-IMPL-89`): the address is the sha256 of the
+        # stored canonical bytes, so the raw payload is verified before it is
+        # parsed or believed. A store that hands back other bytes under the
+        # address (the file-backed store returns what is on disk) is caught
+        # here, before any entity is read out of them for the gate.
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != record_address:
+            raise ChildRecordAltered(
+                f"the child reported replay reference {replay_ref!r}, which"
+                f" resolves to {record_address!r}; the bytes stored there hash to"
+                f" {reproduced!r}, so they are not the child's record and its"
+                " eligibility is not read out of them (D-IMPL-89; D-IMPL-378 E1 (a))"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        # `D-IMPL-378` (Dave, item 3): the bytes the reference names are the
+        # child's record only if the store shows the fabric's record writer
+        # filed them under the tenant they name — a record-shaped artifact on
+        # a client lane is no execution record, and nothing is read out of it.
+        require_filed_by_record_writer(
+            self._store, content_address=record_address, tenant_id=record.tenant_id
         )
         # **The record must be THIS product's.** Found by the final review and
         # reproduced: `contract` was a declared parameter this method never
@@ -798,8 +990,12 @@ class QuestionBoundChildResolver:
             construction, against exactly the child-question class, and its
             tenant is held equal to the gate's — one consumer tenant, compared
             once (§1.3).
-        child_arguments: Optional. The legacy mapping, for non-``mcp_product``
-            entries granted to the same agent.
+        child_arguments: Optional. The mapping for non-``mcp_product``
+            entries granted to the same agent, handed the same effective
+            request ``child_questions`` is (:data:`ChildArguments`). Like
+            ``child_questions``, trusted deployment code, an explicit
+            assumption (Dave's P3 (a), ``D-IMPL-378``): the SDK cannot make
+            either use the request it is handed rather than state it captured.
         (every other argument): exactly as :class:`GrantBoundChildResolver`.
     """
 
@@ -904,7 +1100,7 @@ class QuestionBoundChildResolver:
             elif self._has_arguments:
                 dispatched = dispatch_skill(
                     producer.entry,
-                    arguments=legacy._child_arguments(requirement, asked_at),
+                    arguments=legacy._child_arguments(requirement, request),
                     callable_registry=legacy._callables,
                     mcp_skills=legacy._mcp,
                     peering_skills=legacy._peering,
@@ -934,7 +1130,7 @@ class QuestionBoundChildResolver:
         return outcomes
 
     def _retain_question(self, sent: ProductQuestion) -> str:
-        """File the question's identity bytes on the parent's store; return the store's URI.
+        """File the question's identity bytes on the parent's store; return the URI it answered, held to the question's own.
 
         `D-IMPL-342` / `CP14-F-35`. The artifact is
         :meth:`~ccf.skills.dispatch.ProductQuestion.identity_artifact` — the
@@ -945,22 +1141,34 @@ class QuestionBoundChildResolver:
         admits for, held equal at construction. Idempotent by
         the store's construction: the same question asked twice files once.
 
-        The store's address for the bytes must equal the question's address —
-        the identity the row records — or replay could not resolve the row to
-        the bytes; a store that hashed differently is refused here, loudly,
-        as the admitted-contract retention refuses it (`D-IMPL-339`). A store
+        **The store's answer must be the question's own reference**
+        (``D-IMPL-378`` decision 5, extending 5 (a)): its content address is
+        the question's address — the identity the row records, or replay could
+        not resolve the row to the bytes — and its URI, tenant, class and name
+        are the ones that address files under this capability's tenant and the
+        child-question class, or the row would name another question. Every
+        field is held as an exact string, and a store that hashed differently
+        is still refused here, loudly, as the admitted-contract retention
+        refuses it (`D-IMPL-339`).
+        The URI returned, and recorded as the row's ``child_question_ref``, is
+        the one the resolver derived, which the store's answer equals. A store
         that cannot file raises: the producer is then never asked, and no row
         can claim a retained question the store does not hold (the
-        `D-IMPL-344` R-3 posture).
+        `D-IMPL-344` R-3 posture). What is not checked: the bytes the store
+        holds (see :class:`ChildQuestionReferenceMismatch`).
 
         Raises:
-            RuntimeError: the store filed the bytes at another address.
+            ChildQuestionReferenceMismatch: the store's answer is not the
+                question's own reference; also a ``RuntimeError``, as the
+                address refusal it absorbs was. Raised after the store returns
+                and before the producer is asked.
             OSError, ccf.contracts.canonical.CanonicalizationError: as the
                 store raises them — propagated, never converted into a
                 governed refusal.
         """
         legacy = self._legacy
         address = sent.address
+        tenant = self._authorized.tenant
         # A derived write under the composition-minted capability (D-IMPL-353
         # §1.2): the class is the SDK's, the name is the question's own
         # address, and the tenant is the capability's — held equal to the
@@ -973,19 +1181,34 @@ class QuestionBoundChildResolver:
                 artifact=sent.identity_artifact(),
             ),
         )
-        if filed.content_address != address:
-            raise RuntimeError(
-                "the artifact store filed a child question's identity bytes at"
-                f" {filed.content_address!r} but the question's address is"
-                f" {address!r}; replay holds the retained bytes to the row's"
-                " child_question_address and this store would break that"
-                " (D-IMPL-342 / CP14-F-35)"
-            )
-        return filed.uri
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # reference of the question actually filed, derived here (`D-IMPL-26`:
+        # the version IS the address), and the store's answer held to it field
+        # for field, as exact strings.
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=tenant,
+                artifact_class=CHILD_QUESTION_CLASS,
+                name=address,
+                artifact_version=address,
+            ),
+            tenant_id=tenant,
+            artifact_class=CHILD_QUESTION_CLASS,
+            name=address,
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(filed, field, None), getattr(own, field))
+        )
+        if differing:
+            raise ChildQuestionReferenceMismatch(fields=differing)
+        return own.uri
 
 
 def _no_child_arguments(
-    requirement: ChildRequirement, asked_at: datetime
+    requirement: ChildRequirement, request: ProductRequest
 ) -> Mapping[str, str]:
     raise TypeError(
         f"no child_arguments mapping was supplied for {requirement.product_class!r}"

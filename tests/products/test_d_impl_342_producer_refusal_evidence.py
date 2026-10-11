@@ -42,13 +42,14 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.composite import GATE_CHILD_ADMISSION, ChildAdmissionRefusal, _status_for
-from ccf.products.contract import ChildRequirement
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ChildRequirement
 from ccf.products.door import DoorOutcome, WireRequest
 from ccf.products.refusal import REFUSAL_KINDS, ProductRequestViolation, RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.replay.engine import RefusalReplayOutcome, _rehydrate_refusal_block, replay_refusal
 from ccf.replay.record import NO_FABRIC_READ, ChildResolution, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
+from tests.replay.authority import mechanism_put
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.dispatch import dispatch_skill, McpProductFailure, McpProductInvocation, ProductQuestion
@@ -95,8 +96,17 @@ class _NeverConsulted:
 
 
 def _lane_floor_config() -> dict[str, Any]:
-    """The producer serves `1.0.0`; the consumer's floor is `1.5.0`: the door refuses `class-mismatch`."""
-    return fixture.consumer_config(compatible_from="1.5.0", producers={"child": fixture.producer_section(versions_from="1.5.0")})
+    """The producer serves `1.0.0`; the consumer's floor is `1.5.0`: the door refuses `class-mismatch`.
+
+    Every consumer this module builds states `subject_withholding: never`
+    (`D-IMPL-378` P2 (c)): each is opened through `test_paved_consumer._open`,
+    whose plan factory never raises the withheld signal.
+    """
+    return fixture.consumer_config(
+        compatible_from="1.5.0",
+        producers={"child": fixture.producer_section(versions_from="1.5.0")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
 
 
 def _typed_wrong(requirement: ChildRequirement, request: ProductRequest) -> ChildQuestion:
@@ -145,7 +155,7 @@ def _fresh(opened: Any) -> FileArtifactStore:
     ("label", "config", "questions", "subject", "parameters", "kind", "reason", "key"),
     [
         ("lane-floor", _lane_floor_config(), fixture.questions, "acct-1", {THRESHOLD_PARAMETER: 1000}, REFUSAL_KINDS[ProductRequestViolation], "class-mismatch", "schema_version"),
-        ("typed-parameter", fixture.consumer_config(), _typed_wrong, "acct-1", {THRESHOLD_PARAMETER: "not-a-number"}, REFUSAL_KINDS[ProductRequestViolation], "type-mismatch", THRESHOLD_PARAMETER),
+        ("typed-parameter", fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER), _typed_wrong, "acct-1", {THRESHOLD_PARAMETER: "not-a-number"}, REFUSAL_KINDS[ProductRequestViolation], "type-mismatch", THRESHOLD_PARAMETER),
     ],
 )
 def test_c_a1_a_door_refusal_reaches_the_row_as_the_door_disclosed_it(
@@ -174,7 +184,9 @@ def test_c_a1_a_door_refusal_reaches_the_row_as_the_door_disclosed_it(
     assert oracle.replay_ref is not None and oracle.replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
     assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
     name, _, version = row.child_replay_ref.rpartition("@")
-    assert len(version) == 64 and set(version) <= set("0123456789abcdef") and name.rsplit("/", 1)[1] != version
+    # Dave's Q11 (`D-IMPL-378`): a record is named by its own content address,
+    # so the reference's name and version are one 64-hex identity.
+    assert len(version) == 64 and set(version) <= set("0123456789abcdef") and name.rsplit("/", 1)[1] == version
     assert not _fresh(opened).exists(content_address=version), "the consumer did not copy the producer's record"
     # the composite refusal did not erase it: the record's block and the record's row agree
     block = json.loads(record.content_generation_path.assembly_refusal)
@@ -225,7 +237,10 @@ def test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal(tmp_
     producer answer means no producer refusal is carried; the row reads the
     consumer's verdict alone. Measured, not assumed: the oracle shows the door
     erroring."""
-    config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_tenant="another-tenant")})
+    config = fixture.consumer_config(
+        producers={"child": fixture.producer_section(producer_tenant="another-tenant")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
@@ -248,7 +263,10 @@ def test_c_a4b_a_served_answer_rejected_inside_the_gate_carries_its_references_a
     reference for the answer it served, and the retained question's reference
     are all on the row. This is the branch the candidate's review found minting
     rows without the last two."""
-    config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_id="someone-else")})
+    config = fixture.consumer_config(
+        producers={"child": fixture.producer_section(producer_id="someone-else")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
@@ -353,7 +371,16 @@ def test_c_a7_a_record_without_the_new_keys_still_rehydrates_and_reconstructs(tm
     fresh = _fresh(opened)
     stripped_record = _without_rows_members(canonical_bytes(older), NEW_ROW_MEMBERS)
     address = hashlib.sha256(stripped_record).hexdigest()
-    (fresh.root / address).write_bytes(stripped_record)
+    # Filed as the deployment's writer filed the genuine record — by mechanism,
+    # under the same tenant and record class — and checked byte-for-byte: a
+    # record is read only where the store shows the record writer filed it
+    # (`D-IMPL-378`).
+    (genuine_filing,) = fresh.names_at(content_address=fresh.resolve_uri(uri=refused.replay_reference))
+    filed = mechanism_put(
+        fresh, tenant=genuine_filing.tenant_id, artifact_class=genuine_filing.artifact_class,
+        name=address, artifact=json.loads(stripped_record),
+    )
+    assert filed.content_address == address and fresh.get(content_address=address) == stripped_record
     assert content_hash(DecisionReplayRecord.model_validate_json(stripped_record)) == address
     assert address != content_hash(record), "the two shapes hash differently, by design"
     outcome = replay_refusal(

@@ -41,7 +41,7 @@ from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
 from ccf.products.child_resolver import ChildQuestion
-from ccf.products.contract import ChildRequirement
+from ccf.products.contract import ChildRequirement, SubjectWithholding
 from ccf.products.product import AcquisitionContext, AssessmentContext
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -181,6 +181,22 @@ def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> _Proj
     return _Projection(plan_id=request.schema_name, required=required, request=request)
 
 
+def _withholds_no_subject() -> bool:
+    """``plan_factory``'s positive declaration (Dave's E2 (ii) (d), ``NonWithholdingPlanFactoryProtocol``).
+
+    True of what the factory builds: ``_Projection.invoke`` returns a
+    ``ProjectionOutput`` with no withheld signal, for every subject and
+    principal. A consumer class that affirms ``never`` over this shared factory
+    is therefore built.
+    """
+    return True
+
+
+#: A NAMED ``def`` carries the declaration as an attribute — the structural form
+#: of the companion protocol for a function.
+plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 def assess(context: AssessmentContext) -> DebtAssessment:
     assert context.profile is not None
     return assess_debt(
@@ -225,33 +241,53 @@ def _paved_sections(*, producer_id: str, tenant: str) -> dict[str, Any]:
     }
 
 
-def producer_config(**overrides: Any) -> dict[str, Any]:
-    """The producer: the servable fixture, re-labeled as the child class under its own tenant."""
+def producer_config(*, subject_withholding: SubjectWithholding | None = None, **overrides: Any) -> dict[str, Any]:
+    """The producer: the servable fixture, re-labeled as the child class under its own tenant.
+
+    ``subject_withholding`` is the withholding stance the producer's class
+    states, and defaults to no statement, the SDK's own default
+    (``may-withhold``), as :func:`consumer_config`'s does: the projection is the
+    opener's (``project=``), not this document's. ``D-IMPL-378`` ruling P6 (a)
+    probes a class at that default whose plan factory declares no early policy;
+    this module's :class:`Acquire` returns one constant envelope whatever
+    subject it is asked about, so a producer opened with it is refused, every
+    question, as a population read left in the subject-keyed phase — measured.
+    An opener whose projection never withholds (this module's
+    :func:`plan_factory` never sets the withheld signal) states ``never``.
+    """
     document = _servable_config(**_paved_sections(producer_id=PRODUCER_ID, tenant=PRODUCER_TENANT))
     document["tenant_id"] = PRODUCER_TENANT
     document["product_class"]["schema_name"] = CHILD_CLASS
     document["product_class"]["schema_version"] = CHILD_VERSION
     document["request_contract"]["schema_name"] = CHILD_CLASS
     document["request_contract"]["schema_version"] = CHILD_VERSION
+    if subject_withholding is not None:
+        document["product_class"]["subject_withholding"] = subject_withholding
     document.update(overrides)
     return document
 
 
-def producer_environment_text() -> str:
-    return "\n".join(
-        [
-            "config: ccf_config.yaml",
-            "substrate: {setting: database_path, prefix: paved_child, suffix: .sqlite3}",
-            "sources:",
-            "  store:",
-            f"    dsn: {{from_env: {CHILD_DSN_VAR}, remedy: 'export {CHILD_DSN_VAR} with the fixture DSN'}}",
-            "door:",
-            f"  credential: {{from_env: {CREDENTIAL_VAR}, remedy: 'set, or leave unset to mint one per boot'}}",
+def producer_environment_text(*, addresses: bool = True) -> str:
+    """The producer's environment document. ``addresses=False`` names the door's credential only.
+
+    The two address names are optional (`D-IMPL-378` C2-A2 (a)): no SDK
+    transport reads them, so a document may leave them out.
+    """
+    lines = [
+        "config: ccf_config.yaml",
+        "substrate: {setting: database_path, prefix: paved_child, suffix: .sqlite3}",
+        "sources:",
+        "  store:",
+        f"    dsn: {{from_env: {CHILD_DSN_VAR}, remedy: 'export {CHILD_DSN_VAR} with the fixture DSN'}}",
+        "door:",
+        f"  credential: {{from_env: {CREDENTIAL_VAR}, remedy: 'set, or leave unset to mint one per boot'}}",
+    ]
+    if addresses:
+        lines += [
             "  issuer_url: {from_env: PAVED_CHILD_ISSUER, remedy: 'export the issuer (stdio only)'}",
             "  resource_server_url: {from_env: PAVED_CHILD_RESOURCE, remedy: 'export the resource server (stdio only)'}",
-            "",
         ]
-    )
+    return "\n".join([*lines, ""])
 
 
 def producer_section(
@@ -304,18 +340,29 @@ def consumer_config(
     skills: Mapping[str, Mapping[str, Any]] | None | str = "declared",
     agent: Mapping[str, Any] | None | str = "declared",
     governance: Mapping[str, Any] | None = None,
+    subject_withholding: SubjectWithholding | None = None,
     **overrides: Any,
 ) -> dict[str, Any]:
     """The consumer: the parent fixture requiring the child, with its four declarations.
 
     ``producers``, ``skills`` and ``agent`` take the sentinel ``"declared"``
     for the canonical section, ``None`` to omit the section, or a body.
+
+    ``subject_withholding`` is the withholding stance the consumer's class — a
+    composite — states, and defaults to no statement, the SDK's own default
+    (``may-withhold``). ``D-IMPL-378`` P2 (c) refuses, when its resolver is
+    constructed, a composite that declares neither an early policy nor
+    ``never``; so a test that opens and asks this consumer states the stance
+    its projection has. The fixture states none on its behalf: the projection
+    is the opener's (``project=``), not this document's.
     """
     document = _servable_config(**_paved_sections(producer_id="paved-consumer-egress", tenant=CONSUMER_TENANT))
     del document["door"]  # the consumer opens no door in this proof
     document["product_class"]["requires"] = [
         {"product_class": CHILD_CLASS, "required": True, "compatible_from": compatible_from}
     ]
+    if subject_withholding is not None:
+        document["product_class"]["subject_withholding"] = subject_withholding
     # The regime's skilling envelope, and the two `key:` overrides an agent's
     # pinned references need (`ccf-artifact://{tenant}/{class}/{name}@{version}`).
     document["policy"]["key"] = f"{CONSUMER_TENANT}/policy-bundle/paved-consumer"

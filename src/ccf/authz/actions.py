@@ -24,6 +24,7 @@ __all__ = [
     "ACTION_AGENT_VERSIONS",
     "ACTION_ARTIFACT_WRITE",
     "ACTION_ARTIFACT_ERASE",
+    "ACTION_ARTIFACT_SUBJECT_MATCH",
     "ACTION_BACKENDS_READ",
     "ACTION_CONFIG_KEYS_READ",
     "ACTION_CONFIG_VERSIONS_READ",
@@ -68,6 +69,13 @@ ACTION_ARTIFACT_WRITE: Final[str] = "artifact.write"
 #: deployment granted ERASURE — not general workflow Execute/Resume — can have
 #: an erasure written. Its resource is ``"<subject_class>/<request_id>"``.
 ACTION_ARTIFACT_ERASE: Final[str] = "artifact.erase"
+#: The erasure door's server-side subject match (SEC-009; `D-IMPL-378`, Dave's
+#: 16:40 MST item 5 — D3b): the MCP artifact server's ``match_artifact_subject``
+#: tool, which answers the erasure door a verdict about an address's stored
+#: bytes and never the bytes. Its own action, distinct from every read, write
+#: and erase, so that only a deployment that grants it by name — to the erasure
+#: door's credential — reaches the tool; its resource is the action id itself.
+ACTION_ARTIFACT_SUBJECT_MATCH: Final[str] = "artifact.subject.match"
 #: learns is a deployment's shape, which is reconnaissance (``T-15.4-11``).
 ACTION_BACKENDS_READ: Final[str] = "backends.read"
 #: ``GET /config/keys``.

@@ -46,12 +46,12 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from tests.composition import declaring_store
+from tests.replay.authority import mechanism_put
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.signal.envelope import SignalEnvelope
 from ccf.controlplane.artifacts import HalfLifeTable
 from ccf.products.product import AcquisitionContext
-from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract, ProductLineage
 from ccf.products.expiry import (
     TTLAnchorResolution,
     TTLAnchorUndeclared,
@@ -107,7 +107,7 @@ class _Acquire:
 
 
 def _config(*, ttl_anchor: str, decay_basis: str | None) -> dict[str, Any]:
-    document = fixture.producer_config()
+    document = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     document = copy.deepcopy(document)
     document["product_class"]["ttl_anchor"] = ttl_anchor
     row = dict(document["half_life"][ENTITY_CLASS])
@@ -135,9 +135,14 @@ def _ask(opened: OpenedProduct) -> Any:
 
 
 def _record(opened: OpenedProduct, outcome: Any) -> tuple[DecisionReplayRecord, FileArtifactStore, str]:
-    # A read-back store declaring nothing writable: the test reads what the
-    # product's own writer filed and files nothing itself (D-IMPL-353 §1.2).
-    fresh = declaring_store(opened.scratch / opened.replay.store_dirname)
+    # A read-back store under the deployment's OWN declaration: a record is
+    # read only where the store shows the fabric's record writer filed it, and
+    # which classes that writer files under is the declaration's to say
+    # (`D-IMPL-378`). Declaring nothing would refuse every record it holds.
+    fresh = FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=opened.artifact_store.write_kinds,
+    )
     address = outcome.replay_ref.content_address if isinstance(outcome, ServedProduct) else fresh.resolve_uri(uri=outcome.replay_reference)
     return DecisionReplayRecord.model_validate_json(fresh.get(content_address=address)), fresh, address
 
@@ -282,7 +287,9 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     # was reached. Fourteen ends at +9min: clear of the serving instant, and still
     # BEFORE the child's ten-minute window, which is the premise below.
     parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
-    config = fixture.consumer_config()
+    # `D-IMPL-378` P2 (c): opened with `project=fixture.plan_factory`, whose projection
+    # never raises the withheld signal, so the composite's class states it never withholds.
+    config = fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     row = dict(config["half_life"][ENTITY_CLASS]); row["decay_basis"] = "valid-from"
     config["half_life"] = {ENTITY_CLASS: row}
@@ -408,7 +415,7 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant(
     # was reached. Fourteen ends at +9min: clear of the serving instant, and still
     # BEFORE the child's ten-minute window, which is the premise below.
     parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
-    config = fixture.consumer_config()
+    config = fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)  # as above (P2 (c))
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     config["product_class"]["constituent_validity_floors"] = {
         "min_validity_seconds_by_signal": {fixture.CHILD_CLASS: floor_seconds}
@@ -594,7 +601,16 @@ def test_c9_replay_re_derives_the_anchor_and_a_pre_341_record_is_skipped_by_name
             assert older_record.content_generation_path.ttl_anchor_at is None
             older_address = hashlib.sha256(older_bytes).hexdigest()
             assert content_hash(older_record) == older_address, "a record lacking the member reloads to its own address"
-            (fresh.root / older_address).write_bytes(older_bytes)
+            # Filed as the deployment's writer filed the genuine record — by
+            # mechanism, under the same tenant and record class — and checked
+            # byte-for-byte: a record is read only where the store shows the
+            # record writer filed it (`D-IMPL-378`).
+            (genuine_filing,) = fresh.names_at(content_address=address)
+            filed = mechanism_put(
+                fresh, tenant=genuine_filing.tenant_id, artifact_class=genuine_filing.artifact_class,
+                name=older_address, artifact=json.loads(older_bytes),
+            )
+            assert filed.content_address == older_address and fresh.get(content_address=older_address) == older_bytes
             plain = _Environment(opened=opened, fabric=fabric, record=older_record, window=WINDOW, ttl_anchor="from_entity_freshness", carry_anchor=False)
             older_outcome = replay(record_address=older_address, store=fresh, reader=fabric.handle.reader, control_plane=opened.control_plane, environment=plain)
             assert older_outcome.product.ttl_anchor_at is None and older_outcome.product.expires_at == record.recorded_at + WINDOW

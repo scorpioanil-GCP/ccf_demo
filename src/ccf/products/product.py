@@ -63,7 +63,10 @@ well as at the builder); a class declaring ``requires`` with no child
 resolver; a ``scratch`` inside ``config_root``; an environment variable a
 source names that the process lacks (with the document's own remedy); a
 ``door:`` asserting a tenant other than the deployment's (R-6, refused by the
-loader).
+loader); a ``substrate:`` setting the declared adapter does not take as a
+path, so no question's store could be verified fresh
+(:class:`~ccf.products.resolver.AcquisitionOverUnverifiableStore`; SEC-020
+P4 (a), ``D-IMPL-378``).
 
 Single-writer, stated
 ---------------------
@@ -83,6 +86,7 @@ two open release findings `D-IMPL-341` (the entity-freshness expiry) and
 
 from __future__ import annotations
 
+import hashlib
 import os
 import uuid
 from collections.abc import Callable, Iterable, Mapping
@@ -143,6 +147,7 @@ from ccf.deployment.environment import (
 )
 from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.manifest import (
+    _path_valued_settings,
     keys_under_tenant,
     manifest_under_tenant,
     register_manifest_entries,
@@ -164,8 +169,11 @@ from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
+    AcquisitionOverUnverifiableStore,
+    PopulationQuestion,
     ProductGateProtocol,
     ProductNotResolvable,
+    _refuse_shared_owner,
     ProjectionPlanFactoryProtocol,
     ReplayRefusalRecorder,
     ResolverOutcome,
@@ -176,6 +184,8 @@ from ccf.products.resolver import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
+from ccf.replay.engine import ReplayDivergence
+from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import (
@@ -198,6 +208,8 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AcquireProtocol",
     "AcquisitionContext",
+    "PopulationAcquireProtocol",
+    "PopulationAcquisitionContext",
     "AssessProtocol",
     "AssessmentContext",
     "ChildResolverFactory",
@@ -277,6 +289,32 @@ class AcquisitionContext:
 
 
 @dataclass(frozen=True)
+class PopulationAcquisitionContext:
+    """What a deployment's population phase is handed for one question.
+
+    SEC-020, ``D-IMPL-378`` (Q7; SDK-defined, CLAUDE.md §11).
+    :class:`AcquisitionContext` without the request: ``question`` is the
+    effective request WITHOUT its subject
+    (:class:`~ccf.products.resolver.PopulationQuestion`), so the part of the
+    acquisition a deployment declares subject-independent cannot read the
+    asked identifier from anything it is handed.
+
+    Attributes:
+        question: The effective request without its subject.
+        perspective: Whose view the answer is served under.
+        tenant_id: The tenant every envelope must be stamped for.
+        sources: Every source setting the environment document declared.
+        instant: The question's ``asked_at``, as on :class:`AcquisitionContext`.
+    """
+
+    question: PopulationQuestion
+    perspective: Perspective
+    tenant_id: str
+    sources: Mapping[str, Mapping[str, str]]
+    instant: datetime
+
+
+@dataclass(frozen=True)
 class AssessmentContext:
     """What a deployment's ``assess`` is handed for one question.
 
@@ -348,9 +386,70 @@ class AcquireProtocol(Protocol):
     the claim's own age as ``observed_time`` (`D-IMPL-331`, `CP03C-F-08`). An
     empty iterable is a legitimate answer: nothing is written, and the
     governed path then refuses on the product's own gate, with a record.
+
+    **Called once more for a class that may withhold** (SEC-020, ``D-IMPL-378``
+    ruling P6 (a); Q10 amended to exactly this call). When the class may
+    withhold its subject and the plan factory declares no early policy, the
+    paved road first calls ``acquire`` with a context whose request carries
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as its subject,
+    immediately before the call for the question's subject. What it returns
+    for that identifier is ingested like any answer, and if it changed the
+    fabric the question is refused,
+    :class:`~ccf.products.resolver.PopulationReadInSubjectKeyedPhase`, before
+    ``acquire`` is handed the question's subject. Return nothing for an
+    identifier your sources do not hold: a held refusal for the probe
+    identifier refuses every question (OWED-RULINGS-3 item 4 (b)), answered
+    and recorded as
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL`, the SDK's one
+    constant, with no part of the refusal as ``acquire`` stated it
+    (``D-IMPL-378`` repair 2.3 (b)). Read what does not depend on the subject
+    in ``population`` instead (:class:`PopulationAcquireProtocol`).
+    SEC-020 stays OPEN: an ``acquire`` that recognizes the probe identifier is
+    not detected.
+
+    **Called twice more under a declared early policy** (``D-IMPL-378``
+    decision 4 (a); Q10 amended to exactly these calls). When the plan factory
+    declares an early policy, the paved road first calls ``acquire`` with
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` and then with the
+    policy's declared stand-in as the subject, immediately before the call for
+    the question, and refuses the question,
+    :class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`, if the
+    fabric names the stand-in or if what ``acquire`` returned for the stand-in
+    added anything to what it returned for the probe identifier — an entity, a
+    relationship, a claim value, or evidence from another source or passage; the
+    envelope id and the receipt instant each delivery carries are set aside
+    (``D-IMPL-378`` repair 1.3). Hold nothing for the stand-in you declare.
+    Under such a policy, a refusal ``acquire`` raises, for any question of the
+    class, is served and recorded as
+    :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`: its own
+    kind, cause, code and text are not kept (``D-IMPL-378`` repair 2.2 (a)).
     """
 
     def __call__(self, context: AcquisitionContext) -> Iterable[SignalEnvelope]: ...
+
+
+@runtime_checkable
+class PopulationAcquireProtocol(Protocol):
+    """The deployment's population phase: read what does not depend on the subject (SEC-020 Q7).
+
+    ``D-IMPL-378`` (SDK-defined, CLAUDE.md §11). Declared to
+    :func:`open_product` as ``population``, on an object separate from
+    ``acquire`` (one shared owner is refused at open,
+    :class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`). The paved
+    road calls it once per question, FIRST, with a
+    :class:`PopulationAcquisitionContext` — no request, no subject — and then
+    ``acquire`` for the subject-keyed phase, also once for the question's
+    subject (plus, for a class that may withhold and declares no early policy,
+    once for the P6 probe immediately before it, and, for a class with a
+    declared early policy, twice to verify its stand-in;
+    :class:`AcquireProtocol`).
+    Both phases' envelopes are held to the tenant and the instant and ingested
+    through the same L2 worker. The two must not overlap: an entity the
+    population phase returns
+    is not returned again by ``acquire``.
+    """
+
+    def __call__(self, context: PopulationAcquisitionContext) -> Iterable[SignalEnvelope]: ...
 
 
 @runtime_checkable
@@ -466,6 +565,7 @@ class OpenedProduct:
         mcp_skills: McpSkillRegistry | None = None,
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
+        population: PopulationAcquireProtocol | None = None,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -494,6 +594,7 @@ class OpenedProduct:
         self.agent = agent
         self._bridge = bridge
         self._acquire = acquire
+        self._population = population
         self._project = project
         self._assess = assess
         self._gate = gate
@@ -574,14 +675,59 @@ class OpenedProduct:
         Served and refused decisions alike: a served product carries its
         record's content address on ``replay_ref``; a refusal carries the
         record's URI, which the store resolves. One store, so one read idiom.
+
+        The bytes there are returned as a record only where they hash to the
+        address the outcome names — the replay engine's own arithmetic
+        (:func:`~ccf.replay.engine.resolve_artifact`, ``D-IMPL-89``), so bytes
+        altered under a reference are refused rather than handed back as the
+        decision's (Dave's E1 (a), ``D-IMPL-378``: *"Preserve record
+        content-address integrity"*) — and only where the store shows the
+        fabric's record writer filed them under the tenant they name
+        (`D-IMPL-378`): an outcome can name any address, and a record-shaped
+        artifact filed on a client lane is not a decision record.
+
+        **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``,
+        2026-10-08: *"trusted operator/auditor handles holding the underlying
+        store may remain unrestricted. Agent-accessible in-process interfaces
+        must still enforce Q12."*). Its caller holds this product's
+        ArtifactStore (``artifact_store``) and can read the same bytes
+        directly, so it is not held to Q12's default-deny on owner read-back.
+        An agent reads records only through the governed evidence reads
+        (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+        which hold it. Handing an opened product, or anything else holding the
+        store, to an agent hands the agent the store (measured by
+        ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
+
+        Raises:
+            ccf.replay.engine.ReplayDivergence: the stored bytes do not hash to
+                the address the outcome names.
+            ccf.replay.provenance.RecordNotFiledByRecordWriter: the store
+                shows no such filing — an
+                :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as an
+                address holding nothing is.
+            ccf.replay.provenance.UnattributableRecordStore: the store cannot
+                say who filed an address.
         """
         if isinstance(outcome, ServedProduct):
             address = outcome.replay_ref.content_address
         else:
             address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
-        return DecisionReplayRecord.model_validate_json(
-            self.artifact_store.get(content_address=address)
+        payload = self.artifact_store.get(content_address=address)
+        # E1 (a) (`D-IMPL-378`): byte fidelity FIRST, as replay holds it — the
+        # address is the sha256 of the stored canonical bytes, so the raw
+        # payload is what is verified, before it is believed or parsed.
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != address:
+            raise ReplayDivergence(
+                f"the bytes at {address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the record this outcome names"
+                " (D-IMPL-89; D-IMPL-378 E1 (a))"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        require_filed_by_record_writer(
+            self.artifact_store, content_address=address, tenant_id=record.tenant_id
         )
+        return record
 
     # --- the low road, reachable from the paved surface --------------------------
 
@@ -629,6 +775,13 @@ class OpenedProduct:
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
             "acquisition": self._acquisition_seam(fabric),
+            # SEC-020 Q7 (`D-IMPL-378`): the declared population phase, stated
+            # only when the deployment declared one.
+            **(
+                {"population_acquisition": self._population_seam(fabric)}
+                if self._population is not None
+                else {}
+            ),
             # §7.10.4's Mode 2 footprint. `None` for every Mode 1 deployment,
             # and dimension 3's no-packaging sentinel is then the true claim.
             "packaging_trace": self._packaging_trace,
@@ -827,6 +980,10 @@ class OpenedProduct:
         document's; the uuid is what makes "per question" true rather than
         nominal (`CP03C-F-02`: a door answering several questions under one
         root booted the SAME file every time). Nothing here names a backend.
+
+        Booted ``for_question`` (SEC-020, ``D-IMPL-378`` Q9): the boot verifies
+        the minted substrate does not exist yet, and the governed call that
+        acquires into this fabric claims it for the one question it answers.
         """
         substrate = self.environment.substrate
         minted = self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
@@ -834,38 +991,51 @@ class OpenedProduct:
             self.config_path,
             registry=self.control_plane,
             connection={substrate.setting: str(minted)},
+            for_question=True,
         )
 
-    def _acquisition_seam(self, fabric: BootedFabric) -> Callable[..., None]:
+    def _acquisition_seam(
+        self,
+        fabric: BootedFabric,
+        *,
+        population_phase: PopulationAcquireProtocol | None = None,
+    ) -> Callable[..., None]:
         """The declared acquisition boundary for one question (`D-IMPL-343` R-4).
 
-        Called by the resolver ONCE, with the EFFECTIVE request, after
-        resolution and before the graph read. The deployment's ``acquire``
-        runs at the values governance resolved; every envelope is held to the
-        tenant and the instant before L2's one writer sees it.
+        Called by the resolver ONCE for the question's subject, with the
+        EFFECTIVE request, after resolution and before the graph read. Before
+        that call, and only one of the two, as :class:`AcquireProtocol` states:
+        for a class the P6 probe reads, once more, with
+        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject
+        (``D-IMPL-378`` ruling P6 (a)); for a class with a declared early
+        policy, which the probe does not read, twice more, with the probe
+        identifier and then the declared stand-in (``D-IMPL-378`` decision
+        4 (a)). The deployment's ``acquire`` runs at the values governance
+        resolved; every envelope is held to the tenant and the instant before
+        L2's one writer sees it.
+
+        With ``population_phase`` (SEC-020 Q7, ``D-IMPL-378``; see
+        :meth:`_population_seam`) it returns the declared population phase
+        instead: called once per question, before the subject-keyed seam, and
+        handed a :class:`PopulationAcquisitionContext` and nothing else. Both
+        phases reach the writer through the one guarded loop below, so this
+        method stays the L2 writer's only governed caller (`D-IMPL-364` B1).
         """
         worker = fabric.handle.worker
         tenant_id = self.tenant_id
         sources = self.sources
         acquire = self._acquire
         # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
-        # — the trusted ingress composition — and bound ONCE per opened product
-        # rather than per envelope. The roster is this deployment's own tenant and
-        # the policy is pinned for it at composition, so nothing on the ingest path
-        # resolves a policy and no envelope can introduce a tenant.
+        # — the trusted ingress composition — and bound ONCE per seam rather than
+        # per envelope. The roster is this deployment's own tenant and the policy
+        # is pinned for it at composition, so nothing on the ingest path resolves
+        # a policy and no envelope can introduce a tenant.
         temporal_bound = IngressTemporalBound.at_composition(
             registry=self.control_plane, tenant_ids=(tenant_id,)
         )
         clock = self._clock
 
-        def seam(*, request: ProductRequest, perspective: Perspective) -> None:
-            context = AcquisitionContext(
-                request=request,
-                perspective=perspective,
-                tenant_id=tenant_id,
-                sources=sources,
-                instant=request.asked_at,
-            )
+        def ingest(envelopes: Iterable[SignalEnvelope], *, asked_at: datetime) -> None:
             # THE FABRIC'S instant, read ONCE per acquisition and handed to the
             # guard — never `request.asked_at`. `refuse_foreign_envelope` above
             # already requires `ingestion_timestamp == asked_at` on this road, so
@@ -874,8 +1044,8 @@ class OpenedProduct:
             # fire. Measured — the first draft of this wiring did exactly that and
             # the end-to-end control caught it.
             ingress_at = clock()
-            for envelope in acquire(context):
-                refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=request.asked_at)
+            for envelope in envelopes:
+                refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=asked_at)
                 # BEFORE the single writer sees it. An out-of-window or undeclared
                 # envelope raises here, so no claim lands and nothing is restamped.
                 # The raise is `TemporalWriteRefused`, which `SDK_SEAM_REFUSALS`
@@ -885,7 +1055,45 @@ class OpenedProduct:
                 temporal_bound.refuse_outside_window(envelope, now=ingress_at)
                 worker.ingest(envelope)
 
+        if population_phase is not None:
+            declared = population_phase
+
+            def population(*, question: PopulationQuestion, perspective: Perspective) -> None:
+                context = PopulationAcquisitionContext(
+                    question=question,
+                    perspective=perspective,
+                    tenant_id=tenant_id,
+                    sources=sources,
+                    instant=question.asked_at,
+                )
+                ingest(declared(context), asked_at=question.asked_at)
+
+            return population
+
+        def seam(*, request: ProductRequest, perspective: Perspective) -> None:
+            context = AcquisitionContext(
+                request=request,
+                perspective=perspective,
+                tenant_id=tenant_id,
+                sources=sources,
+                instant=request.asked_at,
+            )
+            ingest(acquire(context), asked_at=request.asked_at)
+
         return seam
+
+    def _population_seam(self, fabric: BootedFabric) -> Callable[..., None]:
+        """The declared population phase for one question (SEC-020 Q7, ``D-IMPL-378``).
+
+        Called by the resolver once per question, before the subject-keyed
+        seam, with a question that carries no subject; the deployment's
+        ``population`` is handed a :class:`PopulationAcquisitionContext`
+        built from it and nothing else. Composed by :meth:`_acquisition_seam`,
+        so it reaches L2's one writer through the same guarded loop.
+        """
+        population_phase = self._population
+        assert population_phase is not None  # stated only when declared
+        return self._acquisition_seam(fabric, population_phase=population_phase)
 
 
 def _parsed(
@@ -922,6 +1130,7 @@ def open_product(
     build_children: ChildResolverFactory | None = None,
     packaging_trace: PackagingTraceProtocol | None = None,
     erasure_index: ErasureIndexProtocol | None = None,
+    population: PopulationAcquireProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -930,7 +1139,10 @@ def open_product(
     keys, parses the bindings the road reads, resolves every source variable
     the environment names, and builds the ONE store and the ONE recorder.
     **Boots nothing**: every question boots its own fabric (module docstring,
-    §1), so opening is cheap and refuses only on what a document says.
+    §1), so opening is cheap and refuses only on what a document says. So a
+    process that only opens cannot replay an earlier record: build the replay
+    environment first,
+    :class:`~ccf.replay.environment.RecordedEnvironment` (`D-IMPL-378` R-A2).
 
     **A consumer opens the same way** (`D-IMPL-343`, the consumer half). A
     deployment declaring ``producers:`` has every declared producer registered
@@ -959,6 +1171,14 @@ def open_product(
             own fabrics beside its own documents would be one nobody could
             clean.
         acquire: The deployment's acquisition (:class:`AcquireProtocol`).
+        population: The deployment's population phase, when part of
+            what it reads does not depend on the subject
+            (:class:`PopulationAcquireProtocol`; SEC-020 Q7, ``D-IMPL-378``):
+            called once per question before ``acquire`` and handed no subject.
+            Refused at open when it shares an owner with ``acquire``
+            (:class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`), or
+            when the walk that looks for one cannot read what an object it
+            reaches holds (:class:`~ccf.products.resolver.SharedOwnerWalkIncomplete`).
         project: The deployment's NAMED plan factory (`D-IMPL-137`: its only
             operator source is the ``required`` tuple the SDK hands it).
         assess: The deployment's debt rule (:class:`AssessProtocol`).
@@ -1035,6 +1255,12 @@ def open_product(
         ValueError: any open-time refusal in the module docstring — each
             names the section or the key; a grant the Control Plane refused,
             with the refusal's own detail.
+        ccf.products.resolver.AcquisitionOverUnverifiableStore: the
+            environment's ``substrate.setting`` is not a path-valued setting
+            of the adapter ``ccf_config.yaml`` declares, so the store this road
+            mints per question could never be verified fresh (SEC-020 P4 (a),
+            ``D-IMPL-378``). Read off the adapter's declared connection
+            contract: nothing is minted, booted or connected to.
         FileNotFoundError: the environment document is absent.
         ccf.deployment.environment.EnvironmentMissing: a variable a source
             names is unset; the document's remedy is the message.
@@ -1052,10 +1278,28 @@ def open_product(
             " per-question fabrics and the replay store are written under"
             " scratch and never beside the deployment's documents (D-IMPL-343)"
         )
+    # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two declared
+    # acquisition phases is refused at open, before any document is read.
+    if population is not None:
+        _refuse_shared_owner(population, acquire)
     environment = load_environment_document(root)
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
     assert isinstance(config, DeploymentConfig)  # DEPLOYMENT_CONFIG's contract
+    # SEC-020 P4 (a) made strict (`D-IMPL-378`; Dave, 2026-10-08 12:29 MST:
+    # *"Unsupported network compositions must refuse before questions run"*):
+    # this road acquires into a store it mints for every question, and a
+    # substrate setting the declared adapter does not take as a path names no
+    # store the SDK can verify fresh. Read off the adapter's declared contract,
+    # so nothing is minted, booted or connected to.
+    if environment.substrate.setting not in _path_valued_settings(config.backend):
+        raise AcquisitionOverUnverifiableStore(
+            "the paved road boots a fresh store for every question, at a path"
+            f" it mints into the substrate setting {environment.substrate.setting!r},"
+            f" and the {config.backend!r} adapter takes no path-valued setting by"
+            " that name, so no question's store could be verified fresh; every"
+            " question would be refused (SEC-020, P4)"
+        )
     # `D-IMPL-341` R-3 (first row), at the paved road's registration moment:
     # a class declaring `ttl_anchor: from_entity_freshness` over a λ_c table
     # with no `decay_basis: valid-from` row could never be honored by any
@@ -1299,6 +1543,7 @@ def open_product(
         mcp_skills=mcp_skills,
         bridge=bridge,
         agent=agent,
+        population=population,
     )
 
 

@@ -25,7 +25,8 @@ frozen specimen under ``D-IMPL-261`` (pinned by
 ``tests/examples/test_cp_13_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused``)
 and held one of the 16 sites. Dave ruled on 2026-10-07 (*"Fix the one line"*) that it is
 repaired under ``D-IMPL-261``'s objectively-wrong clause, so every site is checked alike. That
-pin compares the specimen with ``git merge-base HEAD main``, so it reads the repair as a change
+pin compares the specimen with its branch point from ``main``
+(``tests/examples/specimen_base.py::branch_point``), so it reads the repair as a change
 on a branch until the merge, as the ``D-IMPL-375`` specimen pins did.
 
 Offline: no estate, no database, no writes.

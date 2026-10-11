@@ -23,6 +23,11 @@ from pathlib import Path
 
 import pytest
 
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.client.adapters.binding_document import load_binding_document
+
 from tests.client.conformance.suite import Provision
 from tests.client.conftest import FIXTURE_DEPLOYMENT, seed
 from tests.client.fixtures import (
@@ -59,20 +64,40 @@ def provision(tmp_path: Path) -> Provision:
     that took only the deployment would inherit a declaration pointing at
     nothing, and a leg refused for a missing program is indistinguishable from
     one refused for a deployment that declared none.
-    """
-    handed_out = 0
 
-    def make(name: str) -> Path:
-        nonlocal handed_out
-        root = tmp_path / f"{handed_out:02d}-{name}" / "deployment"
-        handed_out += 1
+    **And it reads a provisioned root's records, as that deployment's
+    operator** (E1 (a), ``D-IMPL-378``): ``read_record`` resolves a replay
+    reference against the artifact store the root's own ``binding.yaml``
+    declares — the store every transport over that root writes to — and returns
+    the record's bytes. ``suite.assert_served_parity`` compares ``replay_ref`` by
+    that record, modulo its per-answer issuance.
+    """
+    return _Provisioner(tmp_path)
+
+
+class _Provisioner:
+    """The conformance package's :class:`~tests.client.conformance.suite.Provision`."""
+
+    def __init__(self, tmp_path: Path) -> None:
+        self._tmp_path = tmp_path
+        self._handed_out = 0
+
+    def __call__(self, name: str) -> Path:
+        root = self._tmp_path / f"{self._handed_out:02d}-{name}" / "deployment"
+        self._handed_out += 1
         shutil.copytree(FIXTURE_DEPLOYMENT, root)
         shutil.copy2(STDIO_SERVER, root.parent)
         declare_server(root, root.parent / STDIO_SERVER.name)
         seed(root)
         return root
 
-    return make
+    def read_record(self, root: Path, reference: str) -> bytes:
+        document = load_binding_document(root)
+        store = FileArtifactStore(
+            root=document.artifact_store,
+            write_kinds=WriteKinds.declare({document.replay_record_class: (ReplayMint,)}),
+        )
+        return store.get(content_address=store.resolve_uri(uri=reference))
 
 
 @pytest.fixture(autouse=True)

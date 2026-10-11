@@ -166,6 +166,9 @@ AuditAction = Literal[
     "peering_admission_refused",
     "skill_invoked",
     "state_written",
+    # D-IMPL-378: an execution is recorded as started before its first node
+    # runs, by a create-if-absent write, so one execution id is started once.
+    "workflow_started",
     "workflow_transition",
     "workflow_suspended",
     "workflow_resumed",

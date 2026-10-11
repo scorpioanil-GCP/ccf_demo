@@ -150,8 +150,15 @@ from ccf.client.errors import BindingError, TransportError
 from ccf.products.resolver import _utc_now as _FABRIC_CLOCK
 from ccf.client.wire import WireRequest
 from ccf.contracts.canonical import canonical_bytes
-from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, DeploymentConfig
+from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, ArtifactLoadError, DeploymentConfig
 from ccf.controlplane.artifacts import load_artifact as load_control_plane_artifact
+from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.demonstration_serve_instant import (
+    DEMONSTRATION_SERVE_INSTANT,
+    DemonstrationServeInstant,
+    demonstration_serve_instant_key,
+)
+from ccf.products.demonstration_clock import DemonstrationServeInstantConflict
 from ccf.products.door import PRODUCT_REQUEST_TOOL
 
 __ccf_mode__ = "algorithmic"
@@ -182,6 +189,10 @@ class _Declared:
     document: BindingDocument
     tenant: str
     version: str
+    #: `D-IMPL-378` C1: the demonstration serve instant the deployment declares
+    #: in ``ccf_config.yaml``, or ``None``. The server child serves at it; this
+    #: client resolves ``as_of=None`` to it, so both halves read one now.
+    serve_instant: datetime | None = None
 
 
 class McpStdioAdapter:
@@ -219,6 +230,12 @@ class McpStdioAdapter:
         The clock does NOT cross to the child process — the child composes its
         own, and a deployment that needs the two to agree says so in the program
         it ships. What this governs is the instant this CLIENT resolves.
+
+        `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): a deployment that DECLARES
+        a demonstration serve instant in its ``ccf_config.yaml`` is asked as of
+        that instant when the caller names none — the child serves at the same
+        declaration — and a ``clock`` supplied here beside it is refused by name
+        (:class:`~ccf.products.demonstration_clock.DemonstrationServeInstantConflict`).
         """
         self._address = address
         self._clock = clock
@@ -251,6 +268,20 @@ class McpStdioAdapter:
         """
         declared = self._declared()
         question = declared.document.question
+        # `D-IMPL-378` C1: one authority for the instant this client resolves.
+        # A deployment declaring a demonstration serve instant is asked as of it
+        # when the caller names none, and a clock composed here beside that
+        # declaration is refused before anything is spawned.
+        if declared.serve_instant is not None and self._clock is not _FABRIC_CLOCK:
+            key = demonstration_serve_instant_key(tenant_id=declared.tenant)
+            raise DemonstrationServeInstantConflict(
+                f"this client was composed with its own clock and {key!r} declares"
+                f" a demonstration serve instant ({declared.serve_instant.isoformat()})."
+                " One serve instant has one authority: remove the composed clock, or"
+                " remove the declaration (D-IMPL-378 C1)",
+                key=key,
+            )
+        serve_instant = declared.serve_instant
         arguments: dict[str, object] = {
             "tenant": declared.tenant,
             "product_class": request.product_id,
@@ -271,7 +302,8 @@ class McpStdioAdapter:
             # `D-IMPL-358` step 5 section H: this composition's clock, not an
             # ambient read — see the constructor.
             "asked_at": (
-                request.temporal_boundary or self._clock()
+                request.temporal_boundary
+                or (serve_instant if serve_instant is not None else self._clock())
             ).isoformat(),
             # Verbatim, exactly as the door forwards them: MCP carries tool
             # arguments as JSON, so `D-IMPL-103`'s one level of declared
@@ -410,11 +442,32 @@ class McpStdioAdapter:
                 " against. The version is the deployment's to state and never"
                 " the caller's — `WireRequest` carries none by `D-04`"
             )
+        serve_instant: datetime | None = None
+        if config.demonstration_serve_instant is not None:
+            # `D-IMPL-378` C1: read from the document the server child boots from,
+            # through the SDK's own contract, so a zone-less instant is refused
+            # here exactly as the child's derivation refuses it.
+            try:
+                parsed = parse_artifact(
+                    dict(config.demonstration_serve_instant), DEMONSTRATION_SERVE_INSTANT
+                )
+            except ArtifactLoadError as malformed:
+                raise BindingError(
+                    f"`demonstration_serve_instant:` in {document.config} is not a"
+                    f" valid declaration: {malformed}"
+                ) from malformed
+            if not isinstance(parsed, DemonstrationServeInstant):  # pragma: no cover - typed
+                raise BindingError(
+                    f"`demonstration_serve_instant:` in {document.config} did not"
+                    " parse as a demonstration serve instant"
+                )
+            serve_instant = parsed.serve_instant
         return _Declared(
             program=document.server,
             document=document,
             tenant=config.tenant_id,
             version=str(version),
+            serve_instant=serve_instant,
         )
 
     @staticmethod

@@ -134,6 +134,12 @@ from ccf.deployment.config import (
 )
 from ccf.deployment.manifest import (
     BootedFabric,
+    DeploymentStoreNotEmpty,
+    DeploymentStoreNotVerified,
+    ManifestKeysPlaceToOneKey,
+    QuestionFabricNotExclusive,
+    QuestionFabricNotFresh,
+    QuestionStoreNotEmpty,
     load_and_boot,
     register_manifest_entries,
 )
@@ -153,9 +159,15 @@ __all__ = [
     "ArtifactPin",
     "BootedFabric",
     "DeploymentManifest",
+    "DeploymentStoreNotEmpty",
+    "DeploymentStoreNotVerified",
     "DerivedDeployment",
     "EnvironmentDocument",
     "ManifestEntry",
+    "ManifestKeysPlaceToOneKey",
+    "QuestionFabricNotExclusive",
+    "QuestionFabricNotFresh",
+    "QuestionStoreNotEmpty",
     "ResolvedPins",
     "SeamRefusalWidening",
     "SimilarityCorpusAttributeError",

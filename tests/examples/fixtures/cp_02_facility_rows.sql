@@ -15,6 +15,63 @@
 -- crosswalk are engineered.
 -- 60 facilities — the whole population, so the estate counts the gates
 -- assert are the same numbers in CI as against the real store.
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+-- (D-IMPL-380): it also refuses, naming each one with its schema, when
+-- any object outside `ccf_v2` depends on one of those tables.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+    outside text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+    SELECT string_agg(DISTINCT dependent, ', ' ORDER BY dependent) INTO outside
+      FROM (
+        SELECT CASE WHEN d.classid = 'pg_rewrite'::regclass
+                     AND r.rulename = '_RETURN'
+                    THEN format('%s %I.%I (schema %s)',
+                                CASE vc.relkind WHEN 'm' THEN 'materialized view' ELSE 'view' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN format('rule %I on %s %I.%I (schema %s)', r.rulename,
+                                CASE vc.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END,
+                                vn.nspname, vc.relname, vn.nspname)
+                    ELSE format('%s %s (schema %s)', o.type, o.identity, coalesce(o.schema, '-'))
+               END AS dependent,
+               CASE WHEN d.classid = 'pg_rewrite'::regclass
+                    THEN vn.nspname ELSE o.schema END AS dependent_schema
+          FROM pg_class t
+          JOIN pg_namespace tn ON tn.oid = t.relnamespace
+          JOIN pg_type rt ON rt.oid = t.reltype
+          JOIN pg_depend d
+            ON d.deptype = 'n'
+           AND ((d.refclassid = 'pg_class'::regclass AND d.refobjid = t.oid)
+             OR (d.refclassid = 'pg_type'::regclass
+                 AND d.refobjid IN (rt.oid, rt.typarray)))
+          CROSS JOIN LATERAL pg_identify_object(d.classid, d.objid, d.objsubid) o
+          LEFT JOIN pg_rewrite r
+            ON d.classid = 'pg_rewrite'::regclass AND r.oid = d.objid
+          LEFT JOIN pg_class vc ON vc.oid = r.ev_class
+          LEFT JOIN pg_namespace vn ON vn.oid = vc.relnamespace
+         WHERE tn.nspname = 'ccf_v2'
+           AND t.relname IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction')
+      ) dependents
+     WHERE dependent_schema IS DISTINCT FROM 'ccf_v2';
+    IF outside IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-380 write lock: % depend on the tables of schema %, from outside it. This is not a disposable test database; refusing to write.', outside, 'ccf_v2';
+    END IF;
+END
+$ccf_write_lock$;
+
 insert into ccf_v2.facility (facility_id, borrower_lei, facility_type, commitment_amount, currency, effective_date, maturity_date, administrative_agent, syndicated, amendment_count, is_amended_restated, pricing_grid, outstanding_balance, undrawn_availability, balance_as_of, internal_risk_rating, source_accession, source_document, source_offsets, provenance_public, provenance_internal, source, retrieved_at) values
     ('FAC-01BB3F', '5493000Q1S5TJIDIQH89', 'Term Loan A', 25000000, 'USD', '2024-12-19', '2029-06-24', 'TCW', true, 1, false, '{"basis": "Consolidated Leverage Ratio", "provenance": "public \u2014 tier thresholds from EX-10; margins synthetic \u2014 internal", "tiers": [{"leverage_le": 1.0, "margin_bps": 125}, {"leverage_le": 2.5, "margin_bps": 150}, {"leverage_le": 2.75, "margin_bps": 175}, {"leverage_le": 3.75, "margin_bps": 200}, {"leverage_le": 4.0, "margin_bps": 225}]}'::jsonb, 22509419, 3704684, '2026-08-24', '3A', '0001193125-24-281618', 'd761586dex101.htm', '{"administrative_agent": 930, "commitment_amount": 30267, "effective_date": 184, "facility_type": 117704, "maturity_date": 116405}'::jsonb, 'public', 'synthetic — internal', 'SEC EDGAR EX-10 credit agreement (build-time extraction)', '2026-08-25'),
     ('FAC-044206', '529900E95812SYWMCE44', 'Term Loan', 500000000, 'USD', '2026-06-29', '2025-12-15', 'JPMORGAN CHASE BANK, N.A.', true, 1, true, '{"basis": "Consolidated Leverage Ratio", "provenance": "public \u2014 tier thresholds from EX-10; margins synthetic \u2014 internal", "tiers": [{"leverage_le": 1.0, "margin_bps": 125}, {"leverage_le": 1.5, "margin_bps": 150}, {"leverage_le": 2.0, "margin_bps": 175}, {"leverage_le": 3.5, "margin_bps": 200}, {"leverage_le": 4.0, "margin_bps": 225}]}'::jsonb, 437645565, 194542, '2026-08-22', '2B', '0000950142-26-001951', 'eh260800571_ex1001.htm', '{"administrative_agent": 364, "commitment_amount": 472308, "effective_date": 143, "facility_type": 150186, "maturity_date": 235495}'::jsonb, 'public', 'synthetic — internal', 'SEC EDGAR EX-10 credit agreement (build-time extraction)', '2026-08-25'),

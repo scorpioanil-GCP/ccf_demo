@@ -46,7 +46,7 @@ Three facts, each with its line:
    store has no artifact at the row's `child_content_address`.
 3. **Nothing else resolves the address.** Producer stores hold the record and the
    query pins, never the served product's bytes (the record names
-   `product_content_address`; `tests/examples/test_cp_14_second_slice.py:257,301`
+   `product_content_address`; `test_f32_a_refused_composite_that_admitted_a_child_cannot_be_replayed_from_its_own_store` in `tests/examples/test_cp_14_second_slice.py` (replaced in 2bd922ed by `tests/examples/test_cp_14_second_slice.py::test_f32_a_refused_composite_that_admitted_a_child_is_reconstructed_from_its_own_store`)
    assert `ArtifactNotFound` on the producer side). The admitted contract exists in
    exactly one place after the serve — the parent's process memory — and is gone when
    it exits.

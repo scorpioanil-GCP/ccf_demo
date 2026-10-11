@@ -364,7 +364,7 @@ def test_explicit_class_id_override_wins_and_is_still_checked() -> None:
 
 
 def test_role_override_contradicting_the_sdk_fixed_role_is_refused() -> None:
-    """`ccf.signal-batch` is the one class `SDK_ARTIFACT_ROLES` fixes
+    """`ccf.signal-batch` is a class `SDK_ARTIFACT_ROLES` fixes
     (D-IMPL-80). Reached here through an adopter-owned section's `class_id`
     override, so the same check an authored manifest holds every entry to
     also holds a derived one, override and all."""

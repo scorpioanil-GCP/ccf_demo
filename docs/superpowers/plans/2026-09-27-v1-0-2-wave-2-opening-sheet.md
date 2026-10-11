@@ -59,7 +59,7 @@ true only of the non-composite path, and the sharper statement is the one the
 wave's exactly-once criterion needs:**
 
 > The governed serve path reads **exactly one** clock, `admission_clock()` at
-> `src/ccf/products/resolver.py:2633`, and that read sits **inside**
+> `src/ccf/products/resolver.py::GovernedResolver.__call__`, and that read sits **inside**
 > `if registered.requires:` (`:2625`). **For every non-composite product the
 > resolver reads no clock whatsoever.** Every other instant it uses derives from
 > the caller.
@@ -68,18 +68,18 @@ The caller-derived instants, all resolved on the baseline:
 
 | use | symbol | file:line | instant |
 | --- | --- | --- | --- |
-| decision instant | `GovernedResolver._decision_instant` | `src/ccf/products/resolver.py:2225-2247` | falls back to `request.asked_at` (`:2239-2240`, `:2242-2243`); parses a declared value at `:2244-2246` with **no awareness check and no bound** |
-| as-of graph read | — | `src/ccf/products/resolver.py:2581-2583` | caller's |
-| Gate 3's `now` | `run_gates(now=decided_at)` | `src/ccf/products/resolver.py:3149` | caller's |
-| composite child remaining validity | `compose_children(evaluated_at=decided_at)` | `src/ccf/products/composite.py:2124`, caller at `src/ccf/products/resolver.py:2945` | caller's |
-| policy effectivity | `constraints_in_force(asked_at=…)`, `applicable(asked_at=…)` | `src/ccf/products/constraints.py:1525`, `:1536`; bound at `:562-576` | caller's, half-open |
-| debt | the freshness scorer | `src/ccf/halflife/decay.py:641-643` | caller's |
-| record, served | `build_replay_record(recorded_at=decided_at)` | `src/ccf/products/resolver.py:3344` | caller's |
-| record, refused | `_record_refusal(recorded_at=request.asked_at)` | `src/ccf/products/resolver.py:3627` | caller's |
+| decision instant | `GovernedResolver._decision_instant` | `src/ccf/products/resolver.py::GovernedResolver._decision_instant` | falls back to `request.asked_at` (`:2239-2240`, `:2242-2243`); parses a declared value at `:2244-2246` with **no awareness check and no bound** |
+| as-of graph read | — | `src/ccf/products/resolver.py::GovernedResolver.__call__` | caller's |
+| Gate 3's `now` | `run_gates(now=decided_at)` | `src/ccf/products/resolver.py::GovernedResolver.__call__` | caller's |
+| composite child remaining validity | `compose_children(evaluated_at=decided_at)` | `src/ccf/products/composite.py::compose_children`, caller at `src/ccf/products/resolver.py::GovernedResolver.__call__` | caller's |
+| policy effectivity | `constraints_in_force(asked_at=…)`, `applicable(asked_at=…)` | `src/ccf/products/constraints.py::ReferencePolicyConstraintResolver.resolve`, `:1536`; bound at `:562-576` | caller's, half-open |
+| debt | the freshness scorer | `src/ccf/halflife/decay.py::freshness` | caller's |
+| record, served | `build_replay_record(recorded_at=decided_at)` | `src/ccf/products/resolver.py::GovernedResolver.__call__` | caller's |
+| record, refused | `_record_refusal(recorded_at=request.asked_at)` | `src/ccf/products/resolver.py::GovernedResolver._record_refusal` | caller's |
 
 ### 1.1 Gate 3's degeneracy is worse than the design says, and not what its wording implies
 
-**Gate 3 is already structurally two-sided.** `src/ccf/products/gates.py:1385-1386`:
+**Gate 3 is already structurally two-sided.** `src/ccf/products/gates.py::_refuse_ttl`:
 
 ```python
 ceiling = now + timedelta(seconds=artifact.seconds)
@@ -121,18 +121,18 @@ not the "about 25" the design estimates.
 
 | site | file:line | posture |
 | --- | --- | --- |
-| `_utc_now` | `src/ccf/products/resolver.py:1749-1758` | the module's only wall-clock read, and it is a **default**, not a call site |
-| `admission_clock` field | `src/ccf/products/resolver.py:2132` | no constructor default; wired at `build_governed_resolver` `:4222`, passed `:4846`, `:4903` |
-| `admission_clock()` read | `src/ccf/products/resolver.py:2633` | **the one clock read inside `__call__`**, composite branch only |
-| `OpenedProduct._clock` | `src/ccf/products/product.py:468`, `:602`, `:749` | one injected clock used **twice**: `:602` hands it to the resolver as `admission_clock`; **`:749` calls it directly** for the door's own address refusal, on a path that never enters `__call__` |
-| delivery boundary | `runtime/ccf_runtime/authz/delivery_boundary.py:300` | `determined_at = entitlement_source.clock()`, read at `:386`, `:477`, `:626`, `:1007` — all **outside** `__call__` |
-| client adapters | `src/ccf/client/adapters/inprocess.py:427`, `src/ccf/client/adapters/mcp_stdio.py:251` | `asked_at = request.temporal_boundary or datetime.now(UTC)` — client-side resolution of a deferred instant (`D-IMPL-159`) |
-| ingress | `src/ccf/signal/acquisition.py:235`, `src/ccf/signal/mcp_source.py:66-72`, `runtime/ccf_runtime/cdc/adapter.py:155` | injected seams defaulting to `datetime.now(UTC)` |
-| peered admission | `src/ccf/peering/admission.py:898-904` | `now` is a **parameter**; docstring `:911-914` declares the caller-clock posture **deliberate** |
+| `_utc_now` | `src/ccf/products/resolver.py::_utc_now` | the module's only wall-clock read, and it is a **default**, not a call site |
+| `admission_clock` field | `src/ccf/products/resolver.py::GovernedResolver` | no constructor default; wired at `build_governed_resolver` `:4222`, passed `:4846`, `:4903` |
+| `admission_clock()` read | `src/ccf/products/resolver.py::GovernedResolver.__call__` | **the one clock read inside `__call__`**, composite branch only |
+| `OpenedProduct._clock` | `src/ccf/products/product.py::OpenedProduct.__init__`, `:602`, `:749` | one injected clock used **twice**: `:602` hands it to the resolver as `admission_clock`; **`:749` calls it directly** for the door's own address refusal, on a path that never enters `__call__` |
+| delivery boundary | `runtime/ccf_runtime/authz/delivery_boundary.py::_determined_at` | `determined_at = entitlement_source.clock()`, read at `:386`, `:477`, `:626`, `:1007` — all **outside** `__call__` |
+| client adapters | `src/ccf/client/adapters/inprocess.py::InProcessAdapter.ask`, `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter.ask` | `asked_at = request.temporal_boundary or datetime.now(UTC)` — client-side resolution of a deferred instant (`D-IMPL-159`) |
+| ingress | `src/ccf/signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `src/ccf/signal/mcp_source.py::_utc_now`, `runtime/ccf_runtime/cdc/adapter.py::CDCSourceAdapter.envelopes` | injected seams defaulting to `datetime.now(UTC)` |
+| peered admission | `src/ccf/peering/admission.py::PeeringAdmissionGate.admit` | `now` is a **parameter**; docstring `:911-914` declares the caller-clock posture **deliberate** |
 
 ### 2.2 Replay holds, and what it does not do
 
-`src/ccf/replay/engine.py:78` — *"Nothing here reads a clock, and nothing here
+`src/ccf/replay/engine.py` (module docstring) — *"Nothing here reads a clock, and nothing here
 resolves 'latest'"* — **resolves exactly and is TRUE of that module**: zero
 `run_gates`, zero `datetime.now`, zero `GovernedResolver` import, store calls
 limited to `get`/`resolve_uri`. Replay drives `ProjectionEngine` over a
@@ -141,7 +141,7 @@ limited to `get`/`resolve_uri`. Replay drives `ProjectionEngine` over a
 Held and unmoving: `recorded_at`, `ttl_anchor_at`, `expires_at`,
 `graph_snapshot_at`, the refusal's `temporal_boundary`.
 
-`ContentGenerationPath` is dimension 5 at `src/ccf/replay/record.py:1252`, fields
+`ContentGenerationPath` is dimension 5 at `src/ccf/replay/record.py::ContentGenerationPath`, fields
 `:1455-1483`. The nearest precedent for an added instant is
 `ChildResolution.child_admitted_at` at `:1117-1119`.
 
@@ -152,9 +152,9 @@ Held and unmoving: `recorded_at`, `ttl_anchor_at`, `expires_at`,
 | entry point | file:line | instant it holds |
 | --- | --- | --- |
 | `ingest` | `src/ccf/assembly/worker.py` (see §3.6) | `envelope.ingestion_timestamp` |
-| `ingest_admitted` | `src/ccf/assembly/worker.py:776` | same; **zero callers in `src/` or `runtime/`** |
-| `admit_entity_claim` | `src/ccf/assembly/worker.py:622` | only `claim.observed_at` |
-| `admit_relationship_claim` | `src/ccf/assembly/worker.py:638` | only `claim.observed_at` |
+| `ingest_admitted` | `src/ccf/assembly/worker.py::AssemblyWorker.ingest_admitted` | same; **zero callers in `src/` or `runtime/`** |
+| `admit_entity_claim` | `src/ccf/assembly/worker.py::AssemblyWorker.admit_entity_claim` | only `claim.observed_at` |
+| `admit_relationship_claim` | `src/ccf/assembly/worker.py::AssemblyWorker.admit_relationship_claim` | only `claim.observed_at` |
 
 `refuse_foreign_envelope` (`src/ccf/signal/envelope.py::refuse_foreign_envelope`) is the SDK's **only** existing
 check on the write stamp, and it has **zero controls**.
@@ -167,9 +167,9 @@ Each is a measurement, not an opinion. Several change the work.
 
 ### 3.1 The refusal-recorder conflation is FIVE sites, not one-plus-two
 
-§4.3(4) says *"the only conflation site is `src/ccf/replay/record.py:2003-2005`"*
+§4.3(4) says *"the only conflation site is `src/ccf/replay/record.py::build_replay_record`"*
 and names two refusal-recorder call sites. **Measured: five.** The conflation
-itself resolves exactly — `src/ccf/replay/record.py:2002-2005`,
+itself resolves exactly — `src/ccf/replay/record.py::build_replay_record`,
 `boundary = product.temporal_boundary if product is not None else recorded_at`,
 so for every refusal dimension 1's `temporal_boundary` **is** `recorded_at`, and
 it is hashed into `graph_snapshot_id` — it is the `temporal_boundary` key of the
@@ -183,7 +183,7 @@ hand. `govern_absence` (`runtime/ccf_runtime/authz/delivery_boundary.py:412`) an
 
 §4.3(4) states `served_at` is marked `{HASH_TRANSPARENT_KEY: True}` **and** cites
 `child_admitted_at` as "the posture O3 already chose". Measured:
-`child_admitted_at` at `src/ccf/replay/record.py:1117-1119` is marked
+`child_admitted_at` at `src/ccf/replay/record.py::ChildResolution` is marked
 **`{HASH_TRANSPARENT_KEY: False}`** — a declared generation boundary. **These are
 two different postures with different compatibility consequences**
 (transparent-at-sentinel preserves historical addresses; a generation boundary
@@ -204,13 +204,13 @@ Three measured problems with D6(d) as written:
    `admit_relationship_claim` carry no `ingestion_timestamp` at all; their only
    instant is `claim.observed_at`, which is the as-of cut key.
 2. **The writer never learns a tenant, so it cannot resolve a per-tenant policy
-   once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py:595-611`) stores writer,
+   once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py::AssemblyWorker.__init__`) stores writer,
    resolution, registry and the pinned bundle — **nothing tenant-shaped**.
    `boot(tenant_ids=…)` (`src/ccf/boot.py::boot`) holds the roster and does not pass it.
    D5 rules the policy **per-tenant**; D6(d) puts the guard in a component with
    no tenant. **This is the sheet's most load-bearing gap.**
 3. **Resolving per envelope writes an audit event per envelope.**
-   `ControlPlaneRegistry.resolve_latest` (`src/ccf/controlplane/registry.py:815-835`)
+   `ControlPlaneRegistry.resolve_latest` (`src/ccf/controlplane/registry.py::ControlPlaneRegistry.resolve_latest`)
    calls `self._record(action="resolve_latest", …)` on **both** the miss (`:827`)
    and hit (`:832`) legs, and the paved road ingests one envelope at a time.
 
@@ -220,7 +220,7 @@ Three measured problems with D6(d) as written:
 `__ccf_mode__ = "algorithmic"` module *"may not read a clock at all"*. Measured:
 **no lint enforces this.** `tools/lints/algorithmic.py` has no clock rule (CINV-03
 is about LLM imports), and **two algorithmic-tagged modules already call
-`datetime.now(UTC)`**. `src/ccf/assembly/worker.py:61` carries that mode marker.
+`datetime.now(UTC)`**. `src/ccf/assembly/worker.py::__ccf_mode__` carries that mode marker.
 **RULED (ruling 2): `D-IMPL-159` REMAINS BINDING, and D6(d)'s placement is
 AMENDED** — the guard moves to the governed ingress/admission boundary with an
 injected fabric clock. The unenforced rule is upheld, not retired.
@@ -241,11 +241,11 @@ the suite is **153 passed / 0 failed / 0 errors** — unchanged. **The D8 ruling
 unprovable as the design stands.**
 
 Worse, the design's own cited symbols disagree on what `now` means:
-`freshness`'s docstring calls it *"The decision instant"* (`src/ccf/halflife/decay.py:641-643`)
+`freshness`'s docstring calls it *"The decision instant"* (`src/ccf/halflife/decay.py::freshness`)
 while `AssemblyDebtScorer`'s calls it *"the as-of boundary … under
 `GovernedResolver` it is the question's `asked_at`"*. And the paved road makes it
-degenerate: `observed_at == asked_at` by refusal (`src/ccf/signal/envelope.py:113`,
-`src/ccf/assembly/worker.py:674`), so under the default `decay_basis: observed-at` the freshness
+degenerate: `observed_at == asked_at` by refusal (`src/ccf/signal/envelope.py::refuse_foreign_envelope`,
+`src/ccf/assembly/worker.py::AssemblyWorker._stitch`), so under the default `decay_basis: observed-at` the freshness
 factor is **exactly 1 for evidence of any real-world age**.
 
 ### 3.8 The example and estate premises do not hold as written
@@ -263,14 +263,14 @@ factor is **exactly 1 for evidence of any real-world age**.
   **10 modules / 173 collected nodes** use the module-level
   `pytest.mark.skipif` form that **ignores `CCF_REQUIRE_ESTATE`**.
 - **The write fence is narrower than `CLAUDE.md:1035-1039` asserts.**
-  `DISPOSABLE_STORE_ENV` is two names (`tests/conftest.py:265`);
+  `DISPOSABLE_STORE_ENV` is two names (`tests/conftest.py::DISPOSABLE_STORE_ENV`);
   `CCF_TEST_MONGO_URI` (`:231`) is **unfenced** while eight estate-gated trees
   read curated Mongo `fibo_v2`. The guard's host test is a substring match
-  (`tests/examples/estate_guard.py:81`), not parsed host equality.
+  (`tests/examples/estate_guard.py::refuse_to_write_the_curated_estate`), not parsed host equality.
 - **A red-when-fixed entry cannot run.**
-  `tests/examples/test_gate_two_divergence.py:261` is on §4.9's list but the
+  `tests/examples/test_gate_two_divergence.py::test_the_unperturbed_claim_is_admitted` is on §4.9's list but the
   module is `pytest.mark.archived` (`:95`) and deselected
-  (`tests/conftest.py:567-574`) — **zero collected nodes**.
+  (`tests/conftest.py::pytest_collection_modifyitems`) — **zero collected nodes**.
 - **§4.6's instant census is off by two.** Measured: 17 `asked_at` literals in
   read question artifacts across 15 trees, **plus** `examples/hw1-companies-over-revenue/deployment/binding.yaml:45`
   and `examples/hw1-harness-clients/runner/question.yaml:71` = 19 across 17 trees. The
@@ -281,24 +281,24 @@ factor is **exactly 1 for evidence of any real-world age**.
 - **Gate 2's NOT-A-GAP disposition holds, and the code supports a STRONGER
   statement** than the design makes on the non-composite path. But Gate 2 retains
   **one live failure mode the design does not name**: the composite widening at
-  `src/ccf/products/resolver.py:3144-3145`, where `engine_resolved` becomes
+  `src/ccf/products/resolver.py::GovernedResolver.__call__`, where `engine_resolved` becomes
   `execution.operators_invoked | composed.admitted_operators` against a claim side
   of `composed.lineage` (`:3048-3051`).
 - **The SEC-019 rider understates its blast radius by one dimension.** The skip at
-  `src/ccf/products/constraints.py:1092-1093` is downstream of `applied.add(_source_of(pinned))`
+  `src/ccf/products/constraints.py::resolve_effective_request` is downstream of `applied.add(_source_of(pinned))`
   (`:1050`), so an un-held constraint **still becomes a `PolicyBinding` in replay
-  dimension 2** (`src/ccf/products/resolver.py:3661-3666`).
+  dimension 2** (`src/ccf/products/resolver.py::GovernedResolver._applied_bindings`).
 - **`EligibilityEvidencePolicy`, the artifact shape D5 copies, is itself resolved
-  UNPINNED**: `src/ccf/peering/eligibility.py:431` discards the version and no
+  UNPINNED**: `src/ccf/peering/eligibility.py::_evidence_too_old` discards the version and no
   `PolicyBinding` is minted for it anywhere.
-- **A false rationale already ships.** `tests/products/test_delivery_determinism.py:265-269`
+- **A false rationale already ships.** `tests/products/test_delivery_determinism.py::_assert_same_determination`
   asserts `a.recorded_at == b.recorded_at` under the reason *"the governed path
   reads no clock at all"* — false on the baseline for five refusal sites,
   independent of this wave.
-- **`src/ccf/products/resolver.py:2192-2195` is already false**, claiming the serve path reads
+- **`src/ccf/products/resolver.py::GovernedResolver.__post_init__` is already false**, claiming the serve path reads
   `admission_clock` *"exactly once per admission"*.
 - **Q6's words are quoted verbatim in shipped source** at
-  `src/ccf/products/constraints.py:1276-1278`. D1 amends exactly that reading, so the amendment
+  `src/ccf/products/constraints.py::constraints_in_force`. D1 amends exactly that reading, so the amendment
   has a code-comment obligation the design lists only as "prose drift".
 
 ---
@@ -314,11 +314,11 @@ exactly this.
 
 | control | what it pins | why it reddens |
 | --- | --- | --- |
-| `tests/products/test_delivery_determinism.py:260-269` | two runs of one question record at one instant | a trusted clock makes two serves two records; **its stated reason is also already false** (§3.9) |
-| `tests/products/test_policy_constraint_resolver.py:421-440` | *"exactly the property replay would lose if effectivity were evaluated at 'now'"* | D1(a) **amends that reading** |
-| `tests/products/test_d_impl_341_ttl_anchor.py:350` | mixing floor measured from the decision instant, parametrized (720s/False, 540s/True) | D8 moves mixing to `served_at` |
-| `tests/products/test_refusal_envelope.py:431` | `set(envelope.fields) == {"expires_at","now","max_ttl_seconds"}` | `TTLRefusal` gaining `served_at`; **neighbouring assertions in the same block also read the roster** |
-| the nine record-shape pins | the top-level record shape | a new dimension-5 field. Roster resolved so it can be edited rather than re-derived: `tests/replay/test_attestation_pin.py:339`, `tests/replay/test_adapter_pin.py:126`, and seven more |
+| `tests/products/test_delivery_determinism.py::_assert_same_determination` | two runs of one question record at one instant | a trusted clock makes two serves two records; **its stated reason is also already false** (§3.9) |
+| `tests/products/test_policy_constraint_resolver.py::test_a_request_at_the_boundary_instant_resolves_the_second` | *"exactly the property replay would lose if effectivity were evaluated at 'now'"* | D1(a) **amends that reading** |
+| `test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant` in `tests/products/test_d_impl_341_ttl_anchor.py` (replaced in 2f8852b5 by `tests/products/test_d_impl_341_ttl_anchor.py::test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant`) | mixing floor measured from the decision instant, parametrized (720s/False, 540s/True) | D8 moves mixing to `served_at` |
+| `tests/products/test_refusal_envelope.py::test_envelope_for_ttl_refusal` | `set(envelope.fields) == {"expires_at","now","max_ttl_seconds"}` | `TTLRefusal` gaining `served_at`; **neighbouring assertions in the same block also read the roster** |
+| the nine record-shape pins | the top-level record shape | a new dimension-5 field. Roster resolved so it can be edited rather than re-derived: `tests/replay/test_attestation_pin.py::test_the_attestation_extends_dimension_one_never_the_record`, `tests/replay/test_adapter_pin.py::test_the_pin_extends_dimension_2_never_the_record`, and seven more |
 
 ### 4.2 Controls the wave must CREATE, each with its reddening edit
 
@@ -330,7 +330,7 @@ exactly this.
 | a tenant with no `TemporalBoundaryPolicy` refuses | make undeclared mean unbounded |
 | the writer refuses an out-of-window envelope **and never restamps it** | replace `envelope.ingestion_timestamp` in the guard |
 | **the debt instant** — absent from §4.9 entirely | make `FreshnessScorer.score` read a wall clock. **Measured today: 153/153 green, so this control does not exist** |
-| replay reads no clock and resolves no latest | add a `datetime.now` to the replay path; widen the existing control to `src/ccf/replay/environment.py:118`/`:127`, which today's `resolve_latest`-spelled check misses |
+| replay reads no clock and resolves no latest | add a `datetime.now` to the replay path; widen the existing control to `src/ccf/replay/environment.py::RecordedEnvironment.__init__`/`:127`, which today's `resolve_latest`-spelled check misses |
 | `served_at` absent/sentinel preserves a historical address | mark the field a generation boundary |
 
 ### 4.3 Sabotage
@@ -343,7 +343,7 @@ the writer's guard reading a second clock; and the `HASH_TRANSPARENT_KEY` flip o
 
 **No lint forbids a clock read anywhere in the tree** (§3.5). §4.3(1)'s "No second
 clock anywhere" therefore has **no instrument**.
-`tests/authz/test_delivery_boundary.py:793-820` shows the shape one would take.
+`tests/authz/test_delivery_boundary.py::test_the_module_reads_one_clock_and_it_is_the_entitlement_sources` shows the shape one would take.
 
 ---
 

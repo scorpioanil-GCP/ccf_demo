@@ -81,6 +81,18 @@ class RecordedEnvironmentUnbuildable(ValueError):
 class RecordedEnvironment:
     """A :class:`~ccf.replay.engine.ReplayEnvironment` built from one record.
 
+    **The supported way to replay from a process that did not answer the
+    question** (`D-IMPL-378` R-A2 (a)). Opening a product boots nothing, so its
+    Control Plane holds none of the declarations a record pins until a fabric is
+    booted over it; a process that only opens the product and replays is refused
+    at the first unresolvable pin
+    (:class:`~ccf.replay.engine.ReplayUnresolvable`). Boot the recorded
+    substrate through :func:`~ccf.deployment.load_config_and_boot` over the
+    opened product's documents and Control Plane, then build this class; that
+    registers what the documents declare, including the request contract, and
+    asks nothing (``tests/replay/test_paved_replay_needs_its_environment.py``'s
+    ``test_an_opened_product_replays_an_earlier_record_only_after_its_environment_is_built``).
+
     Args:
         record: The decision to reconstruct.
         opened: The product, opened against the deployment that produced it.

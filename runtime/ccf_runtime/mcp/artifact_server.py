@@ -57,6 +57,10 @@ the split (below)             Resource ``ccf-artifact-meta://{address}`` —
                               {name}@{version}`` —
                               ``Authorized[ArtifactRead]`` for
                               ``"<class>/<name>"``
+the subject match (below)     Tool ``match_artifact_subject`` —
+                              ``Authorized[ArtifactSubjectMatch]`` for
+                              the action id itself; the erasure door's
+                              verdict, never bytes
 ============================  ==========================================
 
 **There is no untenanted read of artifact bytes.** The two hash-addressed
@@ -109,9 +113,19 @@ in this order:
    capability's tenant in an undeclared (client-lane) class — or the workflow
    engine's trace class, declared under ``Execute | Resume`` — is served: the
    exact stored bytes, with one ``authz_decision`` audit event naming the read.
-   Whatever their shape: a client-lane artifact is never read as a governed
-   record, even when its bytes are shaped as one, and the answer does not say
-   which lane served it — evidence is what a governed read returns.
+   Only bytes that hash to the address are served (Dave's E1 (a),
+   ``D-IMPL-378``): the address is the sha256 of the stored canonical bytes,
+   so bytes altered under it are not the artifact it names, and the governed
+   dereference decides them; its re-hash on arrival answers them exactly as
+   a missing address. The answer does not say which lane served it, so
+   bytes that validate as a Decision Replay record
+   (``DecisionReplayRecord.model_validate_json``, the
+   validator every SDK reader of a record applies) are not served this way
+   (the client-lane ruling, ``D-IMPL-378``): the governed dereference decides
+   them, and it serves a record only where the store's naming shows the
+   fabric's record writer filed the address under the record's tenant and that
+   tenant is the caller's — never true of an address the caller's tenant filed
+   only on its client lane — so they answer exactly as a missing address.
    An address filed under **no** name of the capability's tenant — another
    tenant's, or nothing at all — goes through the governed dereference too,
    which holds the caller to the tenant a record was decided under before any
@@ -123,6 +137,27 @@ in this order:
    a record that the fabric's record writer did not file (the governed read's
    provenance check). A caller cannot learn from this door that another tenant
    holds bytes at an address it names.
+
+THE SUBJECT MATCH — the erasure door's verdict, never the bytes (D3b)
+---------------------------------------------------------------------
+``D-IMPL-378``, Dave's 16:40 MST item 5: *"Build the narrowly authorized
+server-side subject-match path without serving the bytes."* The erasure door
+over the MCP-backed store verifies each requested address's subject; where the
+blob resource answers the address as absent — a record-shaped client-lane
+filing above all — the door asks the ``match_artifact_subject`` tool instead,
+and this server judges the bytes where they are with
+:func:`~ccf.erasure.judge_subject`, the function the in-process door applies to
+the bytes it reads, and answers one :class:`~ccf.erasure.SubjectMatchAnswer`.
+It answers the erasure door of the caller's tenant alone, decided before the
+substrate is read: the deployment must grant
+:data:`~ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH` by name (the guard); the
+caller's tenant must have an erasure authority in this server's trust; and the
+query, rebuilt under the caller's tenant, must carry a signature by that
+authority's declared door key (:func:`~ccf.erasure.verify_subject_match_query`).
+Every refusal past the guard is the one :data:`SUBJECT_MATCH_REFUSED`. It judges
+only an address the caller's tenant filed on its client lane; another tenant's
+address, an empty one and governed evidence answer ``subject-unverifiable``
+without a byte read.
 
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where
@@ -148,30 +183,54 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from typing import Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from pydantic import ValidationError
 
 from ccf.artifacts.protocol import (
     ARTIFACT_URI_SCHEME,
     ArtifactName,
     ArtifactRef,
+    ArtifactStoreError,
     ArtifactStoreProtocol,
     ArtifactUriUnresolvable,
     WriteKinds,
     artifact_uri,
 )
-from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
-from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
-from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, ErasureTrust, compose_erasure_consult
+from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_SUBJECT_MATCH, ACTION_ARTIFACT_WRITE
+from ccf.authz.capability import (
+    ArtifactRead,
+    ArtifactSubjectMatch,
+    ArtifactWrite,
+    Authorized,
+    ReplayMint,
+    verify,
+)
+from ccf.erasure import (
+    ErasedContentRefused,
+    ErasureIndexProtocol,
+    ErasureTrust,
+    SubjectMatchAnswer,
+    SubjectMatchQuery,
+    SubjectMatchVerdict,
+    compose_erasure_consult,
+    judge_subject,
+    reference_approval_verifier,
+    subject_match_verdict,
+    verify_subject_match_query,
+)
 from ccf.erasure.approval import PinnedPolicySource
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
 from ccf.products.refusal import RefusalEnvelope
+from ccf.products.resolver import refuse_incompatible_refusal_recorder
+from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
     DereferenceRequest,
@@ -193,10 +252,13 @@ __all__ = [
     "NAMES_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
     "PUT_ARTIFACT_TOOL",
+    "SUBJECT_MATCH_REFUSED",
+    "SUBJECT_MATCH_TOOL",
     "ArtifactPresence",
     "ArtifactResolution",
     "ArtifactSubstrate",
     "NonCanonicalPayload",
+    "SubjectMatchRefused",
     "artifact_blob_uri",
     "artifact_meta_uri",
     "build_artifact_server",
@@ -232,6 +294,22 @@ NAME_URI_TEMPLATE = (
 
 #: Name of the one mutating surface. A Tool, because Resources are read-only.
 PUT_ARTIFACT_TOOL = "put_artifact"
+
+#: The erasure door's subject match (SEC-009; ``D-IMPL-378``, Dave's 16:40 MST
+#: item 5 — D3b): a Tool, because it takes the door's whole signed query, and
+#: answers one verdict, never bytes. See :func:`build_artifact_server`.
+SUBJECT_MATCH_TOOL = "match_artifact_subject"
+
+#: The ONE refusal every caller the subject match does not answer receives,
+#: whichever check refused it — no erasure authority for the caller's tenant, a
+#: query that is not one, or no signature by that tenant's declared door key over
+#: exactly the query. Constant, so the refusal says nothing about the address,
+#: the subject or the store; it is raised before the substrate is read.
+SUBJECT_MATCH_REFUSED = (
+    "the subject match answers the erasure door of the caller's tenant alone: no"
+    " signature by that tenant's declared door key verifies over exactly this query"
+    " (SEC-009; D-IMPL-378, D3b)"
+)
 
 #: The resource a write and a name resolution are decided on: the class and
 #: name segments the naming key already uses (``D-IMPL-353`` §1.2), spelled
@@ -291,6 +369,14 @@ class NonCanonicalPayload(ValueError):
     """
 
 
+class SubjectMatchRefused(PermissionError):
+    """The subject match refused its caller: it answers the erasure door of the caller's tenant alone (D3b).
+
+    Its message is always :data:`SUBJECT_MATCH_REFUSED`, and it is raised
+    before anything is read from the substrate.
+    """
+
+
 class ArtifactPresence(CCFContract):
     """Whether the substrate holds an artifact — a positive answer either way.
 
@@ -334,6 +420,21 @@ def artifact_meta_uri(*, content_address: str) -> str:
 def artifact_names_uri(*, content_address: str) -> str:
     """Render the naming URI for one content address (SEC-009; `D-IMPL-374` (4), ruling 2)."""
     return f"{ARTIFACT_NAMES_URI_SCHEME}://{content_address}"
+
+
+def _record_shaped(payload: bytes) -> bool:
+    """Whether ``payload`` is a Decision Replay record to the validator SDK readers apply.
+
+    ``DecisionReplayRecord.model_validate_json``: the step
+    :func:`ccf.replay.engine.resolve_artifact` ends with, and the parse every
+    SDK reader of a record makes. Never a resemblance: bytes that validator
+    refuses are no reader's record (the client-lane ruling, ``D-IMPL-378``).
+    """
+    try:
+        DecisionReplayRecord.model_validate_json(payload)
+    except ValidationError:
+        return False
+    return True
 
 
 def build_artifact_server(
@@ -417,7 +518,16 @@ def build_artifact_server(
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure surface.
+
+    Raises:
+        ccf.products.resolver.IncompatibleRefusalRecorder: ``refusal_recorder``'s
+            ``record`` cannot be passed ``subject_withholding=``, refused before
+            anything else is built (Dave's E2 (iii), ``D-IMPL-378``).
     """
+    # Dave's E2 (iii) (`D-IMPL-378`): "Detect incompatible recorders at
+    # construction, rather than on the first refusal." First, before anything
+    # is composed.
+    refuse_incompatible_refusal_recorder(refusal_recorder, builder="build_artifact_server")
     # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
     consulted = compose_erasure_consult(
         store,
@@ -461,9 +571,9 @@ def build_artifact_server(
             ReplayMint in store.write_kinds.for_class(named.artifact_class)
             for named in own
         )
-        if governed or not own:
-            # (3) Governed evidence, another tenant's bytes, or nothing at all:
-            # the governed dereference decides, records and discloses — and
+
+        def governed_read() -> bytes | RefusalEnvelope:
+            # The governed dereference decides, records and discloses — and
             # answers the nonexistent shell for everything that is not a
             # record this principal may read.
             decided = govern_dereference(
@@ -482,6 +592,10 @@ def build_artifact_server(
                 return decided
             assert decided.payload is not None  # a bytes ask always carries them
             return decided.payload
+
+        if governed or not own:
+            # (3) Governed evidence, another tenant's bytes, or nothing at all.
+            return governed_read()
         # (4) The client lane: filed under the capability's tenant in a class
         # the deployment did not declare governed. Served tenant-scoped, and
         # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
@@ -507,6 +621,24 @@ def build_artifact_server(
             )
             assert isinstance(decided, RefusalEnvelope)  # an erased read only refuses
             return decided
+        # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+        # integrity." Byte fidelity FIRST (`D-IMPL-89`): the address is the
+        # sha256 of the stored canonical bytes, so client-lane bytes that hash
+        # to anything else are not the artifact the address names. They never
+        # cross as it and decide nothing below: the governed dereference
+        # decides them, and its re-hash on arrival answers them exactly as a
+        # missing address.
+        if hashlib.sha256(payload).hexdigest() != content_address:
+            return governed_read()
+        if _record_shaped(payload):
+            # (5) Bytes on the client lane that validate as a Decision Replay
+            # record are not served as a client artifact (the client-lane
+            # ruling, D-IMPL-378): the answer would not say which lane served
+            # them, and every SDK reader of a record would take them as one.
+            # The governed dereference decides them and answers them exactly
+            # as a missing address: its provenance check, or for a record
+            # claiming another tenant its tenant hold (hold 0), refuses them.
+            return governed_read()
         audit_log.append(
             action="authz_decision",
             key=content_address,
@@ -606,19 +738,36 @@ def build_artifact_server(
         introspection, so the erasure door can verify an address's STORED
         class and tenant through the MCP-backed reference store. Scoped to the
         capability's verified tenant: another tenant's filing of the same bytes
-        never crosses (I6). Naming only — no artifact byte is read; a malformed
-        address answers the empty list, as the store's ``names_at`` does.
+        never crosses (I6). Naming only: no artifact byte crosses.
 
         **The same entitlement the blob read requires** (fix round 2, N4). An
         address the caller's own tenant filed under a class the deployment
         declared governed answers its names only to a principal the governed
         dereference admits — the same decision, record and disclosure
         :func:`artifact_blob` makes, asked without bytes. A refusal crosses as
-        the shell, which the client reads as an unverifiable answer and the
-        erasure door as ``class-unverifiable``. Another tenant's filing — of
+        the shell, which :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.names_at`
+        raises as :class:`~ccf.artifacts.protocol.ArtifactReadRefused`
+        carrying it — a typed refusal, never an outage (``D-IMPL-378``,
+        decision 1 (A)) — and the erasure door refuses
+        ``class-unverifiable``. Another tenant's filing — of
         any class — takes no part in the decision (C8, ``D-IMPL-376`` (6)), so
         it can neither make this tenant's own naming unverifiable nor tell this
         tenant that some other tenant holds the bytes.
+
+        **An address the caller's tenant never filed is decided the same way**
+        (``D-IMPL-378``, the final panel's F1-1). Another tenant's address and
+        an address nobody filed take the governed dereference the blob and
+        presence reads take for them, and answer its ``nonexistent`` shell:
+        the answer a governed address that holds no record gets. An
+        executed-query pin is such an address. It is named by the hash of its
+        own inputs, the same whichever principal asked, and it answered the
+        shell while an address nobody filed answered ``[]``, which told a
+        caller that the pin exists
+        (``tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike``).
+        The erasure door over the MCP-backed store therefore refuses an
+        address its tenant never filed ``class-unverifiable``, as it refuses a
+        governed address it may not read; the in-process door reads the
+        store's naming directly and refuses it ``address-not-in-tenant``.
         """
         verify(authorized, kind=ArtifactRead, resource=content_address)
         names = store.names_at(content_address=content_address)
@@ -626,7 +775,11 @@ def build_artifact_server(
         governed = any(
             ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
         )
-        if governed:
+        # Governed evidence, another tenant's address, or nothing at all: the
+        # split's one governed decision, asked without bytes (F1-1, D-IMPL-378).
+        # Answering `[]` for nothing beside the shell for a governed address
+        # told the two apart.
+        if governed or not own:
             decided = govern_dereference(
                 authorized,
                 reference=DereferenceRequest(
@@ -756,5 +909,146 @@ def build_artifact_server(
                 "recompute"
             )
         return consulted.put(authorized, artifact)
+
+    # D3b (`D-IMPL-378`): the verifier the door's query signature is checked
+    # with — the SDK's reference detached-JWS verifier, the one the consult
+    # above verifies the door's record signatures with.
+    door_signature_verifier = reference_approval_verifier()
+
+    def the_doors_query(
+        authorized: Authorized[ArtifactSubjectMatch],
+        *,
+        content_address: str,
+        subject_ref: str,
+        key_paths: list[str],
+        subject_ref_salt: str,
+        door_signature: str,
+    ) -> SubjectMatchQuery:
+        """The query, rebuilt under the caller's tenant, if the erasure door of that tenant signed exactly it.
+
+        Reads nothing from the substrate. Every refusal — no authority for the
+        tenant, not a query, no signature by the tenant's declared door key over
+        it — is the one :class:`SubjectMatchRefused`, audited unresolved.
+        """
+        authority = erasure_trust.authority_for(authorized.tenant)
+        try:
+            if authority is None:
+                raise ValueError("no erasure authority is declared for the caller's tenant")
+            query = SubjectMatchQuery(
+                tenant_id=authorized.tenant,
+                content_address=content_address,
+                subject_ref=subject_ref,
+                key_paths=tuple(key_paths),
+                subject_ref_salt=subject_ref_salt,
+            )
+            verify_subject_match_query(
+                query,
+                door_signature=door_signature,
+                authority=authority,
+                identity_provider=door_signature_verifier,
+            )
+        except ValueError:
+            audit_log.append(
+                action="authz_decision",
+                key=authorized.tenant,
+                version=ArtifactSubjectMatch.action_id,
+                resolved=False,
+                occurred_at=entitlement_source.clock(),
+                actor=authorized.principal,
+                authz_action_id=ArtifactSubjectMatch.action_id,
+                authz_resource=ArtifactSubjectMatch.action_id,
+            )
+            raise SubjectMatchRefused(SUBJECT_MATCH_REFUSED) from None
+        return query
+
+    @door.tool(
+        name=SUBJECT_MATCH_TOOL,
+        action=ACTION_ARTIFACT_SUBJECT_MATCH,
+        subject=door.from_grant(),
+        resource=door.resource_route(),
+        # It writes nothing. Its kind is deliberately not a read kind, and the
+        # guard requires such a surface registered mutating: a stated (ambient
+        # stdio) identity is refused before any decision is asked for.
+        mutating=True,
+        products=door.products_unknown(
+            "the erasure door's subject match names an address, never a Context Product class"
+        ),
+    )
+    def match_artifact_subject(
+        authorized: Authorized[ArtifactSubjectMatch],
+        content_address: str,
+        subject_ref: str,
+        key_paths: list[str],
+        subject_ref_salt: str,
+        door_signature: str,
+    ) -> SubjectMatchAnswer:
+        """The erasure door's subject match: a verdict on an address's stored bytes, never the bytes (D3b).
+
+        ``D-IMPL-378``, Dave's 16:40 MST item 5: *"Build the narrowly authorized
+        server-side subject-match path without serving the bytes."* The erasure
+        door over the MCP-backed store cannot read a client-lane filing the blob
+        resource answers as absent — a record-shaped one foremost — so it asks
+        here, and gets the verdict the in-process door reaches from the same
+        bytes (:func:`~ccf.erasure.judge_subject`, the same function).
+
+        **Authorized three ways, before anything is read.** (1) The deployment's
+        authorizer must allow :data:`~ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH`
+        — its own action, granted by name — for the grant's sole tenant (the
+        guard, before this body). (2) That tenant must have an
+        :class:`~ccf.erasure.ErasureAuthority` in this server's trust. (3) The
+        query, rebuilt under the caller's tenant, must carry the signature of
+        that authority's declared door key (:func:`~ccf.erasure.verify_subject_match_query`).
+        Every refusal past the guard is :class:`SubjectMatchRefused` with
+        :data:`SUBJECT_MATCH_REFUSED`, whatever refused.
+
+        **Judged only where the caller's tenant filed the address on its client
+        lane.** An address it never filed (another tenant's, or none), and one
+        it filed under a class the substrate declares under ``ReplayMint`` —
+        governed evidence, read only through the governed dereference — answer
+        ``subject-unverifiable`` without a byte read. Otherwise the bytes are
+        read from the substrate for this judgment only, as the in-process door
+        reads them from its unconsulted store, re-hashed against the address
+        before anything is judged, and never leave this function: the answer
+        is :class:`~ccf.erasure.SubjectMatchAnswer`, one verdict. Every answer
+        appends one ``authz_decision`` audit event naming the address.
+        """
+        verify(authorized, kind=ArtifactSubjectMatch, resource=ArtifactSubjectMatch.action_id)
+        query = the_doors_query(
+            authorized,
+            content_address=content_address,
+            subject_ref=subject_ref,
+            key_paths=key_paths,
+            subject_ref_salt=subject_ref_salt,
+            door_signature=door_signature,
+        )
+        own = [
+            named
+            for named in store.names_at(content_address=query.content_address)
+            if named.tenant_id == authorized.tenant
+        ]
+        governed = any(
+            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
+        )
+        verdict: SubjectMatchVerdict = "subject-unverifiable"
+        if own and not governed:
+            try:
+                payload = store.get(content_address=query.content_address)
+            except (ArtifactStoreError, KeyError, ValueError):
+                pass
+            else:
+                verdict = subject_match_verdict(judge_subject(payload, query))
+        audit_log.append(
+            action="authz_decision",
+            key=query.content_address,
+            version=query.content_address,
+            resolved=bool(own) and not governed,
+            occurred_at=entitlement_source.clock(),
+            actor=authorized.principal,
+            artifact_class=own[0].artifact_class if own and not governed else None,
+            authz_action_id=ArtifactSubjectMatch.action_id,
+            authz_matched_pattern=None,
+            authz_resource=query.content_address,
+        )
+        return SubjectMatchAnswer(verdict=verdict)
 
     return door.build()

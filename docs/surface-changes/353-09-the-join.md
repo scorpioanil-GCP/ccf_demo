@@ -18,7 +18,18 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Before: absent — the config loader derived bare section keys (`product_class`, `policy`, `half_life`, `policy_constraints.<label>`) and the binding document named them the same way; under the `{tenant}/{class}[/{name}]` grammar the registry enforces (§1.3) a bare key belongs to nobody and, once every registration required a capability, could not be registered at all
 - After: `namespaced_key(*, tenant, key)` — the one derivation that CONFINES a deployment's key to its resolved tenant: a key already under `{tenant}/` is returned unchanged; every other key, bare or prefixed, is placed under it (`{tenant}/{key}`). Applied through `src/ccf/deployment/manifest.py::manifest_under_tenant` (manifest entries, the two boot keys, the parsed-artifact mapping, the resolver's `DeploymentKeys`) by the loader (`src/ccf/deployment/manifest.py::_register_and_boot`) and by the consumer chain `open_product` derives (`src/ccf/products/product.py::_derive_consumer_chain`), and in `src/ccf/client/adapters/inprocess.py::_boot` for the binding document's keys. Confinement rather than refusal because a section label may legitimately contain `/` (a policy constraint named by a path), so a leading segment is not evidence of an author's tenant claim; a deployment composed through the loader can never register outside its own tenant, and the audit log shows the confined key
 - Why: `D-IMPL-354`: the loader is SDK mechanism, not an example; the grammar is the security invariant, so the loader adapts to it rather than the registry admitting tenant-less keys (which would let two tenants collide on one bare name). Direct callers of `register_manifest_entries` place their keys with `manifest_under_tenant` first; the register loop and the door handles keep the registry's own tenant-segment check
-- Migration: none for a deployment that names bare keys — they are placed under its tenant; a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+- Migration: ~~none for a deployment that names bare keys — they are placed under its tenant;~~ a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+  - **Correction 2026-10-07 (`D-IMPL-378`):** the struck clause is false. It is
+    struck rather than deleted so this dated record still shows what it said.
+    Placement also re-keys what a boot hands back: `BootedFabric.artifacts` and
+    `BootedFabric.pins` are keyed by the key as placed under the tenant, so a
+    deployment that reads them back by the bare key it authored gets `KeyError`
+    from `booted.artifacts[...]`, `None` from `booted.artifacts.get(...)`, and
+    `UnpinnedArtifactError` from `booted.pins.version_for(...)` (estate family R,
+    `docs/D-IMPL-377-CLOSE-OUT.md` §6a). Migration: read them by the placed key,
+    `booted.keys.<section>` on the single-file door or
+    `namespaced_key(tenant=booted.tenant_id, key=<authored key>)` on either
+    door; see fragment `378-07`
 
 ## ccf.deployment.manifest.manifest_under_tenant
 

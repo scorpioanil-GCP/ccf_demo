@@ -351,7 +351,7 @@ def test_moving_the_mint_into_a_transport_is_red_sabotage(
 ) -> None:
     """The defect the criterion exists to prevent, planted and reported.
 
-    A ``recorder.record(`` call inserted into ``egress.py::_answer_question``
+    A ``recorder.record(`` call inserted into ``egress.py::build_egress_server._answer_question``
     immediately after the governed step returns — the *"transport notices
     refusal → writes replay"* shape, in the exact place a well-meaning edit
     would put it. The scratch tree is reported, and the predicate of (a) is

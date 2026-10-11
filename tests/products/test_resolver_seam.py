@@ -74,7 +74,7 @@ from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_debt
 from ccf.products.constraints import ReferencePolicyConstraintResolver
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER, GATE_TTL_BOUNDS
@@ -136,6 +136,12 @@ from ccf.artifacts.protocol import WriteKinds
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.products.bound_answer import answered_as_asked
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+    differences_modulo_issuance,
+    modulo_issuance,
+)
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -292,6 +298,22 @@ def _plan_factory(
     return _ThresholdProjection(required=required, request=request)
 
 
+def _withholds_no_subject() -> bool:
+    """``_plan_factory``'s positive declaration (Dave's E2 (ii) (d), ``NonWithholdingPlanFactoryProtocol``).
+
+    True of what the factory builds: ``_ThresholdProjection.invoke`` returns a
+    ``ProjectionOutput`` with no withheld signal, for every subject and
+    principal. Every class affirming ``never`` that this fixture and the
+    composite fixture build is built over this factory.
+    """
+    return True
+
+
+#: A NAMED ``def`` (``D-IMPL-137``) carries the declaration as an attribute — the
+#: structural form of the companion protocol for a function.
+_plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 def _debt_scorer(
     *, view: GraphView, evidence: ExecutionEvidence | None = None
 ) -> DebtAssessment:
@@ -411,6 +433,12 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     yield from _boot(tmp_path)
 
 
+@pytest.fixture()
+def booted_for_one_question(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """:func:`booted`, booted for ONE question: what a fabric an acquisition seam writes into must be (Q9)."""
+    yield from _boot(tmp_path, for_question=True)
+
+
 @pytest.fixture
 def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """The same deployment, with the class declaring a ``D_c`` ceiling and the
@@ -477,8 +505,13 @@ def _boot(
     product_class: dict[str, Any] | None = None,
     request_contract: dict[str, Any] | None = None,
     artifacts: Mapping[str, dict[str, Any]] | None = None,
+    for_question: bool = False,
 ) -> Iterator[_Booted]:
-    """The one boot, so the two fixtures cannot drift into two deployments."""
+    """The one boot, so the two fixtures cannot drift into two deployments.
+
+    ``for_question`` boots the fabric for ONE question, as a fabric an
+    acquisition seam writes into must be (SEC-020, ``D-IMPL-378`` Q9).
+    """
     root = tmp_path / "deployment"
     root.mkdir()
     for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
@@ -537,6 +570,7 @@ def _boot(
         manifest,
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
+        for_question=for_question,
     )
     # 24.5-L-24, kept under 24.6-L-06: the fixture ingests the deployment's
     # OWN signal batch (the one `acct-1` envelope `tests/deployment` ships, an
@@ -628,8 +662,10 @@ def _internal(booted: _Booted, shell: RefusalEnvelope) -> RefusalEnvelope:
     stronger pair than either alone, because the two must agree about the
     determination and disagree about what crossed.
 
-    Resolution IS part of the assertion: the store refuses bytes that do not
-    hash to the address asked for.
+    Read back through the file store, which hands back the bytes it holds
+    without checking that they hash to the address, and parsed as they come:
+    this helper verifies nothing about them (the readers that do re-hash are
+    measured in ``tests/replay/test_record_content_address_integrity.py``).
     """
     assert shell.replay_reference != NO_REPLAY_REFERENCE, (
         "a shell with no record cannot have an internal form to read; the seam"
@@ -2055,6 +2091,10 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # filed record said no packaging happened on every one of the five pins.
     "packaging_trace",
     "acquisition",
+    # SEC-020 Q7 (`D-IMPL-378`): the declared population phase. `None` is
+    # admissible and POSITIVE — this deployment declares no population phase —
+    # but never a default, on `acquisition`'s own terms.
+    "population_acquisition",
     "half_life_key",
     "admission_clock",
     "plan_factory",
@@ -2204,6 +2244,8 @@ def _arguments(booted: _Booted, *, key: Callable[[str], str] = lambda name: name
         # every deployment shipped before the seam existed was in, stated
         # rather than defaulted.
         "acquisition": None,
+        # SEC-020 Q7 (`D-IMPL-378`): no population phase either — stated.
+        "population_acquisition": None,
         # `PKG-F-08`: stated, never defaulted — this fixture packages nothing,
         # and saying so is different from nobody having wired the seam.
         "packaging_trace": None,
@@ -2329,6 +2371,11 @@ def booted_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
         next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
     )
     product_class["requires"] = _COMPOSITE_REQUIRES
+    # `D-IMPL-378` P2 (c): every composite built over this fixture — here and in
+    # `tests/products/test_served_at_severings.py` — is wired with `_plan_factory`,
+    # whose projection (`_ThresholdProjection`) never raises the withheld signal,
+    # so the class states it never withholds its subject.
+    product_class["subject_withholding"] = SUBJECT_WITHHOLDING_NEVER
     yield from _boot(tmp_path, product_class=product_class)
 
 
@@ -3056,17 +3103,17 @@ def test_E4_an_instant_beyond_the_permitted_forward_skew_refuses(
 
 
 def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
-    booted: _Booted,
+    booted_for_one_question: _Booted,
 ) -> None:
     """E5, and the positive control is in the same test.
 
     A count of zero proves nothing unless the same seam is shown to count when a
     request IS in bounds — otherwise a seam that was never wired would pass.
     """
-    _declare_temporal_bound(booted, max_past=60)
+    _declare_temporal_bound(booted_for_one_question, max_past=60)
     calls, seam = _counting_acquisition()
     resolver = _resolver(
-        booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT
+        booted_for_one_question, acquisition=seam, admission_clock=lambda: ADMITTED_AT
     )
 
     refused = _ask(resolver, _request(asked_at=ADMITTED_AT - timedelta(days=30)))
@@ -3075,7 +3122,11 @@ def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
 
     served = _ask(resolver, _request(asked_at=ADMITTED_AT))
     assert isinstance(served, ServedProduct), served
-    assert calls == [1], (
+    # `D-IMPL-378` ruling P6 (a): the fixture class is at the SDK's default
+    # stance (may withhold) and declares no early policy, so the in-bounds
+    # question invokes the seam twice — the probe identifier, then its subject
+    # (the order is held by tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py).
+    assert calls == [1, 1], (
         "THE POSITIVE CONTROL: the seam must count when a request is in bounds,"
         " or the zero above is the count of a seam nobody wired"
     )
@@ -3274,11 +3325,25 @@ def test_step4_two_serves_at_two_instants_are_two_records(booted: _Booted) -> No
     assert two.content_generation_path.served_at == later
     assert first.replay_ref.content_address != second.replay_ref.content_address
 
-    # A PINNED clock gives one address back, which is what proves the clock is
-    # the only difference above.
+    # The two records differ in their serving instant and their per-answer
+    # issuance, and in nothing else.
+    assert differences_modulo_issuance(one, two) == ["content_generation_path"]
+    assert modulo_issuance(one).content_generation_path.model_copy(
+        update={"served_at": later}
+    ) == modulo_issuance(two).content_generation_path
+
+    # A PINNED clock gives the first record back modulo its per-answer issuance,
+    # which is what proves the clock is the only difference above. Dave's E1 (a)
+    # (`D-IMPL-378`, 2026-10-08 12:29 MST) restates `D-IMPL-358` ruling 1's
+    # pinned-clock control "modulo the per-answer issuance": the third answer is
+    # issued apart, so its reference differs and names exactly its own record.
     third = _ask(_resolver(booted, admission_clock=lambda: ADMITTED_AT), _request())
     assert isinstance(third, ServedProduct)
-    assert third.replay_ref.content_address == first.replay_ref.content_address
+    three = _served_record(booted, third)
+    assert third.replay_ref.content_address != first.replay_ref.content_address
+    assert_named_by_its_own_content(first.replay_ref.uri, one, what="pinned clock, first")
+    assert_named_by_its_own_content(third.replay_ref.uri, three, what="pinned clock, third")
+    assert_one_determination_issued_twice(one, three, what="pinned clock")
 
 
 # --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --

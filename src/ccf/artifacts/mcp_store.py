@@ -34,9 +34,23 @@ itself would silently start reporting missing artifacts as outages
 taken as absence: the store asks the presence resource, which answers
 ``found: false`` on a successful read, and only that answer becomes
 :class:`~ccf.artifacts.protocol.ArtifactNotFound`. Everything else stays
-:class:`~ccf.mcp.errors.McpServerUnreachable` — over-reporting absence is the
-dangerous direction, because absence is what a replay writes down as a fact
-about the past. There is no ``except McpError`` handler in this file.
+:class:`~ccf.mcp.errors.McpServerUnreachable`, but for the guard's 401 below —
+over-reporting absence is the dangerous direction, because absence is what a
+replay writes down as a fact about the past. There is no ``except McpError``
+handler in this file.
+
+**A call the server's guard did not authenticate is a typed refusal, never an
+outage** (``D-IMPL-378``: repair 2.5 (a) for reads, decision 10 (b) for the
+write). The guard answers HTTP 401 — no credential, one that is not a bearer
+token, or a token its verifier does not know — before any handler runs, so
+nothing about the call was decided and nothing was written. Every read here,
+and :meth:`McpArtifactStore.put`, raises
+:class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` for it, judged on
+the 401 response's status code, never on message text. The guard's other
+refusals are not this: a 403, for a credential without a required scope,
+still arrives as :class:`~ccf.mcp.errors.McpServerUnreachable` on every call,
+and the tenancy guard's denial does on a read, while :meth:`McpArtifactStore.put`
+receives it as the server's declined write (``ArtifactStoreError``).
 
 **A write requires the capability for its own action, here AND at the
 server (D-IMPL-353 §1.2).** :func:`~ccf.artifacts.protocol.authorized_write_target`
@@ -64,7 +78,11 @@ than as a transport error, so a client can tell a governed *no* from an
 outage. On the blob the shell cannot hash to the address asked for, so
 :meth:`get` verifies ``sha256(bytes)`` against the address and refuses to
 hand back bytes that are not the artifact; on the presence resource the shell
-stands where ``found: false`` would and is read as exactly that. Nothing here
+stands where ``found: false`` would and is read as exactly that. The names
+resource answers a refusal with the same shell, and there it is read as what it
+is, a refusal: :meth:`names_at` raises
+:class:`~ccf.artifacts.protocol.ArtifactReadRefused` carrying it, never an
+outage and never an empty list (``D-IMPL-378``, decision 1 (A)). Nothing here
 parses the shell's cause — what a consumer may learn of it is the disclosure
 layer's decision, made at the server.
 
@@ -91,16 +109,20 @@ import base64
 import hashlib
 import json
 from collections.abc import Coroutine
+from http import HTTPStatus
 from typing import Any, TypeVar
 
+import httpx
 from mcp import ClientSession
-from mcp.types import BlobResourceContents, TextResourceContents
+from mcp.types import BlobResourceContents, CallToolResult, TextResourceContents
 from pydantic import AnyUrl
 
 from ccf.artifacts.protocol import (
     ArtifactName, ArtifactNotFound,
+    ArtifactReadRefused,
     ArtifactRef,
     ArtifactStoreError,
+    ArtifactStoreUnauthenticated,
     ArtifactUriUnresolvable,
     ArtifactWriteAuthority,
     MalformedContentAddress,
@@ -111,6 +133,7 @@ from ccf.artifacts.protocol import (
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
+from ccf.erasure.subject_match import SubjectMatchAnswer, SubjectMatchQuery, SubjectMatchVerdict
 from ccf.products.refusal import RefusalEnvelope
 from ccf.mcp.client import (
     HttpClientFactory,
@@ -135,6 +158,8 @@ _META_SCHEME = "ccf-artifact-meta"
 #: The naming resource (SEC-009; `D-IMPL-374` (4), ruling 2).
 _NAMES_SCHEME = "ccf-artifact-names"
 _PUT_TOOL = "put_artifact"
+#: The erasure door's server-side subject match (SEC-009; `D-IMPL-378`, D3b).
+_SUBJECT_MATCH_TOOL = "match_artifact_subject"
 
 
 class McpArtifactStore:
@@ -150,8 +175,9 @@ class McpArtifactStore:
             the bearer token for an authenticated server goes (D-26). Optional
             only because the seam has to admit an unauthenticated development
             server; a deployment that omits it against an authenticated one
-            gets :class:`~ccf.mcp.errors.McpServerUnreachable`, not silent
-            anonymous access.
+            gets the guard's refusal, not silent anonymous access:
+            :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, on a
+            read and on a write.
         write_kinds: The deployment's declaration of which artifact classes
             are mechanism-written and under which kinds (D-IMPL-353 §1.2).
             **Required, no default.** Enforced *before the call leaves this
@@ -196,6 +222,34 @@ class McpArtifactStore:
             http_client_factory=self._http_client_factory,
         )
 
+    async def _guarded_session(self, operation: SessionOperation[_T]) -> _T:
+        """:meth:`_session` for every call: the guard's 401 is the typed authentication refusal (``D-IMPL-378``).
+
+        Repair 2.5 (a) for the reads, decision 10 (b) for :meth:`put`. The
+        session runner reports a call that did not complete as
+        :class:`~ccf.mcp.errors.McpServerUnreachable`, an authentication
+        refusal included (:func:`ccf.mcp.client.run_with_session`). Where the
+        one failure that stands for is the server guard's HTTP 401 — read by
+        :func:`_guard_refused_the_credential` from the response's status code —
+        the call raises
+        :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` instead,
+        chained from that response and raised outside the handler, so no outage
+        is in its chain. Every other failure stays an outage.
+        """
+        refused: httpx.HTTPStatusError | None
+        try:
+            return await self._session(operation)
+        except McpServerUnreachable as unreachable:
+            refused = _guard_refused_the_credential(unreachable)
+            if refused is None:
+                raise
+        raise ArtifactStoreUnauthenticated(
+            f"the artifact server at {self._url!r} answered HTTP"
+            f" {refused.response.status_code}: it did not authenticate the"
+            " credential this store presented, so nothing about the call was"
+            " decided"
+        ) from refused
+
     def _read_blob(self, uri: str) -> bytes:
         """Read one resource as bytes, concatenated in server order.
 
@@ -213,7 +267,7 @@ class McpArtifactStore:
                 if isinstance(contents, BlobResourceContents)
             )
 
-        return self._bridge.run(self._session(operation))
+        return self._bridge.run(self._guarded_session(operation))
 
     def _read_text(self, uri: str) -> str:
         """Read one resource as text, concatenated in server order."""
@@ -226,7 +280,7 @@ class McpArtifactStore:
                 if isinstance(contents, TextResourceContents)
             )
 
-        return self._bridge.run(self._session(operation))
+        return self._bridge.run(self._guarded_session(operation))
 
     # --- the four Protocol methods -----------------------------------------
 
@@ -249,20 +303,31 @@ class McpArtifactStore:
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form and therefore no stable identity. Raised before
                 anything reaches the wire.
-            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable
-                or refused the credentials.
-            ArtifactStoreError: the server declined the write.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401 — it did not authenticate this store's
+                credential — so nothing was written and nothing about the write
+                was decided (``D-IMPL-378``, decision 10 (b)). Neither a
+                declined write nor an outage.
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
+                or its guard refused the call with any status but 401, or it
+                answered with something that is not an artifact reference,
+                which says nothing about whether the write happened.
+            ArtifactStoreError: the server declined the write: the call
+                completed and the server answered it as an error, or with no
+                artifact reference. A declined write is an answer, not an
+                outage, so it is judged after the session closes and is never
+                reported as unreachability.
         """
         target, payload_artifact = authorized_write_target(
             authorized, artifact, write_kinds=self._write_kinds
         )
         payload = base64.b64encode(canonical_bytes(payload_artifact)).decode("ascii")
 
-        async def operation(session: ClientSession) -> ArtifactRef:
+        async def operation(session: ClientSession) -> CallToolResult:
             # Exactly what `put_artifact(artifact_class, name, canonical_b64)`
             # takes: the tenant is the credential's, never a wire argument
             # (D-IMPL-353 §1.2, §1.3).
-            result = await session.call_tool(
+            return await session.call_tool(
                 _PUT_TOOL,
                 {
                     "artifact_class": target.artifact_class,
@@ -270,13 +335,23 @@ class McpArtifactStore:
                     "canonical_b64": payload,
                 },
             )
-            if result.isError or result.structuredContent is None:
-                raise ArtifactStoreError(
-                    f"the artifact server declined to store {target.name!r}"
-                )
-            return ArtifactRef.model_validate(result.structuredContent)
 
-        return self._bridge.run(self._session(operation))
+        # Judged here, after the session closed, never inside the operation: the
+        # session runner reports anything the operation raises as unreachability
+        # (`ccf.mcp.client.run_with_session`), and a declined write is an answer,
+        # not an outage to retry. The guard's 401 is the typed authentication
+        # refusal, as for every read (`D-IMPL-378`, decision 10 (b)).
+        result = self._bridge.run(self._guarded_session(operation))
+        if result.isError or result.structuredContent is None:
+            raise ArtifactStoreError(
+                f"the artifact server declined to store {target.name!r}"
+            )
+        try:
+            return ArtifactRef.model_validate(result.structuredContent)
+        except ValueError as malformed:
+            raise McpServerUnreachable(
+                f"artifact server returned a non-reference answer: {result.structuredContent!r}"[:300]
+            ) from malformed
 
     def get(self, *, content_address: str) -> bytes:
         """Return the exact canonical bytes stored at ``content_address``.
@@ -288,6 +363,10 @@ class McpArtifactStore:
                 resource, that it holds nothing there. Only those structured
                 answers produce this error; the bytes are verified against the
                 address, so a shell is never mistaken for the artifact.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401 — it did not authenticate this
+                store's credential — so it said nothing about the address.
+                Neither an absence nor an outage.
             ccf.mcp.errors.McpServerUnreachable: the read failed and the server
                 did not say the artifact was absent — so it is an outage, which
                 invites a retry, rather than an absence, which gets written
@@ -316,8 +395,11 @@ class McpArtifactStore:
         failure. That is what makes this the discriminator :meth:`get` leans on.
 
         Raises:
-            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable
-                or refused the credentials.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401: it did not authenticate this store's
+                credential.
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
+                or its guard refused the call with any status but 401.
         """
         try:
             addressed = held_content_address(content_address)
@@ -340,8 +422,26 @@ class McpArtifactStore:
         Empty, with no round trip, for a string that is not a content address.
 
         Raises:
+            ccf.artifacts.protocol.ArtifactReadRefused: the server answered
+                with its governed refusal shell instead of names: the address
+                cannot be verified through this credential. Carries the shell
+                as ``envelope``. What the shell says of why is the server's:
+                one answer, the ``nonexistent`` shell, for an address this
+                credential's tenant never filed (another tenant's, or nobody's)
+                and for a present governed address that holds no record; a
+                governed record this credential may not read can be refused
+                with its own cause (see
+                :class:`~ccf.artifacts.protocol.ArtifactReadRefused`). An
+                access refusal, never an outage and never an absence
+                (``D-IMPL-378``, decision 1 (A)).
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401: it did not authenticate this store's
+                credential, so no access decision about the address was made
+                (``D-IMPL-378``, repair 2.5 (a)).
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
-                or answered something that is not a list of names.
+                its guard refused the call with any status but 401, or it
+                answered something that is neither a list of names nor a
+                refusal envelope.
         """
         try:
             addressed = held_content_address(content_address)
@@ -350,6 +450,18 @@ class McpArtifactStore:
         answer = self._read_text(f"{_NAMES_SCHEME}://{addressed}")
         try:
             parsed = json.loads(answer)
+            if isinstance(parsed, dict):
+                # The server's governed refusal (decision 1 (A), `D-IMPL-378`),
+                # recognized as `_presence_of` recognizes it: an answer that
+                # validates as a refusal envelope. Judged here, after the
+                # session closed, so it is never reported as unreachability.
+                refused = RefusalEnvelope.model_validate(parsed)
+                raise ArtifactReadRefused(
+                    f"the artifact server refused to name {addressed!r} to this"
+                    f" credential ({refused.kind}); the address cannot be verified"
+                    " through it",
+                    envelope=refused,
+                )
             if not isinstance(parsed, list):
                 raise ValueError("not a list")
             return tuple(ArtifactName.model_validate(item) for item in parsed)
@@ -357,6 +469,58 @@ class McpArtifactStore:
             raise McpServerUnreachable(
                 f"artifact server returned a non-naming answer: {answer!r}"[:300]
             ) from error
+
+    def match_subject(self, *, query: SubjectMatchQuery, door_signature: str) -> SubjectMatchVerdict:
+        """The artifact server's verdict on ``query``, judged where the bytes are (SEC-009; `D-IMPL-378`, D3b).
+
+        For the erasure door, and only for a request it signed: the server's
+        ``match_artifact_subject`` tool judges the bytes stored at
+        ``query.content_address`` with :func:`~ccf.erasure.judge_subject` and
+        answers one :data:`~ccf.erasure.SubjectMatchVerdict` — never the bytes.
+        The tenant does not cross the wire: the server rebuilds the query under
+        the caller's verified tenant, so ``door_signature``
+        (:func:`~ccf.erasure.sign_subject_match_query`) verifies only for the
+        tenant it was made for. Not one of the Protocol's four verbs.
+
+        Raises:
+            ccf.artifacts.protocol.MalformedContentAddress: ``query`` names no
+                content address; raised before the call leaves this process.
+            ArtifactStoreError: the server declined the call — it refuses every
+                caller but the erasure door of the caller's tenant, and a server
+                without the tool declines too — or answered something that is
+                not a verdict.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401: it did not authenticate this store's
+                credential.
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
+        """
+        address = held_content_address(query.content_address)
+
+        async def operation(session: ClientSession) -> CallToolResult:
+            return await session.call_tool(
+                _SUBJECT_MATCH_TOOL,
+                {
+                    "content_address": address,
+                    "subject_ref": query.subject_ref,
+                    "key_paths": list(query.key_paths),
+                    "subject_ref_salt": query.subject_ref_salt,
+                    "door_signature": door_signature,
+                },
+            )
+
+        # Judged here, after the session closed, never inside the operation: the
+        # session runner reports anything the operation raises as unreachability
+        # (`ccf.mcp.client.run_with_session`), and a refusal is an answer, not an
+        # outage to retry. The guard's 401 is the typed refusal, as for every call.
+        result = self._bridge.run(self._guarded_session(operation))
+        if result.isError or result.structuredContent is None:
+            raise ArtifactStoreError("the artifact server declined the erasure door's subject match")
+        try:
+            return SubjectMatchAnswer.model_validate(result.structuredContent).verdict
+        except ValueError as malformed:
+            raise ArtifactStoreError(
+                "the artifact server's answer to the subject match is not a verdict"
+            ) from malformed
 
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
@@ -368,6 +532,9 @@ class McpArtifactStore:
                 a server outage cannot turn the refusal into something else.
             ArtifactUriUnresolvable: the URI is malformed, or the server
                 answered that it registered no such version under that name.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401: it did not authenticate this store's
+                credential, so it said nothing about the name.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
         """
         parsed = parse_artifact_uri(uri)
@@ -389,6 +556,27 @@ class McpArtifactStore:
                 f"{uri!r} names no version the artifact server registered"
             )
         return address
+
+
+def _guard_refused_the_credential(unreachable: McpServerUnreachable) -> httpx.HTTPStatusError | None:
+    """The server guard's HTTP 401, where that is the one failure ``unreachable`` stands for; else ``None``.
+
+    :func:`ccf.mcp.client.run_with_session` chains the failure it caught, and
+    the streamable-HTTP transport raises the guard's answer as an
+    ``httpx.HTTPStatusError`` from a task in its task group, which wraps it.
+    Read as the runner names a failure — an exception group of exactly one
+    member is that member — and judged on the response's status code, a
+    structured signal, never on message text (:mod:`ccf.mcp.errors`). A group
+    of several failures names no single cause and stays an outage, as does
+    every other status: a 403, for a credential without a required scope, is
+    not this refusal.
+    """
+    cause = unreachable.__cause__
+    while isinstance(cause, BaseExceptionGroup) and len(cause.exceptions) == 1:
+        cause = cause.exceptions[0]
+    if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == HTTPStatus.UNAUTHORIZED:
+        return cause
+    return None
 
 
 def _presence_of(answer: str) -> bool:

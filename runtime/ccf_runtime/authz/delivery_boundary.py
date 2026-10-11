@@ -66,10 +66,11 @@ its own entitlement source.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Final, Protocol, runtime_checkable
+from typing import Any, Final, Literal, Protocol, runtime_checkable
 
 from pydantic import ValidationError
 
@@ -77,14 +78,16 @@ from ccf.artifacts.protocol import (
     ArtifactNotFound,
     ArtifactStoreError,
     ArtifactStoreProtocol,
+    ArtifactStoreUnauthenticated,
     MovingTargetRefused,
     held_content_address,
     parse_artifact_uri,
 )
-from ccf.authz.capability import ArtifactRead, Authorized, ReplayMint, ReplayRead, verify_any
+from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
 from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
@@ -98,27 +101,31 @@ from ccf.products.refusal import (
     SubjectUnavailableRefusal,
     envelope_for,
 )
-from ccf.products.resolver import RefusalRecorderProtocol
+from ccf.products.resolver import RefusalRecorderProtocol, refuse_incompatible_refusal_recorder
 from ccf.projection.plan import Perspective
 from ccf.replay.engine import (
     ReplayDivergence,
     ReplayUnresolvable,
     resolve_artifact,
 )
+from ccf.replay.provenance import filed_by_record_writer
 from ccf.replay.record import (
     NO_ASSEMBLY_REFUSAL,
     NO_ROLE_RESOLVED,
+    ContextFabricSnapshot,
     DecisionReplayRecord,
     PolicyBinding,
     ResolutionNotApplicable,
 )
 from ccf_runtime.http_api.errors import (
     ERROR_EVIDENCE_ABSENT,
+    ERROR_EVIDENCE_CLASS_SEALED,
     ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
     ERROR_EVIDENCE_DISCLOSURE_WITHHELD,
     ERROR_EVIDENCE_PRINCIPAL_MISMATCH,
 )
 from ccf_runtime.authz.product_entitlement import (
+    EvidenceReadabilitySourceProtocol,
     PerspectiveResolverProtocol,
     ProductEntitlementRefused,
     ProductEntitlementSourceProtocol,
@@ -212,6 +219,14 @@ EvidenceReadAuthority = Authorized[ArtifactRead] | Authorized[ReplayRead]
 #: was decided on.
 DEREFERENCE_PRODUCT_ID: Final[str] = "ccf.evidence-dereference"
 
+#: The marker every read-refusal record :func:`govern_dereference` mints
+#: carries on its resource identity
+#: (:attr:`~ccf.products.refusal.ResourceRequestIdentity.tenant_from`): its
+#: ``tenant_id`` is the tenant the refused capability was verified for (Dave,
+#: 2026-10-07, ruling Q3; ``D-IMPL-378``). Written by ``refuse`` below and read
+#: by the step after the provenance check, and nowhere else.
+_TENANT_FROM_CAPABILITY: Final[Literal["capability"]] = "capability"
+
 
 class UnrecordableDeliveryBoundaryError(ValueError):
     """A delivery boundary that entitles without a recorder is not built.
@@ -299,6 +314,9 @@ def recorded_boundary(
 
     Raises:
         UnrecordableDeliveryBoundaryError: it is absent or does not conform.
+        ccf.products.resolver.IncompatibleRefusalRecorder: its ``record``
+            cannot be passed ``subject_withholding=`` — read off the signature,
+            never by calling it (Dave's E2 (iii), ``D-IMPL-378``).
     """
     if refusal_recorder is None:
         raise UnrecordableDeliveryBoundaryError(
@@ -321,6 +339,9 @@ def recorded_boundary(
             " `record` method — and it runs at construction rather than at the"
             " first denial, so a misconfigured door never answers at all"
         )
+    # Dave's E2 (iii) (`D-IMPL-378`): "Detect incompatible recorders at
+    # construction, rather than on the first refusal."
+    refuse_incompatible_refusal_recorder(refusal_recorder, builder=builder)
     return refusal_recorder
 
 
@@ -924,6 +945,23 @@ def _is_read_refusal(internal: RefusalEnvelope | None) -> bool:
     )
 
 
+def _read_nothing(record: DecisionReplayRecord) -> bool:
+    """Whether the record's dimension 1 is exactly the claim *nothing was read*.
+
+    Dave's Q12 (``D-IMPL-378``), hold 2b. Exact equality with
+    :meth:`~ccf.replay.record.ContextFabricSnapshot.unread` for the record's
+    own tenant and instant — the unread watermark, no touched entity or
+    relationship, no attestation — rather than the watermark alone, so a
+    dimension 1 that claims no read while naming something touched is not read
+    as having read nothing. Such a record names no subject the answer could
+    have hidden, so it needs only the tenant's listing to be read back.
+    """
+    snapshot = record.context_fabric_snapshot
+    return snapshot == ContextFabricSnapshot.unread(
+        tenant_id=snapshot.tenant_id, temporal_boundary=snapshot.temporal_boundary
+    )
+
+
 def _decided_identity(
     record: DecisionReplayRecord, internal: RefusalEnvelope | None
 ) -> tuple[str, str, str | None] | None:
@@ -989,6 +1027,13 @@ def govern_dereference(
       and under the tenant the record was decided under. Bytes filed any other
       way, a forgery on a client lane included, answer exactly as a missing
       address does (the forged-record finding; ``D-IMPL-376`` close-out).
+    - **The read-refusal marker, after provenance.** A record this boundary
+      itself wrote is served only if its resource identity carries the marker
+      (:attr:`~ccf.products.refusal.ResourceRequestIdentity.tenant_from`) that
+      binds its tenant to the principal that asked; one without it answers
+      exactly as a missing address does, for every caller (Dave, 2026-10-07,
+      ruling Q3; ``D-IMPL-378``). Read only here, on bytes the provenance step
+      has proved, so a caller who files the marker confers nothing.
     0. **Tenant.** The tenant the record was decided under
        (:func:`_decided_identity`; the record's own ``tenant_id`` when no
        identity is recoverable) equals the capability's ``authorized.tenant``.
@@ -1015,12 +1060,30 @@ def govern_dereference(
        subject-conflict check is hold 1. A record this boundary itself wrote
        carries no product determination and skips this hold; a record with no
        recoverable class is withheld.
+    2b. **Owner read-back, default-deny** (Dave's Q12, 2026-10-07;
+       ``D-IMPL-378``). The tenant's entitlement policy must list the record's
+       class in ``evidence_readable_classes`` — asked of the entitlement source
+       through
+       :class:`~ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol`,
+       a source that cannot say answering *no* — and a record that read the
+       fabric must carry its class's affirmation that its answers never
+       withhold their subject (``ContentGenerationPath.subject_withholding``),
+       which no record written before the affirmation existed carries. Decided
+       per class and per record generation, never per decision, so the record
+       behind a withheld answer and a nonexistent subject's are refused alike.
+       A read-refusal record carries no product determination and no read of
+       any subject; it skips this hold as it skips hold 2 (Dave's Q3 governs
+       it).
     3. **Disclosure, through the recorder.** The level in force for this
-       principal, read from the recorder that disclosed the serve and under
-       the recorder's own tenant, must be
+       principal under the capability's tenant — after hold 0, the tenant the
+       record was decided under — read through the door's recorder, must be
        :data:`~ccf.products.disclosure.DISCLOSURE_FULL`. Below it the record
        does not cross — a dereference never upgrades a caller to the cause its
-       own shell withheld.
+       own shell withheld. The tenant is keyed beside the principal (Dave,
+       2026-10-07; ``D-IMPL-378``): read under the recorder's own tenant, a
+       door serving several tenants through one recorder decided another
+       tenant's caller by the level its own tenant declares for a colliding
+       principal id.
 
     Only after all three pass is a versioned URI's naming checked, and the
     ordering is again the property: :meth:`resolve_uri` answers only under the
@@ -1059,6 +1122,24 @@ def govern_dereference(
     two are one shell, and the request identity every shell carries is the
     mechanism constant plus the caller's own reference, never anything
     recovered from the target.
+
+    **A read-refusal record names who asked: the capability's tenant and its
+    principal, together** (Dave, 2026-10-07; ``D-IMPL-378``). Its resource
+    identity carries ``authorized.tenant`` and dimension 4 the principal, so
+    holds 0 and 1 hold a later reader of the record to that pair. The door's
+    recorder files it under the recorder's own tenant; where that is not the
+    capability's tenant — a door serving several tenants through one recorder
+    — the record is decided under one tenant and filed under another, and the
+    provenance check serves it to nobody, its own principal included. Every
+    read-refusal record it mints carries the marker
+    (``ResourceRequestIdentity.tenant_from == "capability"``), and a
+    read-refusal record without it — every one minted before the marker,
+    which names the recorder's tenant whichever tenant asked and is
+    byte-for-byte a legitimate record of the recorder's own principal —
+    answers exactly as a missing address does, for every caller. **That
+    includes the principal it names: owner read-back of a read-refusal record
+    minted before the marker is lost** (Dave, 2026-10-07, ruling Q3); the
+    record stays in the store, and still replays to its own address.
 
     **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
     ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
@@ -1123,6 +1204,12 @@ def govern_dereference(
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
             renders as the ``409`` it renders today.
+        ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the store's server
+            did not authenticate the deployment's credential (HTTP 401) when
+            the record was resolved, or when a by-URI read's naming was checked
+            — propagated by name, never answered as the ``nonexistent``
+            absence, which is also what the holds answer an unauthorized
+            caller (`D-IMPL-378`, repair 2.5 (a)). Nothing is recorded for it.
         Exception: whatever the artifact store raises on append, deliberately
             uncaught — a failure to record is a failure to decide.
     """
@@ -1202,9 +1289,21 @@ def govern_dereference(
             resource=ResourceRequestIdentity(
                 surface=surface,
                 address=address,
-                # The door's own tenant: an address ask carries none, and an
-                # absent target has none to carry. Normalized below `full`.
-                tenant_id=refusal_recorder.tenant_id,
+                # The tenant the refused capability was verified for — bound
+                # here to the principal dimension 4 records, so the pair names
+                # who asked (Dave, 2026-10-07; `D-IMPL-378`). It was the door
+                # RECORDER's tenant, and a door serving several tenants through
+                # one recorder then attributed another tenant's refused read to
+                # its own: a colliding principal id of the recorder's tenant
+                # passed holds 0 and 1 on that record and read the address the
+                # other tenant asked for. Decided under this tenant and filed
+                # under the recorder's, such a record is served to nobody by
+                # the provenance check below. Normalized below `full`.
+                tenant_id=authorized.tenant,
+                # The marker (Q3): stated by the governed read itself, on every
+                # read refusal it mints, and counted only behind the provenance
+                # check (see the step after it).
+                tenant_from=_TENANT_FROM_CAPABILITY,
                 determined_at=determined_at,
             ),
             policy_bindings=(policy,) if policy is not None else (),
@@ -1283,6 +1382,12 @@ def govern_dereference(
             content_address=content_address,
             contract=DecisionReplayRecord,
         )
+    except ArtifactStoreUnauthenticated:
+        # `D-IMPL-378`, repair 2.5 (a): the store's server did not authenticate
+        # the deployment's credential, so nothing about the address was
+        # decided. Never the ONE absence below — that shell is also what the
+        # holds answer an unauthorized caller — and never recorded as one.
+        raise
     except (
         ArtifactNotFound,
         ArtifactStoreError,
@@ -1321,12 +1426,31 @@ def govern_dereference(
     # WriteKinds declares under ReplayMint — a kind no door can mint, held only
     # by the fabric's record writers. Anything else answers exactly as a
     # missing address does.
-    filed_by_the_record_writer = any(
-        named.tenant_id == deciding_tenant
-        and ReplayMint in write_kinds.for_class(named.artifact_class)
-        for named in store.names_at(content_address=content_address)
+    # The ONE check, stated in src (`D-IMPL-378`): the replay engine, child
+    # admission and `record_of` call the same predicate.
+    filed_by_the_record_writer = filed_by_record_writer(
+        store, content_address=content_address, tenant_id=deciding_tenant
     )
     if not filed_by_the_record_writer:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
+    # --- the read-refusal marker: counted only on a record proven above -----
+    # Dave, 2026-10-07 19:31 (ruling Q3; `D-IMPL-378`): "Old, unmarked
+    # read-refusal records read as missing for everyone. The marker must have
+    # trusted provenance; caller-supplied bytes cannot confer trust." A read
+    # refusal minted before the marker names the recorder's tenant whichever
+    # tenant asked, and is byte-for-byte a legitimate record of the recorder's
+    # own principal, so it answers exactly as a missing address does for every
+    # caller — the principal it names included. Read HERE and nowhere else:
+    # after the provenance step has proved the fabric's record writer filed
+    # these bytes under the deciding tenant, before any hold reads who asks.
+    if _is_read_refusal(internal) and (
+        internal is None
+        or internal.resource is None
+        or internal.resource.tenant_from != _TENANT_FROM_CAPABILITY
+    ):
         return refuse(
             cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
         )
@@ -1375,6 +1499,44 @@ def govern_dereference(
                 policy=refused.policy,
             )
 
+        # --- hold 2b: owner read-back, default-deny (Dave's Q12) -----------
+        # A record's dimension 1 is the REAL read (`D-IMPL-371`), so the record
+        # behind a withheld answer names what the answer hid: measured end to
+        # end, the only difference between it and a nonexistent subject's. The
+        # owner reads a record back only when the tenant lists its class AND the
+        # record carries the class's affirmation that its answers never withhold
+        # their subject — which the governed resolver enforces for every
+        # decision of the class, and which no record written before it existed
+        # carries (Q12: "apply the restriction to existing records"). A record
+        # that read nothing (an unread dimension 1) cannot name a subject and
+        # needs only the listing. Before the erasure consult, so a sealed
+        # record's erasure answers as any other sealed record does.
+        listed, posture = (
+            entitlement_source.evidence_readable(
+                tenant=decided_tenant, product_class=product_class
+            )
+            if isinstance(entitlement_source, EvidenceReadabilitySourceProtocol)
+            else (False, None)
+        )
+        affirmed = (
+            record.content_generation_path.subject_withholding
+            == SUBJECT_WITHHOLDING_NEVER
+            or _read_nothing(record)
+        )
+        if not (listed and affirmed):
+            return refuse(
+                cause="unauthorized",
+                error_code=ERROR_EVIDENCE_CLASS_SEALED,
+                detail=(
+                    "the tenant's entitlement policy does not list this"
+                    " record's product class for owner read-back"
+                    if not listed
+                    else "this record does not carry its class's affirmation"
+                    " that its answers never withhold their subject"
+                ),
+                policy=posture,
+            )
+
     # --- the erasure consult: after the holds, before disclosure -------------
     # SEC-009 (`D-IMPL-374` (4), ruling 1; design `D-IMPL-367` §5.3): only a
     # caller entitled to this record reaches here. At `minimal` an erased
@@ -1388,10 +1550,26 @@ def govern_dereference(
         consulted = tenant_view.get(content_address=content_address)
     except ErasedContentRefused as erased:
         return erased_reading(erased)
+    # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+    # integrity." The bytes that CROSS come from this second read, not from the
+    # authorizing read above, so they are held to the same arithmetic before
+    # they leave: the address is the sha256 of the stored canonical bytes
+    # (`D-IMPL-89`). Bytes that changed between the two reads answer as bytes
+    # that do not hash to their address always have — the ONE absence.
+    if hashlib.sha256(consulted).hexdigest() != content_address:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
 
     # --- hold 3: the level that disclosed the serve -------------------------
+    # Read through the door's recorder (`D-IMPL-345` R-2), keyed on the
+    # capability's tenant AND principal together (Dave, 2026-10-07;
+    # `D-IMPL-378`) — after hold 0 that is the tenant the record was decided
+    # under. Keyed on the RECORDER's tenant, a door serving several tenants read
+    # the level its own tenant declares for a colliding principal id: another
+    # tenant's record crossed at that level, or was withheld at it.
     level, _policy = refusal_recorder.disclosure_level_for(
-        tenant=refusal_recorder.tenant_id, principal_id=principal
+        tenant=authorized.tenant, principal_id=principal
     )
     if level != DISCLOSURE_FULL:
         return refuse(
@@ -1414,6 +1592,10 @@ def govern_dereference(
             registered = tenant_view.resolve_uri(uri=reference.reference)
         except ErasedContentRefused as erased:
             return erased_reading(erased)
+        except ArtifactStoreUnauthenticated:
+            # A 401 here is the credential's, not the URI's (`D-IMPL-378`,
+            # repair 2.5 (a)): never the recorded absence below.
+            raise
         except (ArtifactStoreError, LookupError):
             return refuse(
                 cause="nonexistent",

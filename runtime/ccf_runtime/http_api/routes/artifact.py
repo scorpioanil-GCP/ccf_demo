@@ -41,7 +41,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 from starlette.requests import Request
 
-from ccf.artifacts.protocol import ArtifactRef
+from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreUnauthenticated
 from ccf.authz.capability import ArtifactRead, ArtifactWrite
 from ccf.contracts.base import CCFContract
 from ccf.products.refusal import RefusalEnvelope
@@ -60,6 +60,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
     CONTENT_ADDRESS_HEADER,
+    _artifact_store_unauthenticated,
     governed_refusal_response,
 )
 
@@ -167,18 +168,24 @@ def build_router(
         # D-IMPL-353 §1.4: `Authorized[ArtifactRead]` for THIS address, or
         # nothing — and the governed step verifies it again, bound to the
         # reference, before its first real statement (§1.2).
-        decided = govern_dereference(
-            authorized_from_request(request, kind=ArtifactRead),
-            reference=DereferenceRequest(
-                reference=content_address, by_uri=False, wants_bytes=True
-            ),
-            store=deps.artifact_store,
-            entitlement_source=entitlement_source,
-            refusal_recorder=refusal_recorder,
-            audit_log=deps.control_plane.audit_log,
-            surface=SURFACE_HTTP_ARTIFACT_READ,
-            address=_route_path(request, content_address),
-        )
+        try:
+            decided = govern_dereference(
+                authorized_from_request(request, kind=ArtifactRead),
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=True
+                ),
+                store=deps.artifact_store,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=deps.control_plane.audit_log,
+                surface=SURFACE_HTTP_ARTIFACT_READ,
+                address=_route_path(request, content_address),
+            )
+        except ArtifactStoreUnauthenticated as refused:
+            # `D-IMPL-378` decision 21 (a): the deployment's store credential,
+            # refused by its server (HTTP 401) — a typed 503, never the opaque
+            # 500 an outage of that store is still answered with.
+            raise _artifact_store_unauthenticated() from refused
         if isinstance(decided, RefusalEnvelope):
             return governed_refusal_response(decided)
         assert decided.payload is not None  # a bytes ask always carries them

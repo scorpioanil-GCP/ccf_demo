@@ -54,6 +54,7 @@ from ccf.authz.capability import (
     CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
+    InvalidationRecordRegister,
     Register,
     ReplayMint,
     mint_at_composition,
@@ -68,6 +69,7 @@ from ccf.controlplane.registry import (
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry, skill_catalog_key
 
 __all__ = [
+    "composition_invalidation_records",
     "composition_register",
     "composition_replay_mint",
     "declaring_store",
@@ -124,6 +126,33 @@ def composition_register(
         tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,
+        decision_id=content_hash(event),
+    )
+
+
+def composition_invalidation_records(
+    registry: ControlPlaneRegistry,
+    tenant_id: str,
+    *,
+    clock: Callable[[], datetime] = _utc_now,
+) -> Authorized[InvalidationRecordRegister]:
+    """``Authorized[InvalidationRecordRegister]`` for ``tenant_id``'s invalidation prefix, minted by boot's recipe (D-IMPL-382)."""
+    from ccf.controlplane.invalidation import register_key
+
+    prefix = register_key(tenant_id)
+    event = registry.audit_log.append(
+        action="composition",
+        key=prefix,
+        version=InvalidationRecordRegister.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        InvalidationRecordRegister,
+        tenant=tenant_id,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=prefix,
         decision_id=content_hash(event),
     )
 

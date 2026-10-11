@@ -295,6 +295,7 @@ __all__ = [
     "ContextProviderProtocol",
     "ExperienceProductNotServable",
     "ExperienceProductResolverProtocol",
+    "ExperienceReplayReadRefused",
     "ExposedAgent",
     "LineageProviderProtocol",
     "ReplayRecordReaderProtocol",
@@ -380,6 +381,25 @@ DEFAULT_PRODUCT_RESOURCE_DESCRIPTION = (
 )
 
 
+class ExperienceReplayReadRefused(PermissionError):
+    """The Experience door does not serve Decision Replay records.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``): *"Default-deny owner read-back,
+    with an explicit tenant class allowlist ... apply the restriction to
+    existing records and every read/replay path."* Raised by
+    :data:`GET_REPLAY_RECORD_TOOL` on every call, for every caller, before the
+    deployment's :class:`ReplayRecordReaderProtocol` is called. The tool names
+    no address and hands out whatever record that callable returns, so it
+    cannot show that the fabric's record writer filed it (Dave's Q2), whose
+    record it is, or what its class affirms — the three things owner read-back
+    is decided on. An ungovernable read is refused rather than left open; a
+    caller reads its own records back through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``).
+    The refusal is the same for every caller and every record, so it carries
+    no information about any of them.
+    """
+
+
 class ExperienceProductNotServable(LookupError):
     """The resolver has no gate-admitted product at that front-door address.
 
@@ -444,7 +464,7 @@ class ExperienceProductResolverProtocol(Protocol):
     **Where a working example is.** The request refusal is called at
     ``examples/s1-01-hello-context-product/spine.py::assemble_and_serve``;
     the payload bind is called at
-    ``archive/examples/04-cross-process/producer_child.py::resolve``. Both are
+    ``archive/examples/04-cross-process/producer_child.py::main.resolve``. Both are
     shipped, both run in CI, and both are this obligation discharged rather
     than described. ``CPS-03`` is recorded **Pending by design** under those
     two rulings for exactly this reason.
@@ -661,7 +681,7 @@ class ContextProviderProtocol(Protocol):
     further down. This product was assembled under some capacity; compare it
     with the one you are handed and refuse a mismatch. The shipped example
     performs exactly that comparison in
-    ``archive/examples/external/00-hello-context/serve.py::context_provider``, beside a
+    ``archive/examples/external/00-hello-context/serve.py::main.context_provider``, beside a
     resolver doing the same thing for the resource leg.
     """
 
@@ -892,17 +912,24 @@ def _opaque_failure(exc: BaseException) -> ToolError:
     return ToolError(f"{_RUNTIME_FAILURE_PREFIX}:{failure_id}")
 
 
-def _level_in_force(recorder: RefusalRecorderProtocol, principal_id: str) -> DisclosureLevel:
-    """The disclosure level in force for ``principal_id`` at this door (FW-3).
+def _level_in_force(
+    recorder: RefusalRecorderProtocol, *, tenant: str, principal_id: str
+) -> DisclosureLevel:
+    """The disclosure level in force for ``principal_id`` of ``tenant`` at this door (FW-3).
 
-    Read as the evidence doors read it — through the recorder that discloses,
-    under the recorder's own tenant (``D-IMPL-345`` R-2). A recorder that
-    cannot state a level is read at the safe default,
-    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL`.
+    Read as the evidence doors read it — through the recorder that discloses
+    (``D-IMPL-345`` R-2), keyed on the tenant the determination is made under
+    together with the principal (Dave, 2026-10-07; ``D-IMPL-378``): the same
+    key the recorder discloses the ``erased-content`` shell under, so the branch
+    taken and the shell's level cannot disagree. Keyed on the recorder's own
+    tenant, a door serving several tenants through one recorder chose another
+    tenant's caller's branch by the level the recorder's tenant declares for a
+    colliding principal id. A recorder that cannot state a level is read at the
+    safe default, :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL`.
     """
     if isinstance(recorder, DisclosingRecorderProtocol):
         level, _policy = recorder.disclosure_level_for(
-            tenant=recorder.tenant_id, principal_id=principal_id
+            tenant=tenant, principal_id=principal_id
         )
         return level
     return DISCLOSURE_MINIMAL
@@ -1216,7 +1243,7 @@ def build_experience_server(
         level: neither the failure nor the shell carries it.
         """
         grant = verified_grant()
-        if _level_in_force(recorder, grant.client_id) == DISCLOSURE_MINIMAL:
+        if _level_in_force(recorder, tenant=tenant, principal_id=grant.client_id) == DISCLOSURE_MINIMAL:
             raise _opaque_failure(erased) from erased
         return canonical_bytes(
             govern_erasure(
@@ -1506,7 +1533,12 @@ def build_experience_server(
                 # identity. Above `minimal` the recorded shell would need one
                 # and an agent listing has none, so the exception propagates
                 # unchanged.
-                if _level_in_force(recorder, verified_grant().client_id) == DISCLOSURE_MINIMAL:
+                if (
+                    _level_in_force(
+                        recorder, tenant=authorized.tenant, principal_id=verified_grant().client_id
+                    )
+                    == DISCLOSURE_MINIMAL
+                ):
                     raise _opaque_failure(erased) from erased
                 raise
             return canonical_bytes(catalog).decode("utf-8")
@@ -1608,7 +1640,12 @@ def build_experience_server(
                 # which needs no product identity. Above `minimal` the recorded
                 # shell would need one and an agent dispatch has none, so the
                 # exception propagates unchanged.
-                if _level_in_force(recorder, verified_grant().client_id) == DISCLOSURE_MINIMAL:
+                if (
+                    _level_in_force(
+                        recorder, tenant=authorized.tenant, principal_id=verified_grant().client_id
+                    )
+                    == DISCLOSURE_MINIMAL
+                ):
                     raise _opaque_failure(erased) from erased
                 raise
 
@@ -1812,7 +1849,9 @@ def build_experience_server(
                     GET_REPLAY_RECORD_TOOL, "replay_record_tenant"
                 )
             )
-        replay_seam = replay_record_reader
+        # Dave's Q12 (`D-IMPL-378`): the reader is still required where the
+        # tool is exposed (D-03, the construction posture is unchanged), and it
+        # is never called — the tool refuses every read before it.
         replay_tenant = replay_record_tenant
         replay_class = replay_record_product_class
 
@@ -1857,19 +1896,15 @@ def build_experience_server(
             # it was made — for `replay.read` under the declared tenant —
             # before this body ran (D-IMPL-353 §1.2).
             del authorized
-            try:
-                return replay_seam()
-            except ErasedContentRefused as erased:
-                # No product class is resolved on a replay read: the record
-                # identity names the evidence-read constant, never a class
-                # recovered from the record (the dereference rule, D-IMPL-345 R-4).
-                return erased_tool_answer(
-                    erased,
-                    tool=GET_REPLAY_RECORD_TOOL,
-                    tenant=replay_tenant,
-                    product_class=DEREFERENCE_PRODUCT_ID,
-                    parameters={},
-                    role=NO_ROLE_RESOLVED,
-                )
+            # Dave's Q12 (`D-IMPL-378`): owner read-back is default-deny on
+            # every read path, and this one cannot be governed — it names no
+            # address, so neither provenance (Dave's Q2), nor whose record it
+            # is, nor what its class affirms can be shown. Refused for every
+            # caller, before the deployment's seam is called.
+            raise ExperienceReplayReadRefused(
+                "this door does not serve Decision Replay records: read your own"
+                " records back through a governed evidence read (Dave's Q12,"
+                " D-IMPL-378)"
+            )
 
     return door.build()

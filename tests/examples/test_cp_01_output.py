@@ -526,6 +526,11 @@ def test_include_lapsed_returns_it_with_status_first_class(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=KeyError,
+    reason="SEC353-G-07: frozen cp-01's deployment reads the bare key 'default_perspective' (KeyError); kept out of the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4",
+)
 def test_an_unresolvable_anchor_fails_closed(seeded: str) -> None:
     """§D.2 step 1 — 404, *"never an empty payload"*."""
     with pytest.raises(AssemblyRefused, match="is not available"):

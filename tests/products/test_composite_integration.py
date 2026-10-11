@@ -37,6 +37,7 @@ import pytest
 
 from ccf.products.contract import ProductLineage
 from ccf.products.request import ProductRequest
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -66,15 +67,24 @@ from tests.products.test_resolver_seam import (
     PRODUCT_VERSION,
     _Booted,
 )
-from tests.composition import composition_register
-from ccf.controlplane.invalidation import register_key
+from ccf.controlplane.invalidation import invalidation_history
+from tests.composition import composition_invalidation_records
 from tests.skills.authority import revoke_capability
 
 
 @pytest.fixture()
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """One deployment declaring TWO product classes: a parent and its child."""
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject — the parent, and the higher class `INT-01b`
+    # builds over it.
+    yield from boot_composite(
+        tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+        higher_subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
 
 
 def _wire(booted: _Booted, *, grant: bool = True) -> tuple[object, object]:
@@ -546,7 +556,7 @@ def _supersede_the_leafs_entity(booted: _Booted) -> None:
     """Change the underlying entity through the REAL boot-bound L2 writer.
 
     **Everything forbidden is avoided, and the list is the point.** Nothing
-    here writes to `EntityInvalidationRegister`, calls the invalidation sink,
+    here writes to `EntityInvalidationRecord`, calls the invalidation sink,
     seeds a synthetic boundary, or attaches the leaf's entity to either
     composite. One envelope goes through `worker.ingest`; the writer
     `ccf.boot.boot` bound the sink to publishes the boundary itself
@@ -602,7 +612,7 @@ def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
     **The property.** The middle and higher composites become dependent on the
     leaf's entity *because they consumed a governed child product whose own
     evidence carried the relationship* — not because this test copied the
-    entity into them. Nothing here writes to `EntityInvalidationRegister`,
+    entity into them. Nothing here writes to `EntityInvalidationRecord`,
     calls the invalidation sink, seeds a synthetic boundary, or attaches the
     leaf's touched entity to either composite. One envelope goes through
     `worker.ingest`, and the writer `ccf.boot.boot` bound the sink to publishes
@@ -655,16 +665,16 @@ def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
     # 4. the initial dependent state: no boundary exists yet.
     sink = ControlPlaneInvalidationSink(
         registry=booted.control_plane,
-        authorities=(composition_register(booted.control_plane, register_key(TENANT)),),
+        authorities=(composition_invalidation_records(booted.control_plane, TENANT),),
     )
-    assert sink.register(TENANT) is None
+    assert invalidation_history(booted.control_plane, tenant_id=TENANT) == {}
 
     # 5-6. the world changes, through the real boot-bound writer and nothing
     # else. The boundary is published by the writer, not by this test.
     _supersede_the_leafs_entity(booted)
-    register = sink.register(TENANT)
-    assert register is not None, "the boot-bound writer published no boundary"
-    boundaries = {e.invalidated_from for e in register.entries}
+    history = invalidation_history(booted.control_plane, tenant_id=TENANT)
+    assert history, "the boot-bound writer published no boundary"
+    boundaries = {chain[-1].invalidated_from for chain in history.values()}
     # `D-IMPL-335`: the SOURCE/world clock, never the ingestion clock. The
     # split-clock control itself already lives at
     # `tests/products/test_dependency_invalidation.py` and is not restated

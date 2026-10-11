@@ -492,34 +492,64 @@ def test_a_store_presenting_no_credential_is_refused(
     What would fail here: a server built without the verifier, or with a
     verifier its settings never install as middleware. Then the anonymous
     store reads and writes freely and this call returns instead of raising.
+
+    The refusal is the typed authentication refusal, never an outage: the
+    server's guard answered HTTP 401 (repair 2.5 (a), ``D-IMPL-378``, Dave,
+    2026-10-09 10:54 MST: *"Return a typed authentication refusal for 401,
+    preserving its distinction from authorization denial and transport
+    outage."*). Amended from ``McpServerUnreachable``, the label that ruling
+    replaces for a read.
     """
+    from tests.mcp.test_auth_401_typed_through_the_client import (
+        assert_the_authentication_refusal,
+    )
+
     anonymous = McpArtifactStore(
         url=artifact_server_url, bridge=bridge, write_kinds=WriteKinds({})
     )
-    with pytest.raises(McpServerUnreachable):
+    with pytest.raises(Exception) as refusal:
         anonymous.exists(content_address=content_hash(_Artifact(label="x", ordinal=1)))
+    assert_the_authentication_refusal(
+        refusal.value, what="a store presenting no credential, at exists"
+    )
 
 
-def test_a_store_presenting_a_rejected_token_is_refused_as_an_outage(
+def test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal(
     artifact_server_url: str, bridge: SyncMcpBridge
 ) -> None:
-    """A refusal is a fact about reaching the server, never about its contents.
+    """A refusal is a fact about the credential, never about the store's contents.
 
-    The second assertion is the load-bearing one: were a 401 to surface as
+    The last assertion is the load-bearing one: were a 401 to surface as
     ``ArtifactNotFound``, an expired credential would make every artifact in
     the store look deleted, and a replay would record that as history.
+
+    A write's 401 is the typed authentication refusal, never an outage:
+    decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's
+    recommendation, which Dave adopted): *"(b) Type a 401 on a write, and
+    rename the type so it covers both."* Amended from
+    ``McpServerUnreachable``, the label that ruling replaces for a write, and
+    renamed from
+    ``test_a_store_presenting_a_rejected_token_is_refused_as_an_outage``,
+    which said what the ruling makes false.
     """
+    from tests.mcp.test_auth_401_typed_through_the_client import (
+        assert_the_authentication_refusal,
+    )
+
     impostor = McpArtifactStore(
         url=artifact_server_url,
         bridge=bridge,
         write_kinds=WriteKinds({}),
         http_client_factory=rejected_http_client,
     )
-    with pytest.raises(McpServerUnreachable) as refusal:
+    with pytest.raises(Exception) as refusal:
         impostor.put(
             capability(ArtifactWrite, tenant=TENANT, resource=f"{ARTIFACT_CLASS}/{NAME}"),
             _Artifact(label="alpha", ordinal=1),
         )
+    assert_the_authentication_refusal(
+        refusal.value, what="a store presenting a rejected token, at put"
+    )
     assert not isinstance(refusal.value, ArtifactNotFound)
 
 

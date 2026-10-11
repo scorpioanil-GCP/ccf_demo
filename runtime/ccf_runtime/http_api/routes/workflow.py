@@ -16,8 +16,12 @@ the capability** (D-IMPL-353 §1.2): the definition key is
 ``definition_key`` and the authorizer decided on it — and the factory and
 engine have no parameter to supply another. Suspension is a typed 200
 response — a suspended workflow is an expected outcome, not an error — and
-the engine's typed refusals map to 409 with the refusal body. Broken wiring
-raises and surfaces as an opaque 500 (T-07-26).
+the engine's typed refusals map to 409 with the refusal body. A passage whose
+closing write the engine fenced because another writer moved the execution's
+record (:class:`~ccf_runtime.workflow.engine.ExecutionFenced`, which the engine
+raises) maps to 409 with ``error_code`` ``execution-fenced`` at both invoking
+routes (``D-IMPL-378``). Broken wiring raises and surfaces as an opaque 500
+(T-07-26).
 
 **A definition declared for another tenant answers exactly as an absent
 one** (D-IMPL-353 §1.3; the D-27 posture of ``D-IMPL-253`` amendment 2 (4)).
@@ -58,9 +62,11 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.errors import ERROR_EXECUTION_FENCED, refusal_detail
 from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import _required_handle, refusal_response
 from ccf_runtime.workflow.engine import (
+    ExecutionFenced,
     WorkflowCompleted,
     WorkflowExceptionRouted,
     WorkflowOutcome,
@@ -74,6 +80,19 @@ __ccf_mode__ = "algorithmic"
 __all__ = ["WorkflowInvocationRequest", "WorkflowResumptionRequest", "build_router"]
 
 _Progressed = Union[WorkflowSuspended, WorkflowCompleted, WorkflowExceptionRouted]
+
+
+def _fenced_refusal(fenced: ExecutionFenced) -> HTTPException:
+    """A fenced passage as the door's typed 409, ``execution-fenced`` (``D-IMPL-378``).
+
+    The engine raises :class:`~ccf_runtime.workflow.engine.ExecutionFenced`
+    rather than returning a refusal, so without this it reached the caller as
+    an opaque 500.
+    """
+    return HTTPException(
+        status_code=409,
+        detail=refusal_detail(error_code=ERROR_EXECUTION_FENCED, message=str(fenced)),
+    )
 
 
 class WorkflowInvocationRequest(CCFContract):
@@ -164,9 +183,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="workflow_engine",
             routes="workflow invocation",
         )
-        outcome = await engine.execute(
-            authorized, workflow, execution_id=body.execution_id
-        )
+        try:
+            outcome = await engine.execute(
+                authorized, workflow, execution_id=body.execution_id
+            )
+        except ExecutionFenced as fenced:
+            raise _fenced_refusal(fenced) from fenced
         return _respond(outcome)
 
     @router.post(
@@ -196,12 +218,15 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="workflow_engine",
             routes="workflow resumption",
         )
-        outcome = await engine.resume(
-            authorized,
-            workflow,
-            execution_id=body.execution_id,
-            decision=body.decision,
-        )
+        try:
+            outcome = await engine.resume(
+                authorized,
+                workflow,
+                execution_id=body.execution_id,
+                decision=body.decision,
+            )
+        except ExecutionFenced as fenced:
+            raise _fenced_refusal(fenced) from fenced
         return _respond(outcome)
 
     @router.get(

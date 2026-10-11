@@ -66,6 +66,7 @@ from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
+from tests.examples.specimen_base import branch_point
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -558,7 +559,7 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: _Answer) ->
 
     Declared product gate `CSCC-G16` (`CP-SPEC-006C` §G.1).
     """
-    base = subprocess.run(["git", "merge-base", "HEAD", "main"], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    base = branch_point(REPO_ROOT)
     changed = subprocess.run(
         ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
         cwd=REPO_ROOT, capture_output=True, text=True, check=True,

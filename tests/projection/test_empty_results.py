@@ -351,7 +351,10 @@ def test_a_result_built_without_the_field_carries_the_empty_set() -> None:
     """``D-10``: a hand-built result records *no operator returned empty*."""
     assert ExecutionResult.model_fields["empty_results"].default == frozenset()
     assert "empty_results" in ExecutionResult.model_fields
-    assert list(ExecutionResult.model_fields)[-1] == "empty_results"
+    # Appended, never inserted: each later member carries its own compatibility
+    # default after this one — SEC-020 Q10's `seeds` (`D-IMPL-378`), `None`.
+    assert list(ExecutionResult.model_fields)[-2:] == ["empty_results", "seeds"]
+    assert ExecutionResult.model_fields["seeds"].default is None
 
 
 def test_an_execution_where_nothing_returned_empty_yields_no_finding(

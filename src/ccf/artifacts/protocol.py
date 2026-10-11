@@ -50,7 +50,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from typing import Final, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
     ActionKind, ArtifactErase,  # same line: committed specs cite this module by line range
@@ -71,10 +71,10 @@ __all__ = [
     "LATEST_VERSION_TOKEN",
     "NAME_SEGMENT_SEPARATOR",
     "ArtifactName",
-    "ArtifactNotFound",
+    "ArtifactNotFound", "ArtifactReadRefused",  # same line: committed specs cite this module by line range
     "ArtifactRef",
     "ArtifactStoreError",
-    "ArtifactStoreProtocol",
+    "ArtifactStoreProtocol", "ArtifactStoreUnauthenticated",  # same line: committed specs cite this module by line range
     "ArtifactUriUnresolvable",
     "ArtifactWriteAuthority",
     "ArtifactWriteRefused",
@@ -356,6 +356,110 @@ class WriteKinds:
     def __repr__(self) -> str:
         declared = {c: tuple(k.__name__ for k in ks) for c, ks in sorted(self._kinds_by_class.items())}
         return f"WriteKinds({declared!r})"
+
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Typing only, and here rather than with the imports above: the refusal
+    # module imports this one (through the fabric it describes), so a run-time
+    # import here would be a cycle; and committed specs cite this module's
+    # lines by range, which lines added above them would move.
+    from ccf.products.refusal import RefusalEnvelope
+
+
+class ArtifactReadRefused(ArtifactStoreError):
+    """A read the store's server answered with a governed refusal, carried here whole (``D-IMPL-378``, decision 1 (A)).
+
+    The read side's :class:`ArtifactWriteRefused`. Raised by
+    :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.names_at` where the MCP
+    artifact server's names resource answered with its governed refusal shell
+    — an already-recorded, already-disclosed
+    :class:`~ccf.products.refusal.RefusalEnvelope` — instead of names. The
+    refusal says the address *cannot be verified* through this credential.
+    What its shell says of why is the server's. For an address the caller's
+    tenant never filed — another tenant's, or nobody's — and for a present
+    governed address that holds no record, a query pin above all, it is one
+    answer, the governed read's ``nonexistent`` shell
+    (``tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_names_at_raises_the_typed_refusal_for_a_query_pin_and_for_addresses_its_tenant_never_filed``).
+    For a governed record the caller may not read it is that record's own
+    refusal, and its cause can say why — ``unauthorized``, with error code
+    ``evidence-principal-mismatch``, for a record determined for another
+    principal
+    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_typed_access_refusal_carries_the_servers_own_cause_which_differs_by_address``)
+    — so the refusal does not always hide which case it is; that disclosure
+    predates ``D-IMPL-378``. Dave, 2026-10-09 06:21 MST: *"approve the
+    uniform “cannot verify” erasure refusal and refusal instead of an empty
+    names list. Do not mislabel that access refusal “server unreachable.”
+    Preserve a typed refusal through the MCP client."*
+
+    **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the call completed
+    and the server decided, so it is no outage to retry. **Not an**
+    :class:`ArtifactNotFound` either: the refusal does not say that nothing is
+    filed at the address, and a caller that read it as absence would conclude
+    what the server withheld. **Not** :class:`ArtifactStoreUnauthenticated`:
+    that is a call the server's guard refused before deciding anything about
+    the address.
+
+    Attributes:
+        envelope: The refusal the server answered, parsed. What it discloses
+            of its cause is what the server's disclosure layer put in it.
+    """
+
+    def __init__(self, message: str, *, envelope: RefusalEnvelope) -> None:
+        super().__init__(message)
+        self.envelope = envelope
+
+
+class ArtifactStoreUnauthenticated(ArtifactStoreError):
+    """A call the store's server refused because it did not authenticate the credential (``D-IMPL-378``, repair 2.5 (a), decision 10 (b)).
+
+    Dave, 2026-10-09 10:54 MST: *"Return a typed authentication refusal for
+    401, preserving its distinction from authorization denial and transport
+    outage."* Decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted):
+    *"(b) Type a 401 on a write, and rename the type so it covers both."*
+    Raised by every call
+    of :class:`~ccf.artifacts.mcp_store.McpArtifactStore`, reads and the write
+    alike — ``get``, ``exists``, ``names_at``, ``resolve_uri``,
+    ``match_subject`` and ``put`` — where the artifact server's guard answered
+    the call HTTP 401: the store presented no credential, one that is not a
+    bearer token, or a bearer token the server's verifier does not know
+    (``tests/mcp/test_auth_401_typed_through_the_client.py``,
+    ``tests/mcp/test_auth_401_typed_on_a_write.py``). Chained from that 401
+    response. The guard answers before the server's handlers run, so nothing
+    about what was asked was decided, and a refused ``put`` wrote nothing.
+
+    **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the server
+    answered, so it is no outage, and a caller that catches the outage to
+    retry does not catch this. **Not** :class:`ArtifactReadRefused`: that is
+    an access decision the server made about an address for a credential it
+    authenticated, and it carries the server's refusal; this carries none.
+    **Not an** :class:`ArtifactNotFound`: it says nothing about what is
+    stored, and a reader that wrote it down as absence would record a refused
+    credential as missing history.
+
+    An :class:`ArtifactStoreError`, so a handler that refuses on any store
+    failure still refuses. The SDK's handlers that read a store failure as
+    absence let this one through by name: the replay engine's resolvers, the
+    governed evidence read and the erasure consult's record check
+    (``tests/mcp/test_auth_401_never_read_as_absence.py``,
+    ``tests/http_api/test_auth_401_never_a_recorded_absence.py``). So does the
+    peering admission gate's record write, which answers every other store
+    failure there ``AdmissionNotRecorded``, a substrate the fabric cannot reach
+    (``tests/peering/test_admission_record_write_401_is_the_typed_refusal.py``).
+    The HTTP evidence doors answer it ``503`` with ``error_code``
+    ``artifact-store-unauthenticated``, where an outage of the store is the
+    framework's opaque ``500``
+    (``tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py``).
+
+    Not covered: the guard's other refusals. A credential without a required
+    scope (HTTP 403) still reaches a read and the write as
+    :class:`~ccf.mcp.errors.McpServerUnreachable`
+    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal``,
+    ``tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types``);
+    the tenancy guard's denial reaches a read as
+    :class:`~ccf.mcp.errors.McpServerUnreachable` and the write as the
+    server's decline, :class:`ArtifactStoreError`
+    (``tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too``).
+    """
 
 
 class DerivedWrite:

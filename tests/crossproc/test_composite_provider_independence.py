@@ -38,7 +38,7 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract
 from ccf.products.door import DoorOutcome
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -111,7 +111,11 @@ def test_int01b_the_composite_is_UNCHANGED_when_the_provider_goes_remote(
     # Held open explicitly: `boot_composite` is a generator whose `finally`
     # closes the fabric, and abandoning it after one `next` closes the graph
     # under the test — measured as "Cannot operate on a closed database".
-    deployment = boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject.
+    deployment = boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     booted = next(deployment)
 
     mcp_skills = McpSkillRegistry(

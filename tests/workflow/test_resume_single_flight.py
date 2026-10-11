@@ -65,6 +65,12 @@ from tests.workflow import test_sec006_engine_controls as s6
 #: ``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`` returns
 #: while another resumption of the same execution is in flight.
 IN_FLIGHT = "already has a resumption in flight"
+#: The refusal a resumption meets when the execution's passage has committed
+#: and not finished (``D-IMPL-378``): :data:`RUNNING` names the record's state,
+#: :data:`INTERRUPTED` the rule Dave's Q4 ruling set — an interrupted passage is
+#: never retried. From the same engine refusal.
+RUNNING = "has a committed passage that has not finished"
+INTERRUPTED = "An interrupted passage is never retried"
 #: The node the first gate's approve route leads to, and the decision naming it.
 DOWNSTREAM = "archive-certificates"
 NEXT_GATE = "second-approval"
@@ -117,6 +123,19 @@ class PausingStateStore(InMemoryStateStore):
             if not self.release.wait(HOLD_SECONDS):
                 raise RuntimeError("the held state read was never released")
         return record
+
+    def get_versioned(self, record_class: str, key: str) -> tuple[object | None, int]:
+        """The versioned read the engine makes since ``D-IMPL-378``, held the same way."""
+        record, version = super().get_versioned(record_class, key)  # type: ignore[misc]
+        with self._arm_lock:
+            hold = record_class == WORKFLOW_STATE and key == self._armed
+            if hold:
+                self._armed = None
+        if hold:
+            self.held.set()
+            if not self.release.wait(HOLD_SECONDS):
+                raise RuntimeError("the held state read was never released")
+        return record, version
 
 
 class Worker:
@@ -331,6 +350,29 @@ class FailingOnceStateStore(InMemoryStateStore):
             raise RuntimeError("state store unavailable")
         super().put(authorized, record_class, record, record_id=record_id, token=token)
 
+    def put_if(
+        self,
+        authorized: Any,
+        record_class: str,
+        record: object,
+        *,
+        record_id: str,
+        token: Any,
+        expected_version: int,
+    ) -> int:
+        """The conditional write the engine makes since ``D-IMPL-378``, failing the same way."""
+        if self.fail_next_write and record_class == WORKFLOW_STATE:
+            self.fail_next_write = False
+            raise RuntimeError("state store unavailable")
+        return super().put_if(  # type: ignore[misc, no-any-return]
+            authorized,
+            record_class,
+            record,
+            record_id=record_id,
+            token=token,
+            expected_version=expected_version,
+        )
+
 
 class BlockingOnceBindings(eh._Bindings):
     """The downstream step's FIRST call never returns on its own; only
@@ -401,24 +443,51 @@ def test_a_resume_refused_for_its_authority_gives_the_claim_back(tmp_path: Path)
 
 def test_a_resume_that_raises_gives_the_claim_back(tmp_path: Path) -> None:
     """Exception: the state store fails the resume's commit, and the error
-    propagates. The claim goes back with it, so the retry passes and runs
-    the node again (the node is not idempotent by construction, and the
-    deployment page says so)."""
+    propagates. The claim goes back with it, so the retry passes.
+
+    Changed by Dave's Q4 ruling (``D-IMPL-378``), and only as far as it
+    requires. Since the ruling, the first write a resumption makes is its
+    passage commit, which comes BEFORE the step after the gate, so this
+    failure lands before any step has run. The ruling admits a retry only with
+    a durable claim naming the original passage and a proof that no effect can
+    repeat. Here both hold: the gate's closure names the passage (by what it
+    decides, not by who decides it) and the retry re-takes that one closure
+    rather than a second; and the step had not run, and only one passage commit
+    can land. So the retry runs the step ONCE. At ``7bf069cc`` the failing
+    write came after the step, and the retry ran the step a second time — the
+    repeated effect the ruling forbids.
+    """
     store = FailingOnceStateStore()
     registry = plane(store)
     bindings = eh._Bindings()
     engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
+    tenant = workflow.definition.tenant
     store.fail_next_write = True
     with pytest.raises(RuntimeError, match="state store unavailable"):
         asyncio.run(resume(engine, workflow))
+    taken = transport.closures(tenant=tenant)
+    assert len(taken) == 1, taken
     assert_not_held(asyncio.run(resume(engine, workflow)))
-    # The failed attempt had already run the node; the retry runs it again.
-    assert bindings.ran.count(f"skill:{DOWNSTREAM}") == 2
+    # The retry re-took the SAME closure: one durable claim, one passage.
+    assert transport.closures(tenant=tenant) == taken
+    # The failed commit ran nothing; the retry ran the step once.
+    assert bindings.ran.count(f"skill:{DOWNSTREAM}") == 1
 
 
 def test_a_cancelled_resume_gives_the_claim_back(tmp_path: Path) -> None:
-    """Cancellation: the resume is cancelled while the downstream node awaits.
-    The claim goes back with the cancellation, so a later resume passes."""
+    """Cancellation: the resume is cancelled while the step after the gate
+    awaits. The claim goes back with the cancellation: a later resume is not
+    refused as in flight.
+
+    Changed by Dave's Q4 ruling (``D-IMPL-378``), and only as far as it
+    requires. The cancelled passage's commit had landed before its step began,
+    so its step may already have had effects the engine cannot see, and no
+    retry can be shown not to repeat them. The ruling's answer is (b): an
+    interrupted passage is never retried. So the later resume is refused,
+    typed, with the never-retried refusal — not with the in-flight one, which
+    is the claim's release this test exists to pin — and the step does not run
+    again. Before the ruling, the later resume passed and re-ran the step.
+    """
     registry = plane()
     bindings = BlockingOnceBindings()
     engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
@@ -435,4 +504,10 @@ def test_a_cancelled_resume_gives_the_claim_back(tmp_path: Path) -> None:
             await first
         return await resume(engine, workflow)
 
-    assert_not_held(asyncio.run(cancel_then_resume()))
+    outcome = asyncio.run(cancel_then_resume())
+    assert isinstance(outcome, WorkflowResumeRefused), outcome
+    assert IN_FLIGHT not in outcome.reason, "the claim was never released"
+    assert INTERRUPTED in outcome.reason, outcome.reason
+    assert RUNNING in outcome.reason, outcome.reason
+    # The cancelled first call never finished, and nothing re-ran the step.
+    assert bindings.ran.count(f"skill:{DOWNSTREAM}") == 0

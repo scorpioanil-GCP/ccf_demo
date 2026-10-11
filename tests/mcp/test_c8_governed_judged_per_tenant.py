@@ -52,6 +52,9 @@ from ccf.authz.capability import ArtifactWrite, ReplayMint
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.refusal import RefusalEnvelope
+from ccf.replay.record import DecisionReplayRecord
+from ccf_runtime.authz.delivery_boundary import DEREFERENCE_PRODUCT_ID
 from ccf_runtime.mcp.artifact_server import (
     ArtifactPresence,
     artifact_blob_uri,
@@ -250,8 +253,18 @@ def test_the_owners_answers_do_not_depend_on_any_other_tenants_filing(
             + "; ".join(f"{kind}={value[:100]!r}" for kind, value in by_world.items())
         )
     if not owner_filed:
-        # Without an own filing the names answer is the caller's own names: none.
-        assert json.loads(answers["other-tenant-governed"]["names"]) == []
+        # Without an own filing the names answer is the governed read's `nonexistent` shell — the answer an address
+        # nobody filed gets, and so the same in every world (F1-1, `D-IMPL-378`; it was `[]` while a governed address
+        # of the caller's own tenant answered the shell, which told the two apart).
+        shell = RefusalEnvelope.model_validate_json(answers["other-tenant-governed"]["names"])
+        assert (shell.kind, shell.request.product_id) == ("subject-unavailable", DEREFERENCE_PRODUCT_ID), shell
+        # The cause below `full` is not disclosed; the refusal's own record keeps it.
+        recorded = deployment_store(tmp_path / "other-tenant-governed" / "replay", REPLAY_RECORD_CLASS)
+        record = DecisionReplayRecord.model_validate_json(
+            recorded.get(content_address=recorded.resolve_uri(uri=shell.replay_reference))
+        )
+        internal = RefusalEnvelope.model_validate_json(record.content_generation_path.assembly_refusal)
+        assert internal.fields["cause"] == canonical_bytes("nonexistent").decode("utf-8"), internal.fields
 
 
 def test_the_owners_erasure_over_the_mcp_backed_store_is_not_refused_by_another_tenants_governed_filing(

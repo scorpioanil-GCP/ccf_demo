@@ -49,6 +49,12 @@ rather than here because this module names
 ``ccf.controlplane.registry``, which needs ``ArtifactClass`` — leaving it here
 would close ``artifacts -> worker -> registry -> artifacts`` at import time. See
 that module's docstring for the constraint that keeps the cycle broken.
+:class:`ArtifactClassIdMismatch`, the refusal ``ArtifactClass.validate`` raises
+for a document stating another class, is defined there and re-exported here for
+the same reason (``D-IMPL-378``), and so is :class:`ReservedArtifactClassId`,
+which it raises for a self-stating document under a reserved ``ccf.`` class id
+and which :func:`declared_artifact_class` raises for such an id (``D-IMPL-378``
+K1 and its follow-up).
 
 Algorithmic module (CINV-03).
 """
@@ -70,7 +76,10 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.controlplane.artifact_base import (
+    _RESERVED_CLASS_ID_PREFIX,
     ArtifactClass,
+    ArtifactClassIdMismatch,
+    ReservedArtifactClassId,
     VersionedArtifact,
     validate_semver,
 )
@@ -82,6 +91,12 @@ from ccf.controlplane.artifact_base import (
 # (step 3); only the constant is re-exposed, and that module imports
 # `artifact_base` rather than this one, so the direction stays acyclic.
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
+# `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): `ccf.demonstration-serve-instant`
+# is manifest-addressable for `TEMPORAL_BOUNDARY_POLICY`'s reason, and its
+# constant is re-exposed here on the same terms; the contract stays in
+# `ccf.controlplane.demonstration_serve_instant`, which imports `artifact_base`
+# rather than this module, so the direction stays acyclic.
+from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.halflife.assessment import (
     NO_OBLIGATION_IN_FORCE,
     NO_SIGNAL_OBLIGATIONS,
@@ -111,6 +126,8 @@ from ccf.products.contract import (
     ProductAddress,
     ProductDiscovery,
     ServeObligations,
+    SUBJECT_WITHHOLDING_POSSIBLE,
+    SubjectWithholding,
     TTLAnchor,
 )
 from ccf.products.request import NO_REQUEST_CONTRACT
@@ -145,7 +162,9 @@ __all__ = [
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "TEMPORAL_BOUNDARY_POLICY",
+    "DEMONSTRATION_SERVE_INSTANT",
     "ArtifactClass",
+    "ArtifactClassIdMismatch",
     "ArtifactLoadError",
     "ArtifactRole",
     "ConstraintApplicability",
@@ -168,6 +187,7 @@ __all__ = [
     "ProjectionRequirements",
     "RegistrationMode",
     "ReplayBinding",
+    "ReservedArtifactClassId",
     "SecretReference",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
@@ -218,6 +238,16 @@ class DeclaredArtifact(VersionedArtifact):
     it can. The envelope's reason is unchanged for everything else: the SDK does
     not get to invent a policy-bundle schema on a user's behalf.
 
+    One envelope serves every adopter class, so the class a document is
+    parsed or registered as is never the envelope's to know: ``class_id`` is the
+    document's own statement of it, and
+    :meth:`ArtifactClass.validate` holds it to the class the document is
+    presented as, refusing a disagreement as :class:`ArtifactClassIdMismatch`
+    before anything is registered (``D-IMPL-378``). It also refuses the
+    envelope under a class id in the SDK's reserved ``ccf.`` namespace, however
+    that class was built, as :class:`ReservedArtifactClassId` (``D-IMPL-84``;
+    ``D-IMPL-378`` K1 follow-up).
+
     Attributes:
         class_id: Which declared class this is an instance of.
         declaration: The deployment's own content.
@@ -228,7 +258,29 @@ class DeclaredArtifact(VersionedArtifact):
 
 
 def declared_artifact_class(class_id: str) -> ArtifactClass:
-    """Return an :class:`ArtifactClass` for a user-declared artifact class."""
+    """Return an :class:`ArtifactClass` for a user-declared artifact class.
+
+    A :class:`DeclaredArtifact` it validates must state ``class_id`` as its own
+    (``D-IMPL-378``; :class:`ArtifactClassIdMismatch`).
+
+    An id in the SDK's reserved ``ccf.`` namespace (``D-IMPL-84``) is refused
+    here, by name, before any class exists (``D-IMPL-378`` K1 (b)). The SDK's
+    own classes are its typed ``ArtifactClass`` constants — the class
+    ``ccf.workflow-definition`` is
+    :data:`~ccf.workflow.definitions.WORKFLOW_DEFINITION` — and never this
+    envelope, so no SDK registration passes through this function with such an
+    id: :func:`ccf.deployment.classes.resolve_artifact_class` serves an SDK id
+    from its reviewed mappings before it reaches the envelope. A class built
+    directly with the public constructor under such an id is refused by the
+    same name in :meth:`ArtifactClass.validate`, before anything is registered
+    (``D-IMPL-378`` K1 follow-up).
+
+    Raises:
+        ReservedArtifactClassId: ``class_id`` starts with the reserved ``ccf.``
+            prefix.
+    """
+    if class_id.startswith(_RESERVED_CLASS_ID_PREFIX):
+        raise ReservedArtifactClassId(class_id)
     return ArtifactClass(class_id=class_id, contract=DeclaredArtifact)
 
 
@@ -859,6 +911,25 @@ class PolicyConstraint(VersionedArtifact):
     )
     reason: str
     priority: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    #: **The kind of a ``preferred`` value** — ``True`` when the guidance is a decimal, ``False``
+    #: (the default) when it is a name. Blocker 1, ruled 2026-10-11 12:35 MST (Grok's review of
+    #: GROK-BRIEF-7, adopted by Dave): the canonical form renders a ``Decimal`` as a quoted string,
+    #: so ``Decimal("4")`` and ``"4"`` under ``preferred`` rendered to the same bytes and shared one
+    #: content address while being unequal. This flag puts the kind in the bytes.
+    #:
+    #: **Hash-transparent, as a kind and not as a migration** — a widening of the marker accepted
+    #: for this field only. Elsewhere the sentinel means *"the field did not exist"*; here it means
+    #: *"this is the name form"*. So every form accepted before the flag existed renders byte for
+    #: byte as before and keeps its address, and numeric ``preferred`` guidance — refused by the
+    #: registry until now — gains its own. Bytes written before the flag carry no flag and are read
+    #: as the name form; they cannot reveal an original type they never recorded.
+    #:
+    #: ``True`` exactly when the operator is ``preferred`` and the value a number. The class sets it
+    #: for a ``Decimal`` or a whole number, so a Python author need not state it. A **document**
+    #: author does state ``preferred_decimal: true`` for numeric guidance, because a document quotes
+    #: its numbers and a quoted value under ``preferred`` is otherwise a name. Every combination of
+    #: flag, operator and value that disagrees is refused.
+    preferred_decimal: bool = Field(default=False, json_schema_extra={HASH_TRANSPARENT_KEY: True})
 
     @model_validator(mode="before")
     @classmethod
@@ -881,6 +952,23 @@ class PolicyConstraint(VersionedArtifact):
         the operator/value disagreement rather than a decimal-parse failure.
         """
         if not isinstance(data, Mapping):
+            return data
+        if data.get("operator") == "preferred":
+            value = data.get("value")
+            if isinstance(value, int) and not isinstance(value, bool):
+                # A whole number is numeric guidance, as it was before the flag existed (review of
+                # b725749b): it was read as a Decimal then, and it is one now, with its kind recorded.
+                value = Decimal(value)
+                data = {**data, "value": value}
+            if isinstance(value, Decimal) and "preferred_decimal" not in data:
+                # The kind, recorded: a decimal under `preferred` says so in its own bytes.
+                return {**data, "preferred_decimal": True}
+            if data.get("preferred_decimal") is True and isinstance(value, str):
+                # A document read back: the flag, not a guess, says the quoted value is a decimal.
+                try:
+                    return {**data, "value": Decimal(value)}
+                except InvalidOperation:
+                    return data  # refused below: the flag over a value that is not a number
             return data
         if data.get("operator") not in ("maximum", "minimum"):
             return data
@@ -925,6 +1013,13 @@ class PolicyConstraint(VersionedArtifact):
             raise ValueError(
                 "operator 'preferred' is non-refusing guidance and takes a"
                 f" decimal or a name; got {type(self.value).__name__}"
+            )
+        numeric_guidance = self.operator == "preferred" and isinstance(self.value, Decimal)
+        if self.preferred_decimal != numeric_guidance:
+            raise ValueError(
+                f"preferred_decimal={self.preferred_decimal} disagrees with operator"
+                f" {self.operator!r} and a {type(self.value).__name__} value: the flag is true"
+                " exactly for decimal guidance under 'preferred' (blocker 1)"
             )
         return self
 
@@ -1536,6 +1631,38 @@ class ProductClassDeclaration(VersionedArtifact):
             no gate is every class already authored, so its content address —
             and therefore its pin — does not move.
 
+        subject_withholding: Whether the class's answers may withhold their
+            subject from the principal who asked (Dave's Q12, 2026-10-07;
+            ``D-IMPL-378``; SDK-defined, CLAUDE.md §11).
+            :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE` — the
+            default — or
+            :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER`, the
+            affirmation that makes the class's decision records eligible to be
+            read back by their owners: a tenant may list only such a class in
+            its entitlement policy's ``evidence_readable_classes`` (the
+            governed resolver refuses to boot otherwise), and every record of
+            the class carries the affirmation it was decided under. **The
+            affirmation needs the plan factory's positive declaration** (Dave's
+            E2 (ii), option (d), 2026-10-08 16:40 MST): the governed resolver
+            is built over a class affirming ``never`` only when its plan
+            factory implements
+            :class:`~ccf.products.resolver.NonWithholdingPlanFactoryProtocol`
+            and its ``withholds_no_subject()`` returns exactly ``True``.
+            Silence, meaning a factory that does not implement it, or any other
+            value counts as able to withhold, and construction is refused with
+            :class:`~ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration`;
+            a factory that declares it withholds is refused before that, with
+            :class:`~ccf.products.resolver.NeverWithholdingProjectionCanWithhold`.
+            The declaration is trusted deployment code, read with no argument
+            when the resolver is built, and the trust extends only to code no
+            caller can influence. A false declaration constructs; its withheld
+            answer meets the serve-time defense,
+            :class:`~ccf.products.resolver.NeverWithholdingContradicted`,
+            raised for the withheld subject alone, which still tells that
+            subject from one nothing holds. SEC-020 is OPEN. Hash-transparent
+            at the default, so every class declaration authored before it keeps
+            its content address and pin.
+
     **The eight governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
@@ -1591,6 +1718,10 @@ class ProductClassDeclaration(VersionedArtifact):
     #: declaration's content address moves.
     decision_instant_parameter: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    subject_withholding: SubjectWithholding = Field(
+        default=SUBJECT_WITHHOLDING_POSSIBLE,
+        json_schema_extra={HASH_TRANSPARENT_KEY: True},
     )
 
 
@@ -1750,8 +1881,10 @@ class ManifestEntry(CCFContract):
             default (D-IMPL-38). An entry naming no ``role`` is refused by the
             contract before anything is read, let alone registered.
 
-            For the one class where the SDK *does* know the answer, the choice
-            is additionally held to it by
+            For the classes where the SDK *does* know the answer
+            (``ccf.signal-batch``, and since `D-IMPL-378` C1
+            ``ccf.demonstration-serve-instant``), the choice is additionally
+            held to it by
             :func:`~ccf.deployment.classes.refuse_role_the_sdk_fixes`, which
             runs before any registration. That check lives beside the class
             registry rather than here because it is a property of the class, and
@@ -1978,6 +2111,24 @@ class DeploymentManifest(VersionedArtifact):
             with existing schema/regeneration machinery, and a
             per-product-class override can arrive later without a contract
             break.
+        store_creation_lock_wait_seconds: How long, in whole seconds, a plain
+            boot of this deployment waits for a store-creation lock that
+            another holds before it is refused by name
+            (:class:`~ccf.deployment.manifest.DeploymentStoreNotVerified`,
+            reason ``"lock-held"``). SEC-020, ``D-IMPL-378`` decision 19 (b),
+            ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's
+            recommendation: *"Wait a bounded time, then refuse by name. An
+            unbounded wait is not a lock."* **The SDK supplies no value**
+            (``D-IMPL-38``): ``None`` — the default, and what an absent field
+            parses to — declares no wait, and a boot that finds the lock held
+            is refused at once, as the SQLite writer lease refuses (question 2,
+            option (a), adopted by Dave at 17:53 MST). A positive whole number
+            of seconds; zero, a negative number, a fraction, a boolean and a
+            quoted number are refused at parse. The seconds cover all of a
+            boot's store-creation locks together, not each. Hash-transparent
+            at ``None``, so a manifest declaring no wait keeps its content
+            address. Only a plain boot reads it: a boot for a question takes no
+            store-creation lock.
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
@@ -1987,6 +2138,13 @@ class DeploymentManifest(VersionedArtifact):
     policy_bundle_key: str
     tenant_id: str | None = None
     survivor_cap: int | None = None
+    # `D-IMPL-378` decision 19 (b): optional, with no SDK value (`D-IMPL-38`), and
+    # hash-transparent at `None`, so every manifest written before it keeps its
+    # content address. Strict: a boolean or a quoted number is not a number of
+    # seconds, and is refused rather than read as one.
+    store_creation_lock_wait_seconds: int | None = Field(
+        default=None, gt=0, strict=True, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _secret_fields_are_unique(self) -> "DeploymentManifest":
@@ -2135,8 +2293,9 @@ class DeploymentConfig(VersionedArtifact):
 
     **Deployment-level fields mirror `DeploymentManifest`'s fields of the
     same name, so the two documents cannot drift.** `tenant_id`, `backend`,
-    `backend_secrets` and `survivor_cap` carry the same types, the same
-    defaults and the same rationale as their `DeploymentManifest` twins —
+    `backend_secrets`, `survivor_cap` and `store_creation_lock_wait_seconds`
+    carry the same types, the same defaults and the same rationale as their
+    `DeploymentManifest` twins —
     see that class's own `Attributes:` block, `D-06`, `D-08` and D-IMPL-05.
     `backend_secrets` carries :class:`SecretReference` entries unchanged: a
     credential never enters this document either.
@@ -2144,9 +2303,11 @@ class DeploymentConfig(VersionedArtifact):
     **`resolution_spec_key` and `policy_bundle_key` are additional fields
     beyond design spec §4.1's top-level list, ruled onto this contract by
     `D-IMPL-138`(b) (Dave, 2026-08-15).** The measured basis, not a case this
-    docstring re-argues: `DeploymentManifest` carries exactly `semver`,
+    docstring re-argues: `DeploymentManifest` then carried exactly `semver`,
     `artifacts`, `backend`, `backend_secrets`, `resolution_spec_key`,
-    `policy_bundle_key`, `tenant_id`, `survivor_cap` — the four fields design
+    `policy_bundle_key`, `tenant_id`, `survivor_cap` (since `D-IMPL-378`
+    decision 19 (b) it also carries `store_creation_lock_wait_seconds`,
+    mirrored here) — the four fields design
     spec §4.1 omitted are the manifest's own fields, which is field parity
     rather than an added judgement call. `resolution_spec_key` and
     `policy_bundle_key` are **required with no default** on
@@ -2183,6 +2344,13 @@ class DeploymentConfig(VersionedArtifact):
         survivor_cap: The D-10 survivor-set size cap in force
             deployment-wide, or `None` — the default — for "no cap
             configured".
+        store_creation_lock_wait_seconds: How long, in whole seconds, a plain
+            boot waits for a store-creation lock another holds before it is
+            refused by name, or `None` — the default — for no wait: the field,
+            type, bounds and default of
+            `DeploymentManifest.store_creation_lock_wait_seconds`, which the
+            config door's derived manifest carries unchanged (`D-IMPL-378`
+            decision 19 (b); the SDK supplies no value, `D-IMPL-38`).
         resolution_spec_key: Which registered key holds the entity-resolution
             spec in force. `None` — the default — means *derive from the
             `resolution:` section name*.
@@ -2244,6 +2412,10 @@ class DeploymentConfig(VersionedArtifact):
     backend: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     backend_secrets: tuple[SecretReference, ...] = ()
     survivor_cap: int | None = None
+    # `D-IMPL-378` decision 19 (b): `DeploymentManifest`'s twin, field for field.
+    store_creation_lock_wait_seconds: int | None = Field(
+        default=None, gt=0, strict=True, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     resolution_spec_key: str | None = None
     policy_bundle_key: str | None = None
 
@@ -2302,6 +2474,18 @@ class DeploymentConfig(VersionedArtifact):
     # name rather than ignored or honored — tenant isolation is not an authoring
     # choice.
     temporal_boundary: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): the single-file declaration of
+    # a DEMONSTRATION serve instant — `ccf.demonstration-serve-instant`, derived
+    # like `temporal_boundary:` (body verbatim, key per tenant, bookkeeping keys
+    # refused). Optional, and hash-transparent at `None`, so every config that
+    # does not declare one keeps its content identity; ABSENCE MEANS THE REAL
+    # CLOCK. Declared, it is honored only where
+    # `ccf.products.demonstration_clock.compose_serve_clock` admits it — on the
+    # SDK's own approved development backends (decision 6 (b)) — and pinned on
+    # every record made under it.
+    demonstration_serve_instant: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     door: Mapping[str, Any] | None = Field(
@@ -2778,18 +2962,30 @@ def _reject_naive_timestamps(value: object, path: str) -> None:
 def parse_artifact(document: object, artifact_class: ArtifactClass) -> CCFContract:
     """Validate an already-parsed document as an instance of ``artifact_class``.
 
+    The validated document is then held to ``artifact_class`` by
+    :meth:`ArtifactClass.validate` — the check every registration path runs —
+    so a document that states a ``class_id`` other than the class it is parsed
+    as is refused here, at the parse every boot door runs before it registers
+    anything (``D-IMPL-378``).
+
     Raises:
         ArtifactLoadError: the document contains a float or a zone-less
             timestamp, or does not satisfy the class contract.
+        ArtifactClassIdMismatch: the document states a ``class_id`` other than
+            ``artifact_class``'s own.
+        ReservedArtifactClassId: the document states ``artifact_class``'s own
+            ``class_id`` and it is in the reserved ``ccf.`` namespace
+            (``D-IMPL-378`` K1 follow-up).
     """
     _reject_floats(document, "")
     _reject_naive_timestamps(document, "")
     try:
-        return artifact_class.contract.model_validate(document)
+        parsed = artifact_class.contract.model_validate(document)
     except ValueError as error:
         raise ArtifactLoadError(
             f"document is not a valid {artifact_class.class_id}: {error}"
         ) from error
+    return artifact_class.validate(parsed)
 
 
 def load_artifact(text: str, artifact_class: ArtifactClass) -> CCFContract:
@@ -2805,6 +3001,11 @@ def load_artifact(text: str, artifact_class: ArtifactClass) -> CCFContract:
     Raises:
         ArtifactLoadError: the text is not YAML, holds a float or a zone-less
             timestamp, or does not satisfy the class contract.
+        ArtifactClassIdMismatch: the document states a ``class_id`` other than
+            ``artifact_class``'s own (``D-IMPL-378``).
+        ReservedArtifactClassId: the document states ``artifact_class``'s own
+            ``class_id`` and it is in the reserved ``ccf.`` namespace
+            (``D-IMPL-378`` K1 follow-up).
     """
     try:
         document = yaml.load(text, Loader=_ArtifactLoader)

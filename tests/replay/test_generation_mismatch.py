@@ -67,7 +67,7 @@ from ccf.replay.record import (
 )
 from tests.replay.authority import replay_store
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
-from tests.replay.test_query_sequence_pin import _stored_verbatim
+from tests.replay.test_query_sequence_pin import VERBATIM_RECORD_CLASS, _stored_verbatim
 
 #: The fifteen fields ``PRE_CHANGE_CANONICAL`` lacks that the running record
 #: declares — amendment 1's own measurement, as a roster and never a count.
@@ -182,7 +182,7 @@ def _replay_pre_change(store: FileArtifactStore, address: str) -> None:
 
 @pytest.fixture
 def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
-    store = replay_store(tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts", VERBATIM_RECORD_CLASS)
     return store, _stored_verbatim(store, PRE_CHANGE_CANONICAL)
 
 
@@ -245,6 +245,19 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # record refuse, and that is the load-bearing half of this assertion.
         "content_generation_path.served_at",
         "content_generation_path.child_resolutions",
+        # SEC-020 Q10 (`D-IMPL-378`): the walk's seeds, recorded only when they
+        # were not the question's own subject. `None` on every record written
+        # before the member existed and on every record whose walk started at
+        # its own subject — silence by declaration, so it joins this side.
+        "content_generation_path.executed_seeds",
+        # Dave's Q11 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the answer's
+        # per-answer issuance. `NO_ISSUANCE` on every record written before it
+        # existed, so it joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.issuance",
+        # Dave's Q12 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the class's
+        # affirmation the record carries. `"unstated"` on every record written
+        # before it existed, so it joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.subject_withholding",
     )
     assert not [name for name, key in absent if key is False]
 

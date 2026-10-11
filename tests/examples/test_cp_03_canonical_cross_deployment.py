@@ -61,6 +61,7 @@ from ccf.skills.dispatch import McpSkillRegistry, ProducerDoesNotOffer
 from ccf.skills.grants import GrantLedger, SkillGrant
 from ccf.skills.producers import register_declared_producer
 
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from tests.products.composite_fixture import boot_composite
 from tests.products.test_resolver_seam import (
     PERSPECTIVE,
@@ -138,6 +139,7 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """The consumer: the SDK's fixture composite, REQUIRING `credit-risk.spread`."""
     deployment = boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # `D-IMPL-378` P2 (c): `_plan_factory` never withholds
         product_class_overrides={
             "requires": [{"product_class": PRODUCT_CLASS, "required": True, "compatible_from": "1.0.0"}]
         },
@@ -472,6 +474,7 @@ def test_a_lane_the_requirement_does_not_admit_is_refused_and_an_unoffered_class
     """
     deployment = boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # `D-IMPL-378` P2 (c): `_plan_factory` never withholds
         product_class_overrides={
             "requires": [{"product_class": PRODUCT_CLASS, "required": True, "compatible_from": "2.0.0"}]
         },

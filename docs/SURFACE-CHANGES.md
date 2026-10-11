@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2191 entries**, of which **1916** name a public Python surface.
+**2616 entries**, of which **2337** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1246 entries — 1202 public Python surface, 44 not public Python API.
+1377 entries — 1331 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -15807,7 +15807,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent — the config loader derived bare section keys (`product_class`, `policy`, `half_life`, `policy_constraints.<label>`) and the binding document named them the same way; under the `{tenant}/{class}[/{name}]` grammar the registry enforces (§1.3) a bare key belongs to nobody and, once every registration required a capability, could not be registered at all
 - After: `namespaced_key(*, tenant, key)` — the one derivation that CONFINES a deployment's key to its resolved tenant: a key already under `{tenant}/` is returned unchanged; every other key, bare or prefixed, is placed under it (`{tenant}/{key}`). Applied through `src/ccf/deployment/manifest.py::manifest_under_tenant` (manifest entries, the two boot keys, the parsed-artifact mapping, the resolver's `DeploymentKeys`) by the loader (`src/ccf/deployment/manifest.py::_register_and_boot`) and by the consumer chain `open_product` derives (`src/ccf/products/product.py::_derive_consumer_chain`), and in `src/ccf/client/adapters/inprocess.py::_boot` for the binding document's keys. Confinement rather than refusal because a section label may legitimately contain `/` (a policy constraint named by a path), so a leading segment is not evidence of an author's tenant claim; a deployment composed through the loader can never register outside its own tenant, and the audit log shows the confined key
 - Why: `D-IMPL-354`: the loader is SDK mechanism, not an example; the grammar is the security invariant, so the loader adapts to it rather than the registry admitting tenant-less keys (which would let two tenants collide on one bare name). Direct callers of `register_manifest_entries` place their keys with `manifest_under_tenant` first; the register loop and the door handles keep the registry's own tenant-segment check
-- Migration: none for a deployment that names bare keys — they are placed under its tenant; a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+- Migration: ~~none for a deployment that names bare keys — they are placed under its tenant;~~ a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+  - **Correction 2026-10-07 (`D-IMPL-378`):** the struck clause is false. It is
+    struck rather than deleted so this dated record still shows what it said.
+    Placement also re-keys what a boot hands back: `BootedFabric.artifacts` and
+    `BootedFabric.pins` are keyed by the key as placed under the tenant, so a
+    deployment that reads them back by the bare key it authored gets `KeyError`
+    from `booted.artifacts[...]`, `None` from `booted.artifacts.get(...)`, and
+    `UnpinnedArtifactError` from `booted.pins.version_for(...)` (estate family R,
+    `docs/D-IMPL-377-CLOSE-OUT.md` §6a). Migration: read them by the placed key,
+    `booted.keys.<section>` on the single-file door or
+    `namespaced_key(tenant=booted.tenant_id, key=<authored key>)` on either
+    door; see fragment `378-07`
 
 *Recorded by `353-09-the-join.md`.*
 
@@ -18489,6 +18500,1554 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `377-07-forged-record-provenance.md`.*
 
+#### ccf.replay.provenance.filed_by_record_writer
+
+- Surface: ccf.replay.provenance.filed_by_record_writer
+- Public surface: true
+- Change type: added
+- Before: absent; the rule existed only inline in `ccf_runtime.authz.delivery_boundary.govern_dereference`.
+- After: `filed_by_record_writer(store, *, content_address, tenant_id) -> bool` answers whether some name the store holds for the address is under `tenant_id` in a class its `WriteKinds` declares under `ReplayMint`. It reads naming only, never bytes. A store that answers no `names_at` or declares no `WriteKinds` raises `UnattributableRecordStore`; through an `ErasureConsultingStore`, the store it wraps must answer `names_at` too.
+- Why: Dave's item 3 (`D-IMPL-378`): one provenance check, called at every place SDK code accepts a record read from a store.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.require_filed_by_record_writer
+
+- Surface: ccf.replay.provenance.require_filed_by_record_writer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: returns only if `filed_by_record_writer` holds; otherwise raises `RecordNotFiledByRecordWriter` (or `UnattributableRecordStore` for a store that cannot answer). Called after the record's bytes are parsed and before anything they say is accepted, by `resolve_artifact`, `GrantBoundChildResolver` child admission and `OpenedProduct.record_of`.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: none; new. Code outside the SDK that turns stored bytes into a `DecisionReplayRecord` and treats it as evidence calls this after parsing.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.RecordNotFiledByRecordWriter
+
+- Surface: ccf.replay.provenance.RecordNotFiledByRecordWriter
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `ArtifactNotFound` (so also a `KeyError` and an `ArtifactStoreError`), on the precedent of `MalformedContentAddress`: the store holds record-shaped bytes at the address and shows no filing of them by the fabric's record writer under the record's tenant. Every caller that already handles an absent record handles it identically; a caller that wants the mechanism catches it by name. The replay engine chains it as the cause of a `ReplayUnresolvable`.
+- Why: Dave's item 3 (`D-IMPL-378`): forged bytes answer as a missing record does.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.UnattributableRecordStore
+
+- Surface: ccf.replay.provenance.UnattributableRecordStore
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `TypeError` raised when a record is read through a store that cannot say who filed an address — no `names_at`, no `WriteKinds`, or an `ErasureConsultingStore` over a store with no `names_at`. A wiring defect, refused by name, never a record accepted on the bytes' word; the posture of `UnattributableDeliveryBoundaryError`.
+- Why: Dave's item 3 (`D-IMPL-378`): a store that cannot attribute fails closed.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.controlplane.state.ConditionalStateStore
+
+- Surface: ccf.controlplane.state.ConditionalStateStore
+- Public surface: true
+- Change type: added
+- Before: absent — `ControlPlaneStateStore.put` replaced a record unconditionally, so two writers that read one record could both commit over it
+- After: a runtime-checkable Protocol extending `ControlPlaneStateStore` with `scope` (`"process"` or `"shared"`), `get_versioned(record_class, key) -> (record | None, version)` and `put_if(authorized, record_class, record, *, record_id, token, expected_version) -> new version`. Every write of a key, conditional or not, increments the key's version; version `0` means absent; `put_if` runs `put`'s proofs and writes only if the key is still at `expected_version`, atomically against every other writer of the same durable store, else raises `StateConflict` and writes nothing
+- Why: Dave's ruling of 2026-10-07 approved the conditional state write (`D-IMPL-378`). Red tests: `tests/workflow/test_approval_gate_limits.py::test_two_state_store_objects_over_one_durable_store_spend_one_approval_once`, `::test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once`; conformance: `tests/conformance/test_gate_closure_and_conditional_write.py`
+- Migration: a deployment-supplied state store implements `get_versioned`, `put_if` and `scope` — an optimistic version column, or a row lock in one transaction — and runs `tests/conformance/test_gate_closure_and_conditional_write.py` against itself; the workflow engine refuses at construction a store that does not (see `WorkflowEngine` below)
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.controlplane.state.StateConflict
+
+- Surface: ccf.controlplane.state.StateConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `RuntimeError` raised by `put_if` when the key's version is not the one its writer read; nothing was written. Placed in `ccf.products.refusal.NON_VALUE_VIOLATIONS`: an exception the store raises, never a determination a consumer receives
+- Why: `D-IMPL-378`; the workflow engine turns it into its own typed resumption refusal
+- Migration: none for callers of the SDK's doors; a deployment's own store raises it from `put_if`
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.GateClosure
+
+- Surface: ccf.hitl.transport.GateClosure
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `CCFContract` naming one suspension's decided gate — `tenant`, `event_key`, `product_content_hash`, `passage` (the suspension, the authority submission and the verdict, never the engine), `decided_action`, `decided_by`, `observed_submissions`, `authorizing_decision_id` — written by `close_gate`; it is also the durable claim a retried passage presents
+- Why: `D-IMPL-378`, the atomic gate close
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.GateAlreadyClosed
+
+- Surface: ccf.hitl.transport.GateAlreadyClosed
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `PermissionError` `close_gate` raises when another passage already closed the suspension's gate; nothing changed
+- Why: `D-IMPL-378`; conformance: `tests/conformance/test_gate_closure_and_conditional_write.py::test_racing_closures_by_different_passages_admit_exactly_one`
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.GateVerdictsChanged
+
+- Surface: ccf.hitl.transport.GateVerdictsChanged
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `PermissionError` `close_gate` raises when the number of submissions recorded on the suspension is not the number the caller judged; nothing changed and the gate stays open
+- Why: `D-IMPL-378`; red test `tests/workflow/test_approval_gate_limits.py::test_a_rejection_recorded_right_after_the_resumptions_verdict_read_is_not_outvoted`
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.HitlGateClosed
+
+- Surface: ccf.hitl.transport.HitlGateClosed
+- Public surface: true
+- Change type: added
+- Before: absent — a verdict on a suspension whose gate had been passed was recorded, as `pending` on the submit-only door path
+- After: a `PermissionError` `submit` raises, before any nonce is consumed or anything recorded, when the suspension the verdict names was already decided; the HTTP and MCP doors answer it with `hitl-gate-closed` (HTTP 409)
+- Why: `D-IMPL-378`. Red tests: `tests/workflow/test_approval_gate_limits.py::test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted` and `::test_a_verdict_recorded_after_the_passage_is_not_taken_as_a_verdict_on_an_open_gate`; `tests/http_api/test_approval_gate_limits_door.py::test_a_rejection_posted_while_the_step_after_the_gate_runs_is_not_outvoted`, `::test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_door` and `::test_a_passed_gate_is_neither_offered_nor_accepted_as_pending_at_the_doors`; the MCP door: `tests/mcp/test_hitl_gate_closed_mcp.py::test_a_verdict_on_a_decided_gate_is_refused_at_the_mcp_door`
+- Migration: a client that presents a verdict after the gate was passed now receives a refusal instead of a receipt; the verdict did not count before either
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.workflow.engine.ExecutionFenced
+
+- Surface: ccf_runtime.workflow.engine.ExecutionFenced
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `RuntimeError` a passage's later write raises when a writer other than that passage moved the execution's record while the passage ran; nothing was written
+- Why: `D-IMPL-378`; every write after a passage commit is conditional on the version that passage wrote
+- Migration: none on a conforming store: the engine's own refusals leave no second writer
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_HITL_GATE_CLOSED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_HITL_GATE_CLOSED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"hitl-gate-closed"`, the code `POST /hitl/actions` answers with 409 and the MCP door's `submit_hitl_action` raises in its refusal body, when the suspension the verdict names was already decided
+- Why: `D-IMPL-378`
+- Migration: a client branching on refusal codes adds this one; nothing was recorded
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.products.resolver.PopulationQuestion
+
+- Surface: ccf.products.resolver.PopulationQuestion
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the effective request's class, lane, intent, freshness, instant and parameters, with no subject member.
+- Why: SEC-020 Q7: what the population phase is handed cannot carry the asked identifier. A declared parameter that itself names an entity still reaches it.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the population phase, `__call__(*, question, perspective)`, declared on its own and invoked once per question before the subject-keyed seam.
+- Why: SEC-020 Q7 and Q10.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.SubjectDisclosingPlanFactoryProtocol
+
+- Surface: ccf.products.resolver.SubjectDisclosingPlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an optional companion to `ProjectionPlanFactoryProtocol`: `subject_disclosure()` returns the declared `SubjectDisclosurePolicy`, read once at construction, or `None` for a projection that withholds only late (which a composite may not do).
+- Why: SEC-020 Q8.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.UnsupportedComposition
+
+- Surface: ccf.products.resolver.UnsupportedComposition
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` naming a composition SEC-020's rulings do not support; decided by the composition, never by the subject.
+- Why: SEC-020 Q7–Q9.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+
+- Surface: ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `UnsupportedComposition` raised immediately before the first acquisition phase when the fabric was not booted for its question.
+- Why: SEC-020 Q9.
+- Migration: boot the fabric with `for_question=True`.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.AcquiredFabricReused
+
+- Surface: ccf.products.resolver.AcquiredFabricReused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised when a question fabric already claimed is asked another question that reaches acquisition, sequentially or concurrently.
+- Why: SEC-020 Q9.
+- Migration: boot a fabric per question.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `UnsupportedComposition` raised at construction (and at open on the paved road) when the two phases are one callable, bound to one object, or the population phase's closure holds the subject-keyed phase or its object.
+- Why: SEC-020 Q7.
+- Migration: declare the phases on separate objects.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.CompositeNeedsAnEarlyPolicy
+
+- Surface: ccf.products.resolver.CompositeNeedsAnEarlyPolicy
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `UnsupportedComposition` raised at construction for a composite whose plan factory declares it withholds with no early policy.
+- Why: SEC-020 Q8.
+- Migration: declare a `SubjectDisclosurePolicy`.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.EarlyPolicyNeedsRequestAwareChildren
+
+- Surface: ccf.products.resolver.EarlyPolicyNeedsRequestAwareChildren
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `UnsupportedComposition` raised at construction for early withholding over a child resolver that is never handed the request.
+- Why: SEC-020 Q8.
+- Migration: use a request-aware child resolver.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.UndisclosedSubjectAnswered
+
+- Surface: ccf.products.resolver.UndisclosedSubjectAnswered
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised before the decision is gated, recorded or served when the policy did not disclose the subject and the projection answered it.
+- Why: SEC-020 Q8.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.CompositeWithheldLate
+
+- Surface: ccf.products.resolver.CompositeWithheldLate
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised after the composite's children were asked, and before its decision is gated, recorded or served, when its projection withholds a subject its early policy did not. What the children filed stays filed.
+- Why: SEC-020 Q8.
+- Migration: a composite withholds through a declared early policy.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.subject_disclosure.SubjectDisclosurePolicy
+
+- Surface: ccf.products.subject_disclosure.SubjectDisclosurePolicy
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the declared early policy: `undisclosed_subject` (inside `SUBJECT_FLOOR_V1`, never itself withheld), `by_principal` and `by_role` (both stated); `discloses(*, subject, perspective)` reads only those.
+- Why: SEC-020 Q8: a policy decision taken from the request and the declaration alone; measured identical for a subject the source holds and one it does not.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.product.PopulationAcquireProtocol
+
+- Surface: ccf.products.product.PopulationAcquireProtocol
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the paved road's population phase, `__call__(context)`, declared to `open_product` as `population`.
+- Why: SEC-020 Q7.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.product.PopulationAcquisitionContext
+
+- Surface: ccf.products.product.PopulationAcquisitionContext
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: what the paved population phase is handed: the `PopulationQuestion`, the perspective, the tenant, the declared sources and the question's instant; no request.
+- Why: SEC-020 Q7.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ValueError` raised before anything is registered or booted when a fabric booted for a question names no path, or a path that already exists.
+- Why: SEC-020 Q9.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- Why: SEC-020 Q9.
+- Migration: none; additive.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.replay.record.NO_ISSUANCE
+
+- Surface: ccf.replay.record.NO_ISSUANCE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"no-issuance"`, the issuance of every record written before the member existed and of every record no product question issued (evidence reads, door-level denials, erasures).
+- Why: PROPOSAL, Dave's Q11.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.new_issuance
+
+- Surface: ccf.replay.record.new_issuance
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: returns a fresh issuance: 256 bits from the operating system's CSPRNG (`secrets.token_hex(32)`). Called by the governed resolver on the served path and by the reference refusal recorder for a refusal that answers a product question; `build_replay_record` never mints one.
+- Why: PROPOSAL, Dave's Q11.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.UNSTATED_SUBJECT_WITHHOLDING
+
+- Surface: ccf.replay.record.UNSTATED_SUBJECT_WITHHOLDING
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"unstated"`, the posture every record written before `ContentGenerationPath.subject_withholding` existed reads as. The governed evidence read treats it as a class that may withhold.
+- Why: PROPOSAL, Dave's Q12: *"apply the restriction to existing records"*.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.WithholdingClassListedReadable
+
+- Surface: ccf.products.resolver.WithholdingClassListedReadable
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised where the resolver is built when the tenant lists for owner read-back a class whose declaration does not affirm `subject_withholding: never`. The check reads the class declaration, so a composite class is held exactly as any other.
+- Why: PROPOSAL, Dave's Q12: *"Reject withholding classes—including affected composites"*. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_a_tenant_listing_a_class_that_may_withhold_is_refused_where_the_resolver_boots` and `::test_q12_the_boot_check_rejects_every_listed_class_that_may_withhold_composites_included`.
+- Migration: none unless a tenant lists a class; then the class declaration affirms `never` or the class leaves the list.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.NeverWithholdingContradicted
+
+- Surface: ccf.products.resolver.NeverWithholdingContradicted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised at serve time when the projection withholds the subject under a class that affirms `subject_withholding: never`, before anything is rendered, recorded or served.
+- Why: PROPOSAL, Dave's Q12. The affirmation is what lets the class's records be read back, so it is enforced. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_a_class_that_affirms_never_cannot_withhold_its_subject`.
+- Migration: none for a class at the default.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SubjectWithholding
+
+- Surface: ccf.products.contract.SubjectWithholding
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Literal["may-withhold", "never"]`, a product class's posture on withholding its subject.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE
+
+- Surface: ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"may-withhold"`, the default every class declaration carries.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SUBJECT_WITHHOLDING_NEVER
+
+- Surface: ccf.products.contract.SUBJECT_WITHHOLDING_NEVER
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"never"`, the affirmation that a class's answers never withhold their subject; the governed resolver enforces it.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol
+
+- Surface: ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an optional, runtime-checkable capability of an entitlement source: `evidence_readable(*, tenant, product_class) -> tuple[bool, ProvenanceSource | None]`. `govern_dereference` reads a source that does not implement it as answering no for every class.
+- Why: PROPOSAL, Dave's Q12; fail-closed for a deployment that never considered owner read-back.
+- Migration: a deployment-supplied entitlement source that should let some classes' records reach their owners implements it. `ControlPlaneProductEntitlementSource` implements it over the tenant's own policy, with the same two near-miss refusals as `disclosure_level_for`; no policy answers `(False, None)`.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_EVIDENCE_CLASS_SEALED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_EVIDENCE_CLASS_SEALED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"evidence-class-sealed"`, the internal error code of an evidence read refused because the tenant does not list the record's class or the record does not carry its class's affirmation. Internal truth only; decided per class and per record generation, never per decision.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceReplayReadRefused
+
+- Surface: ccf_runtime.mcp.experience.ExperienceReplayReadRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `PermissionError` the Experience door's `get_replay_record` raises on every call, for every caller, before the deployment's `ReplayRecordReaderProtocol` is called.
+- Why: PROPOSAL, Dave's Q12: *"every read/replay path"*. The tool names no address and returns whatever the deployment's reader returns, so it cannot show that the fabric's record writer filed the record, whose record it is, or what its class affirms. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_the_experience_door_does_not_serve_the_record_behind_a_withheld_answer`.
+- Migration: a deployment that exposed `get_replay_record` keeps constructing the door as before (the reader is still required where the tool is exposed); its callers read their own records back through a governed evidence read.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"execution-fenced"`, the code `POST /workflow/invocations` and `POST /workflow/resumptions` answer with 409 when the engine fenced a write that ends a passage because another writer moved the execution's record (`ExecutionFenced`)
+- Why: `D-IMPL-378` (Dave, 2026-10-07 21:11 MST)
+- Migration: a client branching on refusal codes adds this one. The engine wrote, audited and enqueued nothing, and a resumption presented again is refused as an interrupted passage (`tests/http_api/test_execution_fenced_door.py::test_after_a_fenced_passage_a_resumption_presented_again_is_refused_as_an_interrupted_passage`)
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.workflow.state.suspension_left_by
+
+- Surface: ccf_runtime.workflow.state.suspension_left_by
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `suspension_left_by(record) -> WorkflowStateRecord | None` rebuilds, exactly, the suspension a `running` record's passage past a gate left: the gate as its state, `suspended` as its status, the trace without its last `resume` entry, every other field unchanged. Its content hash is the one the gate's closure and every verdict on that suspension name. It returns `None` when the record is not `running`, or when its last trace entry is not a `resume` into its current state
+- Why: `D-IMPL-378`, Dave's D2 ruling. It is how a finisher, or the erasure door, finds the durable claim that identifies an interrupted passage, without asking which engine wrote the record
+- Migration: none
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstant
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment pinned to a past instant had no governed way to say which instant it serves at; `examples/s1-01-hello-context-product/spine.py` composed one in example code through `admission_clock`
+- After: a typed Control Plane contract with one member, `serve_instant`, a zone-bearing instant (a zone-less one is refused, `D-IMPL-38`)
+- Why: since `D-IMPL-358` a governed serve is judged at `served_at`; a demonstration whose question is pinned to a past date is refused as expired by today's clock, correctly, unless the deployment declares the instant it serves at
+- Migration: none; a deployment that wants a demonstration instant declares it (see `DeploymentConfig`)
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DEMONSTRATION_SERVE_INSTANT
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DEMONSTRATION_SERVE_INSTANT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the artifact class `ccf.demonstration-serve-instant`, typed-registerable (in `ccf.deployment.classes.SDK_ARTIFACT_CLASSES`), with no author lanes
+- Why: a declaration must be a pinned Control Plane artifact so the record it governs can name its exact version, which replay's exact-version binding check can resolve
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.DEMONSTRATION_SERVE_INSTANT
+
+- Surface: ccf.controlplane.artifacts.DEMONSTRATION_SERVE_INSTANT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the same class constant re-exposed from the module that exposes the SDK's artifact-class catalog, on `TEMPORAL_BOUNDARY_POLICY`'s precedent
+- Why: `tests/deployment/test_class_lookup.py` holds every typed-registerable class to the object this module exposes
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.demonstration_serve_instant_key
+
+- Surface: ccf.controlplane.demonstration_serve_instant.demonstration_serve_instant_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `{tenant}/ccf.demonstration-serve-instant`, derived per tenant and never from a section name
+- Why: two tenants cannot share one declaration, and the registry's tenant check reads the segment before the first `/` (`D-IMPL-353` §1.3)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.PinnedDemonstrationServeInstant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.PinnedDemonstrationServeInstant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a resolved declaration with its key and exact registered version; `binding` is the `PolicyBinding` every record made under it carries
+- Why: the version a record pins is the one resolved, never one rebuilt later (`PinnedTemporalBoundary`'s rule)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisdeclared
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisdeclared
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when something other than a `DemonstrationServeInstant` is registered at the key
+- Why: a wrong artifact is a configuration error, not an absent declaration; reading it as absent would serve on the real clock a deployment that believed it had declared one
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.resolve_demonstration_serve_instant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.resolve_demonstration_serve_instant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: resolves one tenant's declaration with its version, or `None` when the tenant declares none; reads no clock and enforces nothing
+- Why: the Control Plane half of the mechanism, kept apart from the composition that honors it
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the one composition step that turns a declaration into the resolver's serve clock, called once by `ccf.products.resolver.build_governed_resolver`. With no declaration it returns the clock the caller composed. With one, it refuses a caller-composed clock (`DemonstrationServeInstantConflict`), refuses a graph adapter whose registration does not declare `development_reference` or an artifact store that is not the SDK's `FileArtifactStore` (`DemonstrationServeInstantRefused`), and otherwise returns a `DeclaredServeClock`. A Control Plane offering the unaudited pinned-read surface is probed with `versions` first, so a deployment that declares nothing gains no audit event
+- Why: C1's "never usable in production", ruled option (b): a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DeclaredServeClock
+
+- Surface: ccf.products.demonstration_clock.DeclaredServeClock
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a callable returning the declared instant, carrying the declaration's exact pin as `binding`
+- Why: audit by construction — whatever reads `served_at` from it can also say which declaration set it
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantConflict
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a composition supplies its own clock (`admission_clock`, or an adapter's `clock`) while the deployment declares an instant
+- Why: one serve instant has one authority; a silent winner would be two authorities that can drift apart
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the option (b) production guard, raised at composition with `reason` `graph-substrate-not-development` or `artifact-store-not-development` and the declaration's `key`
+- Why: C1 requires the declaration be never usable in production
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+- Public surface: true
+- Change type: added
+- Before: absent — five declarations of the class booted cleanly and were never honored (lane `378d-democlock` residual (e) and its sweep): one at another key, one written under another tenant (key placement confines it to `{tenant}/other-tenant/…` rather than refusing), two entries one of them misplaced, two entries placing to one key (the first instant silently replaced), and a second version registered before composition (the latest silently winning)
+- After: a `ValueError` carrying `reason`, `keys` and the `expected` derived key: `misplaced-key` at boot, before anything is registered, naming each declaration not at the derived key (P1, P2, and the misplaced one of P3a); `several-declarations` at composition, when the Control Plane holds several versions (P8). P3b — two entries placing to one key — is refused for every class by `ccf.deployment.manifest.manifest_under_tenant` (`ManifestKeysPlaceToOneKey`, lane `378d-placement`), so this class carries no rule of its own for it
+- Why: a declaration the composition never reads is a control that silently does nothing; the deployment serves on its real clock, or on another declaration, while its documents say otherwise. Measured by `tests/deployment/test_demonstration_serve_instant_placement.py`
+- Migration: a manifest declares at most one `ccf.demonstration-serve-instant`, at `key: ccf.demonstration-serve-instant`; a composition root registers at most one version per tenant
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+
+- Surface: ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a pure check over the keys of every manifest entry of the class as the register loop receives them: every one must be `{tenant}/ccf.demonstration-serve-instant`, and each that is not raises `DemonstrationServeInstantMisplaced` (`misplaced-key`). It has no branch for two declarations at one key: the manifest contract refuses a key declared twice, and `manifest_under_tenant` refuses two keys placing to one, so that case cannot arrive — measured, including the route of a composition root calling the loop directly, where the two entries arrive as different keys and one is refused as misplaced
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.resolver.QuestionStoreReopened
+
+- Surface: ccf.products.resolver.QuestionStoreReopened
+- Public surface: true
+- Change type: added
+- Before: absent; a question's store booted again plainly answered any governed call that declared no acquisition phase.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when the fabric reads a question's store booted again and the call declares no acquisition phase. Decided by the boot's marker, never by the subject or the store's contents.
+- Why: SEC-020 residual P4. That store keeps what its question's acquisition fetched.
+- Migration: none; additive.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.products.resolver.CompositeNeedsAWithholdingStance
+
+- Surface: ccf.products.resolver.CompositeNeedsAWithholdingStance
+- Public surface: true
+- Change type: added
+- Before: absent; a composite that declared no early policy constructed, and a withhold decided inside its projection raised `CompositeWithheldLate` at call time, for the withheld subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when a class that declares `requires` has neither an early policy (`SubjectDisclosingPlanFactoryProtocol.subject_disclosure()` returning a `SubjectDisclosurePolicy`) nor `subject_withholding: never` on its declaration.
+- Why: SEC-020, owed ruling P2 option (c), a candidate: a refusal decided when a projection withholds is decided for the withheld subject only and is itself distinguishable; a refusal at construction is the same for every subject.
+- Migration: declare a stance on every composite: `subject_withholding: never` on the product class when its projection never withholds, or an early policy through the plan factory's `subject_disclosure()`.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
+
+#### ccf.deployment.manifest.ManifestKeysPlaceToOneKey
+
+- Surface: ccf.deployment.manifest.ManifestKeysPlaceToOneKey
+- Public surface: true
+- Change type: added
+- Before: absent. Two entries placing to one key either booted with one document silently dropped, or met an unrelated `TypeError` from the register loop after earlier entries were registered
+- After: a `ValueError` subclass raised by `manifest_under_tenant` when two of the manifest's entries place to one key under the tenant, whatever their classes and roles, before anything is re-keyed, minted or registered. Its attributes are `authored_keys` (the two keys as the manifest wrote them, in manifest order), `placed_key` and `tenant`, and its message names all of them
+- Why: `D-IMPL-378`, lane 378d-placement. One key holds one artifact in force, and a boot that keeps one of two documents for it loses a governance value with no record. Red tests: `tests/deployment/test_placed_key_collision.py::test_two_entries_of_one_class_placing_to_one_key_are_refused_at_boot`, `::test_two_adopter_classes_placing_to_one_key_are_refused_before_anything_is_registered`, `::test_a_load_entry_placing_onto_a_register_entry_is_refused_at_boot`, `::test_placement_itself_refuses_two_entries_placing_to_one_key_whatever_parsed_holds`
+- Migration: none; additive
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.ManifestKeysPlaceToOneKey
+
+- Surface: ccf.deployment.ManifestKeysPlaceToOneKey
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package-level spelling of `ccf.deployment.manifest.ManifestKeysPlaceToOneKey`
+- Why: `D-IMPL-378`, lane 378d-placement; the refusal is raised through `ccf.deployment.load_and_boot` and `ccf.deployment.load_config_and_boot`, so it is named where they are
+- Migration: none; additive
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClassIdMismatch
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClassIdMismatch
+- Public surface: true
+- Change type: added
+- Before: absent. A document stating one class was parsed, registered, audited and pinned as another with no error
+- After: a refusal that is both a `TypeError` and a `ValueError`, raised by `ArtifactClass.validate` when the artifact's contract declares a top-level `class_id` and the artifact states a class other than the `ArtifactClass`'s own. Its attributes are `presented_class_id` (the class it was parsed or registered as) and `document_class_id` (the class it states), and its message names both
+- Why: `D-IMPL-378`, lane 378d-classid. A Control Plane document filed as a class it says it is not splits one fact across the audit plane, the pin and the artifact. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`, `::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: none; additive
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClassIdMismatch
+
+- Surface: ccf.controlplane.artifacts.ArtifactClassIdMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the same class as `ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, re-exported beside `ArtifactClass` and `ArtifactLoadError`
+- Why: `D-IMPL-378`, lane 378d-classid; the refusal is raised through `parse_artifact` and `load_artifact`, so it is named where they are
+- Migration: none; additive
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.resolver.IncompatibleRefusalRecorder
+
+- Surface: ccf.products.resolver.IncompatibleRefusalRecorder
+- Public surface: true
+- Change type: added
+- Before: absent; a recorder whose `record` could not be passed `subject_withholding=` built cleanly and raised `TypeError` at the first refusal the governed resolver recorded.
+- After: a `TypeError` raised where a resolver or an entitling door is built, naming the builder and the recorder's type, before anything is minted, registered or answered.
+- Why: Dave's E2 (iii) (`D-IMPL-378`): detect incompatible recorders at construction, rather than on the first refusal.
+- Migration: give your recorder's `record` the keyword `subject_withholding: str | None = None` (`RefusalRecorderProtocol`), or let it take `**kwargs`. The SDK's `ReplayRefusalRecorder` already does.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.refuse_incompatible_refusal_recorder
+
+- Surface: ccf.products.resolver.refuse_incompatible_refusal_recorder
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `refuse_incompatible_refusal_recorder(recorder, *, builder)` reads `record`'s signature, never calling it, and raises `IncompatibleRefusalRecorder` when `record` is missing, its signature cannot be read, or it can be passed `subject_withholding=` neither by name nor through `**kwargs`. Called by `GovernedResolver` and by every entitling door's builder.
+- Why: Dave's E2 (iii) (`D-IMPL-378`); one check, stated once, for every path that accepts a recorder.
+- Migration: none for a deployment; a door or a composition root that accepts a recorder of its own may call it at construction.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+
+- Surface: ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` constructed whatever its plan factory declared, and the question about a subject its projection withheld raised `NeverWithholdingContradicted` at serve, for that subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory, through `SubjectDisclosingPlanFactoryProtocol`, returns `None` or a `SubjectDisclosurePolicy` that does not disclose some subject to some principal or role.
+- Why: SEC-020, E2 (ii) (Dave, 2026-10-08 12:29 MST): validate withholding capability against the class declaration at construction. A refusal at construction is the same whatever subject would have been asked; one at serve is raised for the withheld subject alone.
+- Migration: affirm `never` only for a class whose projection never withholds; a class whose plan factory declares withholding keeps the default `may-withhold`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+
+- Surface: ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+- Public surface: true
+- Change type: added
+- Before: absent; a governed call with no acquisition phase over an existing store with no marker was answered.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when `BootedFabric.store_creation` is `"unmarked"` and the call declares no acquisition phase. Decided by the boot's reading of the markers, never by the subject or the store's contents.
+- Why: SEC-020 P4 (a), made strict: an unmarked existing store is not presumed fresh.
+- Migration: none; additive.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.AcquisitionOverUnverifiableStore
+
+- Surface: ccf.products.resolver.AcquisitionOverUnverifiableStore
+- Public surface: true
+- Change type: added
+- Before: absent; an acquisition composition over a store with no path was refused `AcquisitionNeedsAQuestionFabric` at its first call, and the paved road over such a substrate at every question's boot.
+- After: a subclass of `AcquisitionNeedsAQuestionFabric`, raised by `GovernedResolver` construction when an acquisition or a population phase is declared over a fabric whose `store_creation` is `"unverifiable"`, and by `open_product` when the environment's substrate setting is not a path-valued setting of the declared adapter's connection contract.
+- Why: SEC-020 P4 (a), made strict: an unsupported network composition refuses before questions run.
+- Migration: none; additive. A handler for `AcquisitionNeedsAQuestionFabric` also catches it.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent. `declared_artifact_class` built an envelope class for an id in the SDK's reserved `ccf.` namespace
+- After: a `ValueError` raised by `declared_artifact_class` for an id starting `ccf.`, before any class exists. Its attribute `class_id` is the refused id, and its message names the id and cites `D-IMPL-84`
+- Why: `D-IMPL-378` K1 (b). A program could register a document of arbitrary content under an SDK class name, the squat `D-IMPL-84` refuses for a manifest, and the registry would bind the key to that name and pin it into Decision Replay dimension 2. Red tests: `tests/deployment/test_declaration_function_reserved_namespace.py::test_the_declaration_function_refuses_a_reserved_ccf_id_by_name`, `::test_the_programmatic_squat_registers_nothing`
+- Migration: none; additive
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
+#### ccf.products.child_resolver.ChildRecordAltered
+
+- Surface: ccf.products.child_resolver.ChildRecordAltered
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ChildRecordMismatch`, and so a `ValueError`, raised by `GrantBoundChildResolver`'s read of a locally dispatched child's record when the bytes its replay reference resolves to do not hash to that address. Raised before the bytes are parsed, so before the record's provenance or product is checked and before anything read out of them reaches the admission gate. Wrapped opaque at the MCP egress door, like `ChildRecordMismatch`.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none; code that catches `ChildRecordMismatch` also catches it. Catch `ChildRecordAltered` to tell bytes altered under a reference from a record about another product.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+
+- Surface: ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: absent; nothing let a plan factory state that its projection never withholds.
+- After: a `runtime_checkable` Protocol with one method, `withholds_no_subject() -> bool`, an optional companion to `ProjectionPlanFactoryProtocol` on the `SubjectDisclosingPlanFactoryProtocol` precedent: `True` only if no projection the factory builds sets the withheld signal, for any subject or principal. Read once, with no argument, when a `GovernedResolver` is built over a class affirming `never`; classes at the default never read it.
+- Why: SEC-020, E2 (ii) (d) (Dave, 2026-10-08 16:40 MST): require a positive declaration. A method rather than an attribute so a configurable or wrapping factory can state truthfully what it builds.
+- Migration: a deployment whose class affirms `never` implements `withholds_no_subject()` returning `True` on its plan factory, only if its projection never sets the withheld signal. A plain function factory may carry it as an attribute.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+
+- Surface: ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` over a plan factory that declared nothing constructed, and a projection of it that withheld anyway raised `NeverWithholdingContradicted` at serve for the withheld subject alone.
+- After: a `NeverWithholdingProjectionCanWithhold` (so an `UnsupportedComposition`) raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory does not implement `NonWithholdingPlanFactoryProtocol`, or its `withholds_no_subject()` returns anything but `True`. The message names the class, never the subject.
+- Why: SEC-020, E2 (ii) (d): default silence to refusal. A refusal where the resolver is built is the same whatever subject would have been asked.
+- Migration: declare the factory's `withholds_no_subject()` (see above) or leave the class at the default `may-withhold`. Code catching `NeverWithholdingProjectionCanWithhold` catches this too.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: added
+- Before: absent; a population read left in the subject-keyed phase ran, and a subject withheld inside the projection was rendered over a fabric a nonexistent subject's question is not answered over.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, before the subject-keyed phase is asked about the question's subject, when asking that phase about `UNHELD_SUBJECT_PROBE` changed the fabric, for a class that may withhold and declares no early policy.
+- Why: SEC-020, ruling P6 (a) (`D-IMPL-378`, 2026-10-08 16:40 MST): the refusal is decided by the phase's answer for an identifier that names nothing, never by the asked subject, so it is the same for a withheld subject and a nonexistent one. Not closure: a source that recognizes the probe is not detected.
+- Migration: declare a subject-independent read as the population phase (`open_product(population=...)` or `GovernedResolver(population_acquisition=...)`), declare an early policy, or affirm `subject_withholding: never` when the projection never withholds.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.UnheldSubjectProbeIsHeld
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; nothing checked that the identifier the P6 probe asks about names nothing.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the fabric as read before the probe names `UNHELD_SUBJECT_PROBE` (an entity whose URI it is, or a relationship with it at either end; the subject-keyed phase is then asked nothing), or when the fabric as read after the probe does; before the phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, ruling P6 (a), Dave's condition "Verify that the fixed identifier is actually absent; do not assume it." Fail closed: a probe identifier that names something cannot show what the phase acquires for an identifier its sources do not hold.
+- Migration: nothing in a deployment may be named by `UNHELD_SUBJECT_PROBE`. L2's ingest never mints it (every node it writes is `<entity_class>://<content hash>`); only the admission path for an already-resolved claim, or a store written outside this SDK, can.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf-sdk:unheld-subject-probe"`, the identifier the subject-keyed phase is asked about first, inside `SUBJECT_FLOOR_V1`; a deployment's source sees it as an identifier it does not hold.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none; a source must treat it as any identifier it does not hold.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.deployment.manifest.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a question boot's path after the SDK's last check was booted as the question's fabric.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` with `for_question=True` when the store the adapter opened holds any entity or relationship for the tenant at the boot's one read, taken through the governed reader at the latest instant a timestamp can name, after the writer lease is taken and before the fabric is handed back. The handle is closed first; the question marker stays. Its text states no count.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition.
+- Migration: none; additive. A handler for `QuestionFabricNotFresh` also catches it.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionStoreNotEmpty`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent; `for_question=True` with `read_only=True` booted a question's fabric that held no writer lease.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` for `for_question=True` with `read_only=True`, before anything is registered or created at the path.
+- Why: SEC-020 P4s-A (b): the check stays protected by exclusive ownership through use, which the question marker and the boot's writer lease provide; a read-only boot takes no lease.
+- Migration: boot a question's fabric as a writer; read a question's store for replay with a read-only boot that is not for a question.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionFabricNotExclusive`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent from this module. The class was defined in `ccf.controlplane.artifacts` and raised only by `declared_artifact_class`
+- After: the same `ValueError`, carrying `class_id`, defined here beside `ArtifactClass.validate`, which now raises it, because `ccf.controlplane.registry` reaches it through `ArtifactClass` and must not import `ccf.controlplane.artifacts`. Its message names the id, cites `D-IMPL-84`, and says a document that states its own class is refused under a reserved id
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: none; additive. `ccf.controlplane.artifacts.ReservedArtifactClassId` is the same class
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"artifact.subject.match"`: the action the MCP artifact server's `match_artifact_subject` tool declares; its resource is the action id itself. Distinct from every read, write and erase, so a scope mapping reaches the tool only by naming it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. A deployment whose erasure door files through the MCP-backed store grants `artifact.subject.match` to the door's MCP credential, and to nothing else, or the door refuses record-shaped client filings `subject-unverifiable` as before.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.authz.capability.ArtifactSubjectMatch
+
+- Surface: ccf.authz.capability.ArtifactSubjectMatch
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The capability kind for `artifact.subject.match`, minted only by `mint()` from an authorizer's allow, never at composition, and outside the MCP guard's read kinds, so a stated (ambient stdio) identity is refused it before any decision.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf.erasure-subject-match"`: what a subject-match query's door signature asserts in its protected header under `DOOR_SIGNATURE_ASSERTION`. A door-key signature made for an erasure record or for the door's composition probe does not verify as a query, and a query's does not verify as a record's.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectJudgment
+
+- Surface: ccf.erasure.subject_match.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The judgment over stored bytes, in its order: `bytes-not-at-address`, `bytes-unparseable`, `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectJudgment
+
+- Surface: ccf.erasure.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectJudgment`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchAnswer
+
+- Surface: ccf.erasure.subject_match.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract carrying one `verdict` (a `SubjectMatchVerdict`): the whole answer of the subject match. No bytes, no document, no value read out of it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchAnswer
+
+- Surface: ccf.erasure.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchAnswer`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchQuery
+
+- Surface: ccf.erasure.subject_match.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract: what the erasure door asks about one requested address — `tenant_id`, `content_address`, `subject_ref` (both sha256 hex), the subject class's `key_paths` and `subject_ref_salt`. On the server the tenant is the caller's verified tenant, never a wire value.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchQuery
+
+- Surface: ccf.erasure.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchQuery`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `ValueError` raised by `verify_subject_match_query`: no signature by the declared door key of the query's tenant verifies over exactly the query.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchSignatureInvalid`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchVerdict
+
+- Surface: ccf.erasure.subject_match.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The wire verdict: `subject-unverifiable` (bytes not at the address, unparseable, or an address the server does not judge), `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchVerdict
+
+- Surface: ccf.erasure.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchVerdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.judge_subject
+
+- Surface: ccf.erasure.subject_match.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `judge_subject(payload, query)`: the erasure door's judgment over stored bytes, once — re-hash against the address FIRST, then parse, then a value at a declared key path hashing to the salted reference, then whether the subject also sits in a replay-input field. The in-process door and the MCP artifact server both apply it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.judge_subject
+
+- Surface: ccf.erasure.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.judge_subject`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.sign_subject_match_query
+
+- Surface: ccf.erasure.subject_match.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `sign_subject_match_query(query, *, signer, key_id)`: the erasure door's detached signature over the query's canonical bytes, asserting `SUBJECT_MATCH_CLASS`; returns `protected..signature`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.sign_subject_match_query
+
+- Surface: ccf.erasure.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.sign_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `subject_match_verdict(judgment)`: the wire verdict for a judgment; anything but a found or not-found subject is `subject-unverifiable`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.subject_match_verdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.verify_subject_match_query
+
+- Surface: ccf.erasure.subject_match.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `verify_subject_match_query(query, *, door_signature, authority, identity_provider)`: refuses, `SubjectMatchSignatureInvalid`, unless the authority is the query's tenant's and the signature verifies over exactly the query against its declared door keys and asserts `SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.verify_subject_match_query
+
+- Surface: ccf.erasure.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.verify_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"match_artifact_subject"`: the name of the artifact server's subject-match tool.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The one message every caller the subject match does not answer receives, whichever check refused it (no erasure authority for the caller's tenant, a query that is not one, or no door-key signature over exactly it). It names no address, subject or store.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+
+- Surface: ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `PermissionError` the subject-match tool raises, always with `SUBJECT_MATCH_REFUSED`, before the substrate is read; it crosses MCP as the tool's error result.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.artifacts.protocol.ArtifactReadRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactReadRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the read side's `ArtifactWriteRefused`: an `ArtifactStoreError`, and not an `ArtifactNotFound`, raised where a store's server answered a read with its governed refusal shell. It carries the shell, parsed, as `envelope` (a `ccf.products.refusal.RefusalEnvelope`). It says the address cannot be verified through this credential, never whether anything is filed there.
+- Why: decision 1 (A), `D-IMPL-378`: "Do not mislabel that access refusal “server unreachable.” Preserve a typed refusal through the MCP client."
+- Migration: none.
+
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
+
+#### ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
+
+- Surface: ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; the stand-in a declared early policy asks in place of an undisclosed subject was held only to `SUBJECT_FLOOR_V1`, and a source holding it told a withheld subject from a nonexistent one.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for every question of a class with a declared early policy, when the graph read before the subject-keyed acquisition names the stand-in, when that acquisition acquires for the stand-in what it does not acquire for `UNHELD_SUBJECT_PROBE`, or when the graph the plan reads names it; with one message whatever was asked and whichever check failed.
+- Why: SEC-020, decision 4 (a) (`D-IMPL-378`, 2026-10-09): the checks read nothing about the asked subject, so the refusal is the same for a withheld subject and a nonexistent one. Not detected: a source that recognizes the stand-in and answers nothing for it, and what a composite's children's sources hold for it.
+- Migration: declare a stand-in that no source, child or fabric of the deployment holds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.UnheldSubjectProbeRefused
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeRefused
+- Public surface: true
+- Change type: added
+- Before: absent; a held refusal from the P6 probe call counted as "acquired nothing", and a source refusing an identifier it does not hold told a withheld subject from a nonexistent one.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the probe call ends in a held refusal (`GovernedRefusalRaised`, or a type the class or the SDK declares at the seam), before the subject-keyed phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09): refuse every question to a source that refuses unknown identifiers.
+- Migration: answer an identifier the sources do not hold with nothing; or declare an early policy; or affirm `subject_withholding: never` when the projection never withholds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.SHARED_OWNER_WALK_DEPTH
+
+- Surface: ccf.products.resolver.SHARED_OWNER_WALK_DEPTH
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `12`, the most steps the shared-owner walk follows from a phase. One step is one reference followed. An object more steps than this from each phase is not seen. Everything the phases the SDK's own tests compose hold was read within 10 steps.
+- Why: SEC-020 Q7, decision 3 (a): the walk's depth bound, stated.
+- Migration: none; additive.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.resolver.SHARED_OWNER_WALK_OBJECTS
+
+- Surface: ccf.products.resolver.SHARED_OWNER_WALK_OBJECTS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `5000`, the most references the shared-owner walk reads from one phase, an object counted once for every reference to it that the walk reads, nearest first. What the walk would have reached after that is not seen. The most any phase the SDK's own tests compose holds is 3,989 references.
+- Why: SEC-020 Q7, decision 3 (a): the walk's object bound, stated, which also caps its cost.
+- Migration: none; additive.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.graph.registry.is_sdk_development_reference
+
+- Surface: ccf.graph.registry.is_sdk_development_reference
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `is_sdk_development_reference(name: str) -> bool`. True only when `name` is an adapter the SDK ships (the built-in discovery source, the SDK's own adapter package directory) and the SDK's own registration record for it declares `development_reference`. False for every other name, including any third-party adapter, whatever its registration declares, and nothing is imported for such a name
+- Why: `D-IMPL-378` decision 6 (b). Red test: `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition`
+- Migration: none; additive
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.replay.serve.ReplayReferenceMismatch
+
+- Surface: ccf.replay.serve.ReplayReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the record writer handed out whatever reference the store answered.
+- After: an `ArtifactStoreError` raised by `ReplayWriter.write_replay_record` when any field of the reference the store's `put` answered (content address, URI, tenant, class, name) is not, as an exact string, the record's own. It carries `fields`, the names of the differing fields; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_a_store_answering_another_records_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a plain boot's path after its deployment marker was booted as the deployment's own, the marker vouching for it.
+- After: a `ValueError` raised by `load_and_boot` and `load_config_and_boot` when a boot not for a question that created its deployment marker in this boot opens a store holding any entity or relationship for the tenant at its one read, taken through the governed reader at the latest instant a timestamp can name, before the fabric is handed back. The handle is closed and the markers that boot created are removed first. Its text states no count.
+- Why: SEC-020, `D-IMPL-378` OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_a_plain_boot_creating_its_store_refuses_a_store_planted_at_its_path_by_name`.
+- Migration: none; additive. Boot a new store at a path that holds nothing, and write into it after the boot returns.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentStoreNotEmpty`.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none; additive.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: added
+- Before: absent; a deployment marker vouched for its store by existing, whatever its boot did after creating it.
+- After: a `ValueError` raised by `load_and_boot` and `load_config_and_boot`, for a boot not for a question, after registration and before anything is created at the path, where safe verification cannot be established. `marker` names the deployment marker, `reason` the check (`"pending"` or `"unreadable"`: a marker beside an existing store that records no completed verification; `"claimed"`; `"lock-unavailable"`), and `lock` the store-creation lock for `"lock-unavailable"`. The marker is left as it stands; the text names its path and what an operator does. A marker of any state with no store beside it is not refused: the boot replaces it and verifies a new store.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2. Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`.
+- Migration: a store beside a marker an earlier build wrote (one line, no state) is refused (`"unreadable"`) until an operator resolves it as section 4.12 describes; delete or copy a store together with its marker.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2.
+- Migration: none; additive.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL
+
+- Surface: ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL
+- Public surface: true
+- Change type: added
+- Before: absent; under a declared early policy a refusal the subject-keyed acquisition raised was served and recorded as its source stated it, its text and code carrying the stand-in's identifier for a withheld subject.
+- After: a `SubjectUnavailableRefusal` constant (cause `undisclosed`, no code, one SDK sentence) that every refusal the subject-keyed acquisition raises becomes, served and recorded, for every question of a class with a declared early policy.
+- Why: SEC-020, decision 2.2 (a) (`D-IMPL-378`, 2026-10-09): neither the stand-in's identifier nor a value a source chose by what it was asked may survive in the answer or the record.
+- Migration: none to declare; read the constant to recognize such a refusal.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL
+- Public surface: true
+- Change type: added
+- Before: absent; a held refusal at the P6 probe raised `UnheldSubjectProbeRefused` and recorded nothing.
+- After: a `SubjectUnavailableRefusal` constant (cause `undisclosed`, no code, one SDK sentence) every question of a class the probe reads is answered and recorded with when the probe call itself ends in a held refusal, on any route.
+- Why: SEC-020, decision 2.3 (b) (`D-IMPL-378`, 2026-10-09): role and parameter refusals keep their decision records, with a constant SDK cause. Its own constant rather than `EARLY_POLICY_ACQUISITION_REFUSAL`, whose sentence says the class declares an early policy.
+- Migration: none to declare; read the constant to recognize such a refusal.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: added
+- Before: absent; a member the shared-owner walk could not read raised its own error, such as a bare `TypeError`, out of construction and `open_product`.
+- After: a `PopulationPhaseSharesAnOwner` raised where that refusal is (at `GovernedResolver` construction and at `open_product`) when reading what an object the walk reached holds raises. Its message names the phase the walk started from, the error's type, the step and the references read, and nothing any object holds.
+- Why: `D-IMPL-378` repair 1.8. Red test: `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`.
+- Migration: none; additive. A handler for `PopulationPhaseSharesAnOwner` also catches it.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+
+- Surface: ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `ArtifactStoreError` raised by every read of `ccf.artifacts.mcp_store.McpArtifactStore` where the artifact server's guard answered HTTP 401, chained from that response. It is not an `ArtifactReadRefused` (an access decision about an address, for a credential the server authenticated, carrying its shell), not an `ArtifactNotFound` (an absence) and not an `McpClientError`, so `except McpServerUnreachable` (a retry) does not catch it. It carries no envelope.
+- Why: repair 2.5 (a), `D-IMPL-378` (Dave, 2026-10-09 10:54 MST): "Return a typed authentication refusal for 401, preserving its distinction from authorization denial and transport outage." Test: `tests/mcp/test_auth_401_typed_through_the_client.py::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`.
+- Migration: none.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.replay.serve.QueryPinReferenceMismatch
+
+- Surface: ccf.replay.serve.QueryPinReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the query-pin writer returned whatever references the store answered.
+- After: an `ArtifactStoreError` raised by `QueryPinWriter.write_query_bytes` when any field of the reference the store's `put` answered for a query (content address, URI, tenant, class, name) is not, as an exact string, the query's own. It carries `fields`, the names of the differing fields; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_a_store_answering_the_first_querys_reference_for_every_write_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.products.child_resolver.ChildQuestionReferenceMismatch
+
+- Surface: ccf.products.child_resolver.ChildQuestionReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the question-bound resolver raised a plain `RuntimeError` when the parent store's answer for a child question carried another content address (compared with `!=`) and recorded the answer's URI unchecked.
+- After: an `ArtifactStoreError` that is also a `RuntimeError`, raised when any field of the parent store's answer for a child question (content address, URI, tenant, class, name) is not, as an exact string, the question's own, after `put` returns and before the producer is asked. It carries `fields`; its text names those fields and no value the store answered. It replaces the address-only `RuntimeError`, whose text named both addresses.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/products/test_child_question_retention_checks_the_returned_reference.py::test_a_parent_store_answering_another_questions_uri_is_refused_by_name`.
+- Migration: none for a handler of `RuntimeError` or `ArtifactStoreError`. A product class that declared `builtins.RuntimeError` as a seam refusal no longer matches it, because seam refusals match the exact type.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.peering.admission.AdmissionRecordReferenceMismatch
+
+- Surface: ccf.peering.admission.AdmissionRecordReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the admission gate pointed its verdict at whatever reference the store answered for the admission record.
+- After: an `ArtifactStoreError` raised by `PeeringAdmissionGate.admit` when any field of the store's answer for the admission record (content address, URI, tenant, class, name) is not, as an exact string, the record's own, after `put` returns and before the `peering_admitted` verdict is appended. It is not an `AdmissionNotRecorded`: the store answered. It carries `fields`; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_store_answering_another_crossings_record_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+
+- Surface: ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the engine handed callers whatever reference the store answered for the execution trace.
+- After: an `ArtifactStoreError` raised by `WorkflowEngine.execute` and `WorkflowEngine.resume` when any field of the store's answer for the trace (content address, URI, tenant, class, name) is not, as an exact string, the trace's own, after `put` returns, so no outcome carrying it is returned. It carries `fields`; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/workflow/test_trace_writer_checks_the_returned_reference.py::test_a_store_answering_another_executions_trace_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_ARTIFACT_STORE_UNAUTHENTICATED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_ARTIFACT_STORE_UNAUTHENTICATED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"artifact-store-unauthenticated"`, the code the three HTTP evidence doors answer with `503` when the deployment's artifact store presented a credential its server's guard did not authenticate (HTTP 401).
+- Why: decision 21 (a), `D-IMPL-378`.
+- Migration: a client branching on refusal codes adds this one. It names a deployment fault: the operator renews or corrects the store's credential; the caller's own request was not at fault.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.controlplane.registry.ArtifactIsolationRefused
+
+- Surface: ccf.controlplane.registry.ArtifactIsolationRefused
+- Public surface: true
+- Change type: added
+- Before: no such refusal existed; every door shared the object it was given or held.
+- After: a `TypeError` raised by any of the five doors when the artifact's reconstruction would not preserve its type, its canonical bytes or its value, carrying `artifact_type`, `door` and `reason`. On a write door nothing has changed when it is raised; on a read door nothing is returned and the artifact is not reported missing (it is never the `LookupError` that `ControlPlaneMissing` is).
+- Why: `D-IMPL-380` sixth round, 15:50 MST: *"If copying fails, leave no newly published version, class binding or version-bump entry, and do not record a successful registration. On retrieval failure, do not return shared state or report the artifact as missing."* Tests: `tests/controlplane/test_registry_isolation_refusal.py`.
+- Migration: none for a caller whose artifacts round-trip through their own canonical form, which every SDK artifact class does (`tests/controlplane/test_artifact_roundtrip.py`). A plain mapping registered through `register` that holds a `Decimal`, a `datetime` or a tuple is now refused rather than served with those values' types silently changed. **An untyped document is JSON-native** — exactly what `json.loads` of its canonical bytes returns (`str`, `int`, `bool`, `None`, `list`, `dict`); a python-mode `model_dump()` is not one, and a caller passes the model itself or `model_dump(mode="json")` (`D-IMPL-380`, 18:25 MST, blocker 2 option (a)). One registration in the suite did carry such values — the python-mode dump of a `DebtProfile` in `tests/replay/test_engine_rehydration.py`, found by the post-reboot full suite of `57ec6c73` — and now registers the typed model; the earlier count of 53 plain-mapping registrations with none affected was measured before that run and was wrong by one.
+
+*Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
+
+#### ccf.controlplane.registry.RegistryIntegrityFailure
+
+- Surface: ccf.controlplane.registry.RegistryIntegrityFailure
+- Public surface: true
+- Change type: added
+- Before: no such failure existed; the registry held only the reconstruction, and a read reconstructed it.
+- After: a `RuntimeError` raised by `peek`, `resolve` and `resolve_latest` when the record under an existing `(key, version)` is missing its verified canonical bytes or those bytes do not hash to the version, carrying `key`, `version`, `door` and `reason`. Distinct from `ControlPlaneMissing` (nothing registered) and from `ArtifactIsolationRefused` (the parse did not prove the artifact). `resolve` and `resolve_latest` record it as a resolve that did not resolve.
+- Why: Dave, 00:15: *"An existing artifact with missing or inconsistent byte storage is an integrity failure, not 'artifact missing.'"*
+- Migration: none for a caller of the public doors; the record is written whole by the write doors and a consistent registry never raises it.
+
+*Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
+
+#### ccf.authz.capability.InvalidationRecordRegister
+
+- Surface: ccf.authz.capability.InvalidationRecordRegister
+- Public surface: true
+- Change type: added
+- Before: the invalidation sink held `Authorized[CompositionRegister]` for exactly one key per tenant.
+- After: a composition-only kind (`action_id` `composition.invalidation-record.register`), in `COMPOSITION_KINDS`, minted only by `mint_at_composition`; `kind_for_action` refuses it by name. Its resource is the tenant's invalidation prefix.
+- Why: `D-IMPL-382` option A — the one amendment to the one-key-per-capability rule of `D-IMPL-353` §1.2 / `D-IMPL-354`, confined by the registry to its own tenant's records of one class.
+- Migration: a composition root that built a `ControlPlaneInvalidationSink` mints this kind for `register_key(tenant)` instead of `CompositionRegister`; `ccf.boot` does so.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.controlplane.registry.invalidation_record_key
+
+- Surface: ccf.controlplane.registry.invalidation_record_key
+- Public surface: true
+- Change type: added
+- Before: no such function.
+- After: `invalidation_record_key(*, tenant_id, entity_uri) -> str`, the derived key `{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`.
+- Why: `D-IMPL-382`, above.
+- Migration: none.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.controlplane.registry.INVALIDATION_RECORD_PREFIX
+
+- Surface: ccf.controlplane.registry.INVALIDATION_RECORD_PREFIX
+- Public surface: true
+- Change type: added
+- Before: the prefix lived only in `ccf.controlplane.invalidation.KEY_PREFIX`.
+- After: `"ccf.entity-invalidation"`, the one class segment the invalidation-record capability may write under; `KEY_PREFIX` now names it.
+- Why: the registry confines the capability to its tenant's prefix, so the registry owns the prefix (`D-IMPL-382`).
+- Migration: none.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.controlplane.registry.INVALIDATION_RECORD_CLASS_ID
+
+- Surface: ccf.controlplane.registry.INVALIDATION_RECORD_CLASS_ID
+- Public surface: true
+- Change type: added
+- Before: no such constant; the register's class id was `ccf.entity-invalidation-register`.
+- After: `"ccf.entity-invalidation-record"`, the one artifact class the invalidation-record capability may register; `ENTITY_INVALIDATION_RECORD` uses it. The class `ccf.entity-invalidation-register` no longer exists.
+- Why: *"It must not authorize … another artifact class"* (`D-IMPL-382`).
+- Migration: none; nothing shipped under the old class.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.controlplane.registry.TypedRegisterAuthority
+
+- Surface: ccf.controlplane.registry.TypedRegisterAuthority
+- Public surface: true
+- Change type: added
+- Before: `register_typed` was annotated `RegisterAuthority`.
+- After: `RegisterAuthority | Authorized[InvalidationRecordRegister]`, the static type of `register_typed`'s first parameter on the registry and on `ControlPlaneProtocol`.
+- Why: `D-IMPL-382`, above.
+- Migration: none.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19196,11 +20755,35 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-03-temporal-boundary-policy.md`.*
 
+#### ccf.demonstration-serve-instant
+
+- Surface: ccf.demonstration-serve-instant
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: a new artifact document format, `serve_instant` only, with its committed JSON Schema at `docs/schemas/ccf.demonstration-serve-instant.json`; the `ccf.deployment-config` schema gains the optional section
+- Why: as for `DemonstrationServeInstant`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### tests/conformance/test_control_plane_class_identity.py
+
+- Surface: tests/conformance/test_control_plane_class_identity.py
+- Public surface: false
+- Change type: added
+- Before: absent. The SDK offered no conformance check for `ControlPlaneProtocol`
+- After: the conformance check for a Control Plane's class-identity obligation, run against the reference registry and a validating third-party implementation, and shown to fail a contract-only implementation by name, per method
+- Why: `D-IMPL-378` K2 (b): documentation alone is not enforcement evidence
+- Migration: none for a deployment on the SDK's registry; a deployment with its own Control Plane lists its factory and runs the module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-597 entries — 405 public Python surface, 192 not public Python API.
+633 entries — 439 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -25254,6 +26837,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
 - Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
 - Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+  - **Correction 2026-10-07 (`D-IMPL-378`):** enforcement landed at `3976cbc1`
+    and no fragment recorded it. It applies to every deployment that serves
+    through `GovernedResolver`, not only a config-driven one, and a tenant with
+    no declared boundary serves nothing; the migration is fragment `378-07`
 
 *Recorded by `358-05-trusted-time.md`.*
 
@@ -25396,8 +26983,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Change type: reshaped
 - Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
 - After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
-- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`, and its replay still fails with `ReplayDivergence`: measured with a computed-empty product's record filed without the member, as a writer before this change filed it.
-- Migration: none is possible for a record written before this change: records are immutable, it carries no finding to copy, and its replay still diverges. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`. Its replay failed with `ReplayDivergence` until `378-03`, and now reaches its own address under the compatibility rule in `ccf.replay.engine.replay`: measured on the record bytes the writer at `d9305603` filed for a computed-empty product, which diverge without `378-03` and replay to their recorded product address with it.
+- Migration: none. A record written before this change is immutable and carries no finding to copy; `ccf.replay.engine.replay` rebuilds its product once more with the finding the writer of its era attached, and accepts it only when the product then hashes to the recorded address (`378-03`). A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
@@ -26127,6 +27714,414 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. The keyword is additive and defaults to the previous behavior.
 
 *Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
+
+#### ccf.products.refusal.ResourceRequestIdentity
+
+- Surface: ccf.products.refusal.ResourceRequestIdentity
+- Public surface: true
+- Change type: reshaped
+- Before: four members — `surface`, `address`, `tenant_id`, `determined_at`. Nothing in a read-refusal record said whether its `tenant_id` was the tenant the refused capability was verified for (as `378-01` writes it) or the door recorder's (as the writer before `378-01` did); for the recorder's own tenant's principal the two records were byte-for-byte one.
+- After: adds `tenant_from: Literal["capability"] | None`, hash-transparent at `None`. `"capability"` is the positive claim that `tenant_id` is the tenant the deciding capability was verified for, bound to the principal replay dimension 4 records. Only `ccf_runtime.authz.delivery_boundary.govern_dereference` writes it, on every read-refusal record it mints, and only it reads it. Every resource identity recorded before the field existed keeps its content address. A disclosed shell carries the resource identity at `full` only, so the marker crosses a door only at `full`.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_record_written_before_the_marker_is_told_apart_from_one_the_door_writes_today` and `::test_a_new_read_refusal_record_carries_the_marker_and_still_binds_who_asked`.
+- Migration: none for a reader of the type: the member is optional and defaults to `None`. Code that builds its own `ResourceRequestIdentity` leaves it `None`; only the governed read states `"capability"`.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: no population phase; the acquisition seam ran over any fabric, as often as asked; a subject Π withheld was always rendered by re-executing the plan without the request seed.
+- After: adds the required, stated field `population_acquisition: PopulationAcquisitionSeamProtocol | None`. Before the first acquisition phase, the fabric must have been booted for its question (`AcquisitionNeedsAQuestionFabric`) and is claimed for it under a lock (`AcquiredFabricReused` for any second question, concurrent or not). The population phase runs once, handed a `PopulationQuestion`; the fabric is read; the subject-keyed seam runs once. A plan factory implementing `SubjectDisclosingPlanFactoryProtocol` is read once at construction; under its policy the decision is taken before anything is fetched, any child asked or anything scored, and an undisclosed subject is replaced by the declared undisclosed subject for the subject-keyed acquisition phase, the child questions and the walk's seed (the population phase is never handed a subject), with the product computed once. Construction refuses `PopulationPhaseSharesAnOwner`, `CompositeNeedsAnEarlyPolicy` and `EarlyPolicyNeedsRequestAwareChildren`; a call raises `UndisclosedSubjectAnswered` or `CompositeWithheldLate` before its decision is gated, recorded or served (a composite's children were already asked, and what they filed stays filed). Route A's re-execution runs only for a late withhold on a non-composite product.
+- Why: SEC-020 channels 1, 4 and 6 under Q7–Q10.
+- Migration: state `population_acquisition=None` where the resolver is constructed directly; boot a fabric with an acquisition phase `for_question=True` and ask it one question.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: no population phase parameter.
+- After: adds the optional `population_acquisition`, handed to the resolver as stated.
+- Why: SEC-020 Q7.
+- Migration: none; the parameter defaults to no population phase.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: no population phase parameter.
+- After: adds the optional `population` (the population phase), refused at open when it shares an owner with `acquire`; every question's fabric is booted `for_question`.
+- Why: SEC-020 Q7 and Q9.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no population phase.
+- After: adds `population`; `build_arguments` states `population_acquisition` when one is declared.
+- Why: SEC-020 Q7.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric declaration.
+- After: adds `for_question: bool = False`.
+- Why: SEC-020 Q9.
+- Migration: none; the default is the fabric that outlives its questions.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric declaration.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 Q9.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric option.
+- After: adds `for_question: bool = False`; when set, the substrate is verified fresh first.
+- Why: SEC-020 Q9.
+- Migration: none; the default is unchanged.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric option.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 Q9.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric option.
+- After: adds `for_question: bool = False`, as `load_and_boot`.
+- Why: SEC-020 Q9.
+- Migration: none; the default is unchanged.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no question-fabric option.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 Q9.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: no record of the seeds an execution was asked to use.
+- After: adds `seeds: frozenset[str] | None = None`, hash-transparent at `None`.
+- Why: SEC-020 Q10: the decision record keeps the seed the one computation used.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: replay seeded every walk with its recorded question's subject.
+- After: adds `executed_seeds: tuple[str, ...] | None = None`, hash-transparent at `None`, recorded only when the walk did not start at the question's own subject (the early decision's stand-in); replay re-executes from it. Records written before the member existed, and every record whose walk started at its own subject, keep their content addresses (measured: three records written by the base source replayed to their own addresses).
+- Why: SEC-020 Q10.
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 carried nothing unique to one answer and nothing about whether the deciding class's answers may withhold their subject.
+- After: adds `issuance: str`, 64 lowercase hex characters or the sentinel `NO_ISSUANCE`, and `subject_withholding: str`, the deciding class's posture (`"may-withhold"` or `"never"`) or the sentinel `UNSTATED_SUBJECT_WITHHOLDING`. Both are hash-transparent at their sentinels, so every record written before them keeps its bytes and its content address.
+- Why: PROPOSAL, Dave's Q11 and Q12 (`D-IMPL-378`). The issuance makes each product answer's record unique; the posture is what the governed evidence read requires before an owner reads a record back.
+- Migration: none for a reader. A record built for comparison without either value keeps the sentinels and its address.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: no `issuance` or `subject_withholding` keyword.
+- After: adds `issuance: str | None = None` and `subject_withholding: str | None = None`, each recorded verbatim in dimension 5; `None` records the sentinel.
+- Why: PROPOSAL, Dave's Q11 and Q12.
+- Migration: none. Both keywords are additive and default to the sentinels.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: no withholding posture.
+- After: adds `subject_withholding: SubjectWithholding`, default `"may-withhold"` and hash-transparent at it, so every declaration registered before the field keeps its content address. `docs/schemas/ccf.product-class.json` is regenerated.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: a class whose records owners should read back declares `subject_withholding: never`, and only if its projection never withholds the subject.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementPolicy
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: reshaped
+- Before: `tenant_id`, `policy_version`, `principals`, `disclosure_level`.
+- After: adds `evidence_readable_classes: frozenset[str]`, default empty and hash-transparent at it, so every policy registered before the field keeps its content address. `docs/schemas/ccf.product-entitlement-policy.json` is regenerated.
+- Why: PROPOSAL, Dave's Q12: *"Default-deny owner read-back, with an explicit tenant class allowlist"*.
+- Migration: owner read-back stops for every product record until the tenant lists the class and the class affirms `never`. Measured on this tree: the test worlds whose job is to deliver an owner's record (`tests/http_api/test_evidence_dereference.py`, the C2 tenant-hold suites for HTTP and MCP, the read-refusal attribution suites for HTTP and MCP) now list their class and stamp `never` on the records they file.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.graph.registry.BackendRegistration
+
+- Surface: ccf.graph.registry.BackendRegistration
+- Public surface: true
+- Change type: reshaped
+- Before: five fields — `name`, `config_model`, `secret_fields`, `open_store`, `make_writer`
+- After: a sixth, `development_reference: bool = False`. The SDK's SQLite and in-memory adapters set it; every other adapter, including any third-party adapter written before this field, defaults to `False`
+- Why: the option (b) production guard needs to know whether the booted graph adapter is a development reference, and core may neither import nor name an adapter (`D-IMPL-93` properties (1) and (2), lints `cinv02-backend-import` and `cinv04-substrate-name`). The adapter states the fact about itself and `compose_serve_clock` asks it through `ccf.graph.registry.resolve`. Measured first the other way: a name list in core was refused by `cinv04-substrate-name`, and the existing `secret_fields` cannot stand in for the flag because the Postgres, MongoDB and Neo4j adapters also declare none
+- Migration: none; a third-party adapter that is a development reference may set `development_reference=True`, and one that says nothing keeps every declared demonstration serve instant refused over it
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `demonstration_serve_instant` section; the key was refused as unrecognised
+- After: an optional `demonstration_serve_instant:` section, hash-transparent at `None`, derived like `temporal_boundary:` — body verbatim, no `semver` injected, the bookkeeping keys refused by name, a top-level `tenant_id` required, key `{tenant}/ccf.demonstration-serve-instant`
+- Why: the single-file authoring surface for the declaration, so a config-driven deployment can state it where its other declarations are
+- Migration: none; absence means the real clock
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.child_resolver.ChildArguments
+
+- Surface: ccf.products.child_resolver.ChildArguments
+- Public surface: true
+- Change type: reshaped
+- Before: `Callable[[ChildRequirement, datetime], Mapping[str, str]]`, handed the requirement and the composite's `asked_at`; a mapping could learn the composite's subject only from state captured beside the resolver.
+- After: `Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]`, handed the requirement and the EFFECTIVE request `resolve_for` is handed (the one `ChildQuestions` mints the child's question from); its `asked_at` is the composite's.
+- Why: SEC-020 residual P3. Under the early policy that request names the declared undisclosed subject, so a mapping that reads the subject off it asks the child what a nonexistent subject's composite asks. It also lifts the limit fragment 370-25 disclosed: a multi-subject composite's `local-dispatch` and `mcp` children can now be asked about the composite's own subject without captured state.
+- Migration: change `(requirement, asked_at)` to `(requirement, request)` and read `request.asked_at`; take any per-request value (the subject, a parameter) from `request`. In this tree nine mappings in seven test modules moved this way, and no example or `runtime/` module supplies one.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question: bool = False` said whether THIS boot was for one question; nothing said whether the store had been booted for one before.
+- After: adds `question_store: bool = False`: the store was booted for one question, by this boot or by an earlier one, read from the marker `<resolved path>.ccf-question-store` beside every path naming the store.
+- Why: SEC-020 residual P4.
+- Migration: none; the default is a store never booted for a question.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `question_store` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 residual P4.
+- Migration: none.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question` and `question_store` said whether this boot, or an earlier one, was for one question; nothing said whether an existing store's creation was known.
+- After: adds `store_creation: Literal["verified", "unmarked", "unverifiable"] = "unmarked"`, read from the markers beside the store: `"verified"` when every path naming the store carries a question or deployment marker, `"unmarked"` when the store existed with neither, `"unverifiable"` when the adapter's connection names no path. The default, for a value no boot produced, presumes nothing.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a value a boot returns.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `store_creation` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: reshaped
+- Before: three required members, `credential`, `issuer_url` and `resource_server_url`, each an `EnvironmentValue`
+- After: `credential` required; `issuer_url` and `resource_server_url` are `EnvironmentValue | None`, defaulting to `None` (hash-transparent, `D-IMPL-243`)
+- Why: `D-IMPL-378` C2-A2 (a): no SDK transport reads either name, and configuration nothing reads is not required. Red tests: `tests/deployment/test_door_environment_optional_addresses.py::test_an_environment_document_whose_door_names_only_the_credential_loads`, `tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses`, `::test_a_door_composes_over_a_door_block_naming_only_the_credential`
+- Migration: none; a document declaring both names loads unchanged. A deployment may drop the two names unless its own code reads them; code that read `door.issuer_url` or `door.resource_server_url` must now handle `None`
+
+*Recorded by `378-35-c2a2-the-door-address-names-are-optional.md`.*
+
+#### ccf.graph.backends.sqlite_write.SqliteConnection
+
+- Surface: ccf.graph.backends.sqlite_write.SqliteConnection
+- Public surface: true
+- Change type: reshaped
+- Before: one setting, `database_path`.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so a connection without it hashes as before), validated exactly as the network stores' setting: a relative path, a path through a symbolic link, a missing directory, one another user owns, or a group- or world-writable one is refused by name. When set, the boot hands the store the lock-directory lease over it; a read-only boot sets it aside unvalidated (N-2).
+- Why: SEC-013, option (C). The sidecar lease is keyed on the resolved path, so a writer through another name of the same file, a hard link or the new name of a renamed live file, takes another lock.
+- Migration: none required: a connection that declares no directory boots exactly as before (the sidecar and the name count; a renamed live file's new name is not excluded). To have the lease follow the file, declare the same absolute, private directory for every process that writes it.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `SqliteGraphStore(*, database_path)`; `writer_lease()` took the sidecar `flock` and refused a file with more than one name.
+- After: `SqliteGraphStore(*, database_path, writer_lease: WriterLeaseSource | None = None)`. With a lease declared, the store reads the database file's device and inode right after SQLite opens it, and refuses with `ValueError` when there is no file (`":memory:"`, `""`); `writer_lease()` then takes the sidecar, the declared lease for that identity (through `acquire_declared_writer_lease`, so a lease that does not exclude other processes is refused with `WriterLeaseRequired`), and the name count, and returns both locks held together, its `mechanism` naming both. Another holder of the file's lease is refused with `WriterLeaseHeld` naming the file, its identity and the held lock, which the boot mint reports as `SingleWriterViolation`. Without `writer_lease=` nothing changes, the `mechanism` text included.
+- Why: SEC-013, option (C): every name of one file has the same device and inode, so every writer of the file that declares the same directory asks for the same lock.
+- Migration: none for a store built without `writer_lease=`. Never rename or move a live database file, and never open one through a second name, even read-only: neither is made safe by any lock.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: no field bounded a plain boot's wait for the store-creation lock; a boot that found it held waited with no timeout.
+- After: an optional `store_creation_lock_wait_seconds`, a positive whole number of seconds (strict: zero, a negative number, a fraction, a boolean and a quoted number are refused at parse), hash-transparent at `None`. `None`, the default and what an absent field parses to, declares no wait. The SDK supplies no value and no upper limit, so a deployment can declare a wait long enough to act like none; the seconds are the deployment's own.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Red test: `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_wait_is_absent_unless_declared_and_kept_as_declared`.
+- Migration: none for a manifest that declares no wait: it keeps its content address, and its boots are refused at once where they used to wait. A deployment whose boots of one store can overlap (several workers starting together, say) declares a wait, or boots again after a `"lock-held"` refusal.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.DeploymentManifest
+
+- Surface: ccf.deployment.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.controlplane.artifacts.DeploymentManifest`.
+- After: as `ccf.controlplane.artifacts.DeploymentManifest`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: as `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds`; the key was refused as unrecognized.
+- After: an optional `store_creation_lock_wait_seconds`, the field, type, bounds and default of `DeploymentManifest`'s twin, hash-transparent at `None`.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b); `DeploymentConfig`'s deployment-level fields mirror `DeploymentManifest`'s, so the two documents cannot drift.
+- Migration: none for a config that declares no wait; it keeps its content address.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`; a held store-creation lock refused nothing, and the boot waited for it with no timeout.
+- After: `reason` may also be `"lock-held"`: another holds the store-creation lock (a boot creating or verifying the store, in this process or another, or any process that locked the file). Refused at once where the deployment declares no `store_creation_lock_wait_seconds`, and once that many seconds have passed with the lock still held where it declares them, counted from the boot's first lock, covering all its locks together. `lock` names the lock's path, and the text names it and says whether a wait was declared. Nothing is created at the path and the marker is not touched; the text does not say an operator must act, since a later boot proceeds once the holder lets go. The refusal does not name the holder. A waiting boot tries the lock again every 0.01 seconds, so a release is noticed at most that much later.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Red tests: `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_that_finds_the_lock_held_and_no_wait_declared_is_refused_at_once_by_name` and `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_with_a_declared_wait_waits_that_long_for_a_held_lock_then_is_refused_by_name`.
+- Migration: a caller that branches on `reason` meets a fifth value. For `"lock-held"`, boot again once the holder lets go; if `fuser` or `lsof` on the lock shows a process that has stopped or hung, end it. Never remove a lock file a process holds: the next boot would create a new one and run beside that holder (lane probe `probe_lock_file_removed_while_held.py`; the security how-to, section 4.12, step 4).
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`, `"lock-held"`; a FIFO, a socket or a device at the marker's path with no store beside it was replaced; a regular-file marker was read to its full size, and one longer than any marker the SDK writes was refused `"unreadable"` beside a store and replaced with none.
+- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"`, and no store or marker is created (the store-creation lock file is); its type is checked from `lstat` before any open, with or without a store beside it, and never replaced. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened, without blocking and without following a link, and then refused from its descriptor's type.
+- Why: `D-IMPL-380` rulings 3 and 4 (a), 2026-10-10 05:34 MST; this After line rewritten under the second-round amendment, 2026-10-10 07:39 MST, and corrected in the third round (09:18 MST). Red tests: `tests/products/test_deployment_marker_special_file_refused.py::test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unreadable_and_left` and `tests/products/test_deployment_marker_oversized_refused.py::test_380_4_a_sparse_1_gib_marker_is_refused_oversized_read_at_most_the_bound_and_left`.
+- Migration: a caller that branches on `reason` meets a sixth value. For `"oversized"` or a special file refused `"unreadable"`, find what wrote it at the marker's path, then remove it (and the store, if one stands there) so that a boot creates and verifies a new store (the security how-to, section 4.12).
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: `D-IMPL-380` rulings 3 and 4 (a).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
 
 ### Not public Python API
 
@@ -28504,11 +30499,35 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `374-01-sec-013-network-store-lease.md`.*
 
+#### ccf.deployment-manifest
+
+- Surface: ccf.deployment-manifest
+- Public surface: false
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds` key; a manifest naming it was refused at parse.
+- After: an optional `store_creation_lock_wait_seconds`, an integer greater than zero; the committed `docs/schemas/ccf.deployment-manifest.json` carries it, regenerated.
+- Why: as for `ccf.controlplane.artifacts.DeploymentManifest`.
+- Migration: as for `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment-config
+
+- Surface: ccf.deployment-config
+- Public surface: false
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds` key; a config naming it was refused as an unrecognized section.
+- After: an optional `store_creation_lock_wait_seconds`, an integer greater than zero; the committed `docs/schemas/ccf.deployment-config.json` carries it, regenerated.
+- Why: as for `ccf.controlplane.artifacts.DeploymentConfig`.
+- Migration: as for `ccf.controlplane.artifacts.DeploymentConfig`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-47 entries — 47 public Python surface, 0 not public Python API.
+48 entries — 48 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -29140,11 +31159,23 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.products.resolver.UnheldSubjectProbeRefused
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeRefused
+- Public surface: true
+- Change type: removed
+- Before: an `UnsupportedComposition` raised for every question of a class the probe reads when the probe call ended in a held refusal, recording nothing.
+- After: absent; the SDK raises it nowhere, and such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`.
+- Why: SEC-020, decision 2.3 (b) (see above). A public exception the SDK never raises would invite `except` clauses that never fire; it was added in this same unmerged batch (fragment 378-48).
+- Migration: catch nothing; recognize the returned refusal by `UNHELD_SUBJECT_PROBE_REFUSAL`'s sentence, or by its record at the `acquisition` seam.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-301 entries — 262 public Python surface, 39 not public Python API.
+558 entries — 519 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33887,6 +35918,3090 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a deployment-supplied artifact substrate behind a governed door answers `names_at` and declares `WriteKinds`, as the shipped `FileArtifactStore` and `McpArtifactStore` do. A record filed under a tenant other than the one it was decided under — a delivery-boundary denial addressed to another tenant at a door whose recorder is a different tenant's — no longer reads for anyone.
 
 *Recorded by `377-07-forged-record-provenance.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a read-refusal record's resource identity named the door recorder's tenant (`refusal_recorder.tenant_id`) whichever tenant the refused capability named, so holds 0 and 1 attributed another tenant's refused read to the recorder's tenant and served it to a principal of that tenant with the same client id. Hold 3 read the disclosure level through the door's recorder under the recorder's own tenant, for the caller's principal id.
+- After: a read-refusal record names `authorized.tenant` — the tenant the refused capability was verified for — beside the principal dimension 4 records, so holds 0 and 1 hold a later reader to that pair. Such a record decided under one tenant and filed by a recorder of another is served to nobody by the provenance check, which is unchanged; its own principal reads it back only through a door whose recorder is its own tenant's, as before (hold 0 refused it then). Hold 3 reads the level through the door's recorder for `authorized.tenant` and the principal together — after hold 0, the tenant the record was decided under. On a door whose callers are all of the recorder's tenant, a read-refusal record is byte-for-byte what it was and hold 3 reads the same level. Every caller inherits it: HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact`, and the MCP artifact server's governed reads.
+- Why: Dave, 2026-10-07 (`D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_another_tenants_read_refusal_record_answers_a_colliding_principal_as_a_missing_address_does`, `::test_a_read_refusal_record_binds_the_tenant_and_principal_the_refused_capability_named` and `::test_hold_three_reads_the_level_in_force_for_the_requesting_tenant_not_the_recorders`; `tests/http_api/test_read_refusal_attribution_http.py::test_another_tenants_read_refusal_record_answers_a_colliding_principal_as_a_missing_address_does` (all three routes) and `::test_hold_three_reads_the_level_in_force_for_the_requesting_tenant_not_the_recorders`.
+- Migration: none where every caller of a door is of its recorder's tenant. Read-refusal records minted before this change are not rewritten and still replay to their own addresses (`tests/mcp/test_read_refusal_attribution_mcp.py::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`); on a door that served several tenants through one recorder, such a record still reads for a principal of the recorder's tenant with the same client id as the principal it names — keep client ids distinct across tenants that share a door, or give each tenant its own door and recorder. A principal of a tenant other than the recorder's never reads its own read refusals back through that door, before or after this change. A deployment-supplied recorder's `disclosure_level_for` is now asked for the capability's tenant at hold 3.
+
+*Recorded by `378-01-read-refusal-binds-tenant-and-principal.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: behavior
+- Before: `record` read the level it discloses a refusal shell at under the recorder's own tenant (`self.tenant_id`) for the perspective's principal. On a door serving several tenants through one recorder, another tenant's caller was disclosed at the level the recorder's tenant declares for a principal with the same client id: measured, a caller at `minimal` in its own tenant received `full` shells, telling a missing address from another of its own tenant's principals' records, and a caller at `full` received `minimal` ones.
+- After: `record` reads the level under the tenant the determination was made under — the tenant a delivery-boundary determination's resource identity names, which its door established (`govern_entitlement`, `govern_absence`, `govern_erasure`, `govern_raised_refusal`'s door-built envelope, `govern_dereference`) — and under the recorder's own tenant for a determination that names none (a resolver's own refusal), for the perspective's principal. The recorded `DisclosureDecision` names that tenant's policy. Every site in `src/`, `runtime/` and `examples/` that builds a `ResourceRequestIdentity` is one of those governed steps.
+- Why: Dave, 2026-10-07 (`D-IMPL-378`), the adjacent sweep. Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_not_the_recorders` and `tests/http_api/test_read_refusal_attribution_http.py::test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_not_the_recorders`.
+- Migration: none where every caller of a door is of its recorder's tenant. A door serving several tenants through one recorder now discloses another tenant's caller under that tenant's own entitlement policy — `minimal` where that tenant registers none — instead of the recorder's tenant's level for the same client id. A deployment-supplied `disclosure_level_for` is now called with tenants other than the recorder's own and must answer for them; the SDK's `ControlPlaneProductEntitlementSource.disclosure_level_for` reads that tenant's policy and answers the safe default where none is registered. Records already written are unchanged.
+
+*Recorded by `378-01-read-refusal-binds-tenant-and-principal.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+
+- Surface: ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+- Public surface: true
+- Change type: behavior
+- Before: `disclosure_level_for`'s docstring stated that a delivery-boundary denial's entitlement pin and level pin can name different tenants, the level being read under the tenant whose door is answering.
+- After: the docstring states that both are read under the tenant the determination was made under — for a delivery-boundary denial, the tenant the caller addressed — and that the earlier reading let a door's own tenant's policy for a colliding principal id set another tenant's caller's level. The method itself is unchanged: it answers for whichever tenant it is asked.
+- Why: Dave, 2026-10-07 (`D-IMPL-378`); the recorder change above made the earlier statement false.
+- Migration: none.
+
+*Recorded by `378-01-read-refusal-binds-tenant-and-principal.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: an erasure a seam met was answered by the level read under the door recorder's tenant for the caller's principal id — the opaque `ccf-runtime-failure:<id>` at `minimal`, the recorded `erased-content` shell above it. On a door serving several tenants through one recorder, another tenant's caller took the branch the recorder's tenant declares for a principal with the same client id; measured with the recorder as shipped at `7bf069cc`, a `minimal` caller received the `erased-content` shell at `full`, carrying the erasure's reason, instant and record address.
+- After: the branch is chosen by the level in force for the tenant the determination is made under and the caller's principal together — on `get_context`, `get_lineage` and `get_replay_record` the tenant handed to `govern_erasure`, so the branch and the recorded shell's level are one key; on `list_agents` and `invoke_agent` the capability's tenant. Measured on `get_context` in both directions; the other four call sites are the same one-key change, read from the code.
+- Why: Dave, 2026-10-07 (`D-IMPL-378`), the adjacent sweep. Red test: `tests/mcp/test_experience_level_binds_the_tenant.py::test_the_erasure_branch_reads_the_level_in_force_for_the_callers_tenant_not_the_recorders`.
+- Migration: none where every caller of a door is of its recorder's tenant. On a door serving several tenants through one recorder, another tenant's caller now receives the answer its own tenant's level selects.
+
+*Recorded by `378-01-read-refusal-binds-tenant-and-principal.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the blob (`ccf-artifact-blob://`) and presence (`ccf-artifact-meta://`) resources served an address the caller's own tenant had filed only in classes not declared under `ReplayMint` (the client lane) as the exact stored bytes and `{"found":true}`, whatever those bytes were. Bytes shaped as a Decision Replay record, filed on the tenant's client lane by any principal of it, therefore crossed exactly as a governed record does, and every SDK reader of the MCP-backed store took them as one.
+- After: on the client lane, bytes that validate as a `DecisionReplayRecord` are decided by the governed dereference instead of being served. "Validate" means `DecisionReplayRecord.model_validate_json`, the step `resolve_artifact` ends with and the parse every SDK reader of a record makes. The governed dereference serves a record only where the store's naming shows the fabric's record writer filed the address under the record's tenant, and that tenant is the caller's. That is never true of an address the caller's tenant filed only on its client lane. So blob and presence answer such bytes exactly as a missing address: byte-identical answers, behind the same recorded `nonexistent` / `evidence-absent` determination. An `McpArtifactStore` reader gets `ArtifactNotFound` from `get` and `False` from `exists`. Reading through it, `resolve_artifact`, `resolve_artifact_at_uri` and `replay_refusal` raise `ReplayUnresolvable`, and child admission's record read raises `ArtifactNotFound`. Bytes that validator refuses are served as before; measured with one key added to a record and one key removed. Unchanged: the write (the server's `put_artifact` files the bytes and answers their reference), the names resource (it lists the tenant's own filing under its stored class), the governed reads, and C8 (a tenant's blob, presence and names answers for such a filing are the same whether another tenant filed the same bytes nowhere, on its client lane, or through its record writer).
+- Why: Dave's client-lane ruling, 2026-10-07 (`D-IMPL-378`). Red tests: `tests/mcp/test_forged_record_mcp.py::test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_address_does` (until now a strict expected failure); `tests/mcp/test_clientlane_record_shaped.py::test_the_replay_engines_read_does_not_accept_a_record_shaped_client_lane_filing`, `::test_replay_refusal_does_not_verify_a_forged_refusal_record_from_the_client_lane`, `::test_child_admission_does_not_read_a_client_lane_record_as_the_childs_record`, `::test_record_shaped_means_the_record_validator_accepts_the_bytes_not_a_resemblance` (both parametrizations), `::test_a_tenants_answers_for_its_record_shaped_filing_do_not_depend_on_another_tenants_filing`, `::test_the_write_is_not_refused_and_the_names_resource_still_lists_the_filing` and `::test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_filing_to_verify_its_subject`.
+- Migration: a client that files a copy of a Decision Replay record on a client lane and reads it back through the MCP artifact server now gets the missing-address answer. Read a record through a governed read instead. A copy kept as an ordinary client artifact must be in a form the record validator refuses. Each read of such bytes records a `nonexistent` refusal through the door's recorder, as a read of a missing address does. An erasure door built over the MCP-backed store reads each named address's bytes to verify its subject, so it now refuses a request naming such a filing `subject-unverifiable`; before this change it read the bytes and judged them. A door over the store in process reads the bytes directly and judges the subject. The SDK readers that read a store in process, without the artifact server in between, are not changed here: `resolve_artifact`, `replay_refusal` and child admission still accept a record-shaped client-lane filing as a record, because none of them checks who filed it.
+
+*Recorded by `378-02-record-shaped-bytes-on-the-mcp-client-lane.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: when Π raised the withheld signal, `__call__` re-executed the plan without the request seed over the as-of read taken immediately before the declared acquisition seam, using the operator registry built from the view read after acquisition. A similarity operator in that registry scored the walk against the text acquisition had just written for the asked subject.
+- After: when an acquisition seam ran, the re-execution runs on a `ProjectionEngine` over the same reader whose registry `build_operator_registry` builds from that read before acquisition, with the same operator parameters (the same effective request over the same pinned artifacts). Only the withheld branch builds it: the served path keeps the registry built from the view after acquisition, so a subject Π does not withhold is still matched against the text its own acquisition wrote (`tests/products/test_withheld_similarity_registry.py::test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wrote`). With no seam declared nothing changes.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`. The withheld rendering is the walk a subject that names nothing gets, and that subject's corpus is the text before acquisition.
+- Migration: none in code. If your `acquire` is not keyed on the subject and the plan carries a similarity operator, read "The trade, measured" above: that shape now differs at more members, and as refused against served under `from_entity_freshness`. With an acquisition seam declared, a withheld answer now also builds the operator registry a second time from the read before acquisition. On a test fabric of about 1,500 entities with a similarity operator in the plan, the withheld median was 1.06 to 1.08 times the nonexistent one over two runs of eight calls each, ranges overlapping (1.11 in one run before this change). If that read holds an entity whose declared corpus attribute is missing, the withheld call raises `SimilarityCorpusAttributeError`, as a nonexistent subject's call over that same state does.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `execute_without_request_seed` said the governed resolver built the engine's registry from the view read after acquisition.
+- After: no code change. The docstring states the caller's obligation: a caller passing `before_acquisition` calls the method on an engine whose registry was built from that same read, and on a registry built from a later view an index-backed operator scores the walk against text the acquisition wrote. `GovernedResolver` now meets it.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`.
+- Migration: a deployment that calls `execute_without_request_seed(..., before_acquisition=...)` itself should build the engine's registry with `build_operator_registry(view=<that same read>, ...)`, as `GovernedResolver` does.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.projection.plan.ProjectionOutput
+
+- Surface: ccf.projection.plan.ProjectionOutput
+- Public surface: true
+- Change type: behavior
+- Before: the docstring listed similarity over an entity the acquisition refreshed among the channels that still tell a withheld subject from a nonexistent one.
+- After: no code change. The docstring says the re-run scores with a registry built from the read before acquisition and that the two products were measured equal on a test fixture whose acquisition changed the subject's similarity text; the rest of its list is unchanged.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`.
+- Migration: none.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: a record whose dimension 5 carried no `computed_empty`, for a product that carried one, was rebuilt without the finding and raised `ReplayDivergence` on its content address.
+- After: when the product rebuilt from the record does not reproduce the recorded address, the record carries no `computed_empty` and the rebuilt product carries none, the product is rebuilt once more with the finding the writer of the record's era attached, `ComputedEmptyFinding.of(execution, emptiness=emptiness_of(ExecutionEvidence.of(execution)))`, applied to the re-execution replay has already held to the record (step sequence, query pins, graph substate, store pin). It is accepted only if it then hashes to the address the record names; otherwise `ReplayDivergence` is raised as before, naming the first rebuild's address. A record carrying the member reaches this rule only if its own rebuild already failed. No writer, record, byte or address changes, and `replay_refusal`, which rebuilds no product, is untouched.
+- Why: SEC-020 close-out channel 7, review finding M-5; `D-IMPL-378`. A record that predates the member replays under the semantics it was written under. The member is hash-transparent at `None`, so a record cannot say whether it predates the member or served a product with no finding, and the record's own product address decides. Controls: `tests/replay/test_record_filed_before_dimension_5_finding.py::test_m5_control_the_record_the_current_writer_files_replays_with_its_finding_copied` and `tests/replay/test_record_filed_before_dimension_5_finding.py::test_m5_control_the_record_s_own_product_address_still_arbitrates`.
+- Migration: none. A record filed before the change replays through any `ReplayEnvironment` that copies `path.computed_empty`, which is `None` on such a record, including `src/ccf/replay/environment.py::RecordedEnvironment`.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: until `3976cbc1` a governed serve applied no temporal bound, so a question asked as of any instant, however far before or after the serve instant, was assembled
+- After: same signature. Every serve resolves the tenant's `TemporalBoundaryPolicy` at `{tenant}/ccf.temporal-boundary-policy` (`ccf.controlplane.temporal_boundary.resolve_temporal_boundary`) and judges the question's `asked_at`, and separately the decision instant the class derives, against the trusted serve instant before anything is acquired (`ccf.products.refusal.refuse_temporal_bound`). Undeclared: a `temporal-bound-refusal` with reason `temporal-boundary-undeclared`, recorded in Decision Replay with the key that was required and no policy binding; at `minimal` the caller sees *"this tenant does not answer for the instant this question names"*, and the HTTP status is 400. Declared: an instant outside the window is refused `asked-at-outside-temporal-bound` or `decision-instant-outside-temporal-bound`, and the policy's exact version is pinned on the record of the served decision or of the refusal its window caused. The paved road also holds each acquired envelope to the same window (`358-08`)
+- Why: `D-IMPL-358` step 5 with ruling 11. The SDK holds no duration (`D-IMPL-38`), so absence refuses rather than defaulting. This is the migration note step 5 left unwritten (the `D-IMPL-377` close-out, §7e item 1 and restriction 21; estate families A and A')
+- Migration: **required.** A deployment upgraded from before `3976cbc1` boots normally and then serves no governed question until it declares a temporal boundary for each tenant it serves. Every tag so far, `v0.1.0`, `v1.0.0` and `v1.0.1`, predates `3976cbc1` (measured with `git merge-base --is-ancestor`), so this applies to an upgrade from any tagged release. Declare it as a `temporal_boundary:` section in `ccf_config.yaml` holding `max_past_seconds` and `permitted_clock_skew_seconds` (the config needs a top-level `tenant_id`), or as a manifest entry with `key: ccf.temporal-boundary-policy`, `class_id: ccf.temporal-boundary-policy`, `role: register` and `registration: typed`, as `examples/s1-01-hello-context-product/artifacts/manifest.yaml` does. A composition root serving several tenants registers one policy per tenant at `temporal_boundary_policy_key(tenant_id=...)`. Both values are policy decisions: `0` is the strictest bound, no value means unbounded, and a negative value is refused. Section 4.14 of the security how-to describes the refusal and how to choose the values
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+- Public surface: true
+- Change type: behavior
+- Before: the class docstring said "the comparison itself is **not implemented at this step**", and the module docstring said "It does *not* enforce anything", with the resolver work still to come. Both were written at step 3 and have been stale since `3976cbc1`
+- After: documentation only; no code path changed. The class docstring names `ccf.products.refusal.refuse_temporal_bound` as the comparison, live on every governed serve. The module docstring adds that enforcement has landed in the callers (`GovernedResolver`, `IngressTemporalBound`) and that an undeclared tenant is refused, while the module itself still reads no clock
+- Why: the temporal-boundary item (the `D-IMPL-377` close-out, §7e item 1). The SDK's own reference text told a reader the boundary was not enforced
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+
+- Surface: ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+- Public surface: true
+- Change type: behavior
+- Before: the `binding` property's docstring said *"Nothing appends this yet"*
+- After: documentation only. The resolver carries exactly this binding on the record of a served decision and on the record of a refusal the declared window caused, and carries none when the policy is undeclared
+- Why: as for `TemporalBoundaryPolicy`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: the docstring said `artifacts` is *"keyed by manifest key"* and showed `{key: booted.artifacts[key] for key in (...)}` *"naming its own manifest keys"*; `pins` said nothing about its keys. Both have been wrong for a bare authored key since `D-IMPL-354` placed every key under the tenant (`353-09`)
+- After: documentation only. `pins` and `artifacts` are documented as keyed by the manifest key as placed under the deployment's tenant: `{tenant}/policy` for an authored `policy`, and a key already under the tenant unchanged. The docstring names the lookups that work (`booted.keys.<section>`, or `namespaced_key(tenant=booted.tenant_id, key=...)`) and what a bare key gets (`KeyError`, `None` from `.get`, `UnpinnedArtifactError`). `keys` is documented as placed too
+- Why: the `D-IMPL-377` close-out, §7e item 2 (estate family R): example code followed the docstring and read its artifacts and pins by bare keys
+- Migration: none; read the boot result by the placed key, as the corrected `353-09` entry for `namespaced_key` now says
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's day-1 paragraph told the adopter to read `booted.artifacts[<signal-batch-key>]` and to name its own manifest keys against `booted.artifacts`, without saying those keys come back placed under the tenant
+- After: documentation only. The paragraph says every key there is placed under the tenant and points to `BootedFabric.artifacts`
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.operators.build_operator_registry
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: the `parameters` docstring showed `{key: booted.artifacts[key] for key in (...)}` as *"naming its own manifest keys"*
+- After: documentation only. It says the manifest keys are named as placed under the tenant, which is how `BootedFabric.artifacts` holds them
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.pins.ArtifactPin
+
+- Surface: ccf.deployment.pins.ArtifactPin
+- Public surface: true
+- Change type: behavior
+- Before: `key` was documented as *"taken verbatim from the manifest entry"*, which reads as the key the author wrote and is wrong for a bare one
+- After: documentation only. `key` is the key the entry was registered under; for a pin a loader produced, the manifest key as placed under the tenant
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.pins.ResolvedPins
+
+- Surface: ccf.deployment.pins.ResolvedPins
+- Public surface: true
+- Change type: behavior
+- Before: `version_for("policy")`, against a pin recorded under `{tenant}/policy`, raised `UnpinnedArtifactError` saying *"the manifest either does not name it or names it with role 'load'"*. Both causes are false in that case (measured on a `load_config_and_boot` fabric)
+- After: same signature, same exception type, and the same exact lookup; nothing is re-derived or chosen. When the missed key is the bare form of a recorded key (the text after its tenant segment), the message names the recorded key and the cause: a loader records each pin under its manifest key as placed under the deployment's tenant (`manifest_under_tenant`, `D-IMPL-354`). It also names the remedy (`BootedFabric.keys`, `namespaced_key`). Every other miss keeps the `D-IMPL-80` message. `ResolvedPins` still has exactly one public method, and `UnpinnedArtifactError`'s docstring names the third situation
+- Why: the `D-IMPL-377` close-out, §7e item 3. Red: `tests/deployment/test_pins_tenant_key_diagnosis.py::test_a_bare_key_names_the_placed_key_its_pin_is_recorded_under`, `::test_a_bare_key_holding_a_separator_is_diagnosed_the_same_way` and `::test_a_booted_fabrics_pins_name_the_placed_key_for_a_bare_lookup`. One severing, the diagnosis branch disabled, reddens all three
+- Migration: none. The exception type is unchanged; a caller that matched the old message text on a bare-key miss reads the new one
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: `from_declared(None)` raised `AttributeError: 'NoneType' object has no attribute 'declaration'`, and a raw mapping raised the same for `dict`: the interpreter's error, not a refusal. `None` is what `booted.artifacts.get("request_contract")` returns, since the boot result holds that artifact under `{tenant}/request_contract`
+- After: same signature. An argument carrying no `declaration` mapping is refused first, in the method's existing convention: a `ValueError` naming the guard (*"… was handed None, which is not a declared artifact …"*). For `None` the message names the placed keys of `BootedFabric.artifacts` and the remedy. A `DeclaredArtifact` reads exactly as before
+- Why: the `D-IMPL-377` close-out, §7e item 4. Red: `tests/products/test_from_declared_refuses_a_non_artifact.py::test_none_is_refused_by_name_rather_than_raising_attribute_error` and `::test_a_raw_mapping_is_refused_by_the_same_guard`. One severing, the original dereference restored with the refusal disabled, reddens both
+- Migration: a caller that caught `AttributeError` here catches `ValueError`, which the method's `Raises` section already named for every malformed declaration
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.replay.engine.resolve_artifact
+
+- Surface: ccf.replay.engine.resolve_artifact
+- Public surface: true
+- Change type: behavior
+- Before: for `contract=DecisionReplayRecord`, any bytes at the address that hashed to it and parsed as a record were returned as one, whoever filed them, including a record-shaped artifact on a tenant's client lane naming another principal.
+- After: for a `DecisionReplayRecord`, after the byte-first hash check and validation, the store must show the address filed by the fabric's record writer under the tenant the record names (`require_filed_by_record_writer`). Otherwise it raises `ReplayUnresolvable`, as for a missing record, with `RecordNotFiledByRecordWriter` as its cause. A store that cannot attribute raises `UnattributableRecordStore`. Every caller inherits it: `resolve_artifact_at_uri`, `replay` and `replay_refusal`, whose prologue resolves the record through it, and `govern_dereference`'s own record read. Unchanged: every other contract, missing and erased addresses, and the hash check.
+- Why: Dave's item 3 (`D-IMPL-378`). Red tests: `tests/replay/test_record_provenance.py` (`resolve_artifact` and `resolve_artifact_at_uri` over the raw store and the erasure-consulting composition, `replay`, `replay_refusal`, a record filed by another tenant's writer, a store without `names_at` or `WriteKinds`).
+- Migration: a store a replay reads through must answer `names_at` and declare `WriteKinds` naming every record class its records were filed under, under `ReplayMint`, as the shipped `FileArtifactStore` and `McpArtifactStore` do when opened with the deployment's declaration. Consequences: a read-back store opened with an empty or partial declaration now refuses genuine records; a deployment that renames its record class keeps declaring the old class under `ReplayMint` to replay records filed under it; records written straight to a substrate without a naming entry no longer resolve; file them through `put` under the record class.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.engine.resolve_artifact_at_uri
+
+- Surface: ccf.replay.engine.resolve_artifact_at_uri
+- Public surface: true
+- Change type: behavior
+- Before: a URI naming a record-shaped artifact on a client lane resolved to it as a `DecisionReplayRecord`.
+- After: naming resolution is unchanged, then `resolve_artifact` applies the provenance rule. A URI naming bytes the record writer did not file raises `ReplayUnresolvable`. A URI naming a copy of a genuine record under another name resolves, because identical bytes are one artifact.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: as for `resolve_artifact`.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.engine.replay_refusal
+
+- Surface: ccf.replay.engine.replay_refusal
+- Public surface: true
+- Change type: behavior
+- Before: a forged refused record filed on a client lane was resolved, verified and returned as a `RefusalReplayOutcome` naming the principal the bytes named.
+- After: the prologue's record read applies the provenance rule, so such a record raises `ReplayUnresolvable` before any binding is resolved. `replay` changes identically for a forged served record, which it previously reproduced into a `ReplayOutcome`.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: as for `resolve_artifact`.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: for a locally dispatched child, the record its replay reference named was read as the child's own execution record whoever filed it; only its product address was checked against the child's, so a record-shaped client-lane artifact with the right product address and forged touched entities decided the eligibility check.
+- After: the referenced bytes must have been filed by the fabric's record writer under the tenant they name, or `RecordNotFiledByRecordWriter` is raised before anything is read out of them. It propagates as any lookup failure from child resolution does, out of the composite resolver unless the deployment declares it a seam refusal. `UnattributableRecordStore` is raised for a store that cannot attribute. Inherited by `QuestionBoundChildResolver`, which admits through it.
+- Why: Dave's item 3 (`D-IMPL-378`). Red test: `tests/products/test_record_provenance_admission.py::test_child_admission_refuses_a_child_record_forged_on_the_tenants_own_client_lane`, through the shipped composite resolver.
+- Migration: as for `resolve_artifact`. A child producer's replay reference names a record its fabric's record writer filed in the store the composite reads.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.products.product.OpenedProduct.record_of
+
+- Surface: ccf.products.product.OpenedProduct.record_of
+- Public surface: true
+- Change type: behavior
+- Before: returned the bytes at the address or URI an outcome named, parsed as a `DecisionReplayRecord`, whoever filed them.
+- After: returns them only where the product's store shows the fabric's record writer filed them under the tenant they name; otherwise raises `RecordNotFiledByRecordWriter`, or `UnattributableRecordStore` for a store that cannot attribute.
+- Why: Dave's item 3 (`D-IMPL-378`). Red test: `tests/products/test_record_provenance_admission.py::test_record_of_refuses_a_record_forged_on_the_tenants_own_client_lane` (a served outcome naming the forgery's address, a refusal naming its URI).
+- Migration: none for outcomes the product itself returned.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.controlplane.state.InMemoryStateStore
+
+- Surface: ccf.controlplane.state.InMemoryStateStore
+- Public surface: true
+- Change type: behavior
+- Before: a dict of records; `put` replaced a record unconditionally
+- After: a `ConditionalStateStore` of scope `"process"`: every write increments the key's version under one lock, `put_if` compares and writes inside that lock, and `get_versioned` reads the version before the record, so a torn read can only make a later `put_if` conflict
+- Why: `D-IMPL-378`, the reference implementation of the conditional write
+- Migration: none; `put`, `get` and `items` answer as before
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.controlplane.state.AuditedStateWriter
+
+- Surface: ccf.controlplane.state.AuditedStateWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write` only
+- After: also `write_if(authorized, record_class, record, *, record_id, event, expected_version) -> (event, version)`: the store's `put_if` first, then the event, so a refused write appends nothing; a store that is not a `ConditionalStateStore` raises `TypeError`
+- Why: `D-IMPL-378`; the workflow engine's passage commit and its attributed audit row are one write
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: behavior
+- Before: no action recorded an execution's start
+- After: `"workflow_started"` joins the vocabulary: the workflow engine records an execution as started, with a create-if-absent write, before its first node runs
+- Why: `D-IMPL-378`; an execution id is started once (D-23), measured by `tests/workflow/test_approval_gate_limits.py::test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once`
+- Migration: a consumer that enumerates audit actions adds `workflow_started`
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.HITLTransportProtocol
+
+- Surface: ccf.hitl.transport.HITLTransportProtocol
+- Public surface: true
+- Change type: behavior
+- Before: no member decided a gate; a verdict on a passed gate was recorded
+- After: three members join: `scope` (`"process"` or `"shared"`); `close_gate(authorized: Authorized[Resume], *, event_key, product_content_hash, passage, decided_action, decided_by, observed_submissions) -> GateClosure`, one atomic step with `submit` and `remove` that returns an existing closure of the same passage, refuses another passage's (`GateAlreadyClosed`) and a changed count (`GateVerdictsChanged`), and otherwise records the closure, removes the suspension's event from `pending` and discards a claim on it; and `closures(*, tenant)`. `submit` refuses a verdict on a decided suspension (`HitlGateClosed`). A conforming implementation keeps closures exactly as durable as its submissions
+- Why: Dave's ruling of 2026-10-07 approved the atomic gate close (`D-IMPL-378`)
+- Migration: a deployment-supplied transport implements the three members and the refusal in `submit`, atomically with its recording, and runs `tests/conformance/test_gate_closure_and_conditional_write.py`; the workflow engine refuses at construction a transport that does not offer the whole Protocol
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.hitl.transport.InMemoryHitlTransport
+
+- Surface: ccf.hitl.transport.InMemoryHitlTransport
+- Public surface: true
+- Change type: behavior
+- Before: a verdict on a passed gate's suspension was recorded; a passed gate's event stayed in `pending` on the submit-only door path
+- After: scope `"process"`; `close_gate` and `closures` under the transport's one lock; `submit` refuses a decided suspension's verdict inside the step that records, before the revalidation and the nonce
+- Why: `D-IMPL-378`, the reference implementation of the gate close
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted any state store and transport. `execute` checked for a record and then ran nodes, and wrote at the first suspension. `resume` took the in-process claim, read the record and the verdicts (twice), and appended its attributed `workflow_resumed` row. Only then did it run the step after the gate and write at the next suspension or terminal. A retry after a failed write ran the step after the gate again
+- After: construction refuses, typed (`WorkflowWiringError`) and by name: a state store that is not a `ConditionalStateStore` declaring scope `"process"` or `"shared"`; a transport that does not offer the whole `HITLTransportProtocol` with such a scope; and a `"shared"` store paired with a transport that is not `"shared"`. `execute` writes a `running` record at the start node with a create-if-absent write (`workflow_started`) before any node runs; a second start of the id is refused "already exists" (409 at the door). `resume` keeps the in-process claim and reads the verdicts once. After every check it closes the gate on the verdicts it judged: refused if a verdict arrived since its read, or if another passage holds the closure. It then commits the passage — the record `running` at the decision, and the attributed `workflow_resumed` row, in one write conditional on the version it read — BEFORE the step after the gate runs; a lost commit is refused. A resumption that finds a `running` record is refused: "An interrupted passage is never retried". A passage whose commit never landed is still `suspended`: presenting the resumption again re-takes the same closure, and the step runs once. A later write of a passage is fenced by version (`ExecutionFenced`)
+- Why: `D-IMPL-378` (Dave, 2026-10-07). Red tests: `tests/workflow/test_approval_gate_limits.py` and `tests/http_api/test_approval_gate_limits_door.py`. The two halves of the retry ruling: `tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure` and `::test_an_interrupted_passage_is_never_retried_by_any_process`. Construction: `tests/workflow/test_engine_refuses_unsupported_seams.py`. The two single-flight tests the ruling changed: `tests/workflow/test_resume_single_flight.py::test_a_resume_that_raises_gives_the_claim_back` (the retry now runs the step once) and `::test_a_cancelled_resume_gives_the_claim_back` (the later resume is now refused as an interrupted passage)
+- Migration: a deployment over its own state store or transport implements the new members (above) or is refused at construction. A deployment where several processes resume no longer needs its own per-execution lock in front of the door; it needs a `"shared"` store and a `"shared"` transport. `GET /workflow/execution` can now answer `status: "running"` — between a passage's commit and its next suspension or terminal, and for good after an interrupted passage, which an operator reconciles outside the fabric (the gate's closure, `HITLTransportProtocol.closures`, names the passage). A retry after a failed resumption runs the step after the gate again only if its commit never landed; one interrupted after its commit is refused. Audit readers see one `workflow_started` row per execution; the attributed `workflow_resumed` row is now written with the passage's state write. An execution suspended before the upgrade resumes normally once the deployment's store reports a version for the records it held before the upgrade (a version column initialized for existing rows); the SDK's in-memory store keeps nothing across a restart
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.http_api.routes.hitl.build_router
+
+- Surface: ccf_runtime.http_api.routes.hitl.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `POST /hitl/actions` answered 200 for a verdict on a passed gate's suspension, with `event_pending: true` on the submit-only path, and `GET /hitl/queue` kept listing the passed gate's event
+- After: such a verdict is answered 409 with `error_code` `hitl-gate-closed` and nothing is recorded; the queue no longer lists a decided gate's event
+- Why: `D-IMPL-378`; `tests/http_api/test_approval_gate_limits_door.py::test_a_passed_gate_is_neither_offered_nor_accepted_as_pending_at_the_doors`
+- Migration: as for `ERROR_HITL_GATE_CLOSED`
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.mcp.hitl_server.build_hitl_server
+
+- Surface: ccf_runtime.mcp.hitl_server.build_hitl_server
+- Public surface: true
+- Change type: behavior
+- Before: `submit_hitl_action` had no refusal for a decided gate
+- After: it raises the refusal body with `error_code` `hitl-gate-closed` when the transport refuses a verdict on a decided suspension
+- Why: `D-IMPL-378`; `tests/mcp/test_hitl_gate_closed_mcp.py::test_a_verdict_on_a_decided_gate_is_refused_at_the_mcp_door`
+- Migration: as for `ERROR_HITL_GATE_CLOSED`
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: behavior
+- Before: seven exception-family names
+- After: `StateConflict` joins with its reason: an exception a state store raises, never a determination a consumer receives
+- Why: the structural walk places every `…Conflict` class (`tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality`)
+- Migration: none
+
+*Recorded by `378-09-one-approval-one-passage.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a read-refusal record minted before `378-01` named the door recorder's tenant whichever tenant asked, and on a door serving several tenants through one recorder it still read for a principal of the recorder's tenant with the same client id as the principal it named (recorded as a strict expected failure).
+- After: every read-refusal record it mints carries the marker (`ResourceRequestIdentity.tenant_from == "capability"`). One step, placed immediately after the provenance check and before hold 0, answers a read-refusal record without the marker exactly as a missing address — `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level — for every caller: the principal it names, another principal of the same tenant (who read `unauthorized` at hold 1 before) and another tenant's principal with the same client id. The marker is read in that step and nowhere else, so a record carrying it that the fabric's record writer did not file answers as missing: measured for a marked record filed on another tenant's client lane and on the tenant's own client lane, at the MCP artifact server's blob and presence resources, at HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact`, and to `govern_dereference` called in process. With the provenance check severed those forgeries cross, so the marker confers trust only through it.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone`, `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes), `::test_a_marked_read_refusal_record_filed_on_a_client_lane_confers_nothing_on_an_in_process_governed_read`, `::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`; `tests/http_api/test_read_refusal_attribution_http.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone` and `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes).
+- Migration: **owner read-back of read-refusal records minted before this change is lost.** Every read-refusal record minted before the marker answers as a missing address, through the HTTP evidence routes and the MCP artifact server's governed reads, to every caller — the principal it names included. The records are not rewritten: they stay in the store and still reconstruct at their own addresses through `ccf.replay.engine.replay_refusal` (`tests/mcp/test_read_refusal_attribution_mcp.py::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`); an examiner reads them from the store, not through a door. A read-refusal record minted from now on carries the marker and reads back for its own principal through the door whose recorder is its tenant's, as before.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: documented as invoked exactly once per question, with the effective request.
+- After: still once per question; a declared population phase is the second declared phase, also once, immediately before it and without the subject; under the early decision the request it receives carries the declared undisclosed subject in place of the caller's.
+- Why: SEC-020 Q7 and Q10 (the "exactly once" rule as Dave ruled it).
+- Migration: none.
+
+*Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
+
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_replay_record` filed every record under dimension 1's `graph_snapshot_id`, a hash of the real read (`D-IMPL-371`), so a reference's name could differ between a withheld subject's answer and a nonexistent subject's with no dereference at all.
+- After: files every record under its own content address, so a reference's name and version are one identity. Replay resolves by content address, unchanged.
+- Why: PROPOSAL, Dave's Q11. Measured by the severing `sever-q11-name-2c96526` in the lane record: restoring the old name turns 12 of the Q11 tests red.
+- Migration: none for a replay reader. Records already filed keep the names they were filed under.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a served answer and a refused answer to a product question were the same record whenever the question, the governed state and the instant were the same, and a record carried nothing about its class's withholding posture.
+- After: mints a fresh issuance for every served answer and every refusal it records for a product question, and stamps every record with its class declaration's `subject_withholding`. At construction it raises `WithholdingClassListedReadable` when the tenant's entitlement policy lists its class in `evidence_readable_classes` and the class does not affirm `"never"`. At serve time it raises `NeverWithholdingContradicted` when the projection withholds the subject under a class that affirms `"never"`, before anything is rendered, recorded or served.
+- Why: PROPOSAL, Dave's Q11 and Q12.
+- Migration: two answers to one question at one instant are now two records with two references; the 13 tests named above pin the old property and stay red until Dave rules. A class's records reach their owners only after the class declaration affirms `subject_withholding: never` and the tenant lists it; a projection that may withhold leaves its class at the default. Measured residual: a class that affirms `"never"` and then withholds is a broken deployment, and the answer door shows it as an error where a nonexistent subject's question answers (lane probe `probe_never_contradicted_at_the_door.py`).
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `record(...)` took no withholding posture.
+- After: `record(..., subject_withholding: str | None = None)`, recorded in dimension 5. The governed resolver passes it on every refusal it records, so a recorder that cannot take it fails on every refusal alike, never only on one about a withheld subject.
+- Why: PROPOSAL, Dave's Q12: the refusal records of a class that affirms `never` are read back by their owners only if they carry the affirmation.
+- Migration: a deployment's own recorder accepts the keyword and hands it to `build_replay_record`. Without it, every refusal the governed resolver records raises `TypeError`.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a genuine record of the caller's own tenant and principal crossed after the grant was re-decided and at `full` disclosure (`D-IMPL-345` R-2).
+- After: hold 2b, after the grant is re-decided and before the erasure consult and the disclosure hold: the tenant must list the record's class (asked through `EvidenceReadabilitySourceProtocol`), and a record that read the fabric must carry `subject_withholding: never`; a record whose dimension 1 is exactly the claim that nothing was read needs only the listing. Otherwise the read is refused `unauthorized` with `evidence-class-sealed`, pinning the policy that answered. Read-refusal records skip it, as they skip hold 2. Every caller inherits it: the HTTP replay and artifact routes, the MCP artifact server's blob, presence and names resources, and the `ccf` CLI's `replay query`, `replay resolve` and `artifact inspect`.
+- Why: PROPOSAL, Dave's Q12, amending `D-IMPL-345` R-2. Measured by the severing `sever-q12-hold2b-0b01cee` in the lane record: removing the hold turns 11 of the Q12 and channel-3 tests red.
+- Migration: list the classes whose records owners read in each tenant's entitlement policy, and affirm `never` in each such class declaration. Records written before this change stay sealed: they still replay to their own addresses through the replay engine, read from the store by an examiner, not through a door.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `request` and `complete` refused an address `replay-input` whenever the subject appeared in a replay-input field (`ccf.erasure.REPLAY_INPUT_PATHS`) of its stored bytes, whoever filed them. A door over an erasure-consulting composition whose store answers no `names_at` raised an unmapped `AttributeError`. An `ExecutionFenced` the engine raised under `request` or `complete` escaped the door unmapped.
+- After: the `replay-input` refusal applies only where the store's naming shows the address filed by the fabric's record writer, under a class its `WriteKinds` declares under `ReplayMint`, under the requesting tenant. `src/ccf/replay/provenance.py::filed_by_record_writer` decides it, asked only for an address whose subject is in a replay-input field. Any other filing, a record-shaped client-lane filing included, is erased like any client artifact. A store that declares no `WriteKinds` cannot say who filed such an address, so the door refuses `class-unverifiable`, with `UnattributableRecordStore` as the cause; a naming read that fails when that question is asked is refused the same way. A door over an erasure-consulting composition whose store answers no `names_at` is refused `class-unverifiable` for any address, as `ErasureConsultingStore.names_at` documents. The `ccf.erasure` package docstring states the narrowed rule. A passage the engine fenced (`ExecutionFenced`) is refused `ErasureRefused` with reason code `execution-fenced` and the fence as the cause: at `request`, no approval is requested; at `complete`'s last passage, after the write-ahead append, no erasure record is filed and the address stays withheld (`index-unsupported`) under the appended entries; at a further gate's passage, nothing is erased (code reading; no fixture erasure workflow has a second gate).
+- Why: `D-IMPL-378` (Dave, 2026-10-07 21:11 MST). The `execution-fenced` refusal: `tests/erasure/test_erasure_door_execution_fenced.py` (four red tests: a request's start fenced, directly and through the engine's finisher, and a completion's last passage fenced, directly and through the finisher). The replay-input rule's red tests: `tests/erasure/test_sec009_address_verification.py::test_a_client_filing_with_the_subject_in_a_replay_input_field_is_erased_like_any_client_artifact` (renamed from `::test_a_subject_in_a_replay_input_field_refuses_replay_input`, which asserted the defect); `tests/erasure/test_replay_input_retention_provenance.py::test_a_record_shaped_client_filing_is_erased_like_any_client_artifact`, `::test_a_store_that_declares_no_write_kinds_refuses_rather_than_judge_a_record_shaped_filing` (raw and composed), `::test_an_erasure_consulting_store_over_a_substrate_with_no_naming_refuses_class_unverifiable` and `::test_over_the_mcp_backed_store_a_client_filing_with_the_subject_in_a_replay_input_field_is_erasable`; added after the fix, `::test_a_naming_read_that_fails_when_provenance_is_asked_refuses_class_unverifiable`. Control: `::test_a_record_the_fabrics_record_writer_filed_still_refuses_replay_input`.
+- Migration: a caller of the erasure door that handled `ExecutionFenced` by name now receives `ErasureRefused` with reason code `execution-fenced`, the fence chained as its cause. An erasure request naming a client artifact with the subject in a replay-input field is now admitted and erased; a record the record writer filed is refused `replay-input` as before. Over the MCP-backed store, a request naming a client filing the record validator accepts is still refused `subject-unverifiable`, because the artifact server does not serve those bytes on the client lane. That is a residual, kept as the strict expected failure `tests/erasure/test_replay_input_retention_provenance.py::test_over_the_mcp_backed_store_a_record_shaped_client_filing_is_erased_like_any_client_artifact`. A door over a third-party store that declares no `WriteKinds` is refused `class-unverifiable` where it was refused `replay-input`; declare the store's `WriteKinds`.
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`
+- After: as for `ccf_runtime.erasure.ErasureDoor`
+- Why: as for `ccf_runtime.erasure.ErasureDoor`
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.http_api.routes.workflow.build_router
+
+- Surface: ccf_runtime.http_api.routes.workflow.build_router
+- Public surface: true
+- Change type: behavior
+- Before: an `ExecutionFenced` raised by the engine's `execute` or `resume` escaped both routes unmapped, and the caller got an opaque `500 Internal Server Error`
+- After: both routes answer it 409 with the shared refusal body, `error_code` `execution-fenced` and the fence's message. That includes the invocation of a retried start the engine finishes (lane 378c-finish), whose suspension write loses to another writer
+- Why: `D-IMPL-378`. Red tests: `tests/http_api/test_execution_fenced_door.py::test_a_passage_fenced_at_the_resumption_door_is_refused_409_execution_fenced` and `::test_a_passage_fenced_at_the_invocation_door_is_refused_409_execution_fenced`; positive controls `::test_the_same_request_with_no_other_writer_answers_200`. The finisher's site: `::test_a_finished_start_fenced_at_the_invocation_door_is_refused_409_execution_fenced` (red on lane 378c-finish's tree, which has no mapping), control `::test_the_same_finished_start_with_no_other_writer_answers_200`
+- Migration: as for `ERROR_EXECUTION_FENCED`. No MCP door executes or resumes a workflow, so no MCP rendering changes
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume` refused every `running` record: "An interrupted passage is never retried". `execute` refused every existing execution id as a second start
+- After: `resume` FINISHES a `running` record whose state is a `hitl-gate` or a terminal state. It makes the version-fenced suspension or completion write and, at a gate, its one queue event; it invokes no step callable and adds no attributed row. It finishes only when the passage's durable claim names it. For a passage past a gate, the claim is the gate's closure, found by the suspension the passage left, and its decided verdict must route to the record's state. For an execution's start, the claim is the create-if-absent record. When no step can have run but no claim names the passage, `resume` refuses: "no durable claim on the HITL authority path names it". A `running` record at a step is still refused as interrupted. `execute` finishes a start for its own starter when the start node is a `hitl-gate` and the record is still `running` there with an empty trace; any other existing id is still refused "already exists". A finisher that loses the fenced write to the original passage, or the original that loses it to a finisher, raises `ExecutionFenced` and writes nothing
+- Why: `D-IMPL-378`, Dave's D2 ruling under his Q4 condition. Red tests: `tests/workflow/test_finish_interrupted_passage.py::test_a_gate_routed_straight_to_a_terminal_is_finished_by_another_process_not_rerun`, `::test_an_execution_whose_first_node_is_a_gate_is_finished_not_restarted`, `::test_a_finisher_racing_the_live_original_passage_writes_once_and_the_loser_is_fenced`, `::test_a_passage_no_durable_claim_names_is_never_finished`
+- Migration: a caller that treated the never-retried refusal of a `running` record at a gate or a terminal state as final may now present the resumption again and receive the finished outcome. A `running` record at a step is unchanged
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `complete` refused an execution in `running` with `approval-not-recorded`, a name for a cause that was not the cause, so a completion interrupted after its passage committed could never complete. `request` passed on the engine's "already exists" refusal of a start interrupted before it suspended, as `workflow-not-suspended`
+- After: `complete` holds the recorded approval to the suspension the running passage left, rebuilt by `suspension_left_by`, and resumes the engine, which finishes the passage when no step can have run (`erased` follows the gate directly) and otherwise refuses it, as `workflow-refused`. The record it files is the one the interrupted attempt's write-ahead entries name. `request` receives the finished suspension from the engine when the same requester retries
+- Why: `D-IMPL-378`, Dave's D2 ruling. Red tests: `tests/erasure/test_interrupted_erasure_passage.py::test_an_erasure_request_interrupted_at_its_first_suspension_write_is_finished_by_its_retry`, `::test_an_erasure_completion_interrupted_at_its_terminal_write_is_finished_by_its_retry`
+- Migration: none; SEC-009's door contract is otherwise unchanged
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: behavior
+- Before: eight exception names the closed refusal vocabulary places outside the envelope
+- After: nine; `DemonstrationServeInstantConflict` joins, with its reason stated beside the constant
+- Why: the structural walk over the `…Conflict` name family found the new class (`tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality`). It is a composition-time configuration contradiction, refused before any question exists, so it is an exception and never a governed shell (`D-IMPL-253` Q15)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.config.derive_deployment
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: one bare typed section, `temporal_boundary:`
+- After: also derives `demonstration_serve_instant:`, appended after the temporal boundary so a config without it derives byte-for-byte what it did; a zone-less instant is refused at derivation
+- Why: as for `DeploymentConfig`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolver served on `admission_clock` as passed
+- After: same signature. When the tenant declares a demonstration serve instant, the resolver serves at it (`served_at`, Gate 3's comparand, the temporal window's evaluation instant, constraint effectivity and composite admission), resolved once at construction so a later registration does not reach a built resolver. Refused by name beside a supplied `admission_clock`, and outside the development substrates. The erasure consult keeps `admission_clock`, so no audit stamp carries a declared instant; Context Debt keeps the decision instant (`D-IMPL-358` ruling 6)
+- Why: C1; one composition function every composition root already calls, so the in-process adapter and a door's product honor the declaration with no transport code
+- Migration: none for a deployment that declares nothing. A deployment that declares an instant must not also pass `admission_clock`
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: no record named the instant's source
+- After: same fields. A resolver whose serve clock is a `DeclaredServeClock` appends the declaration's exact `(key, version)` to dimension 2 of every record it writes, served and refused; on any other clock it appends nothing
+- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and the pin resolves at its recorded version through the Control Plane's exact-version read, the check replay makes for every binding (`tests/client/test_demonstration_serve_instant.py::test_the_records_pin_resolves_at_its_recorded_version`); a refusal record written under the declaration replays end to end against the deployment's Control Plane and is refused on the declaration's key against one without it (`tests/client/test_demonstration_serve_instant.py::test_a_demonstration_refusal_record_replays_end_to_end`)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: `as_of=None` resolved to the adapter's clock
+- After: when the deployment declares a demonstration serve instant, `as_of=None` resolves to it (one composition, one now), and a `clock` passed to the adapter beside the declaration is refused at boot with `DemonstrationServeInstantConflict`
+- Why: C1, "honored by both transports"
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: behavior
+- Before: `as_of=None` resolved to the adapter's clock
+- After: the client reads the declaration from the deployment's `ccf_config.yaml` (which it already reads for the tenant and lane) and resolves `as_of=None` to it; a `clock` passed beside it is refused with `DemonstrationServeInstantConflict` before anything is spawned. The server child serves at the same declaration through `build_governed_resolver`
+- Why: without it, `as_of=None` would ask at today's date and be served at the declared instant, and the two transports would disagree (`D-IMPL-150`)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.SDK_ARTIFACT_ROLES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_ROLES
+- Public surface: true
+- Change type: behavior
+- Before: one class with a role the SDK fixes, `ccf.signal-batch` (`load`)
+- After: two; `ccf.demonstration-serve-instant` is fixed to `register`
+- Why: a manifest entry declaring the class `role: load` was parsed and never registered, so the composition found no declaration and the fabric served on its real clock while the manifest said it declared an instant, with nothing saying so (lane `378d-democlock` finding (d)). `D-IMPL-134` reads the role of a `ccf.*` class as the SDK's to know, and here there is one correct value. Measured by `tests/deployment/test_demonstration_serve_instant_role.py`
+- Migration: a manifest that declares `ccf.demonstration-serve-instant` must declare `role: register`; `role: load` is now refused at boot. The `demonstration_serve_instant:` config section always derived `register` and is unaffected
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.refuse_role_the_sdk_fixes
+
+- Surface: ccf.deployment.classes.refuse_role_the_sdk_fixes
+- Public surface: true
+- Change type: behavior
+- Before: refused only `ccf.signal-batch` declared `register`, and its message gave the signal-batch rationale for any class
+- After: also refuses `ccf.demonstration-serve-instant` declared `load`, by name, in the preflight both boot doors run before anything is read or registered and in the single-file derivation. The message states each fixed class's own reason; for `ccf.signal-batch` it is byte-identical to before
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none beyond `SDK_ARTIFACT_ROLES`'s
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: the `role` docstring said the SDK knows the answer for one class
+- After: documentation only; it names both classes whose role the SDK fixes. The committed `docs/schemas/ccf.deployment-manifest.json` carries the same description, regenerated
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: behavior
+- Before: registered every `role: register` entry with no check of where a demonstration serve instant was declared
+- After: same signature. Before anything is registered it runs `refuse_misplaced_demonstration_serve_instants` over every entry of the class, whatever `only` names. This is the one loop both boot doors (`load_and_boot`, `load_config_and_boot`) and the paved road (`open_product`) run, and a composition root may call it directly (cp-20's deployment does). The config door cannot misplace a declaration in the first place: its section derives the key and refuses a stated one, and every other section's derivation injects `semver`, which the contract refuses at parse
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none for a deployment that declares the class once, at the derived key
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: with several versions of the tenant's declaration on the Control Plane, composed on the latest
+- After: refuses with `DemonstrationServeInstantMisplaced` (`several-declarations`), naming the versions, where the Control Plane offers the unaudited `versions` read
+- Why: the latest silently winning makes every other declaration do nothing
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for` handed `child_arguments` the requirement and `asked_at`. The request-less `__call__` dispatched every granted child, and the admission gate then refused every bound leg's answer `question-mismatch`, because no question was minted.
+- After: `resolve_for` hands `child_arguments` the request it is handed. The request-less `__call__` refuses every granted requirement `question-mismatch` before its skill is dispatched; an ungranted one is still the honest absence `None`.
+- Why: SEC-020 residual P3. A request-less call has no request to hand the mapping and no question to hold the child's answer to.
+- Migration: none for `GovernedResolver`, which calls `resolve_for`. A caller of the request-less `__call__` gets the same refusal it got for every bound leg, without the child being asked.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: its optional `child_arguments`, for entries other than `mcp_product`, was handed the requirement and `asked_at`.
+- After: it is handed the same effective request `child_questions` is handed.
+- Why: SEC-020 residual P3.
+- Migration: as for `ChildArguments`.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the Q9 claim was taken only by a call that declares an acquisition phase.
+- After: every call over a fabric booted for its question claims it, with an acquisition phase or without, so a later call on the same fabric raises `AcquiredFabricReused`; a call with no acquisition phase over a question's store booted again raises `QuestionStoreReopened`. A call that declares an acquisition phase over such a store is still refused `AcquisitionNeedsAQuestionFabric`, unchanged.
+- Why: SEC-020 residual P4: Q9 alone bound only where acquisition exists.
+- Migration: a composition that asks one fabric booted `for_question=True` more than one question with no acquisition phase now gets `AcquiredFabricReused` at the second; boot a new store for each question, as the paved road does.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` verified the store fresh and wrote nothing beside it.
+- After: `for_question=True` also writes, flushes and syncs `<resolved path>.ccf-question-store` beside every path naming the store, before the store is booted; every boot reads it into `BootedFabric.question_store`. The marker is never read for the store's contents.
+- Why: SEC-020 residual P4: a durable record, beside the store, that it was booted for one question.
+- Migration: delete a question's store together with its marker. A marker left at a path makes a later plain boot there refuse to serve, which fails closed.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 residual P4.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a composite that declared no withholding stance.
+- After: construction refuses such a composite with `CompositeNeedsAWithholdingStance`, after the Q12 listed-class check and before any authority is minted.
+- Why: SEC-020, owed ruling P2 option (c), a candidate (see above).
+- Migration: as above; a non-composite class is unaffected.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `__call__` registered the typed request contract on its Control Plane only inside `GovernedResolver._register`, which the served path reaches and every refusal returns before. A refusal recorded after the resolution step pinned `(request_contract_key, content_hash(contract))` on dimension 2 while that version was unregistered unless an earlier served question in the same process had registered it, so `src/ccf/replay/engine.py::replay_refusal` raised `ReplayUnresolvable` naming the request-contract binding. And a new process held no registration of it until it had answered a question, so a process started to replay could not resolve that pin for any earlier record, served or refused.
+- After: the resolver registers the typed request contract when it is built (`__post_init__`, under the `Register` capability its composition minted for that key; `D-IMPL-378` R-A), and again in `__call__` immediately before the resolution step (`CP17-F-09`); `_register` still registers the same content on the served path. Each registration is content-addressed and idempotent at the version every record decided under that contract pins, so record bytes, pins and addresses are unchanged. Any process that builds the deployment's resolver resolves that pin for every earlier record, a refusal asked first of a fresh Control Plane included; a changed contract registers at a different version, and the old pin stays unresolvable by name. A resolver built directly, not through `build_governed_resolver`, whose request-contract key names no contract is now refused when it is built with `ProductNotResolvable`; before, it was built. The docstrings of `__post_init__`, `__call__` (steps 2 and 5) and `_register` state this.
+- Why: `CP17-F-09` (cp-17, charged to the cap at `D-GATE-cp-17`) and `ATM-F-11` (cp-19), carried unrepaired as estate-gated strict expected failures and reproduced offline on 2026-10-08; and `D-IMPL-378` R-A (b) for a freshly started process. Red tests: `tests/replay/test_first_question_refusal_replays.py` (the in-process transport with the request contract `role: load` and `role: register`, a resolution-stage and a temporal-bound refusal; the paved road with a refusal raised at the acquisition seam) and `tests/replay/test_fresh_process_replay.py` (a new Python process boots the deployment, asks nothing, and replays a served and a refused record from each of the in-process transport and the paved road). Guard: `tests/replay/test_fresh_process_replay.py::test_a_changed_request_contract_still_fails_replay_in_a_fresh_process`.
+- Migration: none. Control Plane audit events, measured: building a resolver records one more `register` event, for the request-contract key (the in-process boot 25 → 26 events, `build_governed_resolver` 6 → 7, building a `RecordedEnvironment` 6 → 7, so building a replay environment now writes that one registration). Per question on the paved road, which builds a resolver for each question, compared with before this lane: an intent refusal and a floor refusal 0 → 1 `register` event for the request-contract key, a resolution-stage refusal 0 → 2, a served question 1 → 3. What each record pins is unchanged. Two strict expected failures keep `CP17-F-09` executable against the curated estate: `tests/examples/test_cp_17_replay.py::test_a_refusal_asked_first_of_a_fresh_product_reconstructs` and its `ATM-F-11` counterpart in `tests/examples/test_cp_19_replay.py`. They were not run for this change, because they need the estate. They assert the mechanism this change repairs, so they are run against the estate and their marks reviewed in the example migration set, not edited here.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: the `artifacts` docstring said a `role: load` artifact "is still absent from `pins`, still absent from the Control Plane registry, and still absent from replay dimension 2", which contradicted `D-IMPL-310`: a governed resolver registers and pins the typed request contract it derives from a `role: load` request-contract entry.
+- After: documentation only. The boot registers and pins a `role: load` entry nowhere; a governed resolver built over the fabric registers, when it is built, the typed request contract under the same key, whatever the entry's role, and every decision that resolved a request against it pins it on dimension 2. Measured over the local suite: all 701 resolver-built records whose resolution ran pin the request contract, and none of the 7 not-applicable records do.
+- Why: the record pinned what the docstring said it never would; `D-IMPL-310` rules the pin correct.
+- Migration: none.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: behavior
+- Before: a product whose `door` binding asserted a `producer_tenant` other than its `tenant_id` opened a door that registered its entitlement policy and scope mapping and asserted the other tenant on every outcome.
+- After: refused with `ValueError` naming both tenants in R-6's own words ("the door binding asserts producer_tenant ... and this deployment's tenant is ...; ... (D-IMPL-343 R-6; D-IMPL-340 ruling 2)"), before the door records a composition decision or registers anything. A binding stating the product's tenant opens as before. A paved-road product whose `door:` section asserts another tenant is still refused first, at derivation, by `src/ccf/deployment/config.py::_refuse_door_tenant_disagreement`, with its unchanged message.
+- Why: `D-IMPL-343` R-6 applied to the second path a door binding reaches (`D-IMPL-378`, found by lane `378d-hw1door`). Red test: `tests/mcp/test_product_door_producer_tenant.py`.
+- Migration: a hand-composed deployment states its own tenant as its door binding's `producer_tenant`.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door_with_verifier
+
+- Surface: ccf_runtime.mcp.product_door.open_door_with_verifier
+- Public surface: true
+- Change type: behavior
+- Before: as for `open_door`: a mismatched `producer_tenant` opened a door.
+- After: the same refusal as `open_door`, raised by the shared `_boot_credential` before the deployment's verifier is consulted or anything is registered.
+- Why: as for `open_door`. Red test: `tests/mcp/test_product_door_producer_tenant.py`, parametrized over both constructors.
+- Migration: as for `open_door`.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf.deployment.manifest.manifest_under_tenant
+
+- Surface: ccf.deployment.manifest.manifest_under_tenant
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Two entries placing to one key came back as two entries carrying one key, and a re-keyed `parsed` mapping holding one document for both
+- After: same signature. Two entries placing to one key raise `ManifestKeysPlaceToOneKey` before anything is re-keyed. The check reads the manifest's entries, so a caller passing a partial `parsed` mapping (as the consumer chain `ccf.products.product.open_product` derives does) meets it too
+- Why: `D-IMPL-378`, lane 378d-placement. Red test: `tests/deployment/test_placed_key_collision.py::test_placement_itself_refuses_two_entries_placing_to_one_key_whatever_parsed_holds`
+- Migration: a manifest naming one artifact as both `k` and `{tenant}/k` keeps one of the two entries; two different artifacts need keys that differ once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A manifest whose entries placed to one key booted with one document silently dropped (same class), or raised an unrelated `TypeError` after a partial registration (different classes)
+- After: same signature. It raises `ManifestKeysPlaceToOneKey` after every document is parsed and before anything is minted or registered
+- Why: `D-IMPL-378`, lane 378d-placement. Red tests: `tests/deployment/test_placed_key_collision.py::test_two_entries_of_one_class_placing_to_one_key_are_refused_at_boot`, `::test_two_adopter_classes_placing_to_one_key_are_refused_before_anything_is_registered`, `::test_a_load_entry_placing_onto_a_register_entry_is_refused_at_boot`
+- Migration: a deployment that booted with such a manifest boots no longer. Remove one of the two entries, or give the two entries keys that differ once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.load_and_boot`
+- After: as `ccf.deployment.manifest.load_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-placement
+- Migration: as `ccf.deployment.manifest.load_and_boot`
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A `key:` override placing one section onto another section's placed key booted with one document silently dropped (two `operators:` entries of one category), or raised an unrelated `TypeError` after a partial registration (two sections of different classes). The paved road, which boots each question through this function, met the same `TypeError` at its first question
+- After: same signature. It raises `ManifestKeysPlaceToOneKey` before anything is minted or registered, and the paved road raises it from `OpenedProduct.answer` at the first question's boot
+- Why: `D-IMPL-378`, lane 378d-placement. Red tests: `tests/deployment/test_placed_key_collision.py::test_the_config_door_refuses_two_operator_entries_placing_to_one_key`, `::test_the_config_door_refuses_a_section_key_placing_onto_another_section`, `::test_the_paved_road_refuses_a_config_whose_sections_place_to_one_key`
+- Migration: a `ccf_config.yaml` whose `key:` overrides place two sections onto one key boots no longer. Remove the override, or choose a key that differs from every other section's once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.config.load_config_and_boot`
+- After: as `ccf.deployment.config.load_config_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-placement
+- Migration: as `ccf.deployment.config.load_config_and_boot`
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio` resolved the environment document's `door.issuer_url` and `door.resource_server_url` names from the process environment and raised `EnvironmentMissing`, with the document's remedy, when either variable was unset. That happened before anything was served, so a client spawning the door saw only a closed connection.
+- After: `serve_stdio` reads neither name. It hands the egress builder the stdio transport's own values, `https://stdio.invalid` and `https://stdio.invalid/mcp`, both under the reserved `.invalid` domain that never resolves, and starts with both variables unset. `server` and `serve_loopback` are unchanged: their sources are byte-identical to the base. `server` still requires both addresses with no default, and the loopback transport still advertises its own bound address. With both variables unset, the stdio door still refuses a call naming another tenant (the tenancy guard) and a call for a class outside its scope mapping (the authorizer); the guard, the authorizer, the egress builder and the entitlement source are not edited. The class and module docstrings say so.
+- Why: Dave's ruling C2-A (b) (`D-IMPL-378`, recorded on `main` at `3d21afa7`). Red tests at `0c6909a3`: `tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_with_both_addresses_unset_starts_answers_and_still_refuses`, and `tests/products/test_paved_road.py::test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addresses`, the rewrite of the test that asserted the superseded refusal. Controls that hold before and after: the self-hosted HTTP mount, the token decision across two advertised address pairs, and the loopback door.
+- Migration: none required. A stdio deployment can stop exporting the two variables. Its environment document still names them, because `DoorEnvironment` still requires both names (see below).
+
+*Recorded by `378-27-stdio-door-supplies-its-own-addresses.md`.*
+
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: the docstring said both URL names "are consulted by every transport EXCEPT the loopback one".
+- After: documentation only. The docstring says neither SDK transport reads them. Loopback advertises its own address, stdio supplies reserved values nothing advertises, and a deployment mounting `ProductDoor.server` under its own host resolves them and passes the values. The model is unchanged: both names are still required, so every existing environment document still loads.
+- Why: the behavior change above made the old sentence false. Whether the two names should become optional, now that no SDK transport reads them, is a separate decision, raised in the lane's security review and not built here.
+- Migration: none.
+
+*Recorded by `378-27-stdio-door-supplies-its-own-addresses.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: same constructor. `validate` checked only that the artifact is an instance of the contract
+- After: same constructor. `validate` also raises `ArtifactClassIdMismatch` when the artifact's contract declares a top-level `class_id` and the artifact states a class other than this one. The predicate is read from the artifact, so it holds however the `ArtifactClass` was built
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: a caller that validated an open-envelope artifact against a class it does not state now meets the refusal. Present it as the class it states, or correct its `class_id`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`
+- After: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.parse_artifact
+
+- Surface: ccf.controlplane.artifacts.parse_artifact
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A document stating a `class_id` other than the class it was parsed as was returned
+- After: same signature. The validated document is held to the class by `ArtifactClass.validate`, so that document raises `ArtifactClassIdMismatch` (a `ValueError`) instead of being returned
+- Why: `D-IMPL-378`, lane 378d-classid. Red test: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`
+- Migration: correct the document's `class_id`, or parse it as the class it states
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.load_artifact
+
+- Surface: ccf.controlplane.artifacts.load_artifact
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifacts.parse_artifact`, from YAML text
+- After: as `ccf.controlplane.artifacts.parse_artifact`, which it calls
+- Why: `D-IMPL-378`, lane 378d-classid. Red test: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`
+- Migration: as `ccf.controlplane.artifacts.parse_artifact`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.DeclaredArtifact
+
+- Surface: ccf.controlplane.artifacts.DeclaredArtifact
+- Public surface: true
+- Change type: behavior
+- Before: same fields. Its `class_id` was carried and never compared with the class it was parsed or registered as
+- After: same fields. Its `class_id` is held to the class it is presented as by `ArtifactClass.validate`
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: none for a document stating its own class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.declared_artifact_class
+
+- Surface: ccf.controlplane.artifacts.declared_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: same signature. The class it returned admitted an envelope stating any `class_id`
+- After: same signature. The class it returns admits an envelope stating its own `class_id` only
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: none for a document stating its own class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: same signatures. `register_typed` and `register_versioned` registered an artifact stating a `class_id` other than `artifact_class`'s, bound the key to `artifact_class` and audited it
+- After: same signatures. Both raise `ArtifactClassIdMismatch` (a `TypeError`) from `artifact_class.validate`, before anything is stored or audited
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: register an artifact under the class it states
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. An entry whose document stated a `class_id` other than the entry's class booted: the document was registered and pinned as the entry's class (`role: register`) or handed back under it (`role: load`)
+- After: same signature. It raises `ArtifactClassIdMismatch` (a `ValueError`) while every document is parsed, before anything is minted or registered, whatever the entry's role
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/deployment/test_document_class_identity.py::test_a_register_entry_whose_document_states_another_class_is_refused_at_boot`, `::test_a_load_entry_whose_document_states_another_class_is_refused_at_boot`
+- Migration: a manifest whose entry names a class its document does not state boots no longer. Make the entry's `class_id` and the document's `class_id` the same class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.load_and_boot`
+- After: as `ccf.deployment.manifest.load_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: as `ccf.deployment.manifest.load_and_boot`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted any recorder carrying a `record` attribute.
+- After: construction refuses, right after the store-declaration check and before any refusal of the composition, minting or registration, a recorder whose `record` cannot be passed `subject_withholding=` (`IncompatibleRefusalRecorder`). `build_governed_resolver` hands a supplied recorder to it.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: conformance was structural, the presence of `record` only; the signature was left to mypy.
+- After: every path that accepts a recorder also reads one thing of `record`'s signature at construction: that it can be passed `subject_withholding=`.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.recorded_boundary
+
+- Surface: ccf_runtime.authz.delivery_boundary.recorded_boundary
+- Public surface: true
+- Change type: behavior
+- Before: refused only an absent or non-conforming recorder (`UnrecordableDeliveryBoundaryError`).
+- After: also refuses, after that check, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`), so `create_app`, the product router, `build_egress_server` (and `open_door`, which builds it) and `build_experience_server` refuse it where they are built.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: accepted any recorder and called no recorder check at construction.
+- After: refuses, first and before anything is composed, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`).
+- Why: Dave's E2 (iii) (`D-IMPL-378`): every path that accepts a refusal recorder.
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.product.OpenedProduct.record_of
+
+- Surface: ccf.products.product.OpenedProduct.record_of
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever the store held at the outcome's address, parsed as a record, without checking that those bytes hash to the address; bytes altered on the substrate came back as the decision's record.
+- After: re-hashes the stored bytes against the address the outcome names before parsing them, as the replay engine does (`D-IMPL-89`), and raises `ccf.replay.engine.ReplayDivergence` when they differ. Its docstring also states that it is an operator/auditor handle (Dave's E2 (i)).
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity.
+- Migration: none for intact records. A caller that reads a record through `record_of` may now see `ReplayDivergence` for a record whose bytes were altered after filing.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: re-hashed the bytes of its authorizing read (through `resolve_artifact`) but served, for a byte read, the bytes of its second, erasure-consulted read unchecked; bytes that changed between the two reads were served under the old address.
+- After: the second read's bytes are held to the address too; a mismatch is the one evidence-absent refusal, recorded, exactly as bytes that do not hash to their address at the first read always were.
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity on the read that crosses.
+- Migration: none.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a class affirming `never` whatever its plan factory declared through `SubjectDisclosingPlanFactoryProtocol`.
+- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first. At serve, the `never` check now runs before Q8's `CompositeWithheldLate` check (CT-D (a)).
+- Why: as above; each order names the class's own contradiction before the composite rule it also breaks.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.NeverWithholdingContradicted
+
+- Surface: ccf.products.resolver.NeverWithholdingContradicted
+- Public surface: true
+- Change type: behavior
+- Before: the only check of a class affirming `never`, at serve, after Q8's `CompositeWithheldLate` check.
+- After: checked first among the serve-time withholding refusals, so a composite affirming `never` that withholds late raises it rather than `CompositeWithheldLate` (CT-D (a)); documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
+- Why: SEC-020, E2 (ii): *"retain the runtime check as defense"*; CT-D (a): *"for diagnostic precedence; this does not resolve E2(ii)'s oracle."*
+- Migration: code catching `CompositeWithheldLate` for a composite whose class affirms `never` catches `NeverWithholdingContradicted` instead; both are `ProductNotResolvable`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.CompositeWithheldLate
+
+- Surface: ccf.products.resolver.CompositeWithheldLate
+- Public surface: true
+- Change type: behavior
+- Before: raised for any composite whose projection withheld a subject its early policy did not, including one whose class affirms `never`.
+- After: not raised for a composite whose class affirms `never`; that composite raises `NeverWithholdingContradicted`, checked first. Still raised for a composite whose early policy does not cover a subject its projection withholds.
+- Why: SEC-020, CT-D (a) (Dave, 2026-10-08 12:29 MST): diagnostic precedence only.
+- Migration: as for `NeverWithholdingContradicted` above.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+
+- Surface: ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+- Public surface: true
+- Change type: behavior
+- Before: raised at the first call for every acquisition composition over a fabric not booted for its question.
+- After: unchanged over a store with a path; over a store with no path its subclass `AcquisitionOverUnverifiableStore` is raised at construction instead.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a handler of this class; a test that constructed such a composition and expected the refusal at the call sees it at construction.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: an acquisition composition over a store with no path was constructed; a call with no acquisition phase over an existing unmarked store was answered.
+- After: construction raises `AcquisitionOverUnverifiableStore` for the first; the call raises `UnmarkedStoreNotPresumedFresh` for the second, at the claim point. A resolver constructed over an unmarked or a question's store and never called, as `RecordedEnvironment` builds it, is unaffected.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: compose a store with no path without an acquisition phase; recreate an unmarked store through a deployment door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: opened over any substrate setting; a substrate the SDK could not verify fresh was refused at every question's boot.
+- After: refuses `AcquisitionOverUnverifiableStore` at open when the environment's `substrate.setting` is not a path-valued setting of the adapter `ccf_config.yaml` declares, read off its declared connection contract; nothing is minted, booted or connected to.
+- Why: SEC-020 P4 (a), made strict: the paved road always acquires, so it refuses before questions run.
+- Migration: name a path-valued setting of a file-backed adapter as the substrate.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised before anything was registered, when a path named by the store existed or none was named.
+- After: also raised after registration and before the boot, when another boot already holds a path's question marker, or when a store or another boot's deployment marker appeared at a path after the check; the markers this boot created are removed first.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` checked the store paths did not exist, then wrote the question marker with a truncating open before the boot; a boot not for a question wrote nothing beside the store.
+- After: `for_question=True` creates each question marker exclusively, file and directory synced, and then requires that no store and no deployment marker exists at any path. Any other boot that is about to create its store first creates `<resolved path>.ccf-deployment-store` beside it, exclusively; an existing store is never marked afterwards. Every boot reads the markers into `BootedFabric.store_creation`.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation, and an existing store with no marker is not presumed fresh.
+- Migration: delete or copy a store together with its marker. A store created before this change, or below these doors, is booted as before and refused for governed calls; recreate it through a door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said it is called once, and the module docstring said C1-late was not ruled
+- After: same signature and behavior; documentation only. The docstring states that the declaration it reads is the one the resolver serves on for its whole life, and that a later declaration takes effect only when a resolver is built again
+- Why: `D-IMPL-378` C1-late (a): document that later registration takes effect only after rebuilding. Measured by `tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_does_not_reach_the_resolver` and `::test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it`
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The constructor's docstring said a declaration is honored and a clock beside it is refused, and did not say when the declaration is read
+- After: same signature and behavior; documentation only. The docstring states that the declaration is read at the deployment's one boot per process, from its `ccf_config.yaml`, and that one declared later takes effect at the deployment's next boot, in a new process
+- Why: `D-IMPL-378` C1-late (a)
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
+
+#### ccf.controlplane.artifacts.declared_artifact_class
+
+- Surface: ccf.controlplane.artifacts.declared_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: same signature. It returned an envelope class for any id, including `ccf.workflow-definition` and every other `ccf.` id
+- After: same signature. An id starting `ccf.` raises `ReservedArtifactClassId`; every other id is unchanged
+- Why: `D-IMPL-378` K1 (b), extending `D-IMPL-84` from the manifest resolver to the public declaration function. Red tests as for `ReservedArtifactClassId`
+- Migration: a program that passed a `ccf.` id registers an SDK class with the SDK's own `ArtifactClass` constant (for example `ccf.workflow.definitions.WORKFLOW_DEFINITION`), or chooses an id in its own namespace
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneProtocol
+
+- Surface: ccf.controlplane.registry.ControlPlaneProtocol
+- Public surface: true
+- Change type: behavior
+- Before: same members and signatures. `register_typed` said it validates against `artifact_class` without saying how, and `register_versioned` said nothing about validation, so an implementation that checked only the contract's type conformed on paper while filing a document stating one class under another
+- After: same members and signatures; documentation only. Both methods are obliged to call `artifact_class.validate(artifact)` before anything is stored or audited, so an artifact whose own `class_id` disagrees with the class it is registered as is refused as `ArtifactClassIdMismatch`. The text names the conformance check
+- Why: `D-IMPL-378` K2 (b). Red test: `tests/conformance/test_control_plane_class_identity.py::test_the_protocol_states_the_class_identity_obligation`; enforcement evidence: `::test_registration_refuses_a_document_stating_another_class` and `::test_the_check_fails_a_third_party_plane_that_does_not_validate_by_name`
+- Migration: a third-party Control Plane calls `artifact_class.validate(artifact)` in `register_typed` and `register_versioned` before storing or auditing, adds its factory to `PLANES` in `tests/conformance/test_control_plane_class_identity.py`, and runs that module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring did not say that a process which only opens a product must build this environment before it can replay
+- After: same signature and behavior; documentation only. The docstring names this class as the supported way to replay from a process that did not answer the question, states the `ReplayUnresolvable` an open-only process meets, and says how to build it
+- Why: `D-IMPL-378` R-A2 (a). Measured by `tests/replay/test_paved_replay_needs_its_environment.py::test_an_opened_product_replays_an_earlier_record_only_after_its_environment_is_built` and `tests/replay/test_fresh_process_replay.py::test_a_fresh_process_that_asked_nothing_replays_paved_road_records`
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said opening boots nothing
+- After: same signature and behavior; documentation only. The docstring adds that a process which only opens cannot replay an earlier record until it builds the replay environment, `RecordedEnvironment`
+- Why: `D-IMPL-378` R-A2 (a)
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
+
+#### ccf.products.resolver.CompositeNeedsAWithholdingStance
+
+- Surface: ccf.products.resolver.CompositeNeedsAWithholdingStance
+- Public surface: true
+- Change type: behavior
+- Before: the refusal's message ended "(SEC-020; D-IMPL-378 P2 (c), a candidate)".
+- After: it ends "(SEC-020; D-IMPL-378 P2 (c))". The type, when it is raised and every other word of the message are unchanged.
+- Why: Dave ruled P2 (c) on 2026-10-08 at 12:29 MST (`D-IMPL-378`), so the message no longer calls it a candidate.
+- Migration: none, unless code matched the end of the message text; match the refusal by its type instead.
+
+*Recorded by `378-36-prose-p2c-p4a-stated-as-ruled.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: a locally dispatched child's record was read through its replay reference and parsed without checking the bytes against the address. Over the file-backed store, bytes altered in place under the address were taken as the child's record, and their touched entities went to the composite admission gate: measured, the composite served and the gate received the altered value.
+- After: the bytes are re-hashed against the address before they are parsed. A mismatch raises `ChildRecordAltered`, so the composite does not serve and the gate receives nothing from them. Over the MCP-backed store, the store's own re-hash already read altered bytes as absent (`ArtifactNotFound`) and still does.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written. A store that returns other bytes under an address now gets `ChildRecordAltered` where children used to be admitted on those bytes.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.products.child_resolver.GrantBoundChildResolver`, whose record read it delegates to.
+- After: as for `ccf.products.child_resolver.GrantBoundChildResolver`.
+- Why: Dave's E1 (a) (`D-IMPL-378`).
+- Migration: as for `ccf.products.child_resolver.GrantBoundChildResolver`.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `request` and `complete` judged each requested address's subject, and the `replay-input` retention rule, from the bytes the store returned at the address, without checking them against it. After a record's bytes were altered in place to drop the subject from its replay-input field, a request the door had refused `replay-input` started its approval workflow.
+- After: each address's bytes are re-hashed against the address right after they are read. A mismatch is refused `subject-unverifiable`, with a message saying the bytes do not hash to the address, before the retention judgment, before the workflow starts on `request`, and before the index append and the record filing on `complete`.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written. A request naming an address whose stored bytes no longer hash to it is now refused `subject-unverifiable` instead of being judged on those bytes.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`.
+- After: as for `ccf_runtime.erasure.ErasureDoor`.
+- Why: Dave's E1 (a) (`D-IMPL-378`).
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: on the client lane (an address the caller's tenant filed only in classes not declared under `ReplayMint`), the blob and presence resources served the stored bytes and `{"found":true}` whether or not those bytes hashed to the address. Bytes altered in place crossed under the old address and were audited as a client-lane serve. `McpArtifactStore` refused them on arrival; any other MCP client took them.
+- After: client-lane bytes are re-hashed against the address before they are routed or served. Bytes that do not hash to it go to the governed dereference, which answers them as a missing address: the recorded `nonexistent` / `evidence-absent` determination, on blob and presence alike. Bytes that hash to the address are served exactly as before.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction refused a class affirming `never` only when its plan factory declared, through `SubjectDisclosingPlanFactoryProtocol`, that it withholds; `never` alone was a composite's withholding stance under P2 (c).
+- After: construction also refuses a class affirming `never` whose plan factory does not positively declare that it never withholds, with `NeverWithholdingNeedsAPositiveDeclaration` — after the declared-capability check, before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`) and before Q12's listing check. A composite's `never` stance therefore needs the declaration as well. On the paved road the refusal arrives when the resolver is built for a question.
+- Why: as above.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the declared subject-keyed acquisition seam was called once per question, with the question's effective request.
+- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A fabric that names the probe identifier, before or after that call, is refused with `UnheldSubjectProbeIsHeld` instead. A class affirming `never`, or declaring an early policy, is not probed.
+- Why: SEC-020, ruling P6 (a) (see above); Q10 amended to exactly this one extra call.
+- Migration: as above.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: invoked once per question.
+- After: for a class that may withhold and declares no early policy, also invoked once with `UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its call for the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none for a seam keyed on the subject; a seam that counts its calls sees one more.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the subject-keyed phase's obligation to acquire nothing for an identifier its source does not hold stays a trusted statement.
+- After: says that obligation is checked by the probe for a class that may withhold and declares no early policy, that the check does not detect a source recognizing the probe, and that for that source and any other class it stays a trusted statement. The population phase itself is still invoked once per question, first.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the paved road called the deployment's `acquire` once per question, for the question's subject.
+- After: for a class that may withhold and declares no early policy, the paved road first calls `acquire` with a context whose request carries `UNHELD_SUBJECT_PROBE` as its subject; what it returns is ingested, and if it changed the fabric the question is refused with `PopulationReadInSubjectKeyedPhase` before `acquire` is handed the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: return nothing for an identifier the sources do not hold; read what does not depend on the subject in `population` (`PopulationAcquireProtocol`).
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised for a store a boot for a question could not show fresh at its path: none named, one existing, or one reserved or created by another boot.
+- After: also raised, as its subclass `QuestionStoreNotEmpty`, after the boot when the store it opened holds anything for the tenant, and, as its subclass `QuestionFabricNotExclusive`, before anything is registered when the boot is also read-only.
+- Why: SEC-020 P4s-A (b).
+- Migration: none for a handler of this class.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `for_question` said the boot verified the store's path did not exist and reserved it.
+- After: `for_question` also says the store held nothing for the tenant when the boot read it, just before handing the fabric back.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` reserved the store's path and booted whatever store the adapter opened at it; `read_only=True` beside it booted a fabric with no writer lease.
+- After: `for_question=True` reads the store the adapter opened once, after the writer lease is taken and before returning, and raises `QuestionStoreNotEmpty` if it holds anything for the tenant; with `read_only=True` it raises `QuestionFabricNotExclusive` before anything is registered.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition and stays protected by exclusive ownership through use.
+- Migration: boot a question's fabric as a writer, at a path that does not exist, and ingest anything it must start with after the boot returns.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine, and the paved road boots every question's fabric through this one.
+- Why: SEC-020 P4s-A (b).
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: defined in this module and raised only by `declared_artifact_class`
+- After: the same class, now defined in `ccf.controlplane.artifact_base` and re-exported here, and also raised by `ArtifactClass.validate`. Its message is reworded to cover both places it is raised; its attribute `class_id` and its `ValueError` base are unchanged
+- Why: `D-IMPL-378` K1 follow-up (b), as for `ccf.controlplane.artifact_base.ReservedArtifactClassId`
+- Migration: none for a caller that catches it by name or as `ValueError`. A caller that matched its message text reads the new wording
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: same constructor. `validate` held a self-stating document to the class's own id and admitted it whatever that id was, so a class built directly under a `ccf.` id registered the open envelope under an SDK class name
+- After: same constructor. `validate` raises `ReservedArtifactClassId` when the artifact's contract declares a top-level `class_id`, the artifact states this class's id, and that id starts with `ccf.`. It is checked after the class-identity check, so a document stating another class is still `ArtifactClassIdMismatch`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: code that built a `ccf.` class over the envelope registers an SDK class with the SDK's own `ArtifactClass` constant, or chooses a class id in its own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`
+- After: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.parse_artifact
+
+- Surface: ccf.controlplane.artifacts.parse_artifact
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A self-stating document parsed as a class built directly under the `ccf.` id it states was returned
+- After: same signature. That document raises `ReservedArtifactClassId` (a `ValueError`) from `ArtifactClass.validate`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.load_artifact
+
+- Surface: ccf.controlplane.artifacts.load_artifact
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifacts.parse_artifact`, from YAML text
+- After: as `ccf.controlplane.artifacts.parse_artifact`, which it calls
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifacts.parse_artifact`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.DeclaredArtifact
+
+- Surface: ccf.controlplane.artifacts.DeclaredArtifact
+- Public surface: true
+- Change type: behavior
+- Before: same fields. Its `class_id` was held to the class it was presented as, and the class could be built under a `ccf.` id
+- After: same fields. It is also refused under a class id starting `ccf.`, however that class was built, as `ReservedArtifactClassId`
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: none for a document in an adopter's own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: same methods. `register_typed` and `register_versioned` filed a self-stating document under a class built directly with the `ccf.` id it states, bound the key to that id and audited it
+- After: same methods. Both raise `ReservedArtifactClassId` from `artifact_class.validate` for that document, before anything is stored or audited. A third-party plane that validates as `D-IMPL-378` K2 obliges refuses it the same way
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the server registered five surfaces: the blob, presence, names and naming resources and `put_artifact`.
+- After: it also registers the tool `match_artifact_subject` (action `artifact.subject.match`, resource the action id, the grant's sole tenant, registered mutating so a stated identity is refused). Past the guard it requires an `ErasureAuthority` for the caller's tenant and that authority's door-key signature over the query rebuilt under the caller's tenant, else raises `SubjectMatchRefused`; it then judges only an address the caller's tenant filed on its client lane (no own name under a class the substrate declares under `ReplayMint`), reading the bytes from the substrate as the in-process door reads them, and answers `SubjectMatchAnswer`; governed evidence, another tenant's address and an empty one answer `subject-unverifiable` without a byte read. Every answer and every refusal past the guard appends one `authz_decision` audit event.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none for a deployment that does not grant `artifact.subject.match`: every call is refused by the authorizer. Grant it to the erasure door's credential only.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: the store read, wrote and resolved artifacts and answered naming; it asked the server for nothing else.
+- After: it also offers `match_subject(*, query, door_signature)`, which calls the server's `match_artifact_subject` tool (the tenant does not cross the wire) and returns the verdict; a refusal, a server without the tool, or an answer that is not a verdict raises `ArtifactStoreError`, judged after the session closes so it is never reported as an outage.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: `writer_lease()` took the `flock` beside the resolved path and returned it, whatever other names the database file had, so a writer through a hard link took a different lock and was not refused.
+- After: `writer_lease()` refuses a database file with more than one name (a hard link), through any of its names, with `WriterLeaseHeld`, after releasing the lock it took; a boot through either name is refused with `SingleWriterViolation`. A file with one name, and an in-memory database, are leased as before.
+- Why: SEC-013 (CLAUDE.md §10): a lock beside one name cannot exclude a writer through another, and SQLite names its write-ahead log after the path too, so a second name reads another log and misses what the first committed.
+- Migration: keep one name for a live database file. A hard link to it, including one a hard-link backup makes inside the same filesystem, refuses every writer boot until it is removed.
+
+*Recorded by `378-43-proposal-sqlite-lease-refuses-a-second-name.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` raised `McpServerUnreachable` for a write the server declined (a tool answer with `isError`, or one with no structured reference), because the decline was raised inside the session operation and the session runner reports what an operation raises as unreachability; an answer that was not an artifact reference was also `McpServerUnreachable`.
+- After: `put` judges the answer after the session closes. A decline raises `ArtifactStoreError` (exactly that type, "the artifact server declined to store '<name>'"), including a refusal by the server's tenant guard or authorizer, which reaches the client as a tool error. An answer that is not an artifact reference still raises `McpServerUnreachable`, because it says nothing about whether the write happened. Transport, handshake and credential failures are unchanged (a rejected bearer token is still `McpServerUnreachable`).
+- Why: `put`'s own docstring promised `ArtifactStoreError` for a declined write; a decline is an answer, not an outage to retry.
+- Migration: code that caught `McpServerUnreachable` around `put` to handle a server's refusal catches `ArtifactStoreError` instead.
+
+*Recorded by `378-43-small2-store-decline-lease-name-withholding-doc.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the docstrings of `writer_lease` and of `SqliteWriterLease` stated option (B)'s refusal of a second name and noted that a live file moved to a new name escapes it, but neither said what the refusal costs a deployment that takes hard-link backups, what a move of a live file loses, or how to move or back up a database file safely.
+- After: documentation only; the behavior is option (B)'s, unchanged. Both docstrings and the security page's §4.6 disclose the rename gap (a live database file moved to a new name escapes the lease; SQLite's write-ahead log stays beside the old name, so what was committed through it can be lost with no integrity error; stop every process that has the file open before moving it; `SEC-013` stays open pending option (C)) and the hard-link backup restriction (a hard link to the database file refuses every writer boot until it is removed, even with no writer live; back up with SQLite's online backup API or `VACUUM INTO` instead).
+- Why: Dave's ruling on item 8 (`D-IMPL-378`, 2026-10-08 21:24 MST): "B now, with the rename gap and hard-link backup restriction explicitly disclosed."
+- Migration: a deployment that backs up a SQLite graph by hard-linking its database file, or that moves a live database file, changes how it does both, as above.
+
+*Recorded by `378-44-b8-sqlite-lease-option-b-ruled-and-its-two-limits-disclosed.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio` set `auth_context_var` to the identity it was handed and left it set after it returned, raised or was cancelled, so after the call the caller's context still held the stdio identity.
+- After: `serve_stdio` restores, in a `finally`, the login identity the caller's context held before the call, a prior identity or none, whichever way the call ends: a normal return, an exception raised inside the transport (it still propagates, unchanged), or cancellation (`asyncio.CancelledError` still propagates). While the server runs, the identity it was handed answers for every caller, as before, and a call without an identity is still refused with `StdioIdentityRequired` before anything is set.
+- Why: Dave's ruling on item 9 (b) (`D-IMPL-378`, 2026-10-08 21:24 MST): "Restore the previous login identity in finally; verify normal return, exception and cancellation."
+- Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
+
+*Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the names resource (`ccf-artifact-names://`) took the governed dereference only for an address the caller's tenant had filed under a class declared under `ReplayMint`; an address the caller's tenant never filed (another tenant's, nobody's, or a string that is not an address) answered `[]`. A governed address holding no record, an executed-query pin above all, therefore answered the governed read's `nonexistent` shell while an address nobody filed answered `[]`, which told an unentitled caller that the pin exists.
+- After: an address the caller's tenant never filed takes the governed dereference the blob and presence resources take for it and answers its `nonexistent` shell, the same answer a governed address holding no record gets: a refusal, not an empty names list. A principal the governed dereference admits, and the caller's own client-lane filings, get their names as before. Another tenant's filing still takes no part in the decision (C8): without an own filing the answer is the same shell whatever any other tenant filed.
+- Why: decision 1 (A), `D-IMPL-378` (Dave, 2026-10-09 06:21 MST): "approve the uniform “cannot verify” erasure refusal and refusal instead of an empty names list." The finding is the final panel's F1-1. Red tests: `tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike` (both parametrizations) and `::test_names_does_not_tell_the_withheld_deployment_from_the_nonexistent_one`.
+- Migration: an erasure door built over the MCP-backed store now refuses an address its tenant never filed `class-unverifiable` ("cannot verify"; another tenant's address and nobody's alike, so I6 still refuses both), where it refused `address-not-in-tenant`; the door over a store handed to it in process still refuses `address-not-in-tenant`. A client that read `[]` from the names resource as "my tenant filed nothing at this address" now receives the refusal shell, as it already did for a governed address it may not read. Two pinned expectations changed with it: `tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome` (its `OVER_MCP` rows) and `tests/mcp/test_c8_governed_judged_per_tenant.py::test_the_owners_answers_do_not_depend_on_any_other_tenants_filing` (`owner-never-filed`).
+
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: against the shipped artifact server with the names resource above, `names_at` raised `McpServerUnreachable` ("a non-naming answer") for a governed address the credential may not read and for an address the credential's tenant never filed, because it parsed the refusal shell as a malformed answer. `ccf.replay.provenance.filed_by_record_writer` and `require_filed_by_record_writer` over this store raised it too. A string that is not a content address returns `()` with no round trip, before and after.
+- After: `names_at` raises `ccf.artifacts.protocol.ArtifactReadRefused`, carrying the server's shell, for all of those addresses: a typed refusal, never an outage and never an absence. `McpServerUnreachable` remains for an unreachable substrate and for an answer that is neither a list of names nor a refusal envelope. `filed_by_record_writer` and `require_filed_by_record_writer` over this store propagate the typed refusal: never `False`, never `RecordNotFiledByRecordWriter`.
+- Why: decision 1 (A), `D-IMPL-378`: "Preserve a typed refusal through the MCP client." Red tests: `tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_names_at_raises_the_typed_refusal_for_a_query_pin_and_for_addresses_its_tenant_never_filed` (both parametrizations), `::test_record_provenance_over_the_mcp_store_propagates_the_typed_refusal` and `::test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_of_the_typed_refusal` (three rows); control `::test_an_answer_that_is_neither_names_nor_a_refusal_is_still_an_outage`.
+- Migration: a caller that caught `McpServerUnreachable` around `names_at` to retry it no longer receives a refusal that way; catch `ArtifactReadRefused`, or `ArtifactStoreError`, and treat it as "cannot verify". The SDK's own consumers keep their outcomes: the erasure door still refuses `class-unverifiable`, now with the typed refusal as the cause, and the in-process door is unchanged. Measured by lane `378i-names`'s consumer probe, not by a test in this tree: where the bytes of a record were served to one credential and the naming read of the same address was refused, which stands for the server's decision changing between the two reads, `ccf.replay.engine.resolve_artifact` over such a store raises the typed refusal where it raised `McpServerUnreachable`, and the governed evidence read (`ccf_runtime.authz.delivery_boundary.govern_dereference`) over the erasure-consulting composition of it answers its `nonexistent` shell where `McpServerUnreachable` escaped it.
+
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a class with a declared early policy asked its subject-keyed acquisition once per question; a held refusal from the P6 probe call was ignored.
+- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectSubstituteIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: as above.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: invoked once per question, and once more with `UNHELD_SUBJECT_PROBE` for a class the P6 probe reads.
+- After: also invoked twice more per question for a class with a declared early policy, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in in place of the subject, immediately before its call for the question; and a held refusal from the P6 probe's call refuses the question.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: none for a seam that holds no record for the stand-in and answers an unheld identifier with nothing; a seam that counts its calls sees two more under an early policy.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the subject-keyed phase's obligation is checked by the P6 probe only, and stays a trusted statement for any other class.
+- After: says that for a class with a declared early policy, what the subject-keyed phase acquires for the stand-in is compared with what it acquires for `UNHELD_SUBJECT_PROBE`, and that neither check detects a source recognizing the identifier it is asked about. The population phase itself is still invoked once per question, first.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal from the probe acquires nothing, and that a class with a declared early policy is not probed.
+- After: says a held refusal from the probe refuses the question by its own name (`UnheldSubjectProbeRefused`), and that a class with a declared early policy is not refused by this probe but has its stand-in verified, with `UNHELD_SUBJECT_PROBE` as the baseline.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
+- Public surface: true
+- Change type: behavior
+- Before: the identifier the P6 probe asks about, for a class that may withhold and declares no early policy.
+- After: also the baseline a declared early policy's stand-in is compared with: the subject-keyed acquisition is asked about it, and then about the stand-in, for every question of such a class.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none; a source must treat it as any identifier it does not hold.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: called once more for a class the P6 probe reads; a held refusal for the probe identifier counted as nothing returned.
+- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectSubstituteIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: return nothing for an identifier the sources do not hold; hold nothing for the declared stand-in.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.product.PopulationAcquireProtocol
+
+- Surface: ccf.products.product.PopulationAcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said `acquire` is called once for the question's subject, plus once for the P6 probe for a class that may withhold and declares no early policy.
+- After: also says that for a class with a declared early policy `acquire` is called twice to verify its stand-in. The population phase itself is unchanged.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.subject_disclosure.SubjectDisclosurePolicy
+
+- Surface: ccf.products.subject_disclosure.SubjectDisclosurePolicy
+- Public surface: true
+- Change type: behavior
+- Before: `undisclosed_subject` was the deployment's statement that it names nothing, held only to `SUBJECT_FLOOR_V1` and to naming none of the subjects it stands in for.
+- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectSubstituteIsHeld`).
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: declare a stand-in that nothing in the deployment holds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: raised when the two phases were one callable or were bound to one object, or when one phase's closure cells, read one level deep, held the other phase or the object it is bound to.
+- After: also raised when either phase reaches the other phase, or the object the other is bound to, by a breadth-first walk of what it stores: the object a method is bound to and its function; a function's closure cells, default arguments and attributes; an object's declared slots and instance attributes; the members of a list, tuple, set or frozenset and the keys and values of a dict, subclasses included. The walk calls nothing an object defines and stops after `SHARED_OWNER_WALK_DEPTH` steps or `SHARED_OWNER_WALK_OBJECTS` references from a phase. Its docstring states what the walk cannot detect: anything past either bound; state shared through a third object; state reached only through a property, another descriptor, `__getattr__`, `__getattribute__` or a replaced `__dict__`; a C-extension object's own fields; module globals and class attributes; weak references and external stores.
+- Why: SEC-020 Q7, decision 3 (a): the guard admitted a population phase holding the subject-keyed phase's object as an attribute, or in a container in a closure.
+- Migration: declare the two phases on separate objects that hold nothing of each other. A composition where either phase holds the other's object through an attribute, a container, a default argument or a deeper closure is now refused at construction and at open.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction refused a population phase sharing an owner with the subject-keyed phase as `PopulationPhaseSharesAnOwner` described it before this entry.
+- After: construction, and so `build_governed_resolver`, refuses with `PopulationPhaseSharesAnOwner` the compositions its walk finds; the walk runs at every construction, so on the paved road at every question with a declared population phase.
+- Why: SEC-020 Q7, decision 3 (a).
+- Migration: as for `PopulationPhaseSharesAnOwner`.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: refused at open a `population` sharing an owner with `acquire` as `PopulationPhaseSharesAnOwner` described it before this entry.
+- After: refuses at open, with `PopulationPhaseSharesAnOwner`, a `population` and an `acquire` either of which the walk finds holding the other or the object it is bound to.
+- Why: SEC-020 Q7, decision 3 (a).
+- Migration: as for `PopulationPhaseSharesAnOwner`.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.graph.registry.BackendRegistration
+
+- Surface: ccf.graph.registry.BackendRegistration
+- Public surface: true
+- Change type: behavior
+- Before: same fields. `development_reference`, set to `True` by any registration, admitted a declared demonstration serve instant over that adapter; fragment `378-22`'s migration note invited a third-party development adapter to set it
+- After: same fields, same default. `development_reference` is read only on the SDK's own registrations, through `is_sdk_development_reference`. On a third-party registration it is never read, so setting it no longer admits demonstration time
+- Why: `D-IMPL-378` decision 6 (b), amending C1 (b)'s "declares itself"
+- Migration: a third-party adapter that set `development_reference=True` boots as before, and a demonstration serve instant declared over it is now refused at composition (`DemonstrationServeInstantRefused`, reason `graph-substrate-not-development`). Demonstration time runs on the SDK's own SQLite or in-memory adapter
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Admitted a declaration over any graph adapter whose own registration declared `development_reference`, third-party adapters included
+- After: same signature. Admits a declaration only over a graph adapter the SDK ships whose own registration is a development reference (`is_sdk_development_reference`), with an artifact store that is an instance of `FileArtifactStore` as before. `ccf.products.resolver.build_governed_resolver` and the in-process door call it, so both refuse the same way
+- Why: `D-IMPL-378` decision 6 (b). Red tests: `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition` and `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door`
+- Migration: as `ccf.graph.registry.BackendRegistration`
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: behavior
+- Before: raised with reason `graph-substrate-not-development` when the graph adapter's own registration did not declare `development_reference`
+- After: raised with the same reason when the graph adapter is not one of the SDK's own approved development backends, whatever its registration declares. The message says an adapter's declaration about itself does not count. The `artifact-store-not-development` reason, the `key` attribute and the `ValueError` base are unchanged
+- Why: `D-IMPL-378` decision 6 (b)
+- Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: an execution left `suspended` with no pending approval request could never move. `execute` refused the starter's retry "already exists", `resume` refused with "no approval for this suspension has returned through the HITL authority path", and a verdict recorded meanwhile was recorded `missing` and never counted
+- After: `execute`, for the execution's own starter under the definition it was started with, and `resume`, when it finds no approval, restore that one request when the HITL transport holds no pending request, no closure and no verdict for the suspension other than ones recorded while no request was pending. The restore re-files the trace artifact from the record's own trace, at the same content address; re-writes the record unchanged, conditionally on the version read, which adds one `workflow_suspended` row, and of two recoveries that read the same version one write lands and the other raises `ExecutionFenced`; enqueues the request the suspension would have filed (the same event key and class, the record's own content hash, the gate's pinned approval policy, the starter as requester); and returns the suspension as `WorkflowSuspended`. No step runs, no verdict is recorded and no gate is closed, and a verdict recorded while the request was missing is never authority. With the request pending, a later `execute` or `resume` is refused as before. The erasure door's retried request reaches this path
+- Why: `D-IMPL-378`, Dave's decision 8 (a). Red tests: `tests/workflow/test_restore_missing_approval_request.py::test_a_suspension_whose_request_never_reached_the_queue_gets_exactly_that_request_back`, `::test_a_suspension_a_passage_left_without_its_request_gets_it_back_from_the_resumers_retry`, `::test_two_processes_recovering_one_suspension_at_once_file_one_request`, `tests/erasure/test_erasure_request_restored.py::test_an_erasure_request_whose_approval_request_never_reached_the_queue_is_restored_by_its_retry`
+- Migration: a caller that treated "already exists", or the no-approval refusal, of such an execution as final may present it again and receive the suspension. An operator reading the audit log finds a second `workflow_suspended` row for a restored suspension, with the record and its trace unchanged
+
+*Recorded by `378-51-a-suspension-missing-its-approval-request-gets-it-back.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the store ran its setup (the write-ahead-log pragma and the schema) when it was opened, whatever the database file's number of names. A file with more than one name was refused only at the boot mint, after that setup had written: by `writer_lease()`'s name count (option (B)) or, with a lock directory declared, by the file lease (option (C)), reported as `SingleWriterViolation`. A read-only boot of such a file was not refused at all.
+- After: the constructor counts the names of the regular file the path names before `sqlite3.connect` and again after it, before the setup's first statement, and refuses a file with more than one name with `WriterLeaseHeld`, whose message names the file and its number of names and says the store refuses to open it, readers included, before any connection or setup; a connection opened between the two counts is closed unused, and nothing is written through any name. A writer boot through such a file therefore raises `WriterLeaseHeld` from the store's open, before the mint, and so does a read-only boot. A path that names no file, `":memory:"` and `""` open as before. `writer_lease()`'s name count is unchanged and now refuses a second name made after the store opened.
+- Why: SEC-013, P2 (b) (Dave, 2026-10-09): "reject multi-name files before any setup writes, including reader setup."
+- Migration: every open of a SQLite database file that has more than one name, to write or to read, is refused until the other names are removed, so an examiner cannot open a file that has a hard-link backup; back the file up with a copy SQLite writes itself instead. A caller that caught `SingleWriterViolation` for a boot through a hard link catches `WriterLeaseHeld` instead. What the two counts do not see is stated on the class: a name made in the instant between the second count and the setup, a file swapped in under the path between SQLite's open and the second count, and an open made with SQLite directly.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
+
+#### ccf.graph.protocols.WriterLeaseHeld
+
+- Surface: ccf.graph.protocols.WriterLeaseHeld
+- Public surface: true
+- Change type: behavior
+- Before: raised by a store's `writer_lease()` and translated by the boot mint into `SingleWriterViolation`.
+- After: also raised by `ccf.graph.backends.sqlite.SqliteGraphStore`'s constructor for a database file with more than one name, for every open, readers included. That refusal comes before any lease and before the mint, so no mint translates it: `ccf.boot.boot` re-raises it unchanged for a writer boot and a read-only boot alike. The type is unchanged.
+- Why: SEC-013, P2 (b): the refusal has to come before the store's setup writes, and the setup runs when the store opens.
+- Migration: none beyond the store's entry above.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: behavior
+- Before: the `read_only` argument's N-6 statement said a read-only boot still runs the store's own open-time setup, as a writer boot's open does.
+- After: documentation only; the function re-raises what the adapter's store constructor raises, as before. The N-6 statement now adds that the SQLite store refuses a database file with more than one name before that setup, for a read-only boot as for a writer boot, with `WriterLeaseHeld`, so an examiner cannot open a SQLite file that has a hard-link backup.
+- Why: the option ruled says it "changes N-6 for that case".
+- Migration: none.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
+
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_replay_record` returned a `DeliveryCapability` over whatever reference the store's `put` answered.
+- After: `write_replay_record` derives the record's own reference and raises `ReplayReferenceMismatch` unless the store's answer equals it field for field; the capability carries the derived reference.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_served_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a store conforming to `D-IMPL-26` (the URI's version is the content address); a store answering any other reference for a record is refused.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.record_refusal
+
+- Surface: ccf.replay.serve.record_refusal
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever reference the store answered for the refusal's record, whose URI the resolver hands to the caller.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference; returns the record's own reference otherwise.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_refusal_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: behavior
+- Before: delivered the product with whatever reference the store answered for its record.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference, so nothing is delivered.
+- Why: `D-IMPL-378` decision 5 (a).
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a boot not for a question created its deployment marker and booted whatever store the adapter opened at the path, unread.
+- After: such a boot, when it created its marker in this boot, reads the store once before returning and raises `DeploymentStoreNotEmpty` if it holds anything for the tenant; a boot that reopens a store (the path held a store or a marker before the boot) takes no read.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b): a boot creating a new store must find it empty, as a boot for a question must.
+- Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_the_config_door_refuses_a_store_planted_at_a_plain_boots_path_by_name`.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `store_creation` `"verified"` said every path naming the store carried a marker.
+- After: it also says that a plain boot that wrote its deployment marker in this boot read the store once and found nothing for the tenant.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.classes.resolve_artifact_class
+
+- Surface: ccf.deployment.classes.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: a `ccf.` id the SDK does not ship raised a plain `ValueError` saying it is not a class the SDK ships.
+- After: it raises `ccf.controlplane.artifact_base.ReservedArtifactClassId` (a `ValueError`) carrying `class_id`, with that class's message; an empty id still raises a plain `ValueError`.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P2 (b): one rule, one name. Red test: `tests/deployment/test_resolve_artifact_class_names_the_reservation.py::test_3p2_b_the_resolver_refuses_a_reserved_id_as_reserved_artifact_class_id`.
+- Migration: none for a caller catching `ValueError`; a caller matching the old message text reads the new one, or catches `ReservedArtifactClassId` by name.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.resolve_artifact_class
+
+- Surface: ccf.deployment.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.classes.resolve_artifact_class`.
+- After: the package-level spelling of the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: as `ccf.deployment.classes.resolve_artifact_class`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: raised by `declared_artifact_class` and `ArtifactClass.validate`.
+- After: also raised by `resolve_artifact_class`, for a `ccf.` id the SDK does not ship, before the open envelope is reached. Unchanged class, attribute and message.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: an entry naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`), before anything is registered or audited, as before.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_manifest_door_refuses_an_envelope_stating_a_reserved_id_by_its_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a section naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`); the paved road (`ccf.products.product.open_product`) refuses the same section the same way.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_config_door_and_the_paved_road_refuse_a_reserved_policy_class_by_their_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: its docstring did not say what the reserved `ccf.` namespace does not stop.
+- After: unchanged behavior; its docstring states R3: a class built directly under a `ccf.` id over a contract with no `class_id` field registers that contract's documents under the SDK's class name, key bound and audited, while the reservation holds on every document, manifest, config and envelope route.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P1 (a). Measured by `tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers`.
+- Migration: none. Register an SDK class with the SDK's own `ArtifactClass` constant, and give your own classes ids in your own namespace.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: its docstring listed where the reservation is refused and not what it leaves unrefused.
+- After: unchanged behavior; its docstring states R3 as not refused, by ruling.
+- Why: OWED-RULINGS-3 item 3P1 (a). Measured as for `ccf.controlplane.artifact_base.ArtifactClass`.
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.state.AuditedStateWriter
+
+- Surface: ccf.controlplane.state.AuditedStateWriter
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `write_if` said the store's conditional write comes first and the event after it, so a refused write appends nothing; it did not say what an append that fails after the write landed leaves.
+- After: documentation only; the behavior is unchanged. The docstring of `write_if` adds that these are two writes, not one atomic step: an append that fails after `put_if` landed leaves the record moved with no event for the transition, and the append's error propagates to the caller. Making such a transition detectable and recoverable is being designed (`D-IMPL-378`, decision 7 (b)), not built. The docstring of `write`, which summarized itself as "one write, one event", now says the same of the unconditional write: the store's write, then the append, two writes (a coordinator wording edit at integration).
+- Why: Dave's ruling on decision 7 (`D-IMPL-378`, 2026-10-09): "Do not claim atomicity that does not exist."
+- Migration: none in code. A reader who takes the audit log as the complete history of Control Plane state writes allows for a write whose event append failed, which has no event.
+
+*Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `resume` said the passage is committed "together with its attributed `workflow_resumed` row, in ONE audited write".
+- After: documentation only; the behavior is unchanged. The docstring of `resume` says the passage is committed conditionally before the step after the gate runs and its row is appended after the commit lands: two writes, not one. An append that fails after the commit leaves the execution past its gate with no `workflow_resumed` row, and the security page's §4.13 states what an operator then finds. Detecting and recovering such a passage is being designed (`D-IMPL-378`, decision 7 (b)), not built.
+- Why: Dave's ruling on decision 7 (`D-IMPL-378`, 2026-10-09): "Do not claim atomicity that does not exist."
+- Migration: none in code. An operator who reconciles executions against the audit log reads a `running` execution past its gate with no `workflow_resumed` row as a passage whose row append failed; the approver is named by the gate's closure on the HITL transport (`decided_by`).
+
+*Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: raised only by a plain boot that created its deployment marker in this boot.
+- After: raised by every plain boot that creates its store (a path that held no store when the boot looked), whoever made a marker beside it, a store created where a question marker stands included, and a path whose stale deployment marker the boot replaced with its own included. Its text is unchanged.
+- Why: SEC-020, `D-IMPL-378` repair 1.2, restoring OWED-RULINGS-3 item 2A (b) as ruled. Red tests: `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_plain_boot_creating_a_store_where_a_question_marker_stands_takes_the_read` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_store_planted_after_the_look_beside_a_stale_marker_is_refused_by_the_read_and_the_marker_removed`.
+- Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot left a one-line deployment marker beside a store it created, read the store only if it had created that marker, and removed the marker only when that read refused the store; its Raises named neither `WriterLeaseHeld` nor `SingleWriterViolation`.
+- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker beside a store that does not show a completed verification, a marker made, or replaced by another file, outside its lock, or a lock it cannot take (`DeploymentStoreNotVerified`); replaces a stale marker of any state that stands with no store beside it by its own; creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentStoreNotVerified`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2; the Raises from the findings brief's item 1.6 (the panel's F-G2-4). Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_that_fails_inside_boot_leaves_no_marker_and_the_retry_over_the_plant_is_refused`, `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified`.
+- Migration: delete or copy a store together with its deployment marker. A store whose marker is deleted boots `"unmarked"` and answers no governed call, as before; a path whose store is deleted and whose marker is kept boots again, the marker replaced and a new store verified. Every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store, so the store's directory must let the deployment's user create that file.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `store_creation` was read from the markers before the boot and before its read: a deployment marker's existence alone gave `"verified"`.
+- After: `store_creation` is read when the boot hands the fabric back, after its read; `"verified"` needs a question marker or a deployment marker that records a completed verification beside every path.
+- Why: SEC-020, `D-IMPL-378` repair 1.1 (*"A marker left by a crash must not imply completed verification."*).
+- Migration: none.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: for a class with a declared early policy, the stand-in check compared the graph read after the stand-in's call with the one after the probe's call whole, lineage included; a refusal the subject-keyed acquisition raised was recorded and served as its source stated it.
+- After: the check compares entities, relationships and claim values, with each lineage entry's source and passage anchor, and sets aside the envelope id and receipt instant a delivery carries; a refusal the subject-keyed acquisition raises (a `GovernedRefusalRaised` of any kind, an envelope recorded by its raiser or not, or a class- or SDK-declared seam refusal) is recorded at the `acquisition` seam and served as `EARLY_POLICY_ACQUISITION_REFUSAL`.
+- Why: SEC-020, repair 1.3 and decision 2.2 (a) (see above).
+- Migration: none for a class with no early policy.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
+
+- Surface: ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
+- Public surface: true
+- Change type: behavior
+- Before: raised when the graph after the stand-in's call differed in any way from the graph after the probe's call, a lineage entry that differed only in its envelope id included.
+- After: raised when they differ in entities, relationships, claim values, or a lineage entry's source or passage anchor; a difference only in the envelope id or the receipt instant a delivery carries is not one. Its type and its one message are unchanged.
+- Why: SEC-020, repair 1.3 (see above).
+- Migration: none.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.refusal.SubjectUnavailableRefusal
+
+- Surface: ccf.products.refusal.SubjectUnavailableRefusal
+- Public surface: true
+- Change type: behavior
+- Before: said the cause `undisclosed` is never a determination the fabric reaches, and that the record keeps what the fabric determined.
+- After: says the fabric records `undisclosed` as a determination in one place, `EARLY_POLICY_ACQUISITION_REFUSAL`, where under a declared early policy the record keeps no statement of the source's.
+- Why: SEC-020, decision 2.2 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: under a declared early policy, the question was refused if what `acquire` returned for the stand-in added anything to what it returned for the probe identifier; a refusal `acquire` raised reached the caller and the record as it stated it.
+- After: "anything" is an entity, a relationship, a claim value, or evidence from another source or passage; the envelope id and receipt instant each delivery carries are set aside. Under such a policy a refusal `acquire` raises is served and recorded as `EARLY_POLICY_ACQUISITION_REFUSAL`.
+- Why: SEC-020, repair 1.3 and decision 2.2 (a) (see above).
+- Migration: none; an `acquire` relying on its refusal's own text, code, cause or kind reaching the caller under an early policy no longer gets it.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.subject_disclosure.SubjectDisclosurePolicy
+
+- Surface: ccf.products.subject_disclosure.SubjectDisclosurePolicy
+- Public surface: true
+- Change type: behavior
+- Before: the module's account of the early policy did not say what becomes of a refusal the subject-keyed acquisition raises.
+- After: it says such a refusal is served and recorded as `EARLY_POLICY_ACQUISITION_REFUSAL` for every question of a class with the policy.
+- Why: SEC-020, decision 2.2 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: for a class the probe reads, a held refusal from the probe call raised `UnheldSubjectProbeRefused`, recording nothing.
+- After: such a question is recorded at the `acquisition` seam, before the subject-keyed phase is handed its subject, and answered with `UNHELD_SUBJECT_PROBE_REFUSAL`, for every route a held refusal takes (the typed handoff of any refusal kind, a refusal shell recorded by its raiser or not, a class- or SDK-declared seam refusal). A raiser stating `ResolutionNotApplicable` is refused as before.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none for a class with an early policy or one affirming `never`.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal from the probe refuses the question by its own name, `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`. The refusal this type names is unchanged.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the probe's call ending in a held refusal refuses the question as `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`. The calls the seam receives are unchanged.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal for the probe identifier refuses every question, `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`, with no part of the refusal as `acquire` stated it.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none; an `acquire` relying on its own refusal of the probe identifier reaching the caller no longer gets it.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.refusal.SubjectUnavailableRefusal
+
+- Surface: ccf.products.refusal.SubjectUnavailableRefusal
+- Public surface: true
+- Change type: behavior
+- Before: named one place the cause `undisclosed` is recorded as a determination, `EARLY_POLICY_ACQUISITION_REFUSAL`.
+- After: names two, adding `UNHELD_SUBJECT_PROBE_REFUSAL`.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: its docstring named a `functools.partial`'s arguments and a `collections.deque`'s members as C-extension state the walk does not read; a member the walk could not read escaped as its own error.
+- After: its docstring also names a `types.MappingProxyType`'s mapping, a generator's frame, an `operator.methodcaller`'s arguments and a closure cell held anywhere but in a function's closure, each measured, and states that a member the walk cannot read is refused by its subclass `SharedOwnerWalkIncomplete`.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: none.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction raised whatever error reading a member raised during the shared-owner walk, such as a bare `TypeError`.
+- After: construction raises `SharedOwnerWalkIncomplete` in that case.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: as for `SharedOwnerWalkIncomplete`.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: open raised whatever error reading a member raised during the shared-owner walk over `population` and `acquire`.
+- After: open raises `SharedOwnerWalkIncomplete` in that case; the `population` argument's description names it.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: as for `SharedOwnerWalkIncomplete`.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume`, finding no approval for a suspension whose request never reached the queue, restored the request and returned the suspension without appending its refusal row. The audit log read the suspension's `workflow_suspended` row and then a second one, and recorded no refused resumption
+- After: `resume` appends its refusal row first (`workflow_resumed`, `resolved=False`, no actor, the row any refused resumption appends), then restores the request as before and returns the suspension. A restore that fails after the row leaves the row and no request. A second refused resumption appends one more refusal row and files no second request. Of two processes resuming at once, each resumption is recorded as refused in its own log, and the one whose restore loses raises `ExecutionFenced` having filed nothing. The docstring of `resume` says so
+- Why: `D-IMPL-378`, Dave's repair 1.4 (a) of 2026-10-09. Red tests: `tests/workflow/test_restore_keeps_the_refused_resumption_row.py::test_a_resumption_that_restores_a_missing_request_is_recorded_as_refused_before_the_restore`, `::test_a_second_refused_resumption_appends_one_refusal_row_and_files_no_second_request`, `::test_a_restore_that_fails_after_the_refusal_row_leaves_that_row_and_the_next_refused_resumption_restores`, `::test_two_processes_recovering_at_once_are_each_recorded_as_refused_and_one_restore_lands`
+- Migration: none in code. An operator reading the audit log for a suspension restored by a resumption finds, after the suspension's own `workflow_suspended` row, the refused resumption's `workflow_resumed` row (`resolved=False`, no actor) and then the restore's `workflow_suspended` row, which is the suspension's own row but for its sequence and time. A suspension restored by the starter's retried start shows the restore's row alone
+
+*Recorded by `378-64-a-resumption-that-restores-is-recorded-as-refused-first.md`.*
+
+#### ccf.products.bind
+
+- Surface: ccf.products.bind
+- Public surface: true
+- Change type: behavior
+- Before: the module docstring cited the shipped call site of `refuse_bound_payload` as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's "Where a working example is" paragraph cited the payload bind's shipped call site as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same, and the request refusal's citation is untouched.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's "Where a working example is" paragraph cited the payload bind's shipped call site as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same, and the request refusal's citation is untouched.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.experience.ContextProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ContextProviderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring cited the shipped example that compares the product it is handed with the one it assembled as the archived hello-context example's `context_provider`, by its bare name, though `context_provider` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/external/00-hello-context/serve.py::main.context_provider`; the example path is the same.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `get`, `exists`, `names_at`, `resolve_uri` and `match_subject` raised `McpServerUnreachable` when the server's guard answered HTTP 401 (`get` asked the presence resource a second time first, and got the same 401).
+- After: each raises `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, chained from the guard's 401 response, judged on the response's status code and never on message text; `get` makes one round trip for it. `put` is unchanged here (`378-71` types it). A refusal shell still reads as `ArtifactReadRefused` on `names_at` and as absence on `get` (`ArtifactNotFound`) and `exists` (`False`), and a refused connection is still `McpServerUnreachable`.
+- Why: repair 2.5 (a), `D-IMPL-378`. Red tests: `tests/mcp/test_auth_401_typed_through_the_client.py::test_names_at_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (three credential shapes), `::test_every_other_read_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (four reads) and `::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`. One pinned expectation changed with it: `tests/conformance/test_artifactstore.py::test_a_store_presenting_no_credential_is_refused`, which asserted `McpServerUnreachable` for `exists` with no credential.
+- Migration: a caller that caught `McpServerUnreachable` around a read and retried it no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactStoreUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a read as absence must let this type through by name, as the SDK's own consumers below now do.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.replay.engine.resolve_artifact
+
+- Surface: ccf.replay.engine.resolve_artifact
+- Public surface: true
+- Change type: behavior
+- Before: over an `McpArtifactStore` whose credential the guard refused, the 401 escaped as `McpServerUnreachable`. Its Raises section did not list `ArtifactReadRefused`, which the provenance check's naming read lets through.
+- After: it lets `ArtifactStoreUnauthenticated` through by name, ahead of the clause that answers `ReplayUnresolvable`, so a refused credential is never reported as a missing artifact. Raises lists both types.
+- Why: repair 2.5 (a), `D-IMPL-378`. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_replay_resolution_reports_a_401_as_the_authentication_refusal_never_as_unresolvable` (`by address`).
+- Migration: none; the call fails as it did, with the typed refusal in place of the outage.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.replay.engine.resolve_artifact_at_uri
+
+- Surface: ccf.replay.engine.resolve_artifact_at_uri
+- Public surface: true
+- Change type: behavior
+- Before: a 401 at the naming resolution or the read escaped as `McpServerUnreachable`.
+- After: `ArtifactStoreUnauthenticated` is let through by name, never `ReplayUnresolvable`.
+- Why: repair 2.5 (a), `D-IMPL-378`. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_replay_resolution_reports_a_401_as_the_authentication_refusal_never_as_unresolvable` (`by URI`).
+- Migration: none.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a 401 from the store's server, when the record was resolved or when a by-URI read's naming was checked, escaped as `McpServerUnreachable`.
+- After: `ArtifactStoreUnauthenticated` is let through by name at both places. It is never answered as the `nonexistent` shell — the one absence, which is also what the holds answer an unauthorized caller — and nothing is recorded for it.
+- Why: repair 2.5 (a), `D-IMPL-378`: the distinction from authorization denial. Tests: `tests/http_api/test_auth_401_never_a_recorded_absence.py::test_resolving_the_record_reports_a_401_as_the_authentication_refusal_never_as_a_recorded_absence` and `::test_the_by_uri_naming_check_reports_a_401_as_the_authentication_refusal_never_as_a_recorded_absence`.
+- Migration: none; the call raises as it did, with the typed refusal in place of the outage.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.erasure.compose_erasure_consult
+
+- Surface: ccf.erasure.compose_erasure_consult
+- Public surface: true
+- Change type: behavior
+- Before: a 401 while an index entry's record was read through the wrapped store (at composition, or at the first read that meets an entry appended later) escaped as `McpServerUnreachable`. The same function is `ccf.erasure.store.compose_erasure_consult`.
+- After: `ArtifactStoreUnauthenticated` is let through by name. The entry is never judged `index-unsupported` for it and no `erasure_index_unsupported` row is audited.
+- Why: repair 2.5 (a), `D-IMPL-378`: a refused credential says nothing about the record, so an unsupported entry would be a finding about the index that a credential caused. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_consult_reports_a_401_reading_a_record_as_the_authentication_refusal_never_as_unsupported`.
+- Migration: none.
+
+*Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: its Raises said `DeploymentStoreNotVerified` is raised "after registration and before anything is created at the path", for every reason, `claimed` included.
+- After: unchanged behavior; its Raises says which refusals come at the boot's look, before the boot creates a store or a marker, and that a `claimed` refusal at the promotion comes after the boot created its store and read it empty, leaving that store beside the foreign marker, where every later boot of the path meets it.
+- Why: `D-IMPL-378`, the "j" batch panel's J-CLAIMED-LEAVES-STORE (an advertised guarantee the code does not keep). Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses`.
+- Migration: none in code. An operator who meets `DeploymentStoreNotVerified` with reason `claimed` may find a store at the path that the refused boot created; resolve it as the security how-to (section 4.12) says.
+
+*Recorded by `378-68-a-a-claimed-refusal-at-promotion-leaves-the-store-the-boot-created.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: fragment `378-61` said it is raised "after registration and before anything is created at the path" for every `reason`.
+- After: unchanged behavior, stated as it is: `pending`, `unreadable`, `lock-unavailable` and the `claimed` refusals at the boot's look come before the boot creates a store or a marker; the `claimed` refusal at the promotion comes after the boot created its store and read it empty, and that store stays beside the foreign marker. Its docstring is unchanged: its "before anything is created at the path" names only refusals at the boot's look.
+- Why: `D-IMPL-378`, J-CLAIMED-LEAVES-STORE. Measured as for `ccf.deployment.manifest.load_and_boot`.
+- Migration: none in code; as for `ccf.deployment.manifest.load_and_boot`.
+
+*Recorded by `378-68-a-a-claimed-refusal-at-promotion-leaves-the-store-the-boot-created.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: behavior
+- Before: its docstring quoted repair 2.4 (b) ("Refuse when the shared-owner walk reaches a limit before completing.") as read with repair 1.8, and did not say that 2.4 (b) is not built.
+- After: unchanged behavior; its docstring says repair 2.4 (b) is not built: a walk cut off at either bound (`SHARED_OWNER_WALK_DEPTH`, `SHARED_OWNER_WALK_OBJECTS`) raises no refusal and admits the two phases, and the walk reaches its reference bound sooner as a service runs.
+- Why: `D-IMPL-378`, the "j" batch panel's J-WALK-DOC-24B. Measured by `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen`, `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen` and `tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py`.
+- Migration: none. Keep the population phase free of anything the subject-keyed phase writes; the walk does not stand in for that past its bounds.
+
+*Recorded by `378-68-b-shared-owner-walk-incomplete-says-repair-2-4-b-is-not-built.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said that where reading what an object holds raises, the walk cannot complete and the two phases are refused (`SharedOwnerWalkIncomplete`).
+- After: unchanged behavior; its docstring says that a declared slot never assigned and an empty closure cell hold nothing and are read so, and that where reading what an object holds raises otherwise the two phases are refused, naming the test that measures each.
+- Why: `D-IMPL-378`, the "j" batch panel's J-SP-WALK-READS (a refusal advertised for two reads the walk admits). Measured by `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing`, `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing` and `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`.
+- Migration: none.
+
+*Recorded by `378-68-c-the-walk-reads-an-unassigned-slot-and-an-empty-cell-as-holding-nothing.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: behavior
+- Before: its docstring named a declared slot never assigned, but not an empty closure cell, as read as holding nothing; fragment `378-63-a` said it is raised "when reading what an object the walk reached holds raises".
+- After: unchanged behavior, stated as it is: it is raised where reading what an object the walk reached holds raises, except for a declared slot never assigned and an empty closure cell, which hold nothing and are read so; its docstring names both, and the tests that measure them.
+- Why: `D-IMPL-378`, J-SP-WALK-READS. Measured as for `ccf.products.resolver.PopulationPhaseSharesAnOwner`.
+- Migration: none.
+
+*Recorded by `378-68-c-the-walk-reads-an-unassigned-slot-and-an-empty-cell-as-holding-nothing.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said that a plain boot holds the store-creation lock of every path naming its store, from its look at the path through the hand-back.
+- After: unchanged behavior; its docstring says that holds for every path whose directory exists, and that a path whose directory does not exist takes no lock and is left to the adapter: the SDK's SQLite adapter refuses that boot with `sqlite3.OperationalError`, not this refusal, having created nothing there, not even the directory.
+- Why: `D-IMPL-378`, the "j" batch panel's J-NODIR-NOLOCK (an advertised lock the code does not take). Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`.
+- Migration: none.
+
+*Recorded by `378-68-d-only-a-boot-whose-store-directory-exists-holds-the-store-creation-lock.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: its description of `store_creation` said that a plain boot holds the store-creation lock of every path from its look at the path to the hand-back.
+- After: unchanged behavior; it says that holds for every path whose directory exists, and that a path whose directory does not exist takes no lock and is left to the adapter, which on the SDK's SQLite adapter refuses the boot.
+- Why: `D-IMPL-378`, J-NODIR-NOLOCK. Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: none.
+
+*Recorded by `378-68-d-only-a-boot-whose-store-directory-exists-holds-the-store-creation-lock.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: fragment `378-61` said that a plain boot holds the store-creation lock of every path from its look to the hand-back, and, in its Migration, that every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store.
+- After: unchanged behavior, stated as it is: what `378-61` says of the store-creation lock holds for every path whose directory exists; a path whose directory does not exist takes no lock and has nothing created there, not even the directory, and the SDK's SQLite adapter refuses the boot with `sqlite3.OperationalError`. The function's docstring is unchanged: it makes neither statement.
+- Why: `D-IMPL-378`, the "j" batch panel's J-NODIR-NOLOCK. Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`.
+- Migration: none in code. `378-61`'s requirement, that the store's directory let the deployment's user create the lock file, applies where that directory exists.
+
+*Recorded by `378-68-e-fragment-378-61-corrected-only-a-boot-whose-store-directory-exists-takes-the-lock.md`.*
+
+#### ccf.replay.serve.QueryPinWriter
+
+- Surface: ccf.replay.serve.QueryPinWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_query_bytes` returned whatever references the store's `put` answered, one per query.
+- After: `write_query_bytes` derives each query's own reference and raises `QueryPinReferenceMismatch` unless the store's answer equals it field for field; the references returned are the derived ones. Queries filed before the mismatched one in the same call stay filed.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_querys_own_is_refused_by_name`.
+- Migration: none for a store conforming to `D-IMPL-26`; a store answering any other reference for a query is refused.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: behavior
+- Before: with a query-pin writer, discarded the references the pin store answered, then appended the record and delivered.
+- After: raises `QueryPinReferenceMismatch`, through the pin writer, when the pin store's answer for an executed query is not that query's own reference; the record is not appended and nothing is delivered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_the_governed_serve_delivers_nothing_when_the_pin_store_answers_another_querys_reference`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for` recorded the URI the parent store answered for each child question as the row's `child_question_ref`, checking only the answer's content address.
+- After: `resolve_for` raises `ChildQuestionReferenceMismatch` before the producer is asked when the parent store's answer is not the question's own reference; the URI recorded is the derived one, which the store's answer equals. Through a governed resolver it propagates unless the product class declares it a seam refusal, so the composition records and answers nothing.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/products/test_child_question_retention_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_questions_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` appended the `peering_admitted` verdict with the key and version of whatever reference the store answered for the admission record.
+- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted (`AdmissionNotRecorded`): the same envelope presented again is refused `replayed` (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`, both cases; SP §1.1a's nonce sentence now says so).
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_records_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the suspended, exception-routed and completed outcomes carried, as `trace_artifact`, whatever reference the store answered for the execution trace.
+- After: those outcomes carry the trace's own reference, and the engine raises `WorkflowTraceReferenceMismatch` instead of returning one when the store's answer is not it. The trace is written after the transition it describes is persisted, so that transition and its audit row stand, and at a suspension the approval request has not been enqueued, as with a store failure at that point.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/workflow/test_trace_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_traces_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: a stale marker with no store beside it that was rewritten in place, or deleted and created again under the same inode number, between the boot's look and its replacement kept its device and inode and was replaced; `"claimed"` caught another file put at the path only.
+- After: the boot compares what stands at the marker's path immediately before the rename with what its look found: the file (device and inode), its type, and its content, a regular file's bytes or a symbolic link's target, by their SHA-256 digest. A difference refuses the boot `"claimed"` and leaves the marker. Not told apart: a change made after that comparison and before the rename; a rewrite to identical bytes, which changes nothing a boot reads; and the bytes of a marker the boot cannot read (a file it has no permission to open), whose file and type alone are compared (lane probe `probe_unreadable_stale_marker_rewritten.py`: a write-only marker rewritten in place is replaced). In each of those the boot replaces the marker and verifies the new store itself, so it serves nothing it did not read.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b). Red test: `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_claimed_and_left`.
+- Migration: none in code. A boot refused `"claimed"` this way is resolved as any `"claimed"` refusal is (the security how-to, section 4.12): find what writes into the store's directory first.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b).
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a stale marker with no store beside it after checking only that it was still the same file (device and inode) its look found.
+- After: it also checks the marker's type and content (bytes, or a symbolic link's target) and is refused `DeploymentStoreNotVerified` (`"claimed"`) where they changed; its Raises says so.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b).
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.config.derive_deployment
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: the derived manifest carried `tenant_id`, `backend`, `backend_secrets` and `survivor_cap` from the config's deployment-level fields.
+- After: it also carries `store_creation_lock_wait_seconds`, unchanged; a config that declares none derives a manifest that declares none.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b). Measured by `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_config_door_carries_the_declared_wait_into_its_manifest_and_honors_it`.
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot that found the store-creation lock held waited for it with no timeout (fragment `378-61`: "a second boot of the path waits").
+- After: it is refused `DeploymentStoreNotVerified` (`"lock-held"`) at once, or, where the manifest declares `store_creation_lock_wait_seconds`, once that many seconds have passed with the lock still held; a boot that gets the lock within them proceeds as before and reopens a store another boot created and verified. Its Raises says so.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`, and by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens` with a wait declared.
+- Migration: as `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`, the wait read from `ccf_config.yaml`'s `store_creation_lock_wait_seconds` through the manifest the door derives; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b). Measured by `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_config_door_carries_the_declared_wait_into_its_manifest_and_honors_it`.
+- Migration: as `ccf.controlplane.artifacts.DeploymentConfig`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: its description of `store_creation` said that a boot that finds another creating the store waits for it.
+- After: unchanged behavior of the field; its description says that such a boot is refused by name (`"lock-held"`) at once, or once the deployment's declared wait has passed, and that a boot that gets the lock after another boot created and verified the store reopens it.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said that the read is taken by every plain boot whose path held no store when it looked, while the boot holds the store-creation lock.
+- After: unchanged behavior; its docstring says the read is taken once the adapter has opened the store the boot creates, and that a boot whose store's directory does not exist takes no lock and, on the SDK's SQLite adapter, no read either, the adapter refusing it first with nothing created there.
+- Why: `D-IMPL-378`, the fix-up follow-up's report (section 5), left for this lane. Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`.
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: a stale marker with no store beside it that the boot could not read was replaced, its file and type alone compared, and the boot booted `"verified"`; `"unreadable"` with no store beside the marker meant only a directory at the marker's path.
+- After: such a marker, a regular file or a symbolic link whose content the boot cannot read, refuses the boot `"unreadable"` before anything is created at the path, and is left as it stands. Anything else that holds no bytes to compare (a FIFO, a socket, a device) is replaced as before. The refusal's text is unchanged; it already names "not a regular file this process can read".
+- Why: SEC-020, `D-IMPL-378` P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: "1. b and 2. a". Red test: `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left`.
+- Migration: a deployment whose stale markers its user cannot read is refused until an operator removes the marker or makes it readable (the security how-to, section 4.12, step 2).
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a stale marker with no store beside it whatever it could read of it.
+- After: it is refused `DeploymentStoreNotVerified` (`"unreadable"`) where it cannot read that marker; a marker it can read is replaced and its new store verified, as before. Its Raises says so.
+- Why: SEC-020, `D-IMPL-378` P-1 (b). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: its description of `store_creation` said that a boot meeting a deployment marker of any state with no store beside it replaces it and verifies the new store.
+- After: unchanged behavior of the field; its description says that holds for a marker the boot can read, and that one it cannot read refuses the boot (`"unreadable"`).
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: none.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said a boot whose path carries a deployment marker of any state with no store beside it replaces that marker and takes the read.
+- After: unchanged behavior; its docstring says so of a marker the boot can read.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: none.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+
+- Surface: ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+- Public surface: true
+- Change type: behavior
+- Before: named `ArtifactReadUnauthenticated` (fragment `378-67`, this batch) and raised by the reads of `McpArtifactStore` only.
+- After: one name for reads and the write: also raised by `McpArtifactStore.put` where the server's guard answered HTTP 401. `ArtifactReadUnauthenticated` no longer exists and no alias is kept.
+- Why: decision 10 (b), `D-IMPL-378`. Tests: `tests/mcp/test_auth_401_typed_on_a_write.py::test_one_type_names_the_authentication_refusal_for_reads_and_writes_and_the_read_only_name_is_gone` and `::test_a_reference_mismatch_refusal_is_not_the_authentication_refusal` (five rows). The read tests of repair 2.5 (a) look the type up by its new name (`tests/mcp/test_auth_401_typed_through_the_client.py::authentication_refusal`).
+- Migration: none for a shipped caller: the old name never shipped. Code written against this batch names `ArtifactStoreUnauthenticated`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` raised `McpServerUnreachable` when the server's guard answered HTTP 401, as fragment `378-43` recorded ("a rejected bearer token is still `McpServerUnreachable`").
+- After: `put` raises `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, chained from the guard's 401 response, with no outage in its chain, as every read does; nothing is written. A 403 and a refused connection stay `McpServerUnreachable`; a write the server declines stays `ArtifactStoreError` (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_server_declines_is_an_artifact_store_error_not_an_outage`).
+- Why: decision 10 (b), `D-IMPL-378`. Red tests: `tests/mcp/test_auth_401_typed_on_a_write.py::test_put_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (three credential shapes) and `::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`. One pinned test changed with it: the conformance test that asserted `McpServerUnreachable` for `put`, `test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`, now asserts the typed refusal and is renamed `tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`.
+- Migration: a caller that caught `McpServerUnreachable` around `put` and retried no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactStoreUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a write as a declined write or an unreachable substrate must let this type through by name, as the admission gate below now does. A product class that declares `ccf.mcp.errors.McpServerUnreachable` as a seam refusal (the route `examples/dr-02-package-a-context-product/FINDINGS.md` documents) no longer has a write's rejected credential converted with an outage, because decision 10 (b) raises it as `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`; to convert both alike, declare that type too (known by code reading, not measured; `D-IMPL-378`, ruled by Dave on 2026-10-09 at 20:43 MST).
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: at the base, a 401 on the admission record's write escaped `admit` as `McpServerUnreachable`; with the write typed and nothing else changed, the record write's `except ArtifactStoreError` raised `AdmissionNotRecorded` for it.
+- After: `ArtifactStoreUnauthenticated` is let through by name, ahead of that clause. Nothing is admitted, no `peering_admitted` verdict is appended, and the issuance nonce is spent, as for the other record failures. A declined write is still `AdmissionNotRecorded`, an outage still `McpServerUnreachable`, and `AdmissionRecordReferenceMismatch` is unchanged.
+- Why: decision 10 (b), `D-IMPL-378`. Tests: `tests/peering/test_admission_record_write_401_is_the_typed_refusal.py::test_a_write_401_at_the_admission_record_is_the_typed_refusal_never_admission_not_recorded`, `::test_a_crossing_refused_at_its_record_for_the_credential_has_spent_its_nonce`, and its two controls.
+- Migration: a caller of `admit` that handles `AdmissionNotRecorded` meets `ArtifactStoreUnauthenticated` where the store's server refused the deployment's credential.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.peering.admission.AdmissionNotRecorded
+
+- Surface: ccf.peering.admission.AdmissionNotRecorded
+- Public surface: true
+- Change type: behavior
+- Before: the docstring did not say what a refused store credential raises.
+- After: the docstring says it is not raised for one: that write raises `ArtifactStoreUnauthenticated`, let through by name. Docstring only.
+- Why: decision 10 (b), `D-IMPL-378`.
+- Migration: none.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.artifacts.protocol.ArtifactReadRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactReadRefused
+- Public surface: true
+- Change type: behavior
+- Before: the docstring distinguished it from `ArtifactReadUnauthenticated`, "a read the server's guard refused".
+- After: it names `ArtifactStoreUnauthenticated`, "a call the server's guard refused". Docstring only.
+- Why: decision 10 (b), `D-IMPL-378`. The Raises sections of `ccf.replay.engine.resolve_artifact`, `ccf.replay.engine.resolve_artifact_at_uri`, `ccf.erasure.compose_erasure_consult` and `ccf_runtime.authz.delivery_boundary.govern_dereference` name the renamed type the same way; their behavior is unchanged (`378-67`).
+- Migration: none.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf_runtime.http_api.routes.replay.build_router
+
+- Surface: ccf_runtime.http_api.routes.replay.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `GET /replay/decisions` and `GET /replay/resolutions` let `ArtifactStoreUnauthenticated` escape, and the caller got the framework's opaque `500 Internal Server Error`, byte-identical to an outage's answer.
+- After: both answer it `503` with the shared refusal body, `error_code` `artifact-store-unauthenticated` and one constant message, raised from the typed refusal. An outage is still the framework's `500`; `@latest` is still `409` (`tests/http_api/test_evidence_dereference.py::test_c13_a_moving_target_is_still_a_409`).
+- Why: decision 21 (a), `D-IMPL-378`. Test: `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py::test_the_http_evidence_doors_answer_a_401_with_a_typed_503_and_an_outage_with_the_500_and_record_nothing`, which replaces the pinned `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_alike.py`.
+- Migration: as for `ERROR_ARTIFACT_STORE_UNAUTHENTICATED`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf_runtime.http_api.routes.artifact.build_router
+
+- Surface: ccf_runtime.http_api.routes.artifact.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `GET /artifact/{content_address}` let `ArtifactStoreUnauthenticated` escape, answered with the framework's opaque `500`, byte-identical to an outage's answer.
+- After: it answers it `503` with `error_code` `artifact-store-unauthenticated` and the same constant message as the replay doors. An outage is still the framework's `500`. `POST /artifact` is not changed.
+- Why: decision 21 (a), `D-IMPL-378`. Test: as for the replay router.
+- Migration: as for `ERROR_ARTIFACT_STORE_UNAUTHENTICATED`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Admitted a declared demonstration serve instant over an artifact store that is an instance of `FileArtifactStore`, so an instance of a subclass passed (`isinstance`)
+- After: same signature. Admits a declaration only over an artifact store whose class is `FileArtifactStore` itself; a subclass, even one that overrides nothing, is refused with `DemonstrationServeInstantRefused`, reason `artifact-store-not-development`. The graph half is unchanged. `ccf.products.resolver.build_governed_resolver` and the in-process door call it, so both refuse the same way
+- Why: `D-IMPL-378` decision 4 (a). Red tests: `tests/client/test_demonstration_serve_instant.py::test_a_subclass_of_the_sdks_file_store_is_refused_at_composition` and `tests/client/test_demonstration_serve_instant.py::test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door`
+- Migration: a composition that declared a demonstration serve instant over its own subclass of `FileArtifactStore` is now refused at composition; compose over `FileArtifactStore` itself. A composition whose tenant declares no demonstration serve instant is unaffected
+
+*Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: behavior
+- Before: raised with reason `artifact-store-not-development` when the composition's artifact store was not an instance of `FileArtifactStore`
+- After: raised with the same reason when the store's class is not `FileArtifactStore` itself, so also for an instance of a subclass. The message says a subclass is refused too. The `graph-substrate-not-development` reason, the `key` attribute and the `ValueError` base are unchanged
+- Why: `D-IMPL-378` decision 4 (a)
+- Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
+
+*Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` derived the admission record's reference after the store's `put` returned, from the record object the store had held, so a store that altered the record while holding it and answered the altered record's own reference passed the check and the verdict named the altered record.
+- After: the record's reference is derived from the record as built, before `put` is called, and the store's answer is held to it field for field; such a store is refused `AdmissionRecordReferenceMismatch`, and no `peering_admitted` verdict is appended.
+- Why: `D-IMPL-380` ruling 1 (a), 2026-10-10 05:34 MST. Red test: `tests/peering/test_admission_record_writer_hashes_before_put.py::test_a_store_that_alters_the_record_while_it_holds_it_is_refused_and_no_verdict_is_written`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.peering.admission.AdmissionRecordReferenceMismatch
+
+- Surface: ccf.peering.admission.AdmissionRecordReferenceMismatch
+- Public surface: true
+- Change type: behavior
+- Before: raised when the store's answer was not the reference of the record object as it stood after `put` returned.
+- After: raised when the store's answer is not the reference of the record as the gate built it, derived before `put`; this includes a store that altered the record while holding it.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: as for `ccf.peering.admission.PeeringAdmissionGate`.
+- Migration: none.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the execution trace's reference was derived after the store's `put` returned, from the trace the store had held, so a store that rewrote the trace while holding it and answered the rewritten trace's own reference had that reference handed out as `trace_artifact`.
+- After: the trace's reference is derived from the trace as built, before `put` is called; such a store is refused `WorkflowTraceReferenceMismatch`, and no outcome carrying a `trace_artifact` is returned.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: `tests/workflow/test_trace_writer_hashes_before_put.py::test_a_store_that_rewrites_the_trace_while_it_holds_it_is_refused_and_no_trace_reference_is_handed_out`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+
+- Surface: ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+- Public surface: true
+- Change type: behavior
+- Before: raised when the store's answer was not the reference of the trace as it stood after `put` returned.
+- After: raised when the store's answer is not the reference of the trace as the engine built it, derived before `put`; this includes a store that rewrote the trace while holding it.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: as for `ccf_runtime.workflow.engine.WorkflowEngine`.
+- Migration: none.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a FIFO, a socket or a device standing at the marker's path with no store beside it, and read a regular-file marker to its full size.
+- After: it is refused `DeploymentStoreNotVerified`, `"unreadable"` for such a special file and `"oversized"` for a regular file longer than any marker the SDK writes; neither is replaced.
+- Why: `D-IMPL-380` rulings 3 and 4 (a). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: `D-IMPL-380` rulings 3 and 4 (a).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` handed the store its own admission record, whose `issuance` is the instance it returns in `AdmittedProduct`, so a store that altered the record while holding it and answered the record's original reference had its alteration returned to the caller.
+- After: the store is handed a deep copy of the record taken before `put`; the gate keeps its own, so `AdmittedProduct.issuance` is the issuance as built. The bytes the store files are still not re-read: such a store files altered bytes under the original's address, and a reader that re-hashes what it fetches finds the difference.
+- Why: `D-IMPL-380` second round, ruling 2 (a), 2026-10-10 07:39 MST. Red test: `tests/peering/test_admission_record_store_holds_a_copy.py::test_a_store_that_alters_the_record_and_answers_the_original_reference_leaves_the_admitted_issuance_as_built`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the store was handed the engine's own trace entries, the ones behind `step_sequence_block` and inside the state record, so a store that rewrote the trace while holding it and answered the trace's original reference had its rewrite reach the outcome, the state record and the record a recovering resumption wrote.
+- After: the store is handed deep copies of the entries taken before `put`; the engine keeps its own, so the outcome, the state record and the recovery path carry the trace as built. The bytes the store files are still not re-read, as for `ccf.peering.admission.PeeringAdmissionGate`.
+- Why: `D-IMPL-380` second round, ruling 2 (a). Red test: `tests/workflow/test_trace_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: beside a store, a FIFO or a socket at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
+- After: beside a store too, such a file has its type checked from `lstat` before any open (type checked first) and is refused `"unreadable"`. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
+- Why: `D-IMPL-380` second round, ruling 1 (a). Red test: `tests/products/test_deployment_marker_special_file_refused.py`.
+- Migration: none; the refusals are unchanged.
+
+*Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `complete` handed the store its own recorded approval and its own erasure record, discarded both answers, and returned the record the store had held, so a store that altered the record while holding it had its alteration returned to the caller under write-ahead index entries naming the record as built.
+- After: both saves hand the store a deep copy taken before the save, and the door keeps its own object. Each answer is held, field for field as exact strings, to the reference the door derived before the save (content address, versioned URI, tenant, class, name). A mismatch is refused `ErasureRefused` by name after the store returns: `approval-reference-mismatch` before the write-ahead append, so no index entry is appended; `record-reference-mismatch` after it, with the address withheld under the appended entries, as on every other failed completion. `complete` returns the door's own record. The bytes the store files are still not re-read: the consult re-hashes what it fetches and fails closed on altered bytes.
+- Why: `D-IMPL-380` third round, ruling 2 (a), 2026-10-10 09:18 and 09:23 MST. Red tests: `tests/erasure/test_erasure_record_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed and answers the reference of what it filed. A caller that branches on `ErasureRefused.reason_code` meets two new values.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`
+- After: as for `ccf_runtime.erasure.ErasureDoor`
+- Why: as for `ccf_runtime.erasure.ErasureDoor`
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a composite's child-contract retention handed the store each admitted child's own contract, the object from which the parent's child view is then built, and `ContextProductContract.payload` validates to a live `dict`, so a store that wrote into that mapping and answered the right address had its alteration reach the parent.
+- After: the store is handed a deep copy of each contract taken before the save; the resolver keeps its own, so the parent's child view is built from contracts the store never held. The content-address check on the store's answer is unchanged. The bytes the store files are still not re-read; replay re-hashes what it fetches.
+- Why: `D-IMPL-380` third round, ruling 2 (a). Red test: `tests/products/test_child_contract_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own; in every passage but `_restore_request`, which writes the trace first (from a record read back from the store), the state write comes before `_write_trace`, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
+- After: the one function every state write uses hands the state store a deep copy taken before the save; the engine keeps its own record, and the trace artifact, the outcome and the approval binding are built from it. The saved-bytes limit, state-store form: the state store saves its copy, and a later passage that reads the record back (a resume, a retry, the recovery path) reads what the store saved.
+- Why: `D-IMPL-380` third round, ruling 2 (a). Red tests: `tests/workflow/test_state_store_holds_a_copy.py`.
+- Migration: none for a state store that does not change what it is handed.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf.skills.grants.GrantLedger
+
+- Surface: ccf.skills.grants.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: every grant state write handed the Control Plane state store a `GrantStateRecord` built around the ledger's own `SkillGrant`, and on the approval path the ledger then handed that same grant to the approval sink, so a state store that rewrote the grant while holding it had its rewrite decided on by the approver, and carried by every later use of the grant in the same passage.
+- After: the one function every grant state write uses (`_put_state`, the only `self._writer.write(` in the module) hands the state store a deep copy of the record taken before the save; the ledger keeps its own grant, so the approval sink and every later use in the same passage see the grant as built. The saved-bytes limit, state-store form: the state store saves its copy, and a later reader of the saved record (`bound_view`, `effective_hashes`, `revoke`, `state` and the folds) reads what the store saved. A revocation records the grant it read back: its write and its audit event name what the store saved (amended in the fifth round, ruling 3 (a), Dave 12:57 MST: *"Add revoke and state to the list of readers of saved data."*).
+- Why: `D-IMPL-380` fourth round, ruling 1 (a), 2026-10-10 10:58 MST. Red test: `tests/skills/test_grant_state_store_holds_a_copy.py`.
+- Migration: none for a state store that does not change what it is handed.
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf.skills.GrantLedger
+
+- Surface: ccf.skills.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.skills.grants.GrantLedger`
+- After: as for `ccf.skills.grants.GrantLedger`
+- Why: as for `ccf.skills.grants.GrantLedger`
+- Migration: as for `ccf.skills.grants.GrantLedger`
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the engine's docstrings did not say that the HITL transport is handed the engine's own pending event.
+- After: unchanged behavior; amended in the fifth round, the docstrings of `_suspend` and `_restore_request`, and the security page, say: A HITL transport is handed the engine's own pending event, which is not copied. A transport that alters it can change the `event_key` the caller is told in `WorkflowSuspended`, and, because resume looks for the key it recomputes (`_event_key`) among the events the transport holds, a transport that alters the key can keep the gate from ever opening, and each recovery queues another request. Nothing is wrongly approved: the approval binding, the hash of the suspension record as built, does not change.
+- Why: `D-IMPL-380` fourth round, ruling 2 (b), 2026-10-10 10:58 MST (the Fable seat's finding F-2 on the third-round delta review, reproduced by the coordinator at `06414dbd`); replaced in the fifth round, ruling 1 (a), 2026-10-10 12:57 MST: *"The current sentence understates it. Say that a queue which alters the key can keep the gate from ever opening, and that each recovery queues another request. Nothing is wrongly approved."* The builder's finding B-1 on the fourth-round delta review, reproduced by the coordinator at `197f5b4f` and re-measured by lane `380e-repair` before the sentence was written; the binding is the one `tests/workflow/test_state_store_holds_a_copy.py` holds to the record as built. The recovery code is not changed.
+- Migration: none.
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf.skills.grants.GrantLedger
+
+- Surface: ccf.skills.grants.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: on the approval path the ledger handed the approval sink its own `SkillGrant` (`self._sink.decide(grant)`), and wrote the `effective` record and its `grant_effective` audit event from that same object, so a sink that rewrote the grant it received left a grant in effect whose saved bytes do not hash to its record id, and rewrote the caller's object.
+- After: the approval sink receives `grant.model_copy(deep=True)`; the ledger keeps its own grant and writes every later state, and its audit event, from it, so the `effective` record is saved as built, under the record id the grant as built hashes to.
+- Why: `D-IMPL-380` fifth round, ruling 2 (a), 2026-10-10 12:57 MST. The builder's finding B-2 and the Fable seat's finding F-1 on the fourth-round delta review, reproduced by the coordinator at `197f5b4f`. Red test: `tests/skills/test_grant_approval_sink_holds_a_copy.py`.
+- Migration: none for an approval sink that does not change what it is handed. A sink that relied on altering the grant it receives no longer reaches the ledger's grant.
+
+*Recorded by `380-05-the-approval-sink-is-handed-a-copy.md`.*
+
+#### ccf.skills.GrantLedger
+
+- Surface: ccf.skills.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.skills.grants.GrantLedger`
+- After: as for `ccf.skills.grants.GrantLedger`
+- Why: as for `ccf.skills.grants.GrantLedger`
+- Migration: as for `ccf.skills.grants.GrantLedger`
+
+*Recorded by `380-05-the-approval-sink-is-handed-a-copy.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register`, `register_typed` and `register_versioned` stored the registrant's own object by reference, and `peek` and `resolve` returned the stored object by reference, so a registrant that changed its original after registering changed the registry's content under an unchanged version, and a reader that changed what it was handed changed what every later reader saw — including the grant ledger's own `SkillGrant`, reachable by an approval sink through `peek` at the address the sink's content-identical copy supplied.
+- After: each write door stores an independent reconstruction of the artifact — rendered to its canonical bytes, rebuilt through its own type's validators (or as the parsed document for a plain mapping), and verified to preserve the type, the canonical bytes and equality — built before any registration state changes; each read door returns a fresh reconstruction of the stored one. Two reads are independent at every depth; mapping-proxy protections survive because the validators re-create them. `peek` and `resolve` no longer return the same instance twice.
+- Why: `D-IMPL-380` sixth round (14:44, 15:10 and 15:50 MST). The Fable seat's finding on the fifth-round delta review, reproduced by the coordinator at `ef84f801`. Red tests: `tests/controlplane/test_registry_isolates_artifacts.py`, `tests/skills/test_grant_approval_sink_cannot_reach_the_ledgers_grant_through_the_registry.py`. Measured cost at this commit: see the lane record.
+- Migration: none for a caller that treats a resolved artifact as a value. A caller that compared two reads by identity, or mutated a returned artifact expecting a later read to show it, changes — no such caller was detected in the exercised tests (baseline 34 failures / 4 errors before and after, by id).
+
+*Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: each read door rendered the stored reconstruction to canonical bytes, parsed and rebuilt it, rendered the rebuild again to compare, and returned the rebuild (two renders per read).
+- After: each write door renders the artifact once, keeps the verified canonical bytes beside the verified reconstruction in one record, and the version is the hash of those bytes; each read door checks the record's integrity, parses the bytes through the artifact's own type, and verifies the parse's type, value (equality against the stored reconstruction, no render) and identity before returning it. Every read is still a fresh object sharing nothing with the registry or with any earlier read; nothing is cached; a failed parse or a failed check refuses by name and never reports the artifact missing.
+- Why: `D-IMPL-380` 21:00 / 00:15 / 00:28, above. The guarantees are unchanged; the second render is gone.
+- Migration: none. A caller that never reached the registry's internals sees the same objects, the same versions and the same refusals; `ArtifactIsolationRefused.reason` on a read now names the parse ("the parse is not equal to the stored reconstruction") rather than the reconstruction.
+
+*Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
+
+#### ccf.controlplane.artifacts.PolicyConstraint
+
+- Surface: ccf.controlplane.artifacts.PolicyConstraint
+- Public surface: true
+- Change type: behavior
+- Before: `preferred` guidance with a `Decimal` value and with the equal-looking name shared one canonical form and content address; the registry refused the decimal form.
+- After: a hash-transparent field `preferred_decimal: bool = False` records the kind: set by the class when the operator is `preferred` and the value a `Decimal`; a document's quoted value is read as a `Decimal` only when it carries `preferred_decimal: true`; any other combination of flag, operator and value is refused. Existing accepted forms keep their bytes and addresses; numeric `preferred` guidance gains its own and round-trips the registry as a `Decimal`.
+- Why: blocker 1 of the `D-IMPL-380` sixth round, ruled 2026-10-11 12:35 MST (option A of `GROK-BRIEF-7`).
+- Migration: none for existing constraints. In Python the class sets the flag for a `Decimal` or a whole number. In a document, numeric `preferred` guidance is written as a quoted number with `preferred_decimal: true`, because a quoted value under `preferred` is otherwise a name; a document whose flag disagrees with its operator and value is refused. An unquoted whole number under `preferred` still loads as numeric guidance, as it did before the flag.
+
+*Recorded by `380-09-preferred-guidance-carries-its-kind.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register_typed` accepted the door kinds only and registered under the capability's resource.
+- After: `register_typed` also accepts `InvalidationRecordRegister`, and only for the `ccf.entity-invalidation-record` class, only when the capability was minted for exactly its own tenant's `ccf.entity-invalidation` prefix, and only for a record naming that tenant; the key is derived by `invalidation_record_key`, never supplied. `register` and `register_versioned` refuse the kind. Every record passes through the same write and read doors as any artifact (`D-IMPL-380`).
+- Why: `D-IMPL-382`, above.
+- Migration: none for existing callers. **Also, after the focused review of `b66ab4fa`:** every door, composition and derived registration refuses a key in `{tenant}/ccf.entity-invalidation` or under it (`CapabilityBypassError`), so the range is written only by `InvalidationRecordRegister`; that kind refuses a tenant id containing `/` and admits only the `ENTITY_INVALIDATION_RECORD` class object with an `EntityInvalidationRecord` of exactly that type; `invalidation_history` raises `TypeError` on any version that is not this tenant's record for its key's entity; `ccf.boot` refuses a tenant id containing `/`. The review reproduced that an open range let a door capability plant an earlier boundary and make a refused product serve; that was possible on the old whole-register key too.
+
+*Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
 ### Not public Python API
 

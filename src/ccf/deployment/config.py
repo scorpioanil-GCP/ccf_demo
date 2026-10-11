@@ -95,7 +95,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, get_args
@@ -133,6 +133,10 @@ from ccf.deployment.manifest import (
     _resolve_tenant,
 )
 from ccf.operators.base import OperatorCategory
+from ccf.controlplane.demonstration_serve_instant import (
+    DEMONSTRATION_SERVE_INSTANT,
+    demonstration_serve_instant_key,
+)
 from ccf.controlplane.temporal_boundary import (
     TEMPORAL_BOUNDARY_POLICY,
     temporal_boundary_policy_key,
@@ -260,6 +264,25 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
 #: ``"temporal_boundary"`` would put every tenant's boundary on one key.
 _RESERVED_BARE_TYPED_SECTIONS: Mapping[str, str] = {
     "temporal_boundary": TEMPORAL_BOUNDARY_POLICY.class_id,
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): a demonstration deployment's
+    # declared serve instant. The same shape for the same reasons — one typed
+    # member, no `semver`, a per-tenant key — and the same derivation below.
+    "demonstration_serve_instant": DEMONSTRATION_SERVE_INSTANT.class_id,
+}
+
+#: How each bare typed section's key is derived — per tenant, never from the
+#: section name. One function per section, each the derivation its own class's
+#: module owns, so the key a section registers under and the key a reader
+#: resolves cannot be two spellings of one rule.
+_BARE_TYPED_SECTION_KEYS: Mapping[str, Callable[..., str]] = {
+    "temporal_boundary": temporal_boundary_policy_key,
+    "demonstration_serve_instant": demonstration_serve_instant_key,
+}
+
+#: What a refusal calls each bare typed section: ``(one of them, the thing)``.
+_BARE_TYPED_SECTION_NOUNS: Mapping[str, tuple[str, str]] = {
+    "temporal_boundary": ("boundary", "temporal boundary"),
+    "demonstration_serve_instant": ("declaration", "demonstration serve instant"),
 }
 
 _RESERVED_VERSIONED_SECTIONS: Mapping[str, str] = {
@@ -850,10 +873,14 @@ def _derive_bare_typed_entry(
     are the two halves of the mistake `_RESERVED_BARE_TYPED_SECTIONS`'s docstring
     records being refused before.
 
-    **The key is not derived from the section name.** It comes from
-    `~ccf.controlplane.temporal_boundary.temporal_boundary_policy_key`, tenant
-    first. A section deriving the bare label would put every tenant's boundary on
-    one key, which is the isolation the registry's own tenant comparison depends on.
+    **The key is not derived from the section name.** It comes from the
+    section's own derivation in `_BARE_TYPED_SECTION_KEYS` —
+    `~ccf.controlplane.temporal_boundary.temporal_boundary_policy_key` for the
+    temporal boundary, and, since `D-IMPL-378` C1,
+    `~ccf.controlplane.demonstration_serve_instant.demonstration_serve_instant_key`
+    for a demonstration serve instant — tenant first. A section deriving the bare
+    label would put every tenant's declaration on one key, which is the isolation
+    the registry's own tenant comparison depends on.
 
     **The four bookkeeping keys are refused by name, not ignored and not honored.**
     For this section ``key``, ``class_id``, ``role`` and ``registration`` are
@@ -866,30 +893,32 @@ def _derive_bare_typed_entry(
             cannot be constructed honestly without knowing whose policy this is,
             and the SDK will not invent a tenant or fall back to a class-only key.
     """
+    class_id = _RESERVED_BARE_TYPED_SECTIONS[label]
+    one, thing = _BARE_TYPED_SECTION_NOUNS[label]
     stated = [name for name in _RESERVED_OVERRIDE_KEYS if name in body]
     if stated:
         raise ValueError(
             f"the `{label}:` section states {', '.join(repr(n) for n in stated)},"
             " which this section does not carry: its key, class id, role and"
             " registration are mechanism, not authoring. The key is derived per"
-            " tenant as `{tenant}/ccf.temporal-boundary-policy` so two tenants"
-            " cannot share one boundary. Refused rather than ignored, because a"
+            f" tenant as `{{tenant}}/{class_id}` so two tenants"
+            f" cannot share one {one}. Refused rather than ignored, because a"
             " dropped override reads to an author as an accepted one"
         )
     if tenant_id is None:
         raise ValueError(
-            f"the `{label}:` section requires a top-level `tenant_id`: a temporal"
-            " boundary is per tenant and its canonical key cannot be constructed"
+            f"the `{label}:` section requires a top-level `tenant_id`: a {thing}"
+            " is per tenant and its canonical key cannot be constructed"
             " without knowing whose it is. The SDK will not read a tenant out of"
             " the policy body, invent one, or fall back to a class-only key. A"
             " multi-tenant deployment registers one policy per tenant"
             " programmatically; this section is the single-tenant convenience"
         )
-    key = temporal_boundary_policy_key(tenant_id=tenant_id)
+    key = _BARE_TYPED_SECTION_KEYS[label](tenant_id=tenant_id)
     entry = ManifestEntry(
         path=config_filename,
         key=key,
-        class_id=_RESERVED_BARE_TYPED_SECTIONS[label],
+        class_id=class_id,
         role="register",
         registration="typed",
     )
@@ -1538,6 +1567,24 @@ def derive_deployment(
         entries.append(entry)
         documents[entry.key] = document
         section_keys["temporal_boundary"] = entry.key
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11). DERIVED AFTER the temporal
+    # boundary, on its ordering argument: a config with no
+    # `demonstration_serve_instant:` derives byte-for-byte what it derived before
+    # the section existed, and one with it APPENDS. Validated here, so a zone-less
+    # instant is refused by name before any document is materialised.
+    _refuse_empty_section(
+        "demonstration_serve_instant", config.demonstration_serve_instant, fields_set
+    )
+    if config.demonstration_serve_instant is not None:
+        entry, document = _derive_bare_typed_entry(
+            label="demonstration_serve_instant",
+            body=config.demonstration_serve_instant,
+            tenant_id=config.tenant_id,
+            config_filename=config_filename,
+        )
+        parse_artifact(document, DEMONSTRATION_SERVE_INSTANT)
+        entries.append(entry)
+        documents[entry.key] = document
 
     manifest = DeploymentManifest(
         semver=config.semver,
@@ -1548,6 +1595,7 @@ def derive_deployment(
         policy_bundle_key=policy_bundle_key,
         tenant_id=config.tenant_id,
         survivor_cap=config.survivor_cap,
+        store_creation_lock_wait_seconds=config.store_creation_lock_wait_seconds,
     )
     keys = DeploymentKeys(
         product_class=entries[0].key,
@@ -1587,6 +1635,7 @@ def load_config_and_boot(
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
     read_only: bool = False,
+    for_question: bool = False,
 ) -> BootedFabric:
     """Load a `ccf_config.yaml`, derive what a manifest would have named, and boot.
 
@@ -1672,6 +1721,10 @@ def load_config_and_boot(
             setting is set aside, neither validated nor used (N-2). See
             ``load_and_boot``'s own docstring. ``False`` (the default) is the
             writer boot, unchanged.
+        for_question: ``True`` boots the fabric for ONE question, onto a
+            substrate verified fresh first (SEC-020, ``D-IMPL-378`` Q9; see
+            ``load_and_boot``'s own docstring). The paved road boots every
+            question's fabric this way.
 
     Raises:
         See `load_and_boot`'s own `Raises:` block — every refusal there
@@ -1720,4 +1773,5 @@ def load_config_and_boot(
         resolved_tenant=resolved_tenant,
         keys=derived.keys,
         read_only=read_only,
+        for_question=for_question,
     )

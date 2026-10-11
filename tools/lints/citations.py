@@ -23,19 +23,37 @@ Three rules
     before it, separated by nothing but whitespace, opening punctuation and at
     most a locator word (``at``, ``in``, ``line``) — the cited lines must still
     hold what the anchor names. A Python-name anchor resolving to exactly one
-    ``def`` / ``class`` / module-level binding in the cited file is checked
-    against that symbol's own line span; a dot- or kebab-namespaced literal id
-    anchor (an artifact class id, say) is checked by looking for the token in
-    the cited lines.
+    binding in the cited file's module body or a class body (as ``cite03``
+    resolves a name) is checked against that symbol's own line span; a dot- or
+    kebab-namespaced literal id anchor (an artifact class id, say) is checked
+    by looking for the token in the cited lines. A span that is itself a
+    citation — a line citation, a ``::`` symbol citation, or a bare ``:NNN``
+    continuation — names a location, not what the cited lines hold, so it is
+    never an anchor and the citation after it is unanchored (``D-IMPL-378``
+    C6; see ``tools/lints/citations.py::anchor_before``).
 
 ``cite03-node-id``
     A ``file.py::symbol`` citation must resolve to something of that name in
-    that file — a ``def``, a ``class``, or a module-level binding. This is the
-    form plan 15.1-19 migrated *to*, because it does not rot silently under a
-    line shift; but an unchecked symbol citation rots silently under a
-    *rename*, and checking it is what makes the preferred form the enforced
-    form rather than the trusted one. See
+    that file — a ``def``, a ``class``, an assignment, or a tuple, ``for`` or
+    ``with`` target in its module body or in a class body, never a function's
+    local (``D-IMPL-378`` repair 1.7: *"take bindings only from the cited
+    file's module and class bodies"*; until then the whole file was read, so a
+    name bound only inside a function resolved, and a local sharing a cited
+    class's name hid its members, Fable G2 F-G2-3). This is the form plan
+    15.1-19 migrated *to*, because it does not rot silently under a line
+    shift; but an unchecked symbol citation rots silently under a *rename*,
+    and checking it is what makes the preferred form the enforced form rather
+    than the trusted one. See
     ``tools/lints/citations.py::symbol_spans`` for what "resolve" means.
+    A qualified citation, ``file.py::A.b.c``, is checked name by name
+    (``D-IMPL-378``, OWED-RULINGS-3 item 7 (a); until then only ``A`` was
+    read, so ``A.no_such_member`` passed): ``A`` resolves as above, and each
+    later name must be bound in the body of a ``def`` or ``class`` the name
+    before it resolved to, which is the name Python's ``__qualname__`` gives a
+    definition, with ``<locals>`` dropped. In a class body any binding counts;
+    in a function's body only a ``def`` or ``class`` nested in it does, never a
+    local variable. An inherited member is therefore a finding: cite it at the
+    class that defines it. See ``tools/lints/citations.py::member_verdict``.
 
 What this checker cannot see
 ----------------------------
@@ -53,11 +71,29 @@ reviews.
   nothing to bind, so a line shift inside the cited file is invisible. This is
   the largest blind spot by count and it is reported: ``--report`` prints the
   unanchored total. The remedy is authorial — anchor the citation, or cite the
-  symbol with ``::``.
+  symbol with ``::``. A citation whose adjacent span ``cite02`` cannot check
+  — a name defined twice, an expression — is exactly as unchecked; ``--report``
+  counts it as "anchor not resolvable", and the coverage ratchet counts both
+  kinds (``tools/lints/citations.py::checkable_anchor``).
 * **Ambiguity.** A bare ``run.py:NNN`` naming one of eleven ``run.py`` files,
   or an anchor matching two ``def``\\ s in the cited file, is counted as
   *unchecked* and is never a finding. Guessing which one was meant is how a
   lint goes red on correct code.
+* **A member reached through an assignment.** In ``file.py::A.b`` where
+  ``A`` is bound only by an assignment — an instance, or an alias such as
+  Hypothesis's ``TestX = Machine.TestCase`` — what ``b`` names depends on a
+  value only runtime knows. So does ``A`` when another binding in the module
+  body or a class body shares its name (``A = A``; ``A = 1`` in another
+  class), because which binding is meant is unknown (the panel's K68). The
+  citation is counted unchecked (``--report``'s "member not followable") and
+  is never a finding; the count is capped at 0 by a test,
+  ``tools/lints/tests/test_citations.py::test_the_unfollowable_member_count_is_capped_at_zero``
+  (``D-IMPL-378`` repair 1.7), so such a citation fails the build until it is
+  re-cited.
+* **A homonym in a class body that defines the member.** The first name is
+  looked up in the module body and in every class body together, so where a
+  class ``B`` nests its own class ``A`` that defines ``b``, ``file.py::A.b``
+  resolves even if the module-level ``A`` defines no ``b``.
 * **Extensionless and non-source targets.** ``Makefile:NNN`` and
   ``README:NNN`` are not matched at all — ``CITED_SUFFIXES`` is the whole list
   of what a citation may name.
@@ -96,6 +132,41 @@ correction was written against; the definition has moved since".
 surrounding lines carry one of those phrases, or a bare git object id, is
 exempt from ``cite01`` and ``cite02`` alike.
 
+Pinned historical citations
+---------------------------
+
+A frozen specimen may not be edited (``D-IMPL-261``), so a citation in it that
+names nothing is a ``cite03`` finding for ever. ``D-IMPL-378`` repair 1.5 (Dave,
+2026-10-09 10:54 MST) reverted the edit that corrected three such citations in
+``examples/cp-04-corporate-family-tree``, declined to exclude frozen examples
+from the check, and asked for *"a narrowly pinned historical citation
+exception"*. ``PINNED_HISTORICAL_CITATIONS`` is that exception, accepted by
+decision 13 (a) (2026-10-09 16:38 MST: *"Accept the cp-04 pins, locked to the
+file’s bytes"*): each entry keeps ONE finding, keyed by the file, the line, the
+exact citation text and the sha256 of the file's raw bytes as read from disk,
+and only while all four still match. Any other dangling citation, in that file
+or anywhere, is a finding; any change to a pinned file's bytes voids every pin
+on it. Until Dave's answer at 20:22 MST that day (*"Hash the raw bytes. Windows
+line endings are different bytes, so they fail the pin."*) the digest was of
+the decoded text, so a copy with other line endings still matched. Text alone
+keeps no such pin: ``check_source`` cannot show the bytes, so the pin fails
+closed; the gate reads each file's bytes (``check_file_bytes``).
+
+Decision 14 (b), the same day (*"Exempt the dated records. Pin the rest. Do not
+edit records in place."*), settled nine more findings repair 1.7 made in text
+that may not be edited: the D-IMPL-353 close-review record joined
+``HISTORICAL_RECORDS`` (three), and the rest are pinned. Four keep the file's
+hash, in ``PINNED_HISTORICAL_CITATIONS``: three in a landed surface-change
+fragment and one in a test of the frozen cp-04 specimen. The other two stand
+on one success criterion of ``.planning/ROADMAP.md``, a living file, and
+``LINE_TEXT_PINNED_CITATIONS`` keys them as Dave answered at 17:53 MST
+(question 3 (ii)): on the citing line's full text and the citation's text, not
+on the line's number or the file's hash. An edit elsewhere in the file, even
+one that moves the line, leaves them valid; any edit to that line voids them;
+and a pinned line text that stands on more than one line of the file keeps
+nothing. A kept citation is counted (``Scan.pinned_historical``;
+``--report``), never dropped unseen.
+
 Scope is configured, and was measured
 -------------------------------------
 
@@ -117,6 +188,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import hashlib
 import io
 import pathlib
 import re
@@ -129,16 +201,25 @@ __all__ = [
     "CITATION",
     "GATED_TREES",
     "HISTORICAL_RECORDS",
+    "LINE_TEXT_PINNED_CITATIONS",
+    "LineTextPinnedCitation",
     "MAINTAINED_RECORDS",
     "NODE_ID",
+    "PINNED_HISTORICAL_CITATIONS",
+    "PinnedCitation",
     "RULE_ANCHOR",
     "RULE_NODE_ID",
     "RULE_RESOLVES",
     "Scan",
+    "anchor_before",
+    "check_file_bytes",
     "check_source",
+    "checkable_anchor",
     "check_tree",
     "exemption_reason",
+    "member_verdict",
     "scan_tree",
+    "scope_bindings",
 ]
 
 RULE_RESOLVES = "cite01-resolves"
@@ -207,6 +288,39 @@ HISTORICAL_RECORDS: dict[str, str] = {
         " verification what the tree said that day. See MAINTAINED_RECORDS for"
         " the exception"
     ),
+    # D-IMPL-378 ruling C6 (c) (Dave): "exempt the review record and the
+    # handoff (46 citations) and convert the three documents security fixes
+    # still edit (316) once the lanes stop editing them". Measured on
+    # dl-378-integ @ 8cfe77b2, the two exemptions take 46 unanchored citations
+    # of Python targets out of the ratchet's population, and 122 citations out
+    # of this gate's reach, 41 of which it checked (40 of the hand-off's
+    # `::Symbol` citations among them).
+    "docs/V1.0.2-SPEC-REVIEWS.md": (
+        "the v1.0.2 spec's review record: the panel's and the internal"
+        " review's findings with their dispositions (2026-09-25, last edited"
+        " 2026-09-26); a dated record by D-IMPL-378 ruling C6 (c), so its"
+        " citations are snapshots of the tree it reviewed"
+    ),
+    "docs/superpowers/plans/2026-09-27-wave-2-HANDOFF.md": (
+        "the Wave 2 hand-off, written 2026-09-27 to survive a cleared context"
+        " and amended until 2026-10-01; a dated record by D-IMPL-378 ruling"
+        " C6 (c), so its citations are snapshots of the tree that wave worked on"
+    ),
+    # D-IMPL-378 decision 14 (b) (Dave, 2026-10-09 16:38 MST, adopting Grok's
+    # recommendation): "(b) Exempt the dated records. Pin the rest. Do not edit
+    # records in place." Option (b) names one dated record, this file; the six
+    # other citations repair 1.7 made findings, in text that may not be edited,
+    # are pinned below. Measured at d128a30d, the exemption takes 40 citations
+    # out of this gate's reach (29 it checked, 8 with an ambiguous path, and
+    # repair 1.7's three cite03 findings) and none out of the citation
+    # ratchet's population.
+    "docs/D-IMPL-353-CLOSE-REVIEWS.md": (
+        "the D-IMPL-353 close-time panel's record: three external reviewers'"
+        " outputs for its three rounds, kept verbatim and unedited by the"
+        " record's own header (written 2026-09-25); a dated record by"
+        " D-IMPL-378 decision 14 (b), so its citations are snapshots of the"
+        " tree the panel reviewed"
+    ),
 }
 
 #: Pulled back into the gate despite matching a HISTORICAL_RECORDS pattern.
@@ -215,6 +329,169 @@ HISTORICAL_RECORDS: dict[str, str] = {
 #: tense, and Phase 16 reads it as authoritative. Exactly the file whose
 #: pointers must be true now.
 MAINTAINED_RECORDS: tuple[str, ...] = (".planning/phases/*/deferred-items.md",)
+
+
+class PinnedCitation(NamedTuple):
+    """One ``cite03`` finding kept, by its file, line, text and the file's hash.
+
+    ``D-IMPL-378`` repair 1.5's three cp-04 pins, accepted by decision 13 (a),
+    and four more by decision 14 (b). ``sha256`` is the digest of the file's
+    raw bytes as read from disk (Dave, 2026-10-09 20:22 MST); a change to any
+    byte of the file voids the pin.
+    """
+
+    path: str
+    line: int
+    citation: str
+    sha256: str
+    reason: str
+
+
+#: The pinned historical citations keyed on the file's hash: seven. Three are
+#: in the frozen cp-04 specimen (decision 13 (a)): each names
+#: ``SpecDrivenEntityResolution.identity``, which never existed; the specimen
+#: may not be edited (``D-IMPL-261``; declared gate CFC-G09, "ZERO files
+#: changed"), and repair 1.5 reverted the edit that corrected them
+#: (``b7defda9``, reverted in ``20003cee``); their hashes are the files'
+#: bytes at the specimen's branch point ``d429dcfa``. Four (decision 14 (b))
+#: are bare citations of functions nested in other functions, which repair
+#: 1.7 made findings, in text that may not be edited: three in a landed
+#: surface-change fragment, written when it landed on 2026-08-14, and one in
+#: a test of the frozen cp-04 specimen; their hashes are the files' bytes at
+#: ``d128a30d``, unchanged since 2026-09-24 and 2026-09-05.
+_CP04_REASON = (
+    "frozen specimen (D-IMPL-261, CFC-G09): cites a member that never existed;"
+    " kept as written by D-IMPL-378 repair 1.5, which reverted its correction"
+)
+_LANDED_FRAGMENT_REASON = (
+    "a landed surface-change fragment, which a later editor should not"
+    " silently revise to chase a moved symbol (D-IMPL-114, D-IMPL-123); kept"
+    " as written by D-IMPL-378 decision 14 (b)"
+)
+_FROZEN_TEST_REASON = (
+    "a test of the frozen cp-04 specimen (D-IMPL-261); kept as written by"
+    " D-IMPL-378 decision 14 (b)"
+)
+_LANDED_FRAGMENT_SHA = "66700aeb90aff07ee76e9c3d57c5b6f4727c543eb3d53298d6ac0994d10da9c1"
+_FROZEN_TEST_SHA = "c2b03b947b9b8cbb744cbae343e0cff5dee24eed0d46742705124641033f8869"
+PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/deployment.py",
+        line=258,
+        citation="worker.py::SpecDrivenEntityResolution.identity",
+        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/deployment.py",
+        line=2821,
+        citation="worker.py::SpecDrivenEntityResolution.identity",
+        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/projection.py",
+        line=169,
+        citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
+        sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
+        reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=28,
+        citation="runtime/ccf_runtime/mcp/experience.py::get_context",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=162,
+        citation="tests/crossproc/servers/mcp_experience_child.py::read_replay_record",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=164,
+        citation="examples/external/00-hello-context/serve.py::replay_record_reader",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="tests/examples/test_cp_04_debt.py",
+        line=818,
+        citation="runtime/ccf_runtime/http_api/routes/product.py::retrieve",
+        sha256=_FROZEN_TEST_SHA,
+        reason=_FROZEN_TEST_REASON,
+    ),
+)
+
+
+class LineTextPinnedCitation(NamedTuple):
+    """One ``cite03`` finding kept, by its file, its line's text and the citation's text.
+
+    ``D-IMPL-378`` decision 14 (b), keyed as Dave answered question 3 (ii) on
+    2026-10-09 at 17:53 MST: neither the line's number nor the file's hash is
+    part of the key. An edit elsewhere in the file, even one that moves the
+    line, leaves the pin valid; any edit to the line voids it; and a
+    ``line_text`` that stands on more than one line of the file keeps nothing,
+    because the pin cannot say which of them it means. ``line_text`` is the
+    whole line as the checker reads it (``str.splitlines`` of the file's UTF-8
+    text), leading and trailing whitespace included.
+    """
+
+    path: str
+    line_text: str
+    citation: str
+    reason: str
+
+
+#: The citations pinned on their line's text: two, both on one success
+#: criterion of ``.planning/ROADMAP.md`` (its line 2242 at ``d128a30d``, a
+#: number the pin does not key on). The roadmap is a living file: 483 commits
+#: touch it up to ``d128a30d``, 96 of them from 2026-09-01 00:00 MST, while
+#: this line last changed on 2026-08-24. A pin on the file's hash would void at
+#: every roadmap edit; Dave chose the line's text (question 3 (ii)).
+_ROADMAP_QUOTE_REASON = (
+    "a success criterion quoting, verbatim, what four docstrings cited before"
+    " D-IMPL-192 re-pointed them; correcting the quote would falsify the"
+    " record; kept as written by D-IMPL-378 decision 14 (b)"
+)
+_ROADMAP_CRITERION_LINE = (
+    "  14. `src/`, `runtime/` and `pyproject.toml` are **diff-empty** "
+    "against the phase base **EXCEPT the four path-string-only citation "
+    "updates AMENDED IN by `D-IMPL-192`, enumerated here by SYMBOL "
+    "rather than by line per `D-IMPL-114` and `D-IMPL-123` — the module "
+    "docstring of `src/ccf/products/bind.py`, "
+    "`runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol`, "
+    "`runtime/ccf_runtime/mcp/experience.py::ExperienceProductResolverProtocol` "
+    "(these three each citing "
+    "`examples/04-cross-process/producer_child.py::resolve`) and "
+    "`runtime/ccf_runtime/mcp/experience.py::ContextProviderProtocol` "
+    "(citing "
+    "`examples/external/00-hello-context/serve.py::context_provider`), "
+    "each re-pointed to its `archive/examples/...` path**; a FIFTH edit "
+    "under any of the three members is a scope breach, the five `s1-01` "
+    "citations are NOT touched, each of the four is proven "
+    "PATH-STRING-ONLY, and the rest is proven by a **per-member** "
+    "pathspec diff with each member proven to name tracked files — the "
+    "`VAC-01` guard, because a misspelled member diffs empty exactly "
+    "like a clean one"
+)
+LINE_TEXT_PINNED_CITATIONS: tuple[LineTextPinnedCitation, ...] = (
+    LineTextPinnedCitation(
+        path=".planning/ROADMAP.md",
+        line_text=_ROADMAP_CRITERION_LINE,
+        citation="examples/04-cross-process/producer_child.py::resolve",
+        reason=_ROADMAP_QUOTE_REASON,
+    ),
+    LineTextPinnedCitation(
+        path=".planning/ROADMAP.md",
+        line_text=_ROADMAP_CRITERION_LINE,
+        citation="examples/external/00-hello-context/serve.py::context_provider",
+        reason=_ROADMAP_QUOTE_REASON,
+    ),
+)
 
 #: Suffixes of files this checker reads citations *out of*.
 SCANNED_SUFFIXES: frozenset[str] = frozenset({".py", ".md", ".yaml", ".yml"})
@@ -269,9 +546,28 @@ NODE_ID = re.compile(
     r"(?P<path>[A-Za-z0-9_][A-Za-z0-9_./+-]*\.py)::(?P<symbol>[A-Za-z_][A-Za-z0-9_]*)"
 )
 
+#: The dotted member path after a symbol citation's first name: the ``.b.c``
+#: of ``file.py::A.b.c``. Matched where ``NODE_ID`` ends rather than folded
+#: into it, so ``NODE_ID``'s span and groups, which other modules read, are
+#: unchanged.
+_MEMBER_TAIL = re.compile(r"(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
+
+#: What a qualified name can step into: a definition with a body of its own.
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+#: A function. The names its body binds are its locals: a citation never
+#: resolves through one, and a definition nested in it is reached only by
+#: naming the function first (``D-IMPL-378`` repair 1.7).
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+
 #: A backticked span: RST ``x`` and Markdown `x` alike. Newline-free, so a
 #: span never straddles two lines.
 _BACKTICKED = re.compile(r"(?P<ticks>`+)(?P<body>[^`\n]+)(?P=ticks)")
+
+#: The bare line-number continuation of a line citation — the ``:394`` after a
+#: cited path — which ``CITATION`` does not match because it carries no path
+#: (the "Bare continuations" entry in the module docstring).
+_CONTINUATION = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*(?![\w-])")
 
 #: Punctuation that may sit between an anchor and the citation it anchors.
 #: ``:`` and ``=`` are deliberately absent: ``rule: site`` and ``name = value``
@@ -349,6 +645,8 @@ class Scan(NamedTuple):
     unusable_anchor: int
     exempt_files: int
     scanned_files: int
+    unfollowable_member: int
+    pinned_historical: int
 
 
 def exemption_reason(rel: str) -> str | None:
@@ -473,51 +771,204 @@ def _gap_is_an_anchor_gap(gap: str) -> bool:
     return True
 
 
+def _points_elsewhere(span: str) -> bool:
+    """True when a backticked span is itself a citation rather than a name.
+
+    A line citation, a ``::`` symbol citation, or a bare ``:NNN``
+    continuation points at a location. The module docstring defines an anchor
+    as the thing *the cited lines must still hold*; a pointer names nothing
+    those lines hold, so it is never one.
+    """
+    return bool(
+        CITATION.match(span) or NODE_ID.match(span) or _CONTINUATION.match(span)
+    )
+
+
 def anchor_before(line: str, start: int) -> str | None:
-    """The backticked span immediately preceding the citation at `start`."""
+    """The anchor immediately preceding the citation at `start`, or ``None``.
+
+    The backticked span immediately before the citation, when only an anchor
+    gap separates them and the span is not itself a citation. Returning the
+    neighboring citation as the anchor was the blind spot ``D-IMPL-378`` C6
+    ruled on: the citation after it then counted as anchored, and the
+    coverage ratchet, which skips anchored citations, could not see it.
+    """
     best: str | None = None
     for match in _BACKTICKED.finditer(line):
         if match.start() >= start:
             break
         if match.end() > start:  # the span wrapping the citation itself
             continue
+        body = match.group("body").strip()
         best = (
-            match.group("body").strip()
+            body
             if _gap_is_an_anchor_gap(line[match.end() : start])
+            and not _points_elsewhere(body)
             else None
         )
     return best
 
 
 def symbol_spans(source: str, path: pathlib.Path) -> dict[str, list[tuple[int, int]]]:
-    """Line spans of every ``def`` / ``class`` / module-level binding, by name.
+    """Line spans of every binding :func:`_definitions` takes, by name.
 
-    A ``def``'s span runs from its first decorator (or its ``def`` line) to its
-    last line, so a citation of any line inside the body is "inside the
-    symbol". A binding's span is the assignment statement.
+    That is, of the module body and every class body; never a function's
+    local. A ``def``'s span runs from its first decorator (or its ``def``
+    line) to its last line, so a citation of any line inside the body is
+    "inside the symbol". A binding's span is the statement that binds it.
     """
     spans: dict[str, list[tuple[int, int]]] = {}
+    for name, nodes in _definitions(source, path).items():
+        for node in nodes:
+            first = node.lineno
+            if isinstance(node, _SCOPES):
+                first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+            spans.setdefault(name, []).append((first, node.end_lineno or node.lineno))
+    return spans
+
+
+def _target_names(target: ast.expr) -> list[str]:
+    """The names an assignment, ``for`` or ``with`` target binds.
+
+    A plain name, or every name a tuple or list target unpacks to, nested and
+    starred ones included. An attribute or subscript target binds no name in
+    the scope it sits in.
+    """
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for element in target.elts for name in _target_names(element)]
+    if isinstance(target, ast.Starred):
+        return _target_names(target.value)
+    return []
+
+
+def _binds(node: ast.AST) -> list[str]:
+    """The names `node` binds, of the kinds ``cite03`` resolves.
+
+    A ``def`` or a ``class``; and every name an assignment, an annotation, a
+    ``for`` loop or a ``with ... as`` binds, a tuple or list target unpacked
+    (``D-IMPL-378`` repair 1.7, *"let tuple, `for` and `with` targets bind"*;
+    until then only a plain-name assignment or annotation target bound, so a
+    member bound any other way was reported missing, Fable G2 F-G2-3 (b)).
+    :func:`_definitions` (and so :func:`symbol_spans`) and
+    :func:`scope_bindings` both read these kinds from here, so what a first
+    name and a member may resolve to cannot drift apart.
+    """
+    if isinstance(node, _SCOPES):
+        return [node.name]
+    if isinstance(node, ast.Assign):
+        targets = list(node.targets)
+    elif isinstance(node, (ast.AnnAssign, ast.For, ast.AsyncFor)):
+        targets = [node.target]
+    elif isinstance(node, (ast.With, ast.AsyncWith)):
+        targets = [
+            item.optional_vars for item in node.items if item.optional_vars is not None
+        ]
+    else:
+        return []
+    return [name for target in targets for name in _target_names(target)]
+
+
+def _own_statements(scope: ast.AST) -> Iterator[ast.stmt]:
+    """Every statement in `scope`'s own body.
+
+    At any depth of the compound statements in the body (an ``if
+    TYPE_CHECKING:`` block, a ``try``, a loop or ``with`` body), and never
+    inside a nested ``def`` or ``class``, whose body is its own scope.
+    """
+    pending: list[ast.AST] = list(getattr(scope, "body", []))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, ast.stmt):
+            yield node
+        if isinstance(node, _SCOPES):
+            continue
+        pending.extend(
+            child
+            for child in ast.iter_child_nodes(node)
+            if isinstance(child, (ast.stmt, ast.ExceptHandler, ast.match_case))
+        )
+
+
+def _definitions(source: str, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
+    """Every statement binding a name in `source`'s module or class bodies.
+
+    By name: the module body, and the body of every class reached from it
+    through class bodies alone — never a function's body, whose names are its
+    locals (``D-IMPL-378`` repair 1.7, *"take bindings only from the cited
+    file's module and class bodies"*). Until the repair this walked the whole
+    file: a local sharing a cited class's name made the class's members
+    unfollowable (Fable G2 F-G2-3 (a)), and a name bound only inside a
+    function resolved as a first name.
+    """
+    found: dict[str, list[ast.stmt]] = {}
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError:
-        return spans
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            first = min([node.lineno] + [d.lineno for d in node.decorator_list])
-            spans.setdefault(node.name, []).append(
-                (first, node.end_lineno or node.lineno)
-            )
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    spans.setdefault(target.id, []).append(
-                        (node.lineno, node.end_lineno or node.lineno)
-                    )
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            spans.setdefault(node.target.id, []).append(
-                (node.lineno, node.end_lineno or node.lineno)
-            )
-    return spans
+        return found
+    pending: list[ast.AST] = [tree]
+    while pending:
+        scope = pending.pop()
+        for node in _own_statements(scope):
+            for name in _binds(node):
+                found.setdefault(name, []).append(node)
+            if isinstance(node, ast.ClassDef):  # a function's body is never read
+                pending.append(node)
+    return found
+
+
+def scope_bindings(scope: ast.AST) -> dict[str, list[ast.stmt]]:
+    """The names bound in `scope`'s own body, by name.
+
+    In the statements :func:`_own_statements` yields. In a module or class
+    body, every kind :func:`_binds` names. In a function's body, only the
+    ``def`` and ``class`` statements nested in it — what Python's
+    ``__qualname__`` names, with ``<locals>`` dropped — and never a local
+    variable, which no citation resolves through (``D-IMPL-378`` repair 1.7,
+    *"never a function's local"*). A name set on an instance (``self.x =
+    ...``) is not bound in a class body, and an inherited member is bound in
+    its base's body, not here.
+    """
+    bound: dict[str, list[ast.stmt]] = {}
+    for node in _own_statements(scope):
+        if isinstance(scope, _FUNCTIONS) and not isinstance(node, _SCOPES):
+            continue  # a function's local variable
+        for name in _binds(node):
+            bound.setdefault(name, []).append(node)
+    return bound
+
+
+def member_verdict(
+    definitions: dict[str, list[ast.stmt]], qualified: list[str]
+) -> tuple[bool | None, int]:
+    """Whether a qualified name resolves, name by name, and where it stopped.
+
+    `definitions` maps each name to every node binding it in the cited file's
+    module body or a class body (:func:`_definitions`); `qualified` is ``["A",
+    "b", "c"]`` for ``file.py::A.b.c``. The first name resolves through those
+    bindings. Each later name must be bound (:func:`scope_bindings`) in the
+    body of a ``def`` or ``class`` the name before it resolved to — in a
+    function's body, as a ``def`` or ``class`` nested in it, never a local
+    variable.
+
+    Returns ``(True, len(qualified))`` when every name resolves; ``(False,
+    i)`` when ``qualified[i]`` is bound in none of the bodies it was looked
+    for in, which is a finding; and ``(None, i)`` when it could not be looked
+    for, because the name before it is bound by an assignment, whose value
+    only runtime knows. ``(False, 0)`` means the first name is not bound at
+    all.
+    """
+    current = definitions.get(qualified[0], [])
+    if not current:
+        return False, 0
+    for i, name in enumerate(qualified[1:], 1):
+        scopes = [node for node in current if isinstance(node, _SCOPES)]
+        found = [hit for scope in scopes for hit in scope_bindings(scope).get(name, [])]
+        if not found:
+            return (None if len(scopes) < len(current) else False), i
+        current = found
+    return True, len(qualified)
 
 
 def citation_sentence(lines: list[str], lineno: int, column: int) -> str:
@@ -547,6 +998,7 @@ class _Tree:
     def __init__(self) -> None:
         self._source: dict[str, str] = {}
         self._spans: dict[str, dict[str, list[tuple[int, int]]]] = {}
+        self._definitions: dict[str, dict[str, list[ast.stmt]]] = {}
 
     def source(self, path: pathlib.Path) -> str:
         key = str(path)
@@ -559,6 +1011,12 @@ class _Tree:
         if key not in self._spans:
             self._spans[key] = symbol_spans(self.source(path), path)
         return self._spans[key]
+
+    def definitions(self, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
+        key = str(path)
+        if key not in self._definitions:
+            self._definitions[key] = _definitions(self.source(path), path)
+        return self._definitions[key]
 
 
 def _anchor_verdict(
@@ -583,6 +1041,63 @@ def _anchor_verdict(
     return None
 
 
+def checkable_anchor(
+    line: str,
+    start: int,
+    target: pathlib.Path,
+    numbers: list[int],
+    trees: _Tree | None = None,
+) -> str | None:
+    """The anchor ``cite02`` checks the citation at `start` against, or ``None``.
+
+    ``None`` when :func:`anchor_before` finds no anchor, and also when the
+    anchor it finds is one ``cite02`` cannot check against `target`: a name
+    defined there zero times or more than once, or a span that is neither a
+    Python name nor a namespaced id. ``check_source`` counts that second case
+    as ``unusable_anchor``. Both leave the citation unchecked, which is the
+    population ``D-IMPL-123`` puts under the coverage ratchet — *"citations the
+    checker declines to check because they carry no anchor to check against"*
+    (``tests/invariants/test_citation_coverage.py::citation_sites``).
+    """
+    anchor = anchor_before(line, start)
+    if anchor is None:
+        return None
+    cache = trees if trees is not None else _Tree()
+    if _anchor_verdict(anchor, target, numbers, cache) is None:
+        return None
+    return anchor
+
+
+def _pinned(
+    path: pathlib.Path, lineno: int, citation: str, source: str, raw: bytes | None
+) -> bool:
+    """True when this ``cite03`` finding is kept by a pin.
+
+    A ``PINNED_HISTORICAL_CITATIONS`` pin keeps it when all four match: the
+    file, the line, the exact citation text, and the sha256 of `raw`, the
+    file's bytes as read from disk — so a pinned file whose bytes changed keeps
+    nothing, even where its text reads alike (other line endings, an invalid
+    byte replaced by another), and without the bytes (`raw` is ``None``) it
+    keeps nothing: the pin fails closed (``D-IMPL-378``, Dave 2026-10-09 20:22
+    MST: *"Hash the raw bytes."*). A
+    ``LINE_TEXT_PINNED_CITATIONS`` pin keeps it when the file, the whole text
+    of line `lineno` and the exact citation text match, and that text stands
+    on exactly one line of `source` — so the line may move, while an edit to
+    it, or a second copy of it anywhere in the file, keeps nothing.
+    """
+    rel = path.as_posix()
+    site = (rel, lineno, citation)
+    for pin in PINNED_HISTORICAL_CITATIONS:
+        if (pin.path, pin.line, pin.citation) == site:
+            return raw is not None and hashlib.sha256(raw).hexdigest() == pin.sha256
+    lines = source.splitlines()
+    text = lines[lineno - 1]
+    for line_pin in LINE_TEXT_PINNED_CITATIONS:
+        if (line_pin.path, line_pin.line_text, line_pin.citation) == (rel, text, citation):
+            return lines.count(text) == 1
+    return False
+
+
 def check_source(
     source: str,
     path: pathlib.Path,
@@ -594,7 +1109,60 @@ def check_source(
     """Check every citation in `source`, attributed to `path`.
 
     `path` is the repo-relative path the findings are reported against; `base`
-    is the repo root the citations resolve inside.
+    is the repo root the citations resolve inside. Text alone keeps no
+    ``PINNED_HISTORICAL_CITATIONS`` pin: such a pin is the file's raw bytes,
+    which text cannot show, so it fails closed and its site is a finding. The
+    gate reads bytes (:func:`check_file_bytes`). A ``LINE_TEXT_PINNED_CITATIONS``
+    pin keys on the line's text and is kept here as there.
+    """
+    return _check(source, None, path, base, index, trees, tally)
+
+
+def check_file_bytes(
+    raw: bytes,
+    path: pathlib.Path,
+    base: pathlib.Path,
+    index: dict[str, list[str]],
+    trees: _Tree | None = None,
+    tally: dict[str, int] | None = None,
+) -> list[str]:
+    """Check every citation in a file's raw bytes, attributed to `path`.
+
+    The gate's path: :func:`scan_tree` reads each file's bytes once and hands
+    them here. The text is `raw` decoded as ``Path.read_text(encoding="utf-8",
+    errors="replace")`` decodes a file (:func:`_decoded`), so the findings are
+    :func:`check_source`'s on that text, except that a
+    ``PINNED_HISTORICAL_CITATIONS`` pin is checked against the sha256 of `raw`
+    itself (``D-IMPL-378``, Dave 2026-10-09 20:22 MST: *"Hash the raw bytes.
+    Windows line endings are different bytes, so they fail the pin."*).
+    """
+    return _check(_decoded(raw), raw, path, base, index, trees, tally)
+
+
+def _decoded(raw: bytes) -> str:
+    """`raw` decoded exactly as ``Path.read_text(encoding="utf-8", errors="replace")``.
+
+    The same text wrapper over the same bytes: UTF-8 with each invalid byte
+    read as U+FFFD, and universal newlines. Two files can therefore decode to
+    one text, which is why a file-hash pin is checked against the bytes.
+    """
+    with io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8", errors="replace") as stream:
+        return stream.read()
+
+
+def _check(
+    source: str,
+    raw: bytes | None,
+    path: pathlib.Path,
+    base: pathlib.Path,
+    index: dict[str, list[str]],
+    trees: _Tree | None,
+    tally: dict[str, int] | None,
+) -> list[str]:
+    """The checks behind :func:`check_source` and :func:`check_file_bytes`.
+
+    `raw` is the file's bytes when the caller read them, ``None`` when it has
+    text alone; only :func:`_pinned` reads it.
     """
     counts = tally if tally is not None else {}
     cache = trees if trees is not None else _Tree()
@@ -620,19 +1188,46 @@ def check_source(
                 # pointer, so it is unchecked rather than a finding.
                 bump("ambiguous_path" if ambiguous else "unresolved_path")
                 continue
-            if symbol in cache.spans(target):
+            if symbol not in cache.spans(target):
+                if _pinned(path, lineno, f"{cited}::{symbol}", source, raw):
+                    bump("pinned_historical")
+                    continue
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_NODE_ID,
+                        f"cites {cited}::{symbol}, but {cited} defines no"
+                        f" {symbol!r} — the symbol was renamed or removed;"
+                        " re-resolve it before citing it",
+                    )
+                )
+                continue
+            tail = _MEMBER_TAIL.match(line, match.end())
+            if tail is None:
                 bump("checked")
                 continue
-            findings.append(
-                format_finding(
-                    path,
-                    lineno,
-                    RULE_NODE_ID,
-                    f"cites {cited}::{symbol}, but {cited} defines no"
-                    f" {symbol!r} — the symbol was renamed or removed;"
-                    " re-resolve it before citing it",
+            qualified = [symbol, *tail.group(0)[1:].split(".")]
+            verdict, stop = member_verdict(cache.definitions(target), qualified)
+            if verdict is None:
+                bump("unfollowable_member")
+            elif verdict:
+                bump("checked")
+            elif _pinned(path, lineno, f"{cited}::{'.'.join(qualified)}", source, raw):
+                bump("pinned_historical")
+            else:
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_NODE_ID,
+                        f"cites {cited}::{'.'.join(qualified)}, but"
+                        f" {'.'.join(qualified[:stop])} in {cited} defines no"
+                        f" {qualified[stop]!r} — the member was renamed or"
+                        " removed, or is inherited (cite it at the class that"
+                        " defines it); re-resolve it before citing it",
+                    )
                 )
-            )
 
         for match in CITATION.finditer(line):
             bump("total")
@@ -699,8 +1294,8 @@ def scan_tree(base: pathlib.Path) -> Scan:
             continue
         scanned += 1
         findings.extend(
-            check_source(
-                path.read_text(encoding="utf-8", errors="replace"),
+            check_file_bytes(
+                path.read_bytes(),
                 path.relative_to(base),
                 base,
                 index,
@@ -719,6 +1314,8 @@ def scan_tree(base: pathlib.Path) -> Scan:
         unusable_anchor=tally.get("unusable_anchor", 0),
         exempt_files=exempt,
         scanned_files=scanned,
+        unfollowable_member=tally.get("unfollowable_member", 0),
+        pinned_historical=tally.get("pinned_historical", 0),
     )
 
 

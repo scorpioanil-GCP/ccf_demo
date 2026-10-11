@@ -53,7 +53,8 @@ from ccf.replay.record import (
 )
 from ccf.authz.capability import Register
 from tests.controlplane.capabilities import register_capability
-from tests.replay.authority import replay_store
+from tests.replay.authority import mechanism_put, replay_store
+from tests.replay.test_query_sequence_pin import VERBATIM_RECORD_CLASS as RECORD_CLASS
 
 # The probe adapter that declares a credential field, and the three names that
 # go with it. Imported rather than rebuilt: a second copy would drift, and the
@@ -257,12 +258,18 @@ def test_a_pinned_record_round_trips_through_the_resolver(tmp_path: Any) -> None
     ``model_validate`` shortcut — so a pin that failed to serialize, or that
     serialized to something the contract will not accept, fails here.
     """
-    store = replay_store(tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts", RECORD_CLASS)
     record = _build(adapter=PIN)
 
     payload = canonical_bytes(record)
     address = hashlib.sha256(payload).hexdigest()
-    (store.root / address).write_bytes(payload)
+    # Filed by mechanism under the record class, as the fabric's writer files
+    # it: a record is read only where the store shows that (`D-IMPL-378`).
+    filed = mechanism_put(
+        store, tenant=record.tenant_id, artifact_class=RECORD_CLASS, name=address, artifact=record
+    )
+    assert filed.content_address == address
+    assert store.get(content_address=address) == payload
 
     resolved = resolve_artifact(
         store=store, content_address=address, contract=DecisionReplayRecord

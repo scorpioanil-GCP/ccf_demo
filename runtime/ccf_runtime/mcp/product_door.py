@@ -53,15 +53,21 @@ two transports distinguishable is the point of having both.
 Where the URLs come from (Dave, `D-IMPL-343` GO: *"Do not put URLs or tokens
 in configuration."*)
 --------------------------------------------------------------------------
-The OAuth issuer and resource-server addresses are deployment ENVIRONMENT,
-named in ``ccf_environment.yaml`` and read from the process environment by
-name. The loopback transport is the one exception, and it is not an
-exception to the rule: it binds its own port, so it KNOWS its own address
-and advertises exactly that. The credential is read by name too; when the
-variable is unset a development door mints one per boot and exposes it on
-the :class:`ProductDoor`, because a child process has no operator to export
-a secret for it, and a parent that wants to know the credential without a
-side channel sets the variable.
+The OAuth issuer and resource-server addresses are what an HTTP door
+advertises for OAuth discovery: the protected-resource metadata document and
+the ``resource_metadata`` hint on a 401. No token check and no authorization
+decision reads either one. They are deployment ENVIRONMENT, never
+configuration, and neither transport this module runs reads them from it
+(C2-A (b), ``D-IMPL-378``). The loopback transport binds its own port, so it
+KNOWS its own address and advertises exactly that. The stdio transport has
+no address and serves no HTTP, so nothing could advertise them there; it
+supplies its own reserved values and starts with both variables unset. A
+deployment that mounts :meth:`ProductDoor.server` under its own host passes
+both, and the method holds no default for either. The credential is read by
+name; when the variable is unset a development door mints one per boot and
+exposes it on the :class:`ProductDoor`, because a child process has no
+operator to export a secret for it, and a parent that wants to know the
+credential without a side channel sets the variable.
 """
 
 from __future__ import annotations
@@ -92,7 +98,7 @@ from ccf.authz.capability import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import EgressDoorBinding, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment.environment import EnvironmentDocument, resolve_value
+from ccf.deployment.environment import EnvironmentDocument
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -115,6 +121,19 @@ from ccf_runtime.authz.protocol import (
 )
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
 from ccf_runtime.mcp.egress import build_egress_server
+
+#: The stdio transport's own two addresses (C2-A (b), ``D-IMPL-378``), the way
+#: :meth:`ProductDoor.serve_loopback` derives its own from the port it binds.
+#: Stdio has no network address and serves no HTTP: ``FastMCP`` builds no
+#: application, no metadata route and no ``WWW-Authenticate`` header on it, so
+#: nothing ever advertises these. They exist only because
+#: :func:`build_egress_server` takes auth settings together with the token
+#: verifier (``D-03``). Both sit under the reserved ``.invalid`` domain
+#: (RFC 2606; RFC 6761 section 6.4), which never resolves, and they reach no
+#: transport but stdio: :meth:`ProductDoor.server` still requires both of its
+#: own.
+_STDIO_ISSUER_URL = "https://stdio.invalid"
+_STDIO_RESOURCE_SERVER_URL = "https://stdio.invalid/mcp"
 
 __all__ = [
     "ProductDoor",
@@ -266,9 +285,28 @@ class ProductDoor:
         naming the ruling, rather than by an anonymous ``TypeError``; the
         refusal happens before the server is built or anything is set.
 
-        The issuer and resource-server addresses are read by the names the
-        environment document declares (inert on this transport, required by
-        the builder together with the verifier).
+        **The identity lasts as long as the call, and no longer** (item 9 (b),
+        ``D-IMPL-378``). It is set in the caller's context just before the
+        server starts, so it answers for every caller while the server runs.
+        When ``serve_stdio`` leaves, whether by returning, by an exception
+        raised inside the transport or by cancellation, a ``finally``
+        restores the login identity the context held before the call, none
+        included; the exception or the cancellation still propagates
+        (measured by
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored``,
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored``
+        and
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored``).
+
+        **This transport reads neither advertised address** (C2-A (b),
+        ``D-IMPL-378``). The issuer and resource-server addresses are OAuth
+        discovery metadata for an HTTP application, and stdio builds none;
+        no token check and no authorization decision reads them. So this
+        transport supplies its own reserved values, the way
+        :meth:`serve_loopback` derives its own, and never consults the
+        environment document's names: it starts with both variables unset.
+        Every refusal stays where it was: the tenancy guard, the authorizer
+        under the pinned scope mapping, the entitlement policy.
 
         Args:
             identity: The ambient identity the caller composes for this
@@ -285,14 +323,15 @@ class ProductDoor:
                 "single-principal by construction, and the door does not "
                 "fabricate an identity from its own fields."
             )
-        names = self.product.environment.door
-        assert names is not None  # checked by `open_door`
         server = self.server(
-            issuer_url=resolve_value(names.issuer_url, self._environ),
-            resource_server_url=resolve_value(names.resource_server_url, self._environ),
+            issuer_url=_STDIO_ISSUER_URL,
+            resource_server_url=_STDIO_RESOURCE_SERVER_URL,
         )
-        auth_context_var.set(identity)
-        server.run(transport="stdio")
+        previous = auth_context_var.set(identity)
+        try:
+            server.run(transport="stdio")
+        finally:
+            auth_context_var.reset(previous)
 
     def serve_loopback(self, *, announce: Callable[[int], None]) -> None:
         """Bind an ephemeral loopback port, announce it once up, serve streamable HTTP.
@@ -381,8 +420,10 @@ def open_door(
         entitlement_source: Replaces the Control Plane source.
 
     Raises:
-        ValueError: the product declares no ``door:`` section, or its
-            environment document names no door.
+        ValueError: the product declares no ``door:`` section, its door
+            binding asserts a ``producer_tenant`` other than the product's
+            ``tenant_id`` (``D-IMPL-343`` R-6, refused before anything is
+            registered), or its environment document names no door.
     """
     resolved_environ, credential = _boot_credential(product, environ)
     door = product.door
@@ -453,7 +494,7 @@ def open_door_with_verifier(
 def _boot_credential(
     product: ServesProducts, environ: Mapping[str, str] | None
 ) -> tuple[Mapping[str, str], str]:
-    """Refuse a product with no door, then read or mint this boot's credential."""
+    """Refuse a product with no door, or whose door asserts another tenant; then read or mint this boot's credential."""
     door = product.door
     if door is None:
         raise ValueError(
@@ -462,12 +503,30 @@ def _boot_credential(
             " that section declares, and holds no default for either"
             " (D-IMPL-343; CINV-01)"
         )
+    if door.producer_tenant != product.tenant_id:
+        # `D-IMPL-343` R-6 on the structural path (`D-IMPL-378`, lane
+        # 378d-replayfix): the rule `ccf.deployment.config` holds a derived
+        # `door:` section to, applied to a binding a hand-composed deployment
+        # hands in. Refused by name and never corrected, before the door
+        # registers anything: a door asserting another tenant is refused
+        # `producer-tenant-mismatch` by every consumer registered for this
+        # product's tenant, and this moves that failure to composition.
+        raise ValueError(
+            f"the door binding asserts producer_tenant {door.producer_tenant!r}"
+            f" and this deployment's tenant is {product.tenant_id!r}; the door"
+            " asserts the tenant the deployment declares and a consumer holds"
+            " the assertion to its own registration (D-IMPL-343 R-6; D-IMPL-340"
+            " ruling 2) — state the deployment's tenant as the binding's"
+            " producer_tenant"
+        )
     names = product.environment.door
     if names is None:
         raise ValueError(
-            "the environment document names no 'door' block; the credential,"
-            " issuer and resource-server addresses are deployment environment"
-            " and are read by the names declared there (D-IMPL-343)"
+            "the environment document names no 'door' block; the door's"
+            " credential is deployment environment and is read by the name"
+            " that block declares (D-IMPL-343). The issuer and resource-server"
+            " names are optional there: no SDK transport reads them"
+            " (D-IMPL-378 C2-A2)"
         )
     resolved_environ = os.environ if environ is None else environ
     credential = resolved_environ.get(names.credential.from_env) or secrets.token_urlsafe(32)

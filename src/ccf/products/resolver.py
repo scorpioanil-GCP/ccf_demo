@@ -146,21 +146,36 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+import inspect
+import threading
+import weakref
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from itertools import islice
 from pathlib import Path
-from types import MappingProxyType
-from typing import Final, Protocol, TypeVar, runtime_checkable
+from types import (
+    BuiltinFunctionType,
+    FunctionType,
+    GetSetDescriptorType,
+    MappingProxyType,
+    MemberDescriptorType,
+    MethodType,
+    MethodWrapperType,
+    ModuleType,
+)
+from typing import Any, Final, Protocol, TypeVar, cast, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol
 from ccf.erasure.approval import PinnedPolicySource
+from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_clock
 from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
 from ccf.erasure.trust import ErasureTrust
 from ccf.contracts.base import CCFContract
+from ccf.contracts.claims import LineageEntry
 from ccf.controlplane.artifacts import (
     DebtProfile,
     RequestBoundParameter,
@@ -182,7 +197,7 @@ from ccf.deployment import (
     build_operator_registry,
     refuse_operator_set_divergence,
 )
-from ccf.graph.protocols import GraphView, TraversalDepthCapability
+from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord, TraversalDepthCapability
 from pydantic import ValidationError
 
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
@@ -207,6 +222,7 @@ from ccf.products.contract import (
     ProductClassRegistrationError,
     ProductLineage,
     RegisteredProductClass,
+    SUBJECT_WITHHOLDING_NEVER,
     register_product_class,
 )
 from ccf.halflife.assessment import (
@@ -275,6 +291,7 @@ from ccf.products.request import (
     refuse_undeclared_class_default,
     request_seeds,
 )
+from ccf.products.subject_disclosure import SubjectDisclosurePolicy
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.controlplane.artifacts import SeamRefusalBinding
@@ -286,6 +303,7 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
+    new_issuance,
 )
 from ccf.replay.serve import (
     QueryPinWriter,
@@ -308,23 +326,54 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "EARLY_POLICY_ACQUISITION_REFUSAL",
+    "SHARED_OWNER_WALK_DEPTH",
+    "SHARED_OWNER_WALK_OBJECTS",
+    "UNHELD_SUBJECT_PROBE",
+    "UNHELD_SUBJECT_PROBE_REFUSAL",
+    "AcquiredFabricReused",
+    "AcquisitionNeedsAQuestionFabric",
+    "AcquisitionOverUnverifiableStore",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
+    "IncompatibleRefusalRecorder",
     "InstantAwareDebtScorerProtocol",
+    "NeverWithholdingContradicted",
+    "NeverWithholdingNeedsAPositiveDeclaration",
+    "NeverWithholdingProjectionCanWithhold",
+    "NonWithholdingPlanFactoryProtocol",
     "ProductGateProtocol",
     "ProductNotResolvable",
+    "WithholdingClassListedReadable",
     "ChildAwareDebtScorerProtocol",
+    "CompositeNeedsAnEarlyPolicy",
+    "CompositeNeedsAWithholdingStance",
     "CompositePlanFactoryProtocol",
+    "CompositeWithheldLate",
+    "EarlyPolicyNeedsRequestAwareChildren",
     "PackagingTraceProtocol",
+    "PopulationAcquisitionSeamProtocol",
+    "PopulationPhaseSharesAnOwner",
+    "PopulationQuestion",
+    "PopulationReadInSubjectKeyedPhase",
     "ProjectionPlanFactoryProtocol",
+    "QuestionStoreReopened",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
+    "SharedOwnerWalkIncomplete",
     "UndeclaredMechanismClass",
+    "UnsupportedComposition",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
+    "SubjectDisclosingPlanFactoryProtocol",
+    "UndisclosedSubjectAnswered",
+    "UndisclosedSubjectSubstituteIsHeld",
+    "UnheldSubjectProbeIsHeld",
+    "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
+    "refuse_incompatible_refusal_recorder",
 ]
 
 _Artifact = TypeVar("_Artifact", bound=CCFContract)
@@ -601,6 +650,883 @@ class ProductNotResolvable(LookupError):
     """
 
 
+class UnsupportedComposition(ProductNotResolvable):
+    """A composition SEC-020's rulings do not support, refused by name before it can answer.
+
+    ``D-IMPL-378`` (Dave, 2026-10-07 19:31 MST, Q7–Q9; SDK-defined, CLAUDE.md
+    §11). SEC-020 stays OPEN. Each subclass names one combination; every one is
+    decided by the composition, never by the subject a question names, so the
+    refusal is not itself an existence signal. A ``ProductNotResolvable``, so a
+    door's opaque-failure wrap applies: it is a broken composition, not a
+    governed "no".
+    """
+
+
+class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
+    """An acquisition phase was about to run over a fabric not booted for its question.
+
+    Q9: *"Enforce a fresh fabric per question whenever acquisition exists."* A
+    fabric that outlives its question answers the next one over what this one
+    acquired (review finding M-6: asking about a withheld subject and then
+    about an identifier that names nothing measured whether the source holds
+    the first). Raised by :meth:`GovernedResolver.__call__` immediately before
+    the first acquisition phase, before anything is read or fetched for the
+    question, unless the fabric was booted with ``for_question=True``
+    (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
+    at construction because a resolver built over a fabric it never acquires
+    into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
+    rebuild a plan — is a supported composition. Over a store whose connection
+    names no path, which no boot can make a question fabric, the composition
+    is refused at construction instead
+    (:class:`AcquisitionOverUnverifiableStore`).
+    """
+
+
+class AcquisitionOverUnverifiableStore(AcquisitionNeedsAQuestionFabric):
+    """An acquisition phase composed over a store whose fresh creation the SDK cannot verify, refused before any question runs.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"Require verifiable fresh creation or refuse acquisition-backed serving.
+    Unsupported network compositions must refuse before questions run."*). A
+    question fabric is one the boot verified fresh: a store minted at a path
+    that did not exist, reserved exclusively by its marker
+    (:class:`~ccf.deployment.manifest.QuestionFabricNotFresh` otherwise). A
+    store whose adapter connection names no path — a network store's address,
+    an in-process store — offers nothing to verify or to mark
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation`
+    ``"unverifiable"``), so no fabric over it is ever a question fabric and an
+    acquisition composition over it could never answer. It is refused at the
+    earliest point where the composition and the store kind are both known:
+    when :class:`GovernedResolver` is constructed with an acquisition or a
+    population phase over such a fabric, and when the paved road is opened
+    over a substrate setting its adapter does not take as a path
+    (:func:`~ccf.products.product.open_product`). Measured before this: the
+    first was refused only at its first call, the second at every question's
+    boot. A subclass of :class:`AcquisitionNeedsAQuestionFabric`, whose
+    refusal it moves earlier. An adapter declaring its own freshness (P4 (b))
+    is not built; until then such a store serves only compositions with no
+    acquisition phase.
+    """
+
+
+class PopulationPhaseSharesAnOwner(UnsupportedComposition):
+    """The population phase and the subject-keyed phase share an owner: one holds the other.
+
+    Q7: *"Subject-independent acquisition must not receive the requested
+    subject indirectly through context or closures. Unsupported combinations
+    must refuse construction."* State on the subject-keyed phase's object
+    carries a subject that phase was handed into a later question's population
+    phase wherever the population phase can reach that object. Refused when the
+    resolver is constructed (and, on the paved road, when the product is
+    opened): one callable declared as both phases, two phases bound to one
+    object, and either phase holding the other phase or the object the other
+    is bound to, found by a walk of what it holds.
+
+    The walk (``D-IMPL-378`` decision 3 (a), Dave, 2026-10-09: *"(a). Extend
+    the shared-state guard, with a bounded walk and an explicit statement of
+    what it cannot detect."*) starts at each phase and follows, one step per
+    reference: the object a method is bound to and the function behind it; a
+    function's closure cells, default arguments and attributes; an object's
+    declared slots (``__slots__``) and instance attributes; the members of a
+    ``list``, ``tuple``, ``set`` or ``frozenset`` and the keys and values of a
+    ``dict``, subclasses included. It reads what each object stores and calls
+    nothing an object defines. It stops after
+    :data:`SHARED_OWNER_WALK_DEPTH` steps from a phase, or once it has read
+    :data:`SHARED_OWNER_WALK_OBJECTS` references from it. A declared slot
+    never assigned and an empty closure cell hold nothing, and the walk reads
+    them so (measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing``
+    and
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing``).
+    Where reading what an object holds raises otherwise (such as another
+    class's member descriptor in a slotted class's namespace), the walk cannot
+    complete and the two phases are refused rather than admitted
+    (:class:`SharedOwnerWalkIncomplete`, ``D-IMPL-378`` repair 1.8; measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name``).
+
+    **What it cannot detect**, stated here and in the security how-to,
+    section 4.12:
+
+    * anything further from both phases than either bound;
+    * state the two phases share through a third object that neither phase is
+      nor is bound to, such as a dictionary both hold;
+    * state reached only through a property, another descriptor,
+      ``__getattr__`` or ``__getattribute__``, including the dictionary of a
+      class that replaces ``__dict__``;
+    * state a C-extension object keeps in its own fields, which the walk does
+      not read: a ``functools.partial``'s arguments, a
+      ``collections.deque``'s members, a ``types.MappingProxyType``'s
+      mapping, a generator's frame, an ``operator.methodcaller``'s arguments,
+      and a closure cell's contents where the cell is held anywhere but in a
+      function's closure (each measured by
+      ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_limit_a_holder_the_walk_does_not_read_is_not_seen``);
+    * module globals, and class attributes, a class's own ``__call__``
+      included;
+    * an object reached only through a weak reference or an external store.
+
+    Keeping the two phases free of shared state beyond what the walk sees is
+    the deployment's statement to keep.
+    """
+
+
+class SharedOwnerWalkIncomplete(PopulationPhaseSharesAnOwner):
+    """The shared-owner walk could not read everything a phase holds, so the two phases are refused rather than admitted.
+
+    ``D-IMPL-378`` repair 1.8 (Dave, 2026-10-09 10:54 MST: *"Implement the
+    specified documentation, citation-checker and shared-owner fixes."*), as
+    the findings brief specified it: *"Handle a foreign member descriptor's
+    ``TypeError`` as the walk handles an unread slot (or refuse, per 2.4)"* —
+    read with repair 2.4 (b), ruled in the same text: *"Refuse when the
+    shared-owner walk reaches a limit before completing."* SDK-defined,
+    CLAUDE.md §11. SEC-020 stays OPEN.
+
+    Repair 2.4 (b) itself is not built. A walk cut off at either of its
+    bounds, :data:`SHARED_OWNER_WALK_DEPTH` or
+    :data:`SHARED_OWNER_WALK_OBJECTS`, raises neither this refusal nor any
+    other: it admits the two phases, and what lies past the bound is not
+    checked (measured by
+    ``tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen``
+    and
+    ``tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen``).
+    The walk also reads the SDK's own state a phase holds, which grows as a
+    service runs, so it reaches its reference bound sooner the longer a
+    service runs (measured by
+    ``tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py``;
+    the security how-to, section 4.12).
+
+    Raised where :class:`PopulationPhaseSharesAnOwner` is (at construction,
+    and on the paved road when the product is opened) when reading what an
+    object the walk reached holds raises — such as a slotted class whose
+    namespace holds another class's member descriptor, which raises
+    ``TypeError`` for this object. The walk cannot show that the object holds
+    nothing of the other phase, so it does not admit the pair. A declared slot
+    never assigned and an empty closure cell are not such cases, although
+    reading either raises: each holds nothing, and is read so (measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing``
+    and
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing``).
+
+    A :class:`PopulationPhaseSharesAnOwner`, so what handles that refusal
+    handles this one. The message names the phase the walk started from, the
+    cause (the type of the error, never its text), the step it was reading and
+    the references it had read: nothing any object holds.
+    """
+
+
+#: SEC-020, ``D-IMPL-378`` ruling P6 (a) (Dave, 2026-10-08 16:40 MST, a
+#: conditional implementation go; SDK-defined, CLAUDE.md §11). The identifier
+#: the subject-keyed acquisition phase is asked about, in place of the
+#: question's subject, before it is asked about that subject
+#: (:class:`PopulationReadInSubjectKeyedPhase`). It lies inside
+#: :data:`~ccf.products.request.SUBJECT_FLOOR_V1`; a source sees it as one more
+#: identifier it does not hold. That it names nothing is checked, not assumed:
+#: the fabric is read for it before the call and after it
+#: (:class:`UnheldSubjectProbeIsHeld`). For a class with a declared early policy
+#: it is the baseline the declared stand-in is compared with: the phase is asked
+#: about it and then about the stand-in (``D-IMPL-378`` decision 4 (a),
+#: :class:`UndisclosedSubjectSubstituteIsHeld`). SEC-020 stays OPEN.
+UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
+
+
+#: The ONE refusal every refusal the subject-keyed acquisition phase raises becomes
+#: for a class with a declared early policy (``D-IMPL-378`` repair 2.2 (a),
+#: SDK-defined, CLAUDE.md §11; SEC-020 stays OPEN). Dave, 2026-10-09 10:54 MST:
+#: *"Replace acquisition-refusal free text under early withholding with constant
+#: SDK text in responses and records. Verify that neither the stand-in identifier
+#: nor another distinguishing value survives."*
+#:
+#: Under the early policy that phase is asked about the policy's stand-in in place
+#: of a subject the policy does not disclose, and about the asked subject
+#: otherwise. What a source says back can carry what it was asked: a refusal's
+#: text or its ``error_code`` naming the stand-in for the withheld subject and the
+#: asked identifier for a nonexistent one, and a source that answers the stand-in
+#: otherwise than another identifier it does not hold choosing another cause or
+#: another refusal kind (measured by
+#: ``tests/products/test_sec020_early_policy_acquisition_refusal.py``). So, for
+#: every question of such a class, whatever the policy decides for the asked
+#: subject, a refusal that phase raises — the typed handoff
+#: (:class:`~ccf.products.refusal.GovernedRefusalRaised`) carrying any refusal
+#: kind or a refusal shell, recorded by its raiser or not, or a type the class or
+#: the SDK declares at the seam — is served and recorded as this value, with
+#: nothing the source said: one kind (``subject-unavailable``), one cause, one
+#: code and one text. The cause is ``undisclosed``, the positive statement that
+#: which of the other two applies is not stated, and no code is carried. The
+#: record still files it at the ``acquisition`` seam, with the caller's question.
+#: A declared population phase is handed no subject, so its refusal carries
+#: nothing of the asked subject or the stand-in, and it is kept as its source
+#: stated it (measured alike for a withheld and a nonexistent subject by the same
+#: module); a class with no early policy keeps its source's refusal as before.
+EARLY_POLICY_ACQUISITION_REFUSAL: Final[SubjectUnavailableRefusal] = SubjectUnavailableRefusal(
+    cause="undisclosed",
+    detail=(
+        "the subject-keyed acquisition phase refused this question; under this"
+        " class's declared early policy the SDK keeps no statement of the"
+        " source's, so every such refusal reads alike (SEC-020; D-IMPL-378"
+        " repair 2.2 (a))"
+    ),
+    error_code=None,
+)
+
+
+#: The ONE refusal a question becomes when ruling P6 (a)'s probe call itself
+#: ends in a held refusal (``D-IMPL-378`` OWED-RULINGS-3 item 4 (b), as repaired
+#: by 2.3 (b); SDK-defined, CLAUDE.md §11; SEC-020 stays OPEN). Dave, 2026-10-09
+#: 10:54 MST: *"Use (d) only if “unknown identifier” has a typed, stable cause.
+#: Do not infer it from message text. Otherwise implement (b) with a recorded
+#: constant SDK cause. Role and parameter refusals must retain their decision
+#: records."* The condition for (d) was measured not met: a source's "I do not
+#: hold that identifier" reaches the probe with no typed cause as a refusal
+#: shell or an assembler's refusal, and the SDK declares the typed
+#: ``nonexistent`` for a refusal that is not about the identifier.
+#:
+#: For a class that may withhold its subject and declares no early policy, a
+#: refusal the subject-keyed phase raises when asked about
+#: :data:`UNHELD_SUBJECT_PROBE` — the typed handoff carrying any refusal kind or
+#: a refusal shell, recorded by its raiser or not, or a type the class or the
+#: SDK declares at the seam — refuses the question before the phase is handed
+#: its subject, and the question is answered and recorded as this value at the
+#: ``acquisition`` seam, beside the caller's question: one kind, cause, code and
+#: text for every subject, and nothing the source said. So a refusal the
+#: question decided (a role, a parameter) keeps its decision record, and an
+#: identifier nothing holds is refused as a withheld subject is (measured by
+#: ``tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py``).
+#: Its own value rather than :data:`EARLY_POLICY_ACQUISITION_REFUSAL`, whose
+#: sentence says the class declares an early policy, which a class the probe
+#: reads does not; no class takes both paths, so the two never meet in one
+#: class's answers.
+UNHELD_SUBJECT_PROBE_REFUSAL: Final[SubjectUnavailableRefusal] = SubjectUnavailableRefusal(
+    cause="undisclosed",
+    detail=(
+        "the subject-keyed acquisition phase refused"
+        f" {UNHELD_SUBJECT_PROBE!r}, an identifier that names nothing, so this"
+        " class refuses the question before that phase is handed its subject;"
+        " the SDK keeps no statement of the source's, so every such refusal"
+        " reads alike (SEC-020; D-IMPL-378 OWED-RULINGS-3 item 4 (b), repair"
+        " 2.3 (b))"
+    ),
+    error_code=None,
+)
+
+
+class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
+    """The subject-keyed acquisition phase acquired something for an identifier that names nothing.
+
+    ``D-IMPL-378`` ruling P6 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-08 16:40 MST, a conditional implementation go: *"Do not declare
+    closure based on this probe alone"*. SEC-020 stays OPEN.
+
+    A class that may withhold its subject and declares no early policy
+    withholds inside its projection, after acquisition; the withheld subject is
+    then rendered over the fabric as it stood immediately before the
+    subject-keyed phase (``D-IMPL-376`` (3), route A). That is the state an
+    identifier that names nothing is rendered over only when the subject-keyed
+    phase acquires nothing for such an identifier. A read that acquires the
+    same content whatever is asked — a population read left in the
+    subject-keyed phase instead of declared as the population phase (Q7) —
+    gives a nonexistent subject that content, and the two answers differ. So,
+    for such a class, :meth:`GovernedResolver.__call__` first asks the
+    subject-keyed phase about :data:`UNHELD_SUBJECT_PROBE` — the question's
+    effective request with that identifier in place of the subject — and reads
+    the fabric again; if the read differs from the one taken before, this is
+    raised, before the phase is asked about the question's subject. The
+    decision reads nothing about the asked subject, so a withheld subject and
+    an identifier nothing holds are refused alike. A held refusal from the
+    probe refuses the question instead, answered and recorded as
+    :data:`UNHELD_SUBJECT_PROBE_REFUSAL` (OWED-RULINGS-3 item 4 (b), as
+    repaired by ``D-IMPL-378`` 2.3 (b)). Q10's *"each
+    once"* is amended by the ruling to exactly this one extra call to the
+    subject-keyed phase per question of such a class, and nothing more.
+
+    What it relies on, stated: the phase treats :data:`UNHELD_SUBJECT_PROBE`
+    as it treats any identifier its sources do not hold — the assumption Q8
+    already makes of a declared stand-in. **A source that recognizes the probe**
+    — its exact identifier, or its shape, outside the URI form the fabric's
+    entity resolution mints — and answers nothing for it while it reads the
+    population for any other identifier **is not detected**, and a withheld
+    subject and a nonexistent one are then still told apart (measured, and
+    kept visible: ``tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py``,
+    and the ``SEC-020 P6 PROBE LIMITATION`` block of SEC-020's closing test). It costs one
+    more call to the subject-keyed phase and one more read of the fabric per
+    question of such a class. A class with a declared early policy is not
+    refused by this probe — its declared stand-in is verified instead, which
+    asks the phase about :data:`UNHELD_SUBJECT_PROBE` as its baseline
+    (:class:`UndisclosedSubjectSubstituteIsHeld`) — and a class affirming
+    ``subject_withholding: never`` is not probed. To be
+    served, declare the read as the population phase
+    (``open_product(population=...)``,
+    :attr:`GovernedResolver.population_acquisition`), declare an early policy
+    (:class:`SubjectDisclosingPlanFactoryProtocol`), or affirm
+    ``subject_withholding: never`` for a projection that never withholds.
+
+    That the probe identifier names nothing is checked, not assumed
+    (:class:`UnheldSubjectProbeIsHeld`): a fabric or a source that names it is
+    refused by that name instead, before this decision is taken.
+    """
+
+
+class UnheldSubjectProbeIsHeld(UnsupportedComposition):
+    """The identifier the P6 probe treats as naming nothing names something here.
+
+    ``D-IMPL-378`` ruling P6 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-08 16:40 MST: *"Verify that the fixed identifier is actually
+    absent; do not assume it."* SEC-020 stays OPEN.
+
+    :class:`PopulationReadInSubjectKeyedPhase` is decided by what the
+    subject-keyed phase acquires for :data:`UNHELD_SUBJECT_PROBE`, which
+    measures what it acquires for an identifier its sources do not hold only if
+    the probe identifier names nothing. So it is read, by the reading the SDK
+    seeds a walk from a subject with
+    (:func:`~ccf.products.request.request_seeds`: the subject is the node whose
+    entity URI it is), on both axes of a view — an entity whose URI is the
+    identifier, or a relationship with it at either end. Raised by
+    :meth:`GovernedResolver.__call__`, for a class the probe reads, when the
+    fabric as read before the probe names it (then the phase is not asked
+    about the probe at all), or when the fabric as read after the probe does
+    (the phase's source holds the identifier, so what it acquired is not a
+    population read's evidence) — before the phase is handed the question's
+    subject, with one message whatever subject was asked. Fail closed.
+
+    L2's ingest mints every node it writes as
+    ``<entity_class>://<content hash>``, a form the probe identifier does not
+    have, so on the paved road no write can name it; a node named by it reaches
+    a fabric only through the admission path for an already-resolved claim
+    (:meth:`~ccf.assembly.worker.AssemblyWorker.admit_entity_claim`, the path a
+    replayed snapshot takes) or a store written outside this SDK. A paved
+    source holding a record FOR the probe identifier therefore writes a node
+    with another URI, and the question is refused as
+    :class:`PopulationReadInSubjectKeyedPhase` — also fail closed.
+    """
+
+
+class UndisclosedSubjectSubstituteIsHeld(UnsupportedComposition):
+    """The identifier a declared early policy asks in place of an undisclosed subject names something here.
+
+    ``D-IMPL-378`` decision 4 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-09 06:06 MST, confirmed at 06:21 MST: *"Verify the stand-in is
+    absent before and after acquisition. A failed check refuses without
+    exposing subject-dependent differences."* SEC-020 stays OPEN.
+
+    Under a declared early policy (:class:`SubjectDisclosingPlanFactoryProtocol`,
+    Q8) every subject-dependent step is asked about the policy's
+    :attr:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy.undisclosed_subject`
+    in place of a subject the policy does not disclose, so a withheld subject's
+    answer equals the answer for an identifier that names nothing only if the
+    stand-in names nothing. That is checked, not assumed, for EVERY question of
+    such a class, whatever the policy decides for the asked subject, by the
+    mechanism :data:`UNHELD_SUBJECT_PROBE` is checked by
+    (:class:`UnheldSubjectProbeIsHeld`) — a view names an identifier when an
+    entity's URI is the identifier, or a relationship has it at either end:
+
+    * **before acquisition** — the fabric as read before the subject-keyed
+      phase (after a declared population phase) must not name it; and, where a
+      subject-keyed phase is declared, the phase is asked about
+      :data:`UNHELD_SUBJECT_PROBE` and then about the stand-in, the fabric read
+      after each, and what it acquired for the stand-in must name nothing and
+      add nothing to what it acquired for the probe identifier — compared as
+      entities, relationships and claim values, with delivery lineage set
+      aside (``D-IMPL-378`` repair 1.3, :func:`_held_content`). A source that
+      holds the stand-in, under any URI, acquires for it what it does not
+      acquire for an identifier that names nothing; a read that acquires the
+      same content whatever is asked adds nothing, also when it gives each
+      delivery its own envelope id or receipt instant (the components of a
+      lineage entry a delivery mints), while evidence from another source or
+      another passage adds something;
+    * **after acquisition** — the fabric the plan reads must not name it.
+
+    Raised by :meth:`GovernedResolver.__call__` with ONE message, whatever
+    subject was asked and whichever check failed: before the subject-keyed
+    phase is handed anything for the question (the checks before acquisition),
+    or before anything is computed or recorded (the check after it). A broken
+    composition, as every :class:`UnsupportedComposition` is: nothing is
+    recorded, and a door answers with its opaque failure. Fail closed.
+
+    What it costs: for a class with a declared early policy and a subject-keyed
+    phase, two more calls to that phase and two more reads of the fabric per
+    question — Q10's *"each once"*, amended by this decision as ruling P6 (a)
+    amended it for the probe.
+
+    What it does not detect, stated: a source that RECOGNIZES the stand-in — its
+    identifier, or its shape — and answers nothing for it while it answers other
+    identifiers it does not hold with content. A source that recognizes
+    :data:`UNHELD_SUBJECT_PROBE` and answers the stand-in as it answers any
+    other identifier is refused (fail closed). The check after acquisition reads
+    what the question's own acquisition wrote, so a source that writes the
+    stand-in for some asked subjects and not for others is refused for those
+    questions only — such a source already answers its subjects differently,
+    and the check refuses rather than answer over a fabric that names the
+    stand-in. A composite's children are asked about the stand-in through their
+    own deployments; what their sources hold for it is not read here.
+    """
+
+
+#: The components of a :class:`~ccf.contracts.claims.LineageEntry` that a DELIVERY
+#: mints rather than the evidence carries (``D-IMPL-378`` repair 1.3): the
+#: ``envelope_id`` of the envelope that delivered the claim, which the
+#: acquisition seam leaves to the adapter, and the ``observed_at`` instant the
+#: fabric received that delivery, which L2 takes from the envelope's
+#: ``ingestion_timestamp`` (:meth:`~ccf.assembly.worker.AssemblyWorker._stitch`).
+#: Every other component — the source's identity, the passage anchor, and any
+#: component the entry declares later — is evidence, and is compared.
+_DELIVERY_LINEAGE: Final[frozenset[str]] = frozenset({"envelope_id", "observed_at"})
+
+
+def _held_content(view: GraphView) -> bytes:
+    """``view``'s entities, relationships and claim values, with delivery lineage set aside, in canonical bytes.
+
+    ``D-IMPL-378`` repair 1.3 (SDK-defined, CLAUDE.md §11). Dave, 2026-10-09
+    10:54 MST: *"Compare entities, relationships and claim values, excluding
+    delivery lineage. Preserve security-relevant differences and the existing
+    held-stand-in controls."* SEC-020 stays OPEN.
+
+    Two views hold the same content exactly when these bytes are equal (the
+    SDK's one canonical form, :func:`~ccf.contracts.canonical.canonical_bytes`).
+    Every member of the view, of each entity and relationship record and of
+    each claim is kept, read off the declared fields, so a member added later is
+    compared rather than skipped; a claim's lineage is kept as the set of its
+    entries with the components in :data:`_DELIVERY_LINEAGE` removed. So a
+    delivery that brings what the fabric already holds under its own envelope id
+    or its own receipt instant adds nothing, while a new entity, a new
+    relationship, a changed claim value, or evidence from another source or
+    another passage still does. Pure over the view.
+    """
+
+    def entry(held: LineageEntry) -> str:
+        return canonical_bytes(
+            {name: getattr(held, name) for name in type(held).model_fields if name not in _DELIVERY_LINEAGE}
+        ).decode("utf-8")
+
+    def record(held: EntityRecord | RelationshipRecord) -> dict[str, object]:
+        claim = held.claim
+        return {
+            **{name: getattr(held, name) for name in type(held).model_fields if name != "claim"},
+            "claim": {
+                **{name: getattr(claim, name) for name in type(claim).model_fields if name != "lineage"},
+                "lineage": frozenset(entry(lineage) for lineage in claim.lineage),
+            },
+        }
+
+    return canonical_bytes(
+        {
+            name: (
+                tuple(record(held) for held in getattr(view, name))
+                if name in ("entities", "relationships")
+                else getattr(view, name)
+            )
+            for name in type(view).model_fields
+        }
+    )
+
+
+def _names(view: GraphView, identifier: str) -> bool:
+    """Whether ``view`` names ``identifier``: an entity whose URI it is, or a relationship with it at either end.
+
+    The reading :func:`~ccf.products.request.request_seeds` seeds a walk from a
+    subject with. Pure over the view; reads no clock and no store.
+    """
+    return any(record.claim.entity_uri == identifier for record in view.entities) or any(
+        identifier in (record.claim.subject_uri, record.claim.object_uri)
+        for record in view.relationships
+    )
+
+
+class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
+    """A composite whose projection declares it withholds, without an early policy.
+
+    Q8: *"Require early withholding for affected composites."* A composite asks
+    its children about the subject before its plan runs, so a withhold decided
+    inside the projection reaches them too late; an affected composite — one
+    whose plan factory declares, through
+    :class:`SubjectDisclosingPlanFactoryProtocol`, that it withholds — must
+    declare the early policy, and one that declares withholding with no policy
+    is refused when the resolver is constructed.
+    """
+
+
+class CompositeNeedsAWithholdingStance(UnsupportedComposition):
+    """A composite that declares no withholding stance: no early policy, and no affirmation it never withholds.
+
+    ``D-IMPL-378`` P2, option (c), ruled by Dave on 2026-10-08 at 12:29 MST
+    (SDK-defined, CLAUDE.md §11); SEC-020 stays OPEN. Q8:
+    *"Require early withholding for affected composites. Make it an enforced
+    policy decision before subject-dependent fetches, child resolution or
+    scoring. It cannot depend on learning whether the subject exists."* A
+    composite asks its children about the subject before its plan runs, and
+    nothing at construction says whether its projection will withhold; a
+    refusal decided when the projection withholds (:class:`CompositeWithheldLate`)
+    is decided for the withheld subject only, and is itself an answer a
+    nonexistent subject's question does not get. So a composite — a class that
+    declares ``requires`` — states its stance when its resolver is constructed:
+    an early policy, through :class:`SubjectDisclosingPlanFactoryProtocol`, or
+    its class's affirmation ``subject_withholding: never`` (Dave's Q12), which
+    is built only over a plan factory positively declaring that it never
+    withholds (:class:`NonWithholdingPlanFactoryProtocol`, Dave's E2 (ii) (d))
+    and which :meth:`GovernedResolver.__call__` enforces when the projection
+    withholds anyway. One that declares neither is refused here, before any
+    question — the same refusal whatever subject would have been asked.
+    """
+
+
+class EarlyPolicyNeedsRequestAwareChildren(UnsupportedComposition):
+    """Early withholding over a composite whose children are never handed the request.
+
+    Q8. The early decision replaces the subject in every child question; a
+    child resolver offering only the request-less legacy call cannot receive
+    the replacement, so the composition is refused when the resolver is
+    constructed rather than answered with children asked about the real
+    subject.
+    """
+
+
+class UndisclosedSubjectAnswered(ProductNotResolvable):
+    """The declared policy did not disclose the subject, and the projection answered it anyway.
+
+    Q8. Every subject-dependent step was asked about the declared stand-in; the
+    projection, built from the caller's question, must withhold the subject,
+    or it would serve the subject's own answer over a fabric built for nobody.
+    Raised after the plan runs and BEFORE this decision is gated, recorded or
+    served (a composite's children, asked about the stand-in, may already have
+    filed their own): a broken composition, not a governed "no".
+    """
+
+
+class CompositeWithheldLate(ProductNotResolvable):
+    """A composite's projection withheld a subject its early policy did not withhold.
+
+    Q8: *"Make it an enforced policy decision before subject-dependent
+    fetches, child resolution or scoring."* By the time a composite's
+    projection raises the withheld signal, its children were already asked
+    about the subject; so a composite withholds only through the declared
+    early policy, and a projection that withholds anything else is refused here
+    — after the plan runs, BEFORE this decision is gated, recorded or served;
+    what the children filed when they were asked stays filed. The
+    SDK cannot see at construction whether a projection will withhold; a
+    composite that declares it does is held to the early policy then
+    (:class:`CompositeNeedsAnEarlyPolicy`). A composite whose class affirms
+    ``subject_withholding: never`` is refused as
+    :class:`NeverWithholdingContradicted` instead, which is checked first (Dave's
+    CT-D (a), 2026-10-08 12:29 MST: diagnostic precedence only).
+    """
+
+
+class AcquiredFabricReused(ProductNotResolvable):
+    """A fabric an acquisition phase was claimed for was asked another question.
+
+    Q9, *"including concurrent use"*. The claim is taken under a lock
+    immediately before the first acquisition phase, so of two questions on one
+    fabric — one after the other or at the same time — exactly one acquires and
+    the other is refused here, before anything is read or fetched for it. The
+    claim reads nothing about the subject: any second question is refused the
+    same way. A question refused before acquisition (its address, its request,
+    its temporal bound) never claims the fabric. Held per fabric handle in this
+    process; a fabric is fresh per question by its boot
+    (:class:`AcquisitionNeedsAQuestionFabric`), so a second handle over the same
+    store is not a question fabric to begin with.
+
+    **Every governed call over a question fabric claims it** (SEC-020 P4 (a),
+    ``D-IMPL-378``, ruled by Dave on 2026-10-08 at 12:29 MST), at the same
+    point, with an acquisition phase or without one: a later call that declares no
+    acquisition would otherwise answer from what the first question fetched. A
+    second handle over the same store is refused by
+    :class:`QuestionStoreReopened`.
+    """
+
+
+class QuestionStoreReopened(UnsupportedComposition):
+    """A governed call over a question's store booted again, refused before the graph is read.
+
+    SEC-020 P4 (a), ``D-IMPL-378`` (ruled by Dave on 2026-10-08 at 12:29 MST;
+    Q9: *"Enforce a fresh fabric per question whenever acquisition exists"*). The
+    store a question was answered from keeps what its acquisition fetched, and
+    the paved road leaves it on disk. A boot for one question leaves a durable
+    marker beside the store
+    (:attr:`~ccf.deployment.manifest.BootedFabric.question_store`), so a later
+    boot of it is a fabric to read, not to answer from: Decision Replay
+    rebuilds a resolver over it and never calls it. A governed call over it
+    that declares no acquisition phase — where Q9 alone never bound — is
+    refused here, at the point a question fabric is claimed: after the
+    question-level refusals (its address, its request, its temporal bound),
+    which read no graph, and before the graph is read. One that declares an
+    acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`. Either way the refusal is decided
+    by the marker and the boot, never by the subject the question names or by
+    what the store holds. The marker sits beside the store, not inside it: a
+    copy of the store taken without it, or a store booted for a question
+    before the marker existed, carries no marker at all, and is refused as
+    unmarked instead (:class:`UnmarkedStoreNotPresumedFresh`).
+    """
+
+
+class UnmarkedStoreNotPresumedFresh(UnsupportedComposition):
+    """A governed call over an existing store that carries no marker, refused before the graph is read.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"An unmarked existing store must not be presumed fresh. Require
+    verifiable fresh creation or refuse acquisition-backed serving."*). Every
+    store the deployment doors create at a path gets a marker beside it before
+    it exists — the question marker on a boot for one question, the deployment
+    marker on any other — so an existing store with neither
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation` ``"unmarked"``)
+    is one nothing shows was never a question's: a store booted for a question
+    before the markers existed, a copy of a used store taken without its
+    marker, a store created outside the doors. A later question answered from
+    it would answer from what an earlier question's acquisition fetched, so a
+    governed call over it is refused here, at the point a question fabric is
+    claimed: after the question-level refusals (its address, its request, its
+    temporal bound), which read no graph, and before the graph is read. A call
+    that declares an acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`, as before. Decision Replay
+    rebuilds a resolver over the store and never calls it, so it reads the
+    store as before. Decided by the markers and the boot, never by the subject
+    or by what the store holds. Remedy: boot a new store through a deployment
+    door, which creates and marks it; a deployment's own kept store, created
+    by a door, carries its marker and is not refused.
+    """
+
+
+#: SEC-020 Q9: every question fabric an acquisition phase has been claimed for
+#: in this process. Weak, so a closed and released fabric leaves nothing
+#: behind; guarded, so two threads cannot both claim one handle.
+_CLAIMED_QUESTION_FABRICS: weakref.WeakSet[object] = weakref.WeakSet()
+_CLAIMED_QUESTION_FABRICS_LOCK = threading.Lock()
+
+
+def _claim_question_fabric(fabric: BootedFabric) -> None:
+    """Claim ``fabric`` for the one question its acquisition phases may write for (Q9).
+
+    Called by every governed call over a question fabric, and by every call
+    that declares an acquisition phase (SEC-020 P4 (a)). Raises
+    :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not booted for
+    a question, and :class:`AcquiredFabricReused` when it was already claimed.
+    Reads nothing about the question.
+    """
+    if not fabric.for_question:
+        raise AcquisitionNeedsAQuestionFabric(
+            "an acquisition phase writes what one question's sources returned"
+            " into the fabric the question is answered from, so the fabric must"
+            " be booted for that question (load_and_boot or load_config_and_boot"
+            " with for_question=True; the paved road does) — this one was not"
+            " (SEC-020, Q9)"
+        )
+    handle = fabric.handle
+    with _CLAIMED_QUESTION_FABRICS_LOCK:
+        if handle in _CLAIMED_QUESTION_FABRICS:
+            raise AcquiredFabricReused(
+                "this question fabric was already claimed by a question whose"
+                " acquisition writes into it; a fabric answers the one question"
+                " it was booted for (SEC-020, Q9)"
+            )
+        _CLAIMED_QUESTION_FABRICS.add(handle)
+class WithholdingClassListedReadable(ProductNotResolvable):
+    """A tenant lists for owner read-back a class that may withhold its subject.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``): *"Default-deny owner read-back,
+    with an explicit tenant class allowlist. Reject withholding classes—including
+    affected composites."* Raised by :class:`GovernedResolver` at construction
+    — the deployment's boot — when the tenant's
+    :class:`~ccf.products.entitlement.ProductEntitlementPolicy` lists its class
+    in ``evidence_readable_classes`` while the class declaration does not
+    affirm :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER`. A record's
+    dimension 1 is the real read, so a record of such a class can name a
+    subject its answer hid. Every class may withhold until it says otherwise,
+    composites included; a composite affirms ``"never"`` only if no answer of it
+    withholds its own subject, which the resolver then enforces. The governed
+    evidence read refuses such records whatever the policy says; this is the
+    deployment's configuration error, named where an operator sees it.
+    """
+
+
+class NeverWithholdingContradicted(ProductNotResolvable):
+    """A class affirmed that its answers never withhold their subject, and one did.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``). Raised by
+    :meth:`GovernedResolver.__call__` when the projection raises the withheld
+    signal (:class:`~ccf.projection.plan.ProjectionOutput`'s ``withheld``) for a
+    class whose declaration affirms
+    :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` — before anything is
+    rendered, recorded or served, and before Q8's :class:`CompositeWithheldLate`,
+    so a composite affirming ``never`` is named by this refusal (Dave's CT-D (a),
+    2026-10-08 12:29 MST, diagnostic precedence only). The affirmation is what lets the class's
+    records be read back by their owners; a withheld answer under it would
+    reopen the read-back of a subject the answer hid, so it is refused as the
+    broken deployment it is. A deployment whose projection may withhold leaves
+    its class at the default.
+
+    **The defense, not the control** (Dave, 2026-10-08 12:29 MST, E2 (ii):
+    *"retain the runtime check as defense"*). A plan factory that declares it
+    withholds is refused where the resolver is built
+    (:class:`NeverWithholdingProjectionCanWithhold`), and so is one that does
+    not positively declare that it never withholds
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`, Dave's option (d),
+    16:40 MST); this check is what remains for a factory whose positive
+    declaration is FALSE — trusted deployment code — and whose projection
+    withholds anyway
+    (``tests/products/test_sec020_never_capability.py::test_e2ii_the_serve_time_check_remains_the_defense_for_a_false_positive_declaration``).
+    Raised for the withheld subject only, it still tells that subject from one
+    nothing holds — measured, as an exception (an HTTP 500) against an answer,
+    by
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``
+    and reported outside the closure gate on every run of
+    ``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``.
+    SEC-020 is OPEN.
+    """
+
+
+class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
+    """A class affirming its answers never withhold their subject, over a plan factory that declares it withholds.
+
+    Dave, 2026-10-08 12:29 MST (``D-IMPL-378``, E2 (ii); SDK-defined, CLAUDE.md
+    §11): *"Validate withholding capability against the class declaration at
+    construction; retain the runtime check as defense."* Raised by
+    :class:`GovernedResolver` at construction — on the paved road, which builds
+    a resolver for each question, before anything is read for it — the same
+    refusal whatever subject would have been asked — when the class declaration
+    affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its plan
+    factory, through :class:`SubjectDisclosingPlanFactoryProtocol`, states a
+    capability to withhold that the SDK can read without running a question:
+
+    * **verified** — an early policy that does not disclose some subject to some
+      principal or role: the resolver itself withholds that subject (Q8), so
+      under the affirmation that subject's question could only end in a
+      refusal raised for it alone, which a nonexistent subject's does not get;
+    * **declared** — ``subject_disclosure()`` returning ``None``: the factory's
+      own statement that its projection withholds late, inside itself.
+
+    **What it cannot see.** Whether a projection withholds is otherwise
+    decided inside the deployment's ``invoke()``, which sets the withheld signal
+    on its own output; no operator and no declared plan step sets it. So a plan
+    factory that states no capability must state the opposite: Dave's E2 (ii)
+    option (d) (2026-10-08 16:40 MST) refuses one that does not positively
+    declare that its projection never withholds
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`, a subclass of this
+    refusal, checked after it). A positive declaration is trusted deployment
+    code; one that is false constructs, and a projection of it that withholds
+    anyway meets the serve-time defense (:class:`NeverWithholdingContradicted`)
+    — measured as still telling a withheld subject from a nonexistent one. An
+    early policy that withholds nobody is no capability.
+    """
+
+
+class NeverWithholdingNeedsAPositiveDeclaration(NeverWithholdingProjectionCanWithhold):
+    """A class affirming its answers never withhold their subject, over a plan factory that does not positively declare it.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``, E2 (ii), option (d);
+    SDK-defined, CLAUDE.md §11): *"Require a positive declaration, default
+    silence to refusal, and explicitly limit the trusted-code assumption to
+    deployment code callers cannot influence. Keep the false-declaration
+    counterexample visible."* Raised by :class:`GovernedResolver` at
+    construction — before anything is read for a question, the same refusal
+    whatever subject would have been asked — when the class declaration
+    affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its
+    plan factory does not implement :class:`NonWithholdingPlanFactoryProtocol`
+    (silence), or its ``withholds_no_subject()`` returns anything but ``True``.
+
+    Silence counts as able to withhold, so this is a
+    :class:`NeverWithholdingProjectionCanWithhold`: what handles that refusal
+    handles this one. A factory that declares it withholds is named by that
+    refusal first, whatever else it declares. The remedy is in the deployment:
+    declare ``withholds_no_subject()`` returning ``True`` only over a projection
+    that never sets the withheld signal, or leave the class at the default.
+    """
+
+
+def _refuse_a_never_class_whose_projection_can_withhold(
+    *, declaration: ProductClassDeclaration, disclosure: SubjectDisclosurePolicy | None
+) -> None:
+    """Refuse to construct a class affirming ``never`` whose plan factory declares it withholds (E2 (ii)).
+
+    Called only for a plan factory implementing
+    :class:`SubjectDisclosingPlanFactoryProtocol`, with what its
+    ``subject_disclosure()`` returned — read ONCE, by the caller. Reads the
+    declaration and the policy alone: no subject, no fabric, no clock.
+    """
+    if declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER:
+        return
+    if disclosure is None:
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares that its"
+            " projection withholds subjects late (subject_disclosure() returns None);"
+            " a withheld answer under the affirmation is refused for the withheld"
+            " subject only, which tells it from a subject nothing holds. Affirm"
+            " 'never' only over a projection that never withholds (Dave's E2 (ii),"
+            " D-IMPL-378)"
+        )
+    if any(disclosure.by_principal.values()) or any(disclosure.by_role.values()):
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares an early"
+            " policy that withholds subjects from some principal or role; the"
+            " resolver withholds them, so the affirmation would be contradicted for"
+            " those subjects only, which tells them from a subject nothing holds."
+            " Affirm 'never' only over a projection that never withholds (Dave's"
+            " E2 (ii), D-IMPL-378)"
+        )
+
+
+def _refuse_a_never_class_without_a_positive_declaration(
+    *, declaration: ProductClassDeclaration, plan_factory: object
+) -> None:
+    """Refuse to construct a class affirming ``never`` whose plan factory does not positively declare it never withholds.
+
+    Dave's E2 (ii), option (d) (``D-IMPL-378``, 2026-10-08 16:40 MST). Reads
+    the declaration, and the factory's own statement
+    (:meth:`NonWithholdingPlanFactoryProtocol.withholds_no_subject`), called
+    ONCE with no argument: no subject, no request, no fabric, no clock. Anything
+    but exactly ``True`` — silence included — is refused, with a message that
+    names the class and never the subject.
+    """
+    if declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER:
+        return
+    if isinstance(plan_factory, NonWithholdingPlanFactoryProtocol):
+        if plan_factory.withholds_no_subject() is True:
+            return
+        stated = "its withholds_no_subject() does not return True"
+    else:
+        stated = "it does not implement NonWithholdingPlanFactoryProtocol"
+    raise NeverWithholdingNeedsAPositiveDeclaration(
+        f"class {declaration.schema_name!r} affirms subject_withholding:"
+        f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory does not positively"
+        f" declare that its projection never withholds ({stated}); silence counts"
+        " as able to withhold, and a withheld answer under the affirmation would"
+        " be refused for the withheld subject only, which tells it from a subject"
+        " nothing holds. Declare withholds_no_subject() returning True only over a"
+        " projection that never withholds (Dave's E2 (ii) (d), D-IMPL-378)"
+    )
+
+
+def _refuse_a_listed_class_that_may_withhold(
+    *, control_plane: ControlPlaneProtocol, tenant: str, declaration: ProductClassDeclaration
+) -> None:
+    """Refuse to boot when the tenant lists this class for read-back and it may withhold.
+
+    Dave's Q12 (``D-IMPL-378``). Reads the tenant's entitlement policy as it
+    stands at construction; with none registered there is nothing listed. A
+    policy registered later is held by the governed evidence read, which reads
+    every record's own affirmation, and by the next resolver this composition
+    builds — the paved road builds one per question.
+    """
+    if declaration.subject_withholding == SUBJECT_WITHHOLDING_NEVER:
+        return
+    key = product_entitlement_key(tenant_id=tenant)
+    try:
+        _version, resolved = control_plane.resolve_latest(key)
+    except LookupError:
+        return
+    if not isinstance(resolved, ProductEntitlementPolicy):
+        return
+    if declaration.schema_name in resolved.evidence_readable_classes:
+        raise WithholdingClassListedReadable(
+            f"tenant {tenant!r} lists class {declaration.schema_name!r} in"
+            " evidence_readable_classes, and its declaration does not affirm"
+            f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r}; a record's"
+            " dimension 1 is the real read, so the record behind an answer that"
+            " withheld its subject would be read back by its owner. Affirm"
+            " 'never' only for a class whose answers never withhold their"
+            " subject (the resolver enforces it), or remove the class from the"
+            " list (Dave's Q12, D-IMPL-378)"
+        )
+
+
 @runtime_checkable
 class PackagingTraceProtocol(Protocol):
     """How a Mode 2 deployment reports what its packaging stage actually did.
@@ -641,6 +1567,240 @@ class PackagingTraceProtocol(Protocol):
             :data:`~ccf.replay.record.NO_PACKAGING_TRACE` rather than raising.
         """
         ...
+
+
+#: SEC-020 Q7, ``D-IMPL-378`` decision 3 (a) (Dave, 2026-10-09, 06:06 MST,
+#: confirmed as "3a" at 06:21 MST: *"(a). Extend the shared-state guard, with a
+#: bounded walk and an explicit statement of what it cannot detect."*;
+#: SDK-defined, CLAUDE.md §11). How far the shared-owner walk looks from a
+#: phase, in steps. One step is one reference followed: to the object a method
+#: is bound to or the function behind it, to a closure cell's contents, a
+#: default argument, an attribute's or a declared slot's value, or a
+#: container's member. An object more steps than this from each phase is not
+#: seen (:class:`PopulationPhaseSharesAnOwner` states what else is not). Chosen
+#: from a measurement of every pair of phases the SDK's own tests compose (lane
+#: ``378i-q7owner``, 2026-10-09): everything they hold was read within 10 steps.
+SHARED_OWNER_WALK_DEPTH: Final[int] = 12
+
+#: SEC-020 Q7, ``D-IMPL-378`` decision 3 (a) (as :data:`SHARED_OWNER_WALK_DEPTH`).
+#: The most references the shared-owner walk reads from one phase, an object
+#: counted once for every reference to it that the walk reads. The walk stops
+#: when they are spent, nearest first, so its cost has this ceiling whatever a
+#: phase holds; what it would have reached after that is not seen. Chosen from
+#: the same measurement: the most any of those phases holds is 3,989 references.
+SHARED_OWNER_WALK_OBJECTS: Final[int] = 5_000
+
+#: The identities of the types whose instances refer to no other object: the
+#: walk compares such an object's identity and reads nothing from it. Compared
+#: by identity, so no metaclass's ``__hash__`` or ``__eq__`` runs.
+_NO_REFERENCES: Final[frozenset[int]] = frozenset(
+    id(kind) for kind in (str, bytes, bytearray, int, float, complex, bool, type(None))
+)
+#: ``type``'s own descriptors for a class's method resolution order and its
+#: namespace, used directly so that nothing a metaclass defines is consulted.
+_CLASS_MRO: Final[Any] = type.__dict__["__mro__"]
+_CLASS_NAMESPACE: Final[Any] = type.__dict__["__dict__"]
+
+
+def _bound_object(phase: object) -> object | None:
+    """The object a method or a built-in method is bound to; ``None`` for any other callable.
+
+    Read off the method types themselves, so nothing the phase defines — a
+    ``__getattr__``, a property named ``__self__`` — is called (SEC-020 Q7).
+    """
+    if type(phase) is MethodType:
+        return phase.__self__
+    if type(phase) is BuiltinFunctionType or type(phase) is MethodWrapperType:
+        return phase.__self__
+    return None
+
+
+def _owners(phase: object) -> frozenset[int]:
+    """The identities a phase's state lives on: the callable, and the object it is bound to (Q7)."""
+    bound = _bound_object(phase)
+    return frozenset({id(phase)} if bound is None else {id(phase), id(bound)})
+
+
+def _is_the_standard_instance_dict(descriptor: object, klass: type) -> bool:
+    """Whether ``descriptor``, found under ``__dict__`` in ``klass``'s namespace, is the standard one.
+
+    A class that replaces ``__dict__`` with a property or another descriptor is
+    not read: reading its instances' dictionary would call that descriptor.
+    """
+    if type(descriptor) is GetSetDescriptorType:
+        return descriptor.__name__ == "__dict__" and descriptor.__objclass__ is klass
+    return type(descriptor) is MemberDescriptorType and descriptor.__name__ == "__dict__"
+
+
+def _attribute_values(held: object, kind: type, limit: int) -> list[object]:
+    """The values of ``held``'s declared slots and instance attributes, at most ``limit`` of them (Q7).
+
+    The classes are read through ``type``'s own descriptors; the slots the
+    Python classes declare (``__slots__``) through their member descriptors;
+    the instance dictionary only through the standard ``__dict__`` descriptor.
+    No property, other descriptor, ``__getattr__`` or ``__getattribute__`` is
+    called.
+    """
+    values: list[object] = []
+    reads_the_instance_dict: bool | None = None
+    for klass in _CLASS_MRO.__get__(kind):
+        namespace = _CLASS_NAMESPACE.__get__(klass)
+        if reads_the_instance_dict is None and "__dict__" in namespace:
+            reads_the_instance_dict = _is_the_standard_instance_dict(namespace["__dict__"], klass)
+        if "__slots__" in namespace:
+            for descriptor in tuple(namespace.values()):
+                if type(descriptor) is MemberDescriptorType:
+                    try:
+                        values.append(descriptor.__get__(held, klass))
+                    except AttributeError:  # a slot never assigned
+                        continue
+    if reads_the_instance_dict:
+        try:
+            attributes = object.__getattribute__(held, "__dict__")
+        except AttributeError:
+            attributes = None
+        if type(attributes) is dict:
+            values.extend(islice(dict.values(attributes), limit))
+    return values[:limit]
+
+
+def _references(held: object, limit: int) -> list[object]:
+    """What ``held`` stores, read without calling anything it defines: at most ``limit`` references (Q7).
+
+    A bound method: the object it is bound to, and its function. A built-in
+    method: the object it is bound to. A function: its closure cells'
+    contents, its default arguments and its attributes. Any other object: the
+    members of a ``list``, ``tuple``, ``set`` or ``frozenset`` and the keys
+    and values of a ``dict`` (subclasses included, iterated by the base type),
+    then its declared slots and instance attributes. A class, a module, and
+    the fields a C-extension object keeps outside those yield nothing.
+    """
+    kind = type(held)
+    if id(kind) in _NO_REFERENCES or issubclass(kind, (type, ModuleType)):
+        return []
+    if type(held) is MethodType:
+        return [held.__self__, held.__func__][:limit]
+    if type(held) is BuiltinFunctionType or type(held) is MethodWrapperType:
+        bound: object = held.__self__
+        return [] if bound is None else [bound][:limit]
+    if type(held) is FunctionType:
+        found: list[object] = []
+        for cell in held.__closure__ or ():
+            try:
+                found.append(cell.cell_contents)
+            except ValueError:  # an empty cell
+                continue
+        found.extend(held.__defaults__ or ())
+        found.extend(dict.values(held.__kwdefaults__ or {}))
+        found.extend(islice(dict.values(held.__dict__), limit))
+        return found[:limit]
+    # Each container is copied by one call into C before its members are read.
+    members: list[object] = []
+    if issubclass(kind, dict):
+        for key, value in tuple(islice(dict.items(cast("dict[object, object]", held)), limit)):
+            members.extend((key, value))
+    elif issubclass(kind, list):
+        members.extend(tuple(islice(list.__iter__(cast("list[object]", held)), limit)))
+    elif issubclass(kind, tuple):
+        members.extend(tuple(islice(tuple.__iter__(cast("tuple[object, ...]", held)), limit)))
+    elif issubclass(kind, frozenset):
+        members.extend(tuple(islice(frozenset.__iter__(cast("frozenset[object]", held)), limit)))
+    elif issubclass(kind, set):
+        members.extend(tuple(islice(set.__iter__(cast("set[object]", held)), limit)))
+    if len(members) < limit:
+        members.extend(_attribute_values(held, kind, limit - len(members)))
+    return members[:limit]
+
+
+def _walk_incomplete(walked: str, cause: str, *, step: int, read: int) -> str:
+    """The message of :class:`SharedOwnerWalkIncomplete`: the phase, the cause, the step and the counts (Q7).
+
+    Built from the walk's own labels and counts alone, so it carries nothing
+    any object the walk reached holds.
+    """
+    return (
+        f"the shared-owner walk from the {walked} phase {cause} at step {step} of at most"
+        f" {SHARED_OWNER_WALK_DEPTH} (SHARED_OWNER_WALK_DEPTH), having read {read} of at most"
+        f" {SHARED_OWNER_WALK_OBJECTS} references (SHARED_OWNER_WALK_OBJECTS), so it cannot show"
+        " that the population phase and the subject-keyed phase hold nothing of each other;"
+        " refused rather than admitted (SEC-020, Q7; D-IMPL-378)"
+    )
+
+
+def _reaches(phase: object, owners: frozenset[int], *, walked: str) -> bool:
+    """Whether ``phase`` holds an object whose identity is in ``owners``, within the walk's bounds (Q7).
+
+    Breadth first, so the nearest references are read first. Every object the
+    walk reaches is compared by identity with ``owners``; each one not seen
+    before is read in turn at the next step, up to
+    :data:`SHARED_OWNER_WALK_DEPTH` steps and until
+    :data:`SHARED_OWNER_WALK_OBJECTS` references are spent. An object is read
+    once however many references reach it, which also ends a cycle, and every
+    object reached is held until the walk returns, so no identity it compares
+    can pass to a new object meanwhile. ``walked`` names the phase the walk
+    starts from, for a refusal's message.
+
+    Raises:
+        SharedOwnerWalkIncomplete: reading what an object the walk reached
+            holds raised, other than reading a declared slot never assigned
+            or an empty closure cell, each of which holds nothing, so the
+            walk cannot complete (``D-IMPL-378`` repair 1.8); never the raw
+            error.
+    """
+    if id(phase) in owners:
+        return True
+    seen: set[int] = {id(phase)}
+    reached: list[object] = [phase]
+    frontier: list[object] = [phase]
+    budget = SHARED_OWNER_WALK_OBJECTS
+    for step in range(1, SHARED_OWNER_WALK_DEPTH + 1):
+        following: list[object] = []
+        for holder in frontier:
+            try:
+                references = _references(holder, budget)
+            except Exception as error:  # noqa: BLE001 — refused by name, never admitted or raised raw (repair 1.8)
+                cause = f"could not read what an object it reached holds (the read raised {type(error).__name__})"
+                raise SharedOwnerWalkIncomplete(
+                    _walk_incomplete(walked, cause, step=step, read=SHARED_OWNER_WALK_OBJECTS - budget)
+                ) from None
+            for held in references:
+                budget -= 1
+                if id(held) in owners:
+                    return True
+                if id(type(held)) not in _NO_REFERENCES and id(held) not in seen:
+                    seen.add(id(held))
+                    reached.append(held)
+                    following.append(held)
+                if not budget:
+                    return False
+        if not following:
+            return False
+        frontier = following
+    return False
+
+
+def _refuse_shared_owner(population: object, subject_keyed: object) -> None:
+    """Raise :class:`PopulationPhaseSharesAnOwner` when either phase reaches the other's owner (Q7).
+
+    An owner is the phase itself or the object it is bound to
+    (:func:`_owners`); the reach is :func:`_reaches`, from each phase in turn,
+    within :data:`SHARED_OWNER_WALK_DEPTH` and :data:`SHARED_OWNER_WALK_OBJECTS`.
+    An object both phases hold that is neither phase nor bound by either is not
+    an owner, and holding it is not refused; :class:`PopulationPhaseSharesAnOwner`
+    states that and the rest of what the walk does not see. A walk that cannot
+    read what an object it reached holds raises
+    :class:`SharedOwnerWalkIncomplete` (``D-IMPL-378`` repair 1.8).
+    """
+    if _reaches(population, _owners(subject_keyed), walked="population") or _reaches(
+        subject_keyed, _owners(population), walked="subject-keyed"
+    ):
+        raise PopulationPhaseSharesAnOwner(
+            "the population phase and the subject-keyed phase share an owner: one"
+            " is, is bound to or holds the other or the object it is bound to, so"
+            " state the subject-keyed phase was handed — the asked subject — can"
+            " reach a later question's population phase; declare them on separate"
+            " objects that hold nothing of each other (SEC-020, Q7)"
+        )
 
 
 @runtime_checkable
@@ -782,6 +1942,90 @@ class ProjectionPlanFactoryProtocol(Protocol):
             request: The question, carrying the parameters the interpretation
                 applies and the instant it is asked as of.
         """
+        ...
+
+
+@runtime_checkable
+class SubjectDisclosingPlanFactoryProtocol(Protocol):
+    """A plan factory declaring that its projection withholds subjects, and how early.
+
+    SEC-020, ``D-IMPL-378`` (Q8; SDK-defined, CLAUDE.md §11). An **optional
+    companion** to :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`CompositePlanFactoryProtocol` precedent: declared structurally,
+    never inferred. :meth:`subject_disclosure` returns the declared
+    :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` — read
+    ONCE, when the resolver is constructed, so it is a declaration rather than
+    a per-question computation — or ``None``, the statement that this
+    projection withholds only inside itself, after its plan has run (a late
+    withhold), which a composite may not do
+    (:class:`CompositeNeedsAnEarlyPolicy`).
+
+    Under a policy, :meth:`GovernedResolver.__call__` decides before anything
+    in the question is fetched, any child is asked or anything is scored —
+    from the asked identifier, the resolved perspective and the declaration
+    alone — and, for a subject the policy does not disclose, asks the
+    acquisition phases and the child questions about the declared undisclosed
+    subject IN PLACE OF it, seeds the plan's walk with it, and computes the
+    product ONCE along that path; the plan is still built from, and the record
+    still keeps, the caller's question. The factory's projection must withhold
+    exactly what the policy does not disclose
+    (:class:`UndisclosedSubjectAnswered`).
+
+    A class affirming ``subject_withholding: never`` is not built over a factory
+    whose declaration withholds — ``None``, or a policy that does not disclose
+    some subject — (:class:`NeverWithholdingProjectionCanWithhold`, Dave's E2
+    (ii), ``D-IMPL-378``).
+    """
+
+    def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
+        """The declared early policy, or ``None`` for a projection that withholds only late."""
+        ...
+
+
+@runtime_checkable
+class NonWithholdingPlanFactoryProtocol(Protocol):
+    """A plan factory's positive declaration that no projection it builds withholds its subject.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``, E2 (ii), option (d);
+    SDK-defined, CLAUDE.md §11): *"Require a positive declaration, default
+    silence to refusal, and explicitly limit the trusted-code assumption to
+    deployment code callers cannot influence. Keep the false-declaration
+    counterexample visible."* An **optional companion** to
+    :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`SubjectDisclosingPlanFactoryProtocol` precedent: declared
+    structurally, never inferred, and read ONCE, when the resolver is
+    constructed. A class affirming ``subject_withholding: never`` is built only
+    over a factory implementing it whose :meth:`withholds_no_subject` returns
+    exactly ``True``; a factory that does not implement it (silence), or that
+    returns anything else, counts as able to withhold and is refused
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`). Classes at the
+    default never read it.
+
+    **Trusted deployment code, and only that.** The SDK cannot see inside a
+    projection's ``invoke()`` before running it, so it cannot verify the
+    statement; it trusts it as deployment code, and the assumption is limited
+    to code no caller can influence. The resolver calls
+    :meth:`withholds_no_subject` with no argument, at construction, on the
+    factory the deployment composed it with; no request, parameter, door
+    payload, harness or agent input, or caller-supplied document reaches that
+    call or selects the factory it is made on (measured, statically and at the
+    in-process, HTTP and MCP doors, by
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration``).
+    A deployment's factory that reads caller input into its own declaration is
+    outside the assumption.
+
+    **The residual, kept visible.** A FALSE declaration — ``True`` over a
+    projection that withholds — constructs, and the serve-time defense
+    (:class:`NeverWithholdingContradicted`) refuses the withheld subject's
+    question alone, which still tells it from a subject nothing holds
+    (``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``);
+    every run of the closing test reports it outside its gate
+    (``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``).
+    SEC-020 is OPEN.
+    """
+
+    def withholds_no_subject(self) -> bool:
+        """``True`` only if no projection this factory builds sets the withheld signal, for any subject or principal."""
         ...
 
 
@@ -1019,10 +2263,34 @@ class AcquisitionSeamProtocol(Protocol):
 
     **What the seam is.** One callable a deployment (or the paved road's
     facade on its behalf) hands :class:`GovernedResolver`, invoked by
-    :meth:`GovernedResolver.__call__` exactly once per question, **after** the
-    effective request has been resolved — defaults applied, the constraints
+    :meth:`GovernedResolver.__call__` exactly once per question for the
+    question's subject (and, as below, once more for the P6 probe, or twice
+    more to verify a declared early policy's stand-in),
+    **after** the effective request has been resolved — defaults applied, the constraints
     in force folded, the technical capabilities held, the intent judged — and
-    **before** the graph is read at the question's boundary. It receives the
+    **before** the graph is read at the question's boundary. A declared
+    :class:`PopulationAcquisitionSeamProtocol` is the second declared phase,
+    also invoked exactly once per question, immediately BEFORE this one and
+    without the subject (SEC-020, ``D-IMPL-378`` Q7 and Q10: *"Two declared
+    acquisition phases are permitted, each once."*): the effective request is
+    still derived once, and each phase consumes that one outcome. **Q10 as
+    amended by ruling P6 (a)** (Dave, 2026-10-08 16:40 MST: *"Amend Q10 to
+    permit the probe."*): for a class that may withhold its subject and
+    declares no early policy, this seam is called ONCE MORE per question, and
+    for nothing else — with the effective request carrying
+    :data:`UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its
+    call for the question's subject — and the question is refused if that call
+    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`), or
+    answered and recorded as :data:`UNHELD_SUBJECT_PROBE_REFUSAL` if it ended in
+    a held refusal. **Q10 as
+    amended by decision 4 (a)** (Dave, 2026-10-09 06:06 MST, confirmed 06:21:
+    *"Verify the stand-in is absent before and after acquisition."*): for a
+    class with a declared early policy, this seam is called TWICE MORE per
+    question, and for nothing else — with :data:`UNHELD_SUBJECT_PROBE` and then
+    with the policy's declared stand-in in place of the subject, immediately
+    before its call for the question — and the question is refused if the
+    stand-in acquired anything the probe identifier did not
+    (:class:`UndisclosedSubjectSubstituteIsHeld`). It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1046,6 +2314,75 @@ class AcquisitionSeamProtocol(Protocol):
 
     def __call__(self, *, request: ProductRequest, perspective: Perspective) -> None:
         """Acquire and ingest whatever answering ``request`` needs; return nothing."""
+        ...
+
+
+class PopulationQuestion(CCFContract):
+    """What the population phase is asked: the effective request WITHOUT its subject.
+
+    SEC-020, ``D-IMPL-378`` (Dave, 2026-10-07, Q7: *"Approve an explicit
+    population-fetch mode. Subject-independent acquisition must not receive
+    the requested subject indirectly through context or closures."*;
+    SDK-defined, CLAUDE.md §11). A source whose answer does not depend on who
+    is asked about acquires, for an identifier that names nothing, exactly what
+    it acquires for any other subject, and a withheld subject is rendered over
+    the fabric after it. This type has no ``subject`` member, so nothing the
+    population phase is handed carries the asked identifier — by construction,
+    not by trust. It keeps the subject out, not every identifier: a declared
+    parameter that itself names an entity is still a parameter, and reaches the
+    population phase.
+    """
+
+    schema_name: str
+    schema_version: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+    parameters: Mapping[str, Any]
+
+    @classmethod
+    def of(cls, request: ProductRequest) -> PopulationQuestion:
+        """The subject-free half of ``request``: every member but the subject and its overrides."""
+        return cls(
+            schema_name=request.schema_name,
+            schema_version=request.schema_version,
+            intent=request.intent,
+            freshness=request.freshness,
+            asked_at=request.asked_at,
+            parameters=dict(request.parameters),
+        )
+
+
+@runtime_checkable
+class PopulationAcquisitionSeamProtocol(Protocol):
+    """The population phase: the declared, subject-independent half of a question's acquisition.
+
+    SEC-020, ``D-IMPL-378`` (Q7, Q10: *"Two declared acquisition phases are
+    permitted, each once."*; SDK-defined, CLAUDE.md §11). Declared on its own
+    (:attr:`GovernedResolver.population_acquisition`), never as a method of the
+    subject-keyed seam — a shared owner is refused at construction
+    (:class:`PopulationPhaseSharesAnOwner`). :meth:`GovernedResolver.__call__`
+    invokes it exactly once per question, FIRST — after the fabric is claimed
+    for the question and before anything in the question is fetched for the
+    subject — with a :class:`PopulationQuestion`; it then reads the fabric, the
+    state a subject Π withholds is rendered over, and invokes the subject-keyed
+    seam, also once for the question's subject. The subject-keyed phase's
+    obligation — it acquires nothing for an identifier its source does not hold
+    — is checked for a class that may withhold and declares no early policy, by
+    one extra call with :data:`UNHELD_SUBJECT_PROBE` before that one
+    (:class:`PopulationReadInSubjectKeyedPhase`; ``D-IMPL-378`` ruling P6 (a),
+    which amends Q10 to exactly that call). For a class with a declared early
+    policy, what the phase acquires for the policy's stand-in is compared with
+    what it acquires for :data:`UNHELD_SUBJECT_PROBE`, two extra calls before
+    that one (:class:`UndisclosedSubjectSubstituteIsHeld`; ``D-IMPL-378`` decision
+    4 (a)). Neither check detects a source that recognizes the identifier it is
+    asked about, so for that source, and for any other class, the obligation
+    stays a trusted statement (the security how-to, section 4.12). SEC-020
+    stays OPEN.
+    """
+
+    def __call__(self, *, question: PopulationQuestion, perspective: Perspective) -> None:
+        """Acquire and ingest the part of the answer that does not depend on the subject."""
         ...
 
 
@@ -1127,7 +2464,12 @@ class RefusalRecorderProtocol(Protocol):
     ``@runtime_checkable`` so a delivery boundary can assert conformance at the
     point it is handed one rather than discovering a shape mismatch inside a
     determination it has already made. The check is structural and covers the
-    presence of ``record``, not its signature; the signature is mypy's job.
+    presence of ``record``, not its signature; the signature is mypy's job —
+    with one exception, read at construction: every path that accepts a
+    recorder refuses one whose ``record`` cannot be passed
+    ``subject_withholding=``, the keyword the governed resolver passes on every
+    refusal (Dave's E2 (iii), ``D-IMPL-378``;
+    :func:`refuse_incompatible_refusal_recorder`).
     """
 
     def record(
@@ -1145,6 +2487,7 @@ class RefusalRecorderProtocol(Protocol):
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
+        subject_withholding: str | None = None,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -1209,6 +2552,12 @@ class RefusalRecorderProtocol(Protocol):
         an explicit resolution state: effective/partial resolution or explicit
         not-applicable marker. No intermediate layer may manufacture the
         marker from omission."*
+            subject_withholding: What the deciding class's declaration affirms
+                about withholding its subject (Dave's Q12; ``D-IMPL-378``),
+                recorded in dimension 5 so the governed evidence read can hold
+                owner read-back to it. ``None`` records the unstated sentinel,
+                which the read treats as a class that may withhold. The governed
+                resolver passes it on every refusal it records.
 
         Returns:
             The same envelope with its
@@ -1220,6 +2569,77 @@ class RefusalRecorderProtocol(Protocol):
                 uncaught. A failure to record is a failure to respond.
         """
         ...
+
+
+class IncompatibleRefusalRecorder(TypeError):
+    """A refusal recorder whose ``record`` cannot be passed ``subject_withholding=``, refused where it is built.
+
+    Dave's E2 (iii) (``D-IMPL-378``, 2026-10-08 12:29 MST), verbatim: *"Approve
+    the recorder keyword change. Detect incompatible recorders at construction,
+    rather than on the first refusal."* (SDK-defined, CLAUDE.md §11.)
+    :meth:`RefusalRecorderProtocol.record` takes ``subject_withholding=`` (Dave's
+    Q12), and :class:`GovernedResolver` passes it on every refusal it records. A
+    recorder written to the earlier signature — the keyword neither named nor
+    absorbed by ``**kwargs`` — used to build cleanly and raise ``TypeError`` at
+    the first refusal: a failure that waited for a question to be refused. It is
+    raised instead where a resolver or an entitling door is built
+    (:func:`refuse_incompatible_refusal_recorder`), before anything is minted,
+    registered or answered. A ``TypeError``: the recorder's ``record`` has the
+    wrong signature for the seam.
+    """
+
+
+def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> None:
+    """Refuse, where it is built, a recorder whose ``record`` cannot be passed ``subject_withholding=``.
+
+    Dave's E2 (iii) (``D-IMPL-378``; :class:`IncompatibleRefusalRecorder`).
+    Called by :class:`GovernedResolver` at construction and by every entitling
+    door's builder (``runtime/ccf_runtime/authz/delivery_boundary.py::recorded_boundary``
+    and ``runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server``).
+    Read off ``record``'s signature, never by calling it: a call would append a
+    record describing no decision. A ``record`` that names
+    ``subject_withholding`` as a parameter it can be passed by keyword, or that
+    takes ``**kwargs``, is compatible.
+
+    Args:
+        recorder: What the builder was handed.
+        builder: The builder's own name, so the message names where to fix it.
+
+    Raises:
+        IncompatibleRefusalRecorder: ``recorder`` has no callable ``record``,
+            its signature cannot be read, or it cannot be passed
+            ``subject_withholding=``.
+    """
+    record = getattr(recorder, "record", None)
+    where = f"{builder} was handed a refusal_recorder of type {type(recorder).__name__} whose `record`"
+    if not callable(record):
+        raise IncompatibleRefusalRecorder(
+            f"{where} is missing or not callable; it cannot be passed"
+            " subject_withholding=, which the governed resolver passes on every"
+            " refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        )
+    try:
+        parameters = inspect.signature(record).parameters
+    except (TypeError, ValueError) as unreadable:
+        raise IncompatibleRefusalRecorder(
+            f"{where} has a signature that cannot be read, so it cannot be shown"
+            " to accept subject_withholding=, which the governed resolver passes"
+            " on every refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        ) from unreadable
+    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+        return
+    named = parameters.get("subject_withholding")
+    if named is None or named.kind not in (
+        inspect.Parameter.KEYWORD_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    ):
+        raise IncompatibleRefusalRecorder(
+            f"{where} cannot be passed subject_withholding=: the governed"
+            " resolver passes it on every refusal it records, so this recorder"
+            " would raise TypeError at the first one. Add `subject_withholding:"
+            " str | None = None` to `record` (RefusalRecorderProtocol), or take"
+            " **kwargs (Dave's E2 (iii), D-IMPL-378)"
+        )
 
 
 def _disclosure_reader(
@@ -1485,6 +2905,17 @@ class ReplayRefusalRecorder:
             which is the observational difference ``D-IMPL-253`` amendment 2
             (4) forbids.
 
+            **Keyed by the determination's tenant together with the
+            principal** (Dave, 2026-10-07; ``D-IMPL-378``): a delivery-boundary
+            determination's own resource identity names the tenant its door
+            established for the caller, and that tenant is the one asked; this
+            recorder's own tenant is asked only for a determination that names
+            none — a resolver's own refusal, decided under the tenant this
+            recorder files for. Asked under this recorder's tenant alone, a
+            door serving several tenants through one recorder disclosed another
+            tenant's caller at whatever level this tenant declares for a
+            colliding principal id.
+
             The default is :func:`_minimal_disclosure`, which reads nothing and
             answers ``(DISCLOSURE_MINIMAL, None)``. A recorder wired with no
             Control Plane to ask cannot resolve a policy, and the safe default
@@ -1547,6 +2978,7 @@ class ReplayRefusalRecorder:
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
+        subject_withholding: str | None = None,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -1584,8 +3016,17 @@ class ReplayRefusalRecorder:
         wrappers all reach disclosure only through here, so one determination
         cannot be disclosed twice by two readings of the policy.
         """
+        # The tenant the determination was made under, with the principal it
+        # was made for: a delivery-boundary determination names it on its
+        # resource identity; a resolver's own refusal names none and was made
+        # under this recorder's tenant (Dave, 2026-10-07; `D-IMPL-378`).
         level, disclosure_policy = self.disclosure_level_for(
-            tenant=self.tenant_id, principal_id=perspective.principal_id
+            tenant=(
+                envelope.resource.tenant_id
+                if envelope.resource is not None
+                else self.tenant_id
+            ),
+            principal_id=perspective.principal_id,
         )
         disclosed, decision = disclose(
             envelope, level=level, policy=disclosure_policy
@@ -1628,6 +3069,17 @@ class ReplayRefusalRecorder:
             disclosure=canonical_bytes(decision).decode("utf-8"),
             resolution=resolution,
             request=request,
+            # Dave's Q11 (`D-IMPL-378`): a refusal that answers a product
+            # QUESTION is issued to its caller under a fresh identifier, so its
+            # record — and the `replay_reference` the shell carries — is unique
+            # per answer and reflects nothing the determination read. A
+            # determination with no question (an evidence read, a door-level
+            # entitlement denial, an erasure, an absence) read no subject; its
+            # record keeps the sentinel and is still named by its own content
+            # address, unique per content.
+            issuance=new_issuance() if request is not None else None,
+            # Dave's Q12 (`D-IMPL-378`): what the deciding class affirms.
+            subject_withholding=subject_withholding,
         )
         reference = record_refusal(
             record=record,
@@ -2125,6 +3577,10 @@ class GovernedResolver:
     #: `init=False`: not a parameter of any signature, so nothing can omit it
     #: or pass a substitute; set exactly once below.
     _authorities: _ComposedAuthorities = field(init=False, repr=False, compare=False)
+    #: SEC-020 Q8 (`D-IMPL-378`): the early policy the plan factory declared,
+    #: read once at construction (:meth:`__post_init__`); ``None`` when it
+    #: declared none. `init=False`, set exactly once below.
+    _disclosure: SubjectDisclosurePolicy | None = field(init=False, repr=False, compare=False)
     #: §7.10.4's Mode 2 footprint — how this deployment reports what its
     #: packaging stage did. ``None`` for every Mode 1 deployment, which is
     #: every one shipped before `dr-02`, and the no-packaging sentinel is then
@@ -2207,12 +3663,25 @@ class GovernedResolver:
     #: `D-IMPL-343` R-4 — the declared acquisition boundary, or ``None`` for a
     #: deployment whose fabric is populated before this resolver is reached
     #: (every deployment shipped before the seam existed, and every hw1-shaped
-    #: long-lived fabric). When present it is called ONCE per question, with
-    #: the EFFECTIVE request, between resolution and the graph read — see
+    #: long-lived fabric). When present it is called ONCE per question for the
+    #: question's subject, with the EFFECTIVE request, between resolution and
+    #: the graph read — and, for a class that may withhold and declares no early
+    #: policy, once more immediately before that, for the P6 probe only
+    #: (:data:`UNHELD_SUBJECT_PROBE`; Q10 as amended by ruling P6 (a)); for a
+    #: class with a declared early policy, twice more immediately before that,
+    #: with :data:`UNHELD_SUBJECT_PROBE` and then the declared stand-in (Q10 as
+    #: amended by decision 4 (a), :class:`UndisclosedSubjectSubstituteIsHeld`) — see
     #: :class:`AcquisitionSeamProtocol` for what it is and is not. No default
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
     acquisition: AcquisitionSeamProtocol | None
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase — the
+    #: subject-independent half of the question's acquisition, invoked once per
+    #: question before the subject-keyed ``acquisition`` and handed no subject
+    #: (:class:`PopulationAcquisitionSeamProtocol`). ``None`` is admissible and
+    #: POSITIVE — this deployment declares no population phase — but never a
+    #: default, on ``acquisition``'s own terms.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None
     # `D-IMPL-341`: the manifest key of this deployment's λ_c table, when it
     # has one. Read at the mint to derive an evidence-anchored expiry from the
     # same observations the freshness factor scores, and pinned on the record
@@ -2230,7 +3699,10 @@ class GovernedResolver:
         (:class:`UndeclaredMechanismClass` otherwise — fail closed at boot,
         never at the first write); then five capabilities are minted through
         the composition recipe, each audited on the Control Plane's own log,
-        for exactly the class or key each will open. The clock those audit
+        for exactly the class or key each will open; then the request contract
+        is registered under the capability minted for its key (``D-IMPL-378``
+        R-A), so a process that builds this resolver can replay the records
+        that pin it before it answers anything. The clock those audit
         events carry is the process clock at composition — never
         ``admission_clock``, which the serve path reads exactly once per
         admission and which nothing at construction may consume.
@@ -2239,8 +3711,99 @@ class GovernedResolver:
             self.artifact_store,
             (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
         )
+        # Dave's E2 (iii) (`D-IMPL-378`): a recorder `_record_refusal` could not
+        # pass `subject_withholding=` is refused here, not at the first refusal.
+        refuse_incompatible_refusal_recorder(self.refusal_recorder, builder="GovernedResolver")
+        # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
+        # declared acquisition phases is refused here, at construction.
+        if self.population_acquisition is not None and self.acquisition is not None:
+            _refuse_shared_owner(self.population_acquisition, self.acquisition)
+        # SEC-020 P4 (a) made strict (`D-IMPL-378`): an acquisition phase over a
+        # store with no path, which no boot can make a question fabric, is
+        # refused here, before any question runs.
+        if (
+            self.acquisition is not None or self.population_acquisition is not None
+        ) and self.fabric.store_creation == "unverifiable":
+            raise AcquisitionOverUnverifiableStore(
+                "this resolver declares an acquisition phase over a fabric whose"
+                " store the SDK cannot verify fresh — its adapter's connection"
+                " names no path, so no boot can make it a question fabric, and"
+                " every question would be refused; compose this store without an"
+                " acquisition phase, or acquire into a file-backed question"
+                " fabric (SEC-020, P4)"
+            )
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
+        # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
+        # composite combinations it cannot support, refused here.
+        disclosure: SubjectDisclosurePolicy | None = None
+        discloses = False
+        if isinstance(self.plan_factory, SubjectDisclosingPlanFactoryProtocol):
+            discloses = True
+            disclosure = self.plan_factory.subject_disclosure()
+            if disclosure is not None and not isinstance(disclosure, SubjectDisclosurePolicy):
+                raise TypeError(
+                    "a plan factory's subject_disclosure() returns a"
+                    " SubjectDisclosurePolicy or None (SEC-020, Q8); got"
+                    f" {type(disclosure).__name__}"
+                )
+            # Dave's E2 (ii) (`D-IMPL-378`, 2026-10-08 12:29 MST): a class
+            # affirming `never` over a factory that declares it withholds is
+            # refused here, before Q8's composite rules name anything else.
+            _refuse_a_never_class_whose_projection_can_withhold(
+                declaration=declaration, disclosure=disclosure
+            )
+        # Dave's E2 (ii), option (d) (`D-IMPL-378`, 2026-10-08 16:40 MST): a
+        # class affirming `never` over a factory that does not positively
+        # declare it never withholds — silence included — is refused here, after
+        # a declared capability is named and before Q8's composite rules.
+        _refuse_a_never_class_without_a_positive_declaration(
+            declaration=declaration, plan_factory=self.plan_factory
+        )
+        if discloses:
+            if declaration.requires and disclosure is None:
+                raise CompositeNeedsAnEarlyPolicy(
+                    f"class {declaration.schema_name!r} composes children and its"
+                    " plan factory declares it withholds subjects with no early"
+                    " policy; a composite asks its children before its plan runs,"
+                    " so it withholds only through a declared early policy"
+                    " (SEC-020, Q8)"
+                )
+            if (
+                declaration.requires
+                and disclosure is not None
+                and not isinstance(self.composite_children, RequestAwareChildResolverProtocol)
+            ):
+                raise EarlyPolicyNeedsRequestAwareChildren(
+                    f"class {declaration.schema_name!r} withholds early, and its"
+                    " child resolver is never handed the request, so its children"
+                    " could not be asked about the undisclosed subject in place of"
+                    " the withheld one (SEC-020, Q8)"
+                )
+        object.__setattr__(self, "_disclosure", disclosure)
+        # Dave's Q12 (`D-IMPL-378`): a tenant may list for owner read-back only a
+        # class that affirms its answers never withhold their subject.
+        _refuse_a_listed_class_that_may_withhold(
+            control_plane=self.control_plane, tenant=tenant, declaration=declaration
+        )
+        # `D-IMPL-378` P2 (c), ruled 2026-10-08 12:29 MST: a composite
+        # states its withholding stance here — an early policy, or its class's
+        # affirmation that it never withholds — or it is refused, before any
+        # question, so the refusal cannot depend on a subject.
+        if (
+            declaration.requires
+            and disclosure is None
+            and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise CompositeNeedsAWithholdingStance(
+                f"class {declaration.schema_name!r} composes children and declares no"
+                " withholding stance: neither an early policy (its plan factory's"
+                " subject_disclosure(), SubjectDisclosingPlanFactoryProtocol) nor"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} on the class; a"
+                " composite asks its children before its plan runs, so a withhold"
+                " decided inside its projection would be decided too late and for the"
+                " withheld subject only (SEC-020; D-IMPL-378 P2 (c))"
+            )
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
                 self.control_plane, tenant=tenant, artifact_class=self.replay_record_class
@@ -2262,6 +3825,22 @@ class GovernedResolver:
         # `__post_init__`; the field is `init=False` and exists for nothing
         # but this.
         object.__setattr__(self, "_authorities", minted)
+        # `D-IMPL-378` R-A (b) (Dave, 2026-10-08): THE REQUEST SURFACE IS
+        # REGISTERED WHEN THE RESOLVER IS BUILT, so any process that builds
+        # this deployment's resolver — a transport's boot, a replay
+        # environment — can replay the deployment's earlier records, served or
+        # refused, before it has answered a question. The Control Plane is
+        # in-process: a new process holds only what it registered itself, and
+        # a boot registers no typed request contract. Content-addressed and
+        # idempotent: the version minted is the content address of the
+        # contract this fabric holds, which is the version every record decided
+        # under that contract pins (`D-IMPL-310`); a changed contract mints a
+        # different version, and a record pinning the old one still fails
+        # replay by name. `__call__` registers it again before the resolution
+        # that pins it (`CP17-F-09`).
+        self.control_plane.register(
+            minted.request_contract, self._request_contract(declaration)
+        )
 
     def _decision_instant(
         self, request: ProductRequest, effective_request: ProductRequest
@@ -2315,7 +3894,12 @@ class GovernedResolver:
            a parameter the caller omitted reaches the closed-world comparison
            as the value the class declared, rather than as an omission. A
            question this class does not answer still costs nothing and still
-           comes back with a reason rather than an approximation.
+           comes back with a reason rather than an approximation. The request
+           surface, registered when this resolver was built (``D-IMPL-378``
+           R-A), is **registered again** before the resolution, at the version
+           the resolution pins (``CP17-F-09``), so every record that pins it
+           resolves against this Control Plane at replay — a refusal asked
+           first of a fresh Control Plane included.
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
@@ -2327,8 +3911,9 @@ class GovernedResolver:
            untrue of the composite branch before the hoist made it material.
         4. **The operator registry is built from whatever the deployment
            declared**, then Π runs at L5.
-        5. **The class registers**, minting the pins Gate 3 and the request
-           surface are re-resolvable against.
+        5. **The class registers**, minting the pin Gate 3 resolves against;
+           the request surface, registered at composition and at step 2, is
+           registered again here with identical content, which is idempotent.
         6. **The candidate claims its lineage from the declaration, never from
            the execution.** A claim copied out of the execution record is not a
            claim, it is a transcript — and Gate 2 then has two independently
@@ -2535,6 +4120,23 @@ class GovernedResolver:
                 served_at=served_at,
             )
 
+        # `CP17-F-09` / `ATM-F-11` (`D-IMPL-378`, lane 378d-replayfix): THE
+        # REQUEST SURFACE IS REGISTERED HERE, before the resolution that first
+        # pins it — again, since `__post_init__` registered it when this
+        # resolver was built (`D-IMPL-378` R-A), and kept beside the step that
+        # first records the pin. Every refusal from this line on — a resolution-stage
+        # refusal, the naive-instant and temporal-bound refusals, a refusal held
+        # at either acquisition seam — records the resolution on dimension 2,
+        # and with it this contract at `content_hash(declared)` (`D-IMPL-310`:
+        # the pin belongs there). `_register` below registers the same content,
+        # but only the served path reaches it, so a refusal asked first of a
+        # fresh Control Plane left a record whose pin nothing had registered,
+        # and `replay_refusal` refused it as a configuration that was gone.
+        # Registration is content-addressed and idempotent: the version minted
+        # is the version the record pins, so no record's bytes or address
+        # change, and the audit log carries the attempt.
+        self.control_plane.register(self._authorities.request_contract, declared)
+
         outcome = self.constraint_resolver.resolve(
             # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve
             # instant — the one this invocation read once at entry. The graph is
@@ -2551,8 +4153,9 @@ class GovernedResolver:
                 # The version the registry assigns this content, minted the way
                 # `ControlPlaneRegistry.register` mints it — a content address
                 # (`D-IMPL-26`). So the pin this resolution records and the pin
-                # `_register` mints below are the same pin by construction,
-                # rather than two reads that could disagree.
+                # registered just above (and again by `_register` on the served
+                # path) are the same pin by construction, rather than two reads
+                # that could disagree.
                 version=content_hash(declared),
             ),
             perspective=perspective,
@@ -2711,6 +4314,26 @@ class GovernedResolver:
                 resolution=effective,
             )
 
+        # SEC-020 Q8 / Q10 (`D-IMPL-378`): THE EARLY DECISION. Taken here —
+        # after every refusal that precedes acquisition, before anything in
+        # the question is fetched, any child is asked or anything is scored —
+        # from the asked identifier, the resolved perspective and the policy
+        # the plan factory declared at construction, and from nothing else: no
+        # fabric, no source, no store, so it is the same for a subject the
+        # source holds and one it does not. A subject the policy does not
+        # disclose is replaced, for every subject-dependent step below, by the
+        # declared undisclosed subject (`asked`); the plan is still built from,
+        # and the record still keeps, the caller's question.
+        disclosure = self._disclosure
+        undisclosed = disclosure is not None and not disclosure.discloses(
+            subject=request.subject, perspective=perspective
+        )
+        asked = (
+            effective_request.model_copy(update={"subject": disclosure.undisclosed_subject})
+            if undisclosed and disclosure is not None
+            else effective_request
+        )
+
         # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
         # The question is resolved (above) and the graph is not yet read
         # (below), so what the deployment reads its sources at is the value
@@ -2728,23 +4351,124 @@ class GovernedResolver:
         # is rendered from it below. (An acquisition that ingests the same
         # content whatever the subject gives a nonexistent subject that content
         # too, which this state lacks: measured, and disclosed in the security
-        # how-to, section 4.12.) Read only when a seam is declared: with none,
-        # nothing is acquired, and the state the plan reads below is this one.
+        # how-to, section 4.12; for a class whose projection may withhold late,
+        # such an acquisition is refused below, before the seam is handed the
+        # subject — `D-IMPL-378` ruling P6 (a).) Read only when a seam is
+        # declared: with none, nothing is acquired, and the state the plan
+        # reads below is this one.
         before_acquisition: GraphView | None = None
-        if self.acquisition is not None:
+        acquires = self.acquisition is not None or self.population_acquisition is not None
+        if acquires or self.fabric.for_question:
+            # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
+            # claimed for it — before anything is read or fetched, and decided
+            # by nothing about the subject. P4 (a) (`D-IMPL-378`, ruled
+            # 2026-10-08 12:29 MST): a question fabric is claimed by every
+            # governed call over it, so a later call with no acquisition phase
+            # does not answer from what the first one fetched.
+            _claim_question_fabric(self.fabric)
+        elif self.fabric.question_store:
+            # SEC-020 P4 (a): a question's store booted again, read with no
+            # acquisition phase — where Q9 alone never bound. Refused here,
+            # before the graph is read, by the boot's marker and never by the
+            # question; a call that acquires over it was refused just above
+            # (not booted for its question). Replay builds a resolver over it
+            # and never calls it.
+            raise QuestionStoreReopened(
+                "this fabric reads a store that was booted for one question,"
+                " booted again; it keeps what that question's acquisition"
+                " fetched, so it answers no later question (boot a new store"
+                " for each question; SEC-020, Q9)"
+            )
+        elif self.fabric.store_creation == "unmarked":
+            # SEC-020 P4 (a) made strict (Dave, 2026-10-08 12:29 MST: *"An
+            # unmarked existing store must not be presumed fresh"*): a store
+            # that existed at boot with no marker beside it may be a question's
+            # store from before the markers, or a copy taken without one.
+            # Refused here, before the graph is read, by the boot's reading of
+            # the markers and never by the question; replay builds a resolver
+            # over it and never calls it.
+            raise UnmarkedStoreNotPresumedFresh(
+                "this fabric reads a store that existed before its boot and"
+                " carries no marker a deployment door left when it created it;"
+                " nothing shows that no earlier question's acquisition wrote"
+                " into it, so it is not presumed fresh and answers no question"
+                " (boot a new store through a deployment door; SEC-020, P4)"
+            )
+        if acquires:
+            # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
+            # subject — so what it acquires is what any identifier's question
+            # acquires, and it is in the state read below.
+            if self.population_acquisition is not None:
+                population_phase = self.population_acquisition
+                population = PopulationQuestion.of(effective_request)
+                refused = self._invoke_acquisition(
+                    lambda: population_phase(question=population, perspective=perspective),
+                    request=request, identity=identity, perspective=perspective,
+                    effective=effective, served_at=served_at,
+                )
+                if refused is not None:
+                    return refused
             before_acquisition = self.fabric.handle.reader.as_of(
                 tenant_id=self.fabric.tenant_id, at=request.asked_at
             )
+            # `D-IMPL-378` ruling P6 (a) (Dave, 2026-10-08 16:40 MST; SEC-020
+            # stays OPEN). The read above is what route A renders a
+            # late-withheld subject over, and it equals what an identifier
+            # that names nothing is rendered over only if the subject-keyed
+            # phase acquires nothing for such an identifier. For a class whose
+            # projection may withhold late — it may withhold, and it declares
+            # no early policy — the phase is asked about `UNHELD_SUBJECT_PROBE`
+            # HERE, before it is ever handed the question's subject, and the
+            # question is refused if that changed the fabric; decided by
+            # nothing about the asked subject. Q10 is amended to exactly this
+            # one extra call.
+            if (
+                self.acquisition is not None
+                and disclosure is None
+                and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
+            ):
+                held_at_the_probe = self._refuse_a_population_read_in_the_subject_keyed_phase(
+                    asked, perspective=perspective, before=before_acquisition,
+                    at=request.asked_at,
+                )
+                if held_at_the_probe is not None:
+                    # OWED-RULINGS-3 item 4 (b), as repaired by 2.3 (b): the
+                    # probe's held refusal answers the question as a RECORDED
+                    # refusal, the SDK's one constant, the same for every subject.
+                    return self._refuse_raised_at_seam(
+                        held_at_the_probe, seam="acquisition", request=request,
+                        identity=identity, perspective=perspective, effective=effective,
+                        served_at=served_at,
+                    )
+            # `D-IMPL-378` decision 4 (a) (Dave, 2026-10-09 06:06 MST, confirmed
+            # 06:21; SEC-020 stays OPEN). Under a declared early policy the
+            # stand-in is what every subject-dependent step is asked about in
+            # place of an undisclosed subject, so it must name nothing: verified
+            # HERE, for every question of the class whatever its policy decides,
+            # before the subject-keyed phase is handed anything for the question
+            # — the fabric read above must not name it, and the phase must
+            # acquire nothing for it that it does not acquire for
+            # `UNHELD_SUBJECT_PROBE`. Decided by nothing about the asked subject.
+            if disclosure is not None:
+                self._refuse_a_stand_in_that_names_something(
+                    disclosure.undisclosed_subject, effective_request,
+                    perspective=perspective, before=before_acquisition,
+                    at=request.asked_at,
+                )
+        if self.acquisition is not None:
             try:
-                self.acquisition(request=effective_request, perspective=perspective)
+                self.acquisition(request=asked, perspective=perspective)
             except GovernedRefusalRaised as raised:
                 # `D-IMPL-304`: a governed determination the seam HELD and could
                 # not return — recorded through this composition's ONE minting
                 # seam with the resolution THIS resolver established, and
                 # returned as data. Only this type; any other exception the
-                # seam raises propagates exactly as before.
+                # seam raises propagates exactly as before. `D-IMPL-378` repair
+                # 2.2 (a): under a declared early policy it is served and
+                # recorded as the SDK's one constant refusal instead.
                 return self._refuse_raised_at_seam(
-                    raised, seam="acquisition", request=request, identity=identity,
+                    raised if disclosure is None else self._under_the_early_policy(raised),
+                    seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
                     served_at=served_at,
                 )
@@ -2755,6 +4479,14 @@ class GovernedResolver:
                 binding = self._declared_seam_refusal(error)
                 if binding is None:
                     raise
+                if disclosure is not None:
+                    # `D-IMPL-378` repair 2.2 (a): the declared cause, code and
+                    # the exception's own text give way to the one constant.
+                    return self._refuse_raised_at_seam(
+                        self._under_the_early_policy(None), seam="acquisition",
+                        request=request, identity=identity, perspective=perspective,
+                        effective=effective, served_at=served_at,
+                    )
                 return self._refuse_declared_at_seam(
                     error, binding, seam="acquisition", request=request,
                     identity=identity, perspective=perspective, effective=effective,
@@ -2764,6 +4496,12 @@ class GovernedResolver:
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
+        # `D-IMPL-378` decision 4 (a), AFTER acquisition: the fabric the plan
+        # reads must not name the declared stand-in — checked for every
+        # question of an early-policy class, before anything is computed or
+        # recorded, with the one message the checks before acquisition carry.
+        if disclosure is not None and _names(view, disclosure.undisclosed_subject):
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
         operators = build_operator_registry(
             parameters=self.operator_parameters(effective_request),
             view=view,
@@ -2864,7 +4602,10 @@ class GovernedResolver:
                             # `D-IMPL-336` Amendment 5: peering admission extends the
                             # consumer's lineage by set-union.
                             consumer_lineage=own_lineage,
-                            request=effective_request,
+                            # SEC-020 Q8: the request the subject-dependent
+                            # steps are asked about — an undisclosed subject's
+                            # children are asked about the declared stand-in.
+                            request=asked,
                         )
                     else:
                         outcomes = self.composite_children(
@@ -3031,8 +4772,57 @@ class GovernedResolver:
             # construction: it is a SECOND derivation, and a second derivation
             # is precisely the drift that would replay a different question
             # under this decision's identifier.
-            seeds=request_seeds(request),
+            #
+            # SEC-020 Q10 (`D-IMPL-378`): under the early decision the walk is
+            # seeded with the declared undisclosed subject, IN PLACE OF the
+            # caller's — exactly the walk a question about an identifier that
+            # names nothing takes — and this is the ONE computation of the
+            # product; the seed is recorded beside the caller's question
+            # (`ContentGenerationPath.executed_seeds`) and replay re-executes
+            # from it.
+            seeds=request_seeds(asked if undisclosed else request),
         )
+        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
+        # withhold their subject may have its records read back by their
+        # owners; a withheld answer under that affirmation is a broken
+        # deployment, refused before anything is rendered, recorded or served.
+        # Checked FIRST, before Q8's composite refusal below: Dave's CT-D (a),
+        # 2026-10-08 12:29 MST, "for diagnostic precedence; this does not
+        # resolve E2(ii)'s oracle" — a composite affirming `never` that
+        # withholds late is named by its own contradiction. Both refuse before
+        # anything is recorded.
+        if (
+            execution.projection.withheld
+            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise NeverWithholdingContradicted(
+                f"class {self._declaration().schema_name!r} affirms"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
+                " projection withheld the subject; a record of the class may be"
+                " read back by its owner, so a withheld answer under the"
+                " affirmation is refused (Dave's Q12, D-IMPL-378)"
+            )
+        if execution.projection.withheld and not undisclosed and registered.requires:
+            # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
+            # declared early policy; its children were already asked about this
+            # subject, so a withhold decided inside the projection is refused,
+            # before this decision is gated, recorded or served.
+            raise CompositeWithheldLate(
+                f"class {registered.schema_name!r} composes children and its"
+                " projection withheld a subject its early policy did not; a"
+                " composite asks its children before its plan runs, so it"
+                " withholds only through a declared early policy (SEC-020, Q8)"
+            )
+        if undisclosed and not execution.projection.withheld:
+            # SEC-020 Q8: the policy did not disclose the subject and the
+            # projection answered it. Serving that payload would hand over the
+            # subject's own answer; refusing it as data would be a governed
+            # "no" nobody declared.
+            raise UndisclosedSubjectAnswered(
+                "the declared early policy does not disclose this subject to this"
+                " principal, and the projection answered without raising the"
+                " withheld signal (SEC-020, Q8)"
+            )
 
         # --- SEC-020: A WITHHELD SUBJECT'S EVIDENCE, FROM AN UNSEEDED RE-RUN ----
         # `D-IMPL-370` Q12 (a), constant-fill, as finally ruled at `D-IMPL-371`
@@ -3058,11 +4848,11 @@ class GovernedResolver:
         # the two answers apart by, each measured (section 4.12): a composite's
         # children are resolved for the ASKED subject above, and the
         # composition below replaces the debt and supplies the expiry and the
-        # lineage, none of it re-rendered (review finding I-1); the re-run
-        # reuses `operators`, built from the view read AFTER acquisition, so a
-        # similarity operator scores against text the acquisition just wrote
-        # (review finding I-2); and the answer's replay reference is named by
-        # dimension 1, which keeps the real read (review finding C-1). The
+        # lineage, none of it re-rendered (review finding I-1); and the
+        # answer's replay reference is named by dimension 1, which keeps the
+        # real read (review finding C-1). (Review finding I-2, a similarity
+        # operator scoring the re-run against text acquisition wrote, is the
+        # registry note below.) The
         # withheld subject's own records stay in the re-run's view if and only
         # if a class seed reaches them, exactly as for the nonexistent
         # identifier. Measured history: an EMPTY view (round 1) created a
@@ -3087,8 +4877,38 @@ class GovernedResolver:
         # plane (whitepaper §7.8.2) and keeps what was actually read, so a
         # re-execution pins the same reads; the recorded debt and finding are
         # `rendered`'s, carried in dimension 5, which is what replay rehydrates.
+        #
+        # AND ITS OPERATORS ARE BUILT FROM THE SAME READ IT WALKS (SEC-020
+        # channel 5, review finding I-2; `D-IMPL-378`). `operators` was built
+        # from `view`, read AFTER acquisition, and an index-backed operator
+        # holds a corpus read out of the view its registry was built from: a
+        # similarity operator in it scored the unseeded walk over the records
+        # before acquisition against the text acquisition had just written for
+        # the asked subject (measured: `computed_empty`, `debt.debt`,
+        # `debt.factors.freshness` and `debt.scorers` moved). So when a seam ran,
+        # the re-execution's registry is built from `before_acquisition`, with
+        # the same parameters (the same effective request over the same pinned
+        # artifacts), on an engine over the same reader. Only on this branch:
+        # the served path keeps `operators`, so a subject Π does not withhold is
+        # still scored against the text its own acquisition wrote. With no seam,
+        # `view` is the state before acquisition and `operators` is already
+        # built from it. Like the walk, this is exact only for an acquisition
+        # keyed on the subject: under a population read a nonexistent subject's
+        # question is scored against text the read wrote (measured; section 4.12).
         rendered = (
-            engine.execute_without_request_seed(
+            (
+                engine
+                if before_acquisition is None
+                else ProjectionEngine(
+                    reader=self.fabric.handle.reader,
+                    registry=build_operator_registry(
+                        parameters=self.operator_parameters(effective_request),
+                        view=before_acquisition,
+                        pins=self.fabric.pins,
+                        policy_bundle_key=self.policy_bundle_key,
+                    ),
+                )
+            ).execute_without_request_seed(
                 executed=execution,
                 plan=plan,
                 perspective=perspective,
@@ -3096,7 +4916,12 @@ class GovernedResolver:
                 temporal_boundary=request.asked_at,
                 before_acquisition=before_acquisition,
             )
-            if execution.projection.withheld
+            # SEC-020 Q10 (`D-IMPL-378`): ONLY a late withhold (inside the
+            # projection) on a non-composite product is re-executed — the
+            # re-execution `D-IMPL-371`/`376` authorized, not widened. Under the
+            # early decision the one computation above already took the path a
+            # nonexistent subject's question takes.
+            if execution.projection.withheld and not undisclosed
             else execution
         )
 
@@ -3656,6 +5481,11 @@ class GovernedResolver:
                 # is how a reconstructed version gets in, which is the step-3
                 # defect this pin exists to make load-bearing.
                 *temporal_pins,
+                # `D-IMPL-378` C1: the declared demonstration serve instant this
+                # decision was served at, by its exact version — empty on every
+                # serve on a real clock, so those records are byte-identical to
+                # the ones written before the declaration existed.
+                *self._demonstration_pins(),
             ),
             assembly_mode=registered.assembly_mode,
             # WHEN THE DECISION WAS TAKEN, not when the graph was read
@@ -3694,6 +5524,13 @@ class GovernedResolver:
                 if self.packaging_trace is not None
                 else None
             ),
+            # Dave's Q11 (`D-IMPL-378`): the answer is issued under a fresh
+            # identifier, so its record is unique per answer and the
+            # `replay_ref` every door hands out reflects nothing it read.
+            issuance=new_issuance(),
+            # Dave's Q12: what the class affirms, which the governed evidence
+            # read requires before the owner reads this record back.
+            subject_withholding=self._declaration().subject_withholding,
         )
         return serve(
             product=gated,
@@ -3732,6 +5569,19 @@ class GovernedResolver:
         same address the child row records — or replay could not resolve the
         row to the bytes. A store that hashed differently is refused here,
         loudly, rather than discovered at replay.
+
+        **The store is handed a deep copy of each contract, taken before**
+        ``put`` (``D-IMPL-380``, third round, ruling 2 (a), 2026-10-10 09:18
+        MST), and the resolver keeps its own: the contracts in
+        ``resolved.admitted``, from which ``child_contract_view(resolved)`` —
+        the parent's view — is built. ``ContextProductContract.payload``
+        validates to a live ``dict``, so a store that wrote into the mapping it
+        was handed and answered the right address would otherwise have its
+        alteration reach the parent under a child row that names the address
+        as admitted. The content-address check (the paragraph above) is
+        unchanged. The saved-bytes limit stands: such a store files altered
+        bytes under the original's address, and nothing here re-reads what it
+        filed; replay, which re-hashes what it fetches, finds the difference.
         """
         for contract in contracts:
             address = content_hash(contract)
@@ -3745,7 +5595,11 @@ class GovernedResolver:
                 DerivedWrite(
                     artifact_class=ADMITTED_CHILD_CONTRACT_CLASS,
                     name=address,
-                    artifact=contract,
+                    # A deep copy taken now, before the save; the resolver keeps
+                    # its own contract (`D-IMPL-380`, third round, ruling 2 (a);
+                    # Dave, 2026-10-10 09:23 MST: *"The parent is built from
+                    # contracts the store never held."*).
+                    artifact=contract.model_copy(deep=True),
                 ),
             )
             if filed.content_address != address:
@@ -3757,6 +5611,242 @@ class GovernedResolver:
                 )
 
     # --- the one minting seam ----------------------------------------------
+
+    def _invoke_acquisition(
+        self,
+        invoke: Callable[[], None],
+        *,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+        served_at: datetime,
+    ) -> RefusalEnvelope | None:
+        """Run the population phase; a held refusal comes back as data (SEC-020 Q7).
+
+        The conversion the subject-keyed phase gets inline in :meth:`__call__`:
+        `D-IMPL-304`'s held determination is recorded through this
+        composition's ONE minting seam and returned as data, `D-IMPL-347` B2's
+        declared types convert, and any other exception re-raises unchanged.
+        Recorded at the one ``acquisition`` seam: the two phases are two
+        declared halves of one seam.
+        """
+        try:
+            invoke()
+        except GovernedRefusalRaised as raised:
+            return self._refuse_raised_at_seam(
+                raised, seam="acquisition", request=request, identity=identity,
+                perspective=perspective, effective=effective, served_at=served_at,
+            )
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            binding = self._declared_seam_refusal(error)
+            if binding is None:
+                raise
+            return self._refuse_declared_at_seam(
+                error, binding, seam="acquisition", request=request,
+                identity=identity, perspective=perspective, effective=effective,
+                served_at=served_at,
+            )
+        return None
+
+    def _refuse_a_population_read_in_the_subject_keyed_phase(
+        self,
+        asked: ProductRequest,
+        *,
+        perspective: Perspective,
+        before: GraphView,
+        at: datetime,
+    ) -> GovernedRefusalRaised | None:
+        """Ask the subject-keyed phase about :data:`UNHELD_SUBJECT_PROBE`; refuse if the fabric then reads otherwise.
+
+        ``D-IMPL-378`` ruling P6 (a) (:class:`PopulationReadInSubjectKeyedPhase`).
+        Called by :meth:`__call__` after the read route A renders over and
+        BEFORE the phase is handed the question's subject. The probe is
+        ``asked`` with :data:`UNHELD_SUBJECT_PROBE` in place of its subject —
+        every parameter and the instant as the question carries them, under the
+        same perspective — so what the phase acquires for it is what it acquires
+        for an identifier its sources do not hold. A held refusal
+        (``GovernedRefusalRaised``, or a type the class or the SDK declares at
+        this seam) refuses the question (OWED-RULINGS-3 item 4 (b)): such a
+        source refuses an identifier nothing holds where a subject withheld
+        inside the projection is answered. What is returned then is the SDK's
+        one constant, :data:`UNHELD_SUBJECT_PROBE_REFUSAL`, which :meth:`__call__`
+        records at the ``acquisition`` seam and answers with — so a refusal the
+        question decided keeps its decision record, and nothing the source said
+        is kept (``D-IMPL-378`` repair 2.3 (b)); ``None`` when the probe passes.
+        Any other exception propagates, as the phase's own would. Nothing here
+        reads the asked subject.
+
+        Dave's condition, *"Verify that the fixed identifier is actually
+        absent; do not assume it"*: a fabric that names the probe identifier
+        before the call is refused before the phase is asked anything, and one
+        that names it after the call — the phase's source holds the identifier,
+        so what it acquired is not a population read's evidence — is refused
+        before the comparison is read; both as :class:`UnheldSubjectProbeIsHeld`.
+        """
+        assert self.acquisition is not None  # the caller tested it
+        if _names(before, UNHELD_SUBJECT_PROBE):
+            raise UnheldSubjectProbeIsHeld(self._probe_identifier_is_held("before the probe"))
+        probe = asked.model_copy(update={"subject": UNHELD_SUBJECT_PROBE})
+        try:
+            self.acquisition(request=probe, perspective=perspective)
+        except GovernedRefusalRaised as raised:
+            # OWED-RULINGS-3 item 4 (b) (Dave, 2026-10-09 06:21 MST), as repaired
+            # by 2.3 (b) (10:54 MST): a held refusal from the probe call itself
+            # refuses the question, RECORDED as the SDK's one constant.
+            return self._refused_at_the_probe(raised)
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            if self._declared_seam_refusal(error) is None:
+                raise
+            return self._refused_at_the_probe(None)
+        after = self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+        if _names(after, UNHELD_SUBJECT_PROBE):
+            raise UnheldSubjectProbeIsHeld(self._probe_identifier_is_held("after the probe"))
+        if after != before:
+            raise PopulationReadInSubjectKeyedPhase(
+                "the subject-keyed acquisition phase acquired content when asked"
+                f" about {UNHELD_SUBJECT_PROBE!r}, an identifier that names"
+                " nothing, so a subject withheld inside the projection would be"
+                " rendered over a fabric a nonexistent subject's question is not"
+                " answered over; declare that read as the population phase"
+                " (open_product(population=...), or"
+                " GovernedResolver(population_acquisition=...)), declare an early"
+                " policy, or affirm subject_withholding:"
+                f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 ruling P6 (a))"
+            )
+        return None
+
+    def _refuse_a_stand_in_that_names_something(
+        self,
+        stand_in: str,
+        effective_request: ProductRequest,
+        *,
+        perspective: Perspective,
+        before: GraphView,
+        at: datetime,
+    ) -> None:
+        """Verify the declared stand-in names nothing before acquisition; refuse if it does.
+
+        ``D-IMPL-378`` decision 4 (a) (:class:`UndisclosedSubjectSubstituteIsHeld`).
+        Called by :meth:`__call__` for EVERY question of a class with a declared
+        early policy, whatever the policy decides for the asked subject, after
+        the read route A takes and BEFORE the subject-keyed phase is handed
+        anything for the question. Nothing here reads the asked subject: every
+        request it hands the phase is the question's effective request with an
+        identifier the SDK chose in place of the subject, under the same
+        perspective, so whether it refuses — and its one message — is the same
+        for every subject.
+
+        1. The fabric as read before (``before``) must not name the stand-in.
+        2. The phase is asked about :data:`UNHELD_SUBJECT_PROBE` and the fabric
+           is read again (``baseline``): what the phase acquires for an
+           identifier that names nothing — nothing, for a source keyed on the
+           subject; the same content as for any identifier, for a read that
+           does not depend on what is asked.
+        3. The phase is asked about the stand-in and the fabric is read again
+           (``after``): neither read may name it, and ``after`` must hold what
+           ``baseline`` holds — the phase acquired nothing for the stand-in that
+           it did not acquire for an identifier that names nothing. Held as
+           entities, relationships and claim values with delivery lineage set
+           aside (:func:`_held_content`; ``D-IMPL-378`` repair 1.3), so a
+           delivery that only re-delivers under its own envelope id or receipt
+           instant is not a difference, and every other one is.
+
+        A held refusal from either call (``GovernedRefusalRaised``, or a type
+        the class or the SDK declares at this seam) acquires nothing, which is
+        how a source may answer an identifier it does not hold; under an early
+        policy the withheld subject's own question is asked as the stand-in, so
+        such a source refuses it as it refuses any unheld identifier. Any other
+        exception propagates, as the phase's own would.
+        """
+        if _names(before, stand_in):
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
+        if self.acquisition is None:
+            return
+        baseline = self._acquired_for(effective_request, UNHELD_SUBJECT_PROBE, perspective=perspective, at=at)
+        after = self._acquired_for(effective_request, stand_in, perspective=perspective, at=at)
+        if (
+            _names(baseline, stand_in)
+            or _names(after, stand_in)
+            or _held_content(after) != _held_content(baseline)
+        ):
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
+
+    def _acquired_for(
+        self, effective_request: ProductRequest, identifier: str, *, perspective: Perspective, at: datetime
+    ) -> GraphView:
+        """Ask the subject-keyed phase about ``identifier`` in place of the subject; the fabric as read after.
+
+        ``D-IMPL-378`` decision 4 (a)'s one call to the phase and its one read.
+        A held refusal acquires nothing; any other exception propagates.
+        """
+        assert self.acquisition is not None  # the caller tested it
+        try:
+            self.acquisition(
+                request=effective_request.model_copy(update={"subject": identifier}),
+                perspective=perspective,
+            )
+        except GovernedRefusalRaised:
+            pass
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            if self._declared_seam_refusal(error) is None:
+                raise
+        return self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+
+    @staticmethod
+    def _under_the_early_policy(raised: GovernedRefusalRaised | None) -> GovernedRefusalRaised:
+        """What the subject-keyed phase's refusal becomes under a declared early policy: :data:`EARLY_POLICY_ACQUISITION_REFUSAL`.
+
+        ``D-IMPL-378`` repair 2.2 (a). Whatever the phase raised — its kind,
+        cause, code, text, an envelope its raiser recorded — is replaced by the
+        SDK's one constant refusal, which this resolver records as it records
+        any refusal raised at the seam. A raiser that states
+        :class:`~ccf.replay.record.ResolutionNotApplicable` is kept, so
+        :meth:`_refuse_raised_at_seam` refuses that programming error by its own
+        message as it does under every other policy.
+        """
+        if raised is not None and isinstance(raised.resolution, ResolutionNotApplicable):
+            return raised
+        return GovernedRefusalRaised(EARLY_POLICY_ACQUISITION_REFUSAL, resolution=RESOLVED_BY_THE_RESOLVER)
+
+    @staticmethod
+    def _stand_in_is_held() -> str:
+        """The one message :class:`UndisclosedSubjectSubstituteIsHeld` carries, whatever was asked and whichever check failed."""
+        return (
+            "the identifier this class's early policy asks in place of a subject it"
+            " does not disclose names something here: the fabric names it, or the"
+            " subject-keyed acquisition phase acquires for it what it does not"
+            f" acquire for {UNHELD_SUBJECT_PROBE!r}, an identifier that names"
+            " nothing; declare a stand-in that no source, child or fabric of this"
+            " deployment holds (SEC-020; D-IMPL-378 decision 4 (a))"
+        )
+
+    @staticmethod
+    def _refused_at_the_probe(raised: GovernedRefusalRaised | None) -> GovernedRefusalRaised:
+        """What a held refusal at the P6 probe becomes: :data:`UNHELD_SUBJECT_PROBE_REFUSAL`, for :meth:`__call__` to record.
+
+        ``D-IMPL-378`` OWED-RULINGS-3 item 4 (b), as repaired by 2.3 (b).
+        Whatever the phase raised for the probe identifier — its kind, cause,
+        code, text, an envelope its raiser recorded — is replaced by the SDK's
+        one constant. A raiser that states
+        :class:`~ccf.replay.record.ResolutionNotApplicable` is kept, so
+        :meth:`_refuse_raised_at_seam` refuses that programming error by its own
+        message, as it does at every other seam.
+        """
+        if raised is not None and isinstance(raised.resolution, ResolutionNotApplicable):
+            return raised
+        return GovernedRefusalRaised(UNHELD_SUBJECT_PROBE_REFUSAL, resolution=RESOLVED_BY_THE_RESOLVER)
+
+    @staticmethod
+    def _probe_identifier_is_held(when: str) -> str:
+        """The one message :class:`UnheldSubjectProbeIsHeld` carries, naming only WHEN the fabric named it."""
+        return (
+            f"the fabric as read {when} names {UNHELD_SUBJECT_PROBE!r}, the"
+            " identifier the subject-keyed acquisition phase is asked about as one"
+            " that names nothing, so its answer cannot show what the phase acquires"
+            " for an identifier its sources do not hold; nothing in this deployment"
+            " may be named by it (SEC-020; D-IMPL-378 ruling P6 (a))"
+        )
 
     def _declared_seam_refusal(
         self,
@@ -3968,7 +6058,9 @@ class GovernedResolver:
             served_at=served_at,
             request=request,
             execution=execution,
-            policy_bindings=policy_bindings,
+            # `D-IMPL-378` C1: a refusal determined on a DECLARED demonstration
+            # instant pins that declaration, exactly as a served decision does.
+            policy_bindings=(*policy_bindings, *self._demonstration_pins()),
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
             resolution=resolution,
@@ -3978,7 +6070,26 @@ class GovernedResolver:
             # `D-IMPL-347` A2: WHICH deployment seam held this refusal. The
             # sentinel for the resolver's own refusals, which is what they are.
             refusal_seam=refusal_seam,
+            # Dave's Q12 (`D-IMPL-378`): passed on every refusal, so a recorder
+            # that cannot take it fails on every refusal alike, never only on
+            # one about a withheld subject.
+            subject_withholding=self._declaration().subject_withholding,
         )
+
+    def _demonstration_pins(self) -> tuple[PolicyBinding, ...]:
+        """The declared demonstration serve instant's pin, or nothing (`D-IMPL-378` C1).
+
+        **SDK-defined** (CLAUDE.md §11). Audit by construction: a resolver whose
+        serve clock is a :class:`~ccf.products.demonstration_clock.DeclaredServeClock`
+        — composed only by
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock` from the
+        tenant's Control Plane declaration — writes that declaration's exact
+        ``(key, version)`` into dimension 2 of every record, served or refused,
+        so an examiner can tell a demonstration record from a real one without
+        reading code. A resolver on any other clock pins nothing here.
+        """
+        clock = self.admission_clock
+        return (clock.binding,) if isinstance(clock, DeclaredServeClock) else ()
 
     def _applied_bindings(
         self, effective: EffectiveRequest
@@ -4280,6 +6391,11 @@ class GovernedResolver:
         ``MAX_TTL`` value, because registering it is what mints the pin Gate 3
         resolves; and the request contract, so its pin is re-resolvable years
         later against the surface a question was actually validated against.
+        The request contract is registered first when the resolver is built
+        (``D-IMPL-378`` R-A) and again in :meth:`__call__` before the
+        resolution that pins it (``CP17-F-09``): a refusal never reaches this
+        method and its record pins the same version, so registering it here
+        once more is idempotent.
 
         Every remaining governance field is forwarded off the declaration
         rather than left to :func:`~ccf.products.contract.register_product_class`'s
@@ -4571,6 +6687,10 @@ def build_governed_resolver(
     #: Defaults to the process's UTC clock, which is the right value for a
     #: deployment; tests inject a fixed instant so the evidence-age and skew
     #: boundaries can be asserted exactly rather than approached.
+    #: `D-IMPL-378` C1: a tenant that DECLARES a demonstration serve instant is
+    #: served at that instant instead, and only while this argument is left at
+    #: its default — a clock supplied beside a declaration is refused by name
+    #: (`ccf.products.demonstration_clock.compose_serve_clock`).
     admission_clock: Callable[[], datetime] = _utc_now,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
@@ -4594,6 +6714,9 @@ def build_governed_resolver(
     acquisition: AcquisitionSeamProtocol | None = None,
     #: §7.10.4's Mode 2 footprint. ``None`` for every Mode 1 deployment.
     packaging_trace: PackagingTraceProtocol | None = None,
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase, ``None`` for
+    #: every deployment that declares none.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -5074,6 +7197,27 @@ def build_governed_resolver(
             " audit_events), so the erasure consult cannot verify an approval"
             " through it (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
         )
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): THE SERVE CLOCK, composed ONCE.
+    # A tenant that declares a demonstration serve instant is served at that
+    # instant — resolved here, from the Control Plane, at composition, and never
+    # again, so nothing a question carries and nothing registered later moves it.
+    # A clock this call was handed beside a declaration is refused by name, and
+    # outside the SDK's own approved development backends the declaration itself
+    # is refused (option (b), ruled by Dave 2026-10-08 10:50 MST; narrowed to the
+    # SDK's own by decision 6 (b), 2026-10-09). Checked against
+    # `store` as SELECTED, before the erasure consult wraps it.
+    #
+    # CONFINED: only the resolver's serve clock (`served_at`) is replaced. The
+    # erasure consult below keeps `admission_clock`, the clock this call was
+    # composed with, so an audit stamp on the Control Plane log never carries a
+    # declared instant.
+    serve_clock = compose_serve_clock(
+        control_plane=control_plane,
+        fabric=fabric,
+        artifact_store=store,
+        admission_clock=admission_clock,
+        sdk_clock=_utc_now,
+    )
     store = compose_erasure_consult(
         store,
         index=erasure_index,
@@ -5227,8 +7371,9 @@ def build_governed_resolver(
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
             composite_children=composite_children,
-            admission_clock=admission_clock,
+            admission_clock=serve_clock,
             acquisition=acquisition,
+            population_acquisition=population_acquisition,
             packaging_trace=packaging_trace,
             half_life_key=resolver_table_key,
         )
@@ -5284,8 +7429,9 @@ def build_governed_resolver(
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
         composite_children=composite_children,
-        admission_clock=admission_clock,
+        admission_clock=serve_clock,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=packaging_trace,
         half_life_key=resolver_table_key,
     )

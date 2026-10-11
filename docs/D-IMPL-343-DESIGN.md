@@ -286,7 +286,7 @@ machinery.
   seven comment lines between cp-06 and cp-07.
 - **Failure modes:** a stale `ProductRequestViolation` constructor leaves the door
   as `ccf-runtime-failure:<id>` (CP03C-F-07: pydantic's `ValueError` is caught at
-  `egress.py::_answer_question` into `_opaque_failure`); cp-06's door never compares class or
+  `egress.py::build_egress_server._answer_question` into `_opaque_failure`); cp-06's door never compares class or
   lane and answers a wrong address with its own product; a door that prints makes
   two printers (spine-separation P6); stdio auth pre-set on HTTP admits every
   caller; an uncreated assembly root fails as transport.
@@ -320,7 +320,7 @@ machinery.
   mapping, the `refused` closure.
 - **SDK API:** `ProductRequestViolation` (`request.py::ProductRequestViolation`; reasons
   `request.py::ProductRequestViolationReason`), `envelope_for`/`RequestIdentity`, the egress handler passing
-  parameters verbatim (`egress.py::_answer_question`), `WireRequest` decode
+  parameters verbatim (`egress.py::build_egress_server._answer_question`), `WireRequest` decode
   (`D-IMPL-302`, `DECODED_DECLARED_TYPE = "number"`).
 - **Duplicated authority:** the door re-types what the SDK decodes and adds
   coercions the SDK refuses (a float for `debt_tolerance`); a second request
@@ -672,7 +672,7 @@ for the low road: `build_arguments(fabric) -> Mapping` (the exact keyword mappin
   Mapping[str, Mapping[str, str]], instant: datetime)` — `instant` is the question's
   `asked_at`, exposed so an SDK L1 adapter used inside `acquire` can be constructed
   with `clock=lambda: context.instant` (the adapters stamp `ingestion_timestamp` from
-  a clock: `signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `signal/mcp_source.py:172`).
+  a clock: `signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `signal/mcp_source.py::MCPSourceAdapter.envelopes`).
 - `AssessmentContext(view, evidence, decided_at, half_life, profile, children:
   ChildContractView | None)`.
 
@@ -766,11 +766,11 @@ product_tool_description=door.tool_description, producer_id=door.producer_id,
 producer_tenant=<R-6>)`.
 
 **Remote request handling on the road** (`OpenedProduct.resolve`): parameters cross
-the door **verbatim** (`egress.py::_answer_question`; `D-IMPL-264` D-04, `D-IMPL-302`) —
+the door **verbatim** (`egress.py::build_egress_server._answer_question`; `D-IMPL-264` D-04, `D-IMPL-302`) —
 there is no `_typed` (`R-8` records the behavior change for the canonical tree);
 the wrong-address verdict is one site in `src/` built against the current
 `ProductRequestViolation` contract. **Its reach, verified:** `_answer_question` runs
-`govern_entitlement` (`egress.py:1201`) before the resolver (`:1226`), and the derived
+`govern_entitlement` (`egress.py::build_egress_server._answer_question`) before the resolver (`:1226`), and the derived
 policy permits exactly `{schema_name}`, so a **wrong class** is denied by
 entitlement at the door and a **wrong lane** reaches `resolve()` and is refused
 `class-mismatch` at `key="schema_version"` with a record — `R-9` records that this

@@ -66,6 +66,7 @@ from ccf.hitl.transport import (
     HitlActionRequest,
     HitlActionSubmission,
     HitlEventRevalidationRefused,
+    HitlGateClosed,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
     SignedBindingMismatchRefused,
@@ -77,6 +78,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_APPROVER_NOT_ELIGIBLE,
     ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+    ERROR_HITL_GATE_CLOSED,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
@@ -196,6 +198,16 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                 status_code=409,
                 detail=refusal_detail(
                     error_code=ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+                    message=str(error),
+                ),
+            ) from error
+        except HitlGateClosed as error:
+            # D-IMPL-378: the gate this verdict names was already decided; the
+            # verdict is refused, nothing is recorded, and the 409 says so.
+            raise HTTPException(
+                status_code=409,
+                detail=refusal_detail(
+                    error_code=ERROR_HITL_GATE_CLOSED,
                     message=str(error),
                 ),
             ) from error

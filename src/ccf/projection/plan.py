@@ -103,14 +103,17 @@ class ProjectionOutput(CCFContract):
     one. Measured on the paved road's test fixture, the served product then
     matches a nonexistent subject's on both TTL anchors, for an acquisition
     keyed on the subject, on a fabric booted for the question, with no
-    composite child about the subject and no similarity operator scoring an
-    entity the acquisition refreshed. Measured as still telling them apart:
-    the answer's replay reference, whose record name hashes the real read; the
-    record's dimension 1; composite children, which are not re-rendered;
-    similarity over an entity the acquisition refreshed, because the operator
-    registry is the one built after acquisition; a fabric that outlives the
-    question; and an acquisition not keyed on the subject. The security how-to,
-    section 4.12, describes each.
+    composite child about the subject. The re-run's operator registry is built
+    from the same read before acquisition, so a similarity operator scores it
+    against the corpus text before acquisition (``D-IMPL-378``); with a
+    subject-keyed acquisition that refreshed the subject's similarity text, the
+    two products were measured equal on a test fixture. Measured as still
+    telling them apart: the answer's replay reference, whose record name hashes
+    the real read; the record's dimension 1; composite children, which are not
+    re-rendered; a fabric that outlives the question; and an acquisition not
+    keyed on the subject, which with a similarity operator in the plan now also
+    differs at the empty finding. The security how-to, section 4.12, describes
+    each.
 
     The signal is the ONLY way into that branch. An empty payload without it
     is a legitimately empty answer and keeps the debt and the finding its real

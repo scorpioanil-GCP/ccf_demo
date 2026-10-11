@@ -19,10 +19,18 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from ccf.replay.record import DecisionReplayRecord
+
 from tests.client.conformance import suite
 from tests.client.conformance.suite import Provision
 from tests.client.conformance.test_inprocess_conformance import QUESTION, SUBJECTS
 from tests.client.fixtures import PINNED_SERVED_AT, SERVED_AT_ENV, STDIO_SERVER
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+    differences_modulo_issuance,
+    modulo_issuance,
+)
 
 
 def test_the_two_spellings_of_the_channel_agree() -> None:
@@ -88,27 +96,31 @@ def test_two_in_window_instants_agree_across_transports_and_differ_from_each_oth
     is 12:10 and the gate admits any serving instant in ``[11:10, 12:10)``. 12:00
     and 12:05 both sit there.
 
-    Four claims, and each would fail differently:
+    Four claims, and each would fail differently. **Restated modulo the per-answer
+    issuance** (Dave's E1 (a), ``D-IMPL-378``, 2026-10-08 12:29 MST; ``D-IMPL-358``
+    ruling 1 and ``D-IMPL-148`` Addendum A read modulo the issuance): every answer's
+    record now carries a fresh issuance and is named by its own content address, so
+    all four references differ and the claims are made about the RECORDS they
+    resolve to, with the issuance set aside:
 
     1. **both transports SERVE at both instants** — without this the rest could be
        satisfied by two refusals agreeing with each other;
-    2. **equal instants produce EQUAL replay references** — byte-identical,
-       ``@version`` included, across a process boundary;
-    3. **distinct instants produce DIFFERENT versions** — which is
-       ``D-IMPL-243`` amendment 1 doing what it says: *"Any non-sentinel value is
-       rendered and must move the hash"*;
-    4. **the record NAME is the same in all four answers** — the determination is
-       one determination. Only the stored record differs, which is exactly the
-       `24.11-C-01` distinction and the reason dropping the version from the
-       comparison would have hidden a real difference rather than tolerated a
-       spurious one.
+    2. **equal instants produce EQUAL records** — the two transports' references
+       resolve to records byte-identical but for the issuance, across a process
+       boundary;
+    3. **distinct instants produce DIFFERENT records** — which is ``D-IMPL-243``
+       amendment 1 doing what it says: *"Any non-sentinel value is rendered and
+       must move the hash"*;
+    4. **the determination is one determination** — the records at the two
+       instants differ in the serving instant and nothing else, which is exactly
+       the `24.11-C-01` distinction: only when the answer was handed over moved.
 
     **And the child process received the instant it was meant to.** Claim 2 is that
-    confirmation: the `mcp+stdio` answer's version is a hash over a record the CHILD
-    wrote, so its matching the in-process version byte-for-byte can only happen if
-    the child served at the same instant. Claim 3 adds that it tracks the export
-    rather than ignoring it — a child reading its own wall clock would produce a
-    version unrelated to either instant, and both halves would fail.
+    confirmation: the `mcp+stdio` answer's record is one the CHILD wrote, so its
+    matching the in-process record byte-for-byte but for the issuance can only
+    happen if the child served at the same instant. Claim 3 adds that it tracks the
+    export rather than ignoring it — a child reading its own wall clock would write
+    a ``served_at`` unrelated to either instant, and both halves would fail.
 
     ``suite._ask_each`` is reached directly because this control needs the
     references themselves rather than a comparison verdict, and it is the same
@@ -119,9 +131,10 @@ def test_two_in_window_instants_agree_across_transports_and_differ_from_each_oth
     subjects = (*SUBJECTS, _mcp_subject())
 
     refs: dict[tuple[datetime, str], str] = {}
+    records: dict[tuple[datetime, str], DecisionReplayRecord] = {}
     for instant in instants:
         monkeypatch.setenv(SERVED_AT_ENV, instant.isoformat())
-        for name, result in suite._ask_each(
+        for name, (result, root) in suite._ask_each_at(
             subjects, provision=provision, question=QUESTION
         ).items():
             # (1) every answer is SERVED.
@@ -132,24 +145,39 @@ def test_two_in_window_instants_agree_across_transports_and_differ_from_each_oth
             )
             assert result.replay_ref is not None
             refs[(instant, name)] = result.replay_ref
+            records[(instant, name)] = DecisionReplayRecord.model_validate_json(
+                provision.read_record(root, result.replay_ref)
+            )
+            assert_named_by_its_own_content(
+                result.replay_ref, records[(instant, name)], what=f"`{name}` at {instant.isoformat()}"
+            )
 
-    names = [name for (_, name) in refs]
+    # Every answer was issued apart: four answers, four references.
+    assert len(set(refs.values())) == len(refs), sorted(refs.values())
+    names = sorted({name for (_, name) in refs})
     for instant in instants:
-        at = {refs[(instant, name)] for name in names}
-        # (2) one instant, one reference — `@version` included.
-        assert len(at) == 1, (
-            f"the transports disagreed at {instant.isoformat()}: {sorted(at)}"
-        )
+        # (2) one instant, one record — modulo the per-answer issuance.
+        first_name, *others = names
+        for other in others:
+            assert_one_determination_issued_twice(
+                records[(instant, first_name)],
+                records[(instant, other)],
+                what=f"{first_name} versus {other} at {instant.isoformat()}",
+            )
 
-    first, second = ({refs[(i, n)] for n in names}.pop() for i in instants)
-    # (3) two instants, two versions.
-    assert first != second, (
-        "two serving instants produced ONE record version — a non-sentinel"
-        " `served_at` is inside the record's hash and must move it"
+    first, second = (records[(instant, names[0])] for instant in instants)
+    # (3) two instants, two records — beyond the issuance.
+    assert differences_modulo_issuance(first, second) != [], (
+        "two serving instants produced ONE record modulo the issuance — a"
+        " non-sentinel `served_at` is inside the record's hash and must move it"
     )
-    # (4) ...and one determination, so only the version moved.
-    assert first.rsplit("@", 1)[0] == second.rsplit("@", 1)[0], (
-        "the record NAME moved with the instant, so the determination's own"
-        " identity is tracking the clock — only the stored record should"
+    # (4) ...and one determination, so only the serving instant moved.
+    assert first.content_generation_path.served_at == instants[0]
+    assert second.content_generation_path.served_at == instants[1]
+    assert modulo_issuance(first).content_generation_path.model_copy(
+        update={"served_at": instants[1]}
+    ) == modulo_issuance(second).content_generation_path, (
+        "the records at the two instants differ in more than when the answer"
+        " was handed over, so the determination itself is tracking the clock"
     )
-    assert first.rsplit("@", 1)[1] != second.rsplit("@", 1)[1]
+    assert differences_modulo_issuance(first, second) == ["content_generation_path"]

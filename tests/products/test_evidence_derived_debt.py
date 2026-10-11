@@ -704,6 +704,7 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
         # This test's class declares no children; stated, never defaulted.
         composite_children=None,
         acquisition=None,
+        population_acquisition=None,
         # `PKG-F-08`: stated, never defaulted.
         packaging_trace=None,
         half_life_key=None,

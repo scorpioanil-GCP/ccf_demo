@@ -26,11 +26,14 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERROR_AMBIGUOUS_TENANT",
+    "ERROR_ARTIFACT_STORE_UNAUTHENTICATED",
     "ERROR_DECISION_UNMINTABLE",
     "ERROR_EVIDENCE_ABSENT",
+    "ERROR_EVIDENCE_CLASS_SEALED",
     "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
     "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
     "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
+    "ERROR_EXECUTION_FENCED",
     "ERROR_INVALID_GRANT",
     "ERROR_NO_CAPABILITY",
     "ERROR_PRINCIPAL_NOT_ENTITLED",
@@ -49,6 +52,7 @@ __all__ = [
     "ERROR_SIGNED_BINDING_STALE",
     "ERROR_APPROVER_NOT_ELIGIBLE",
     "ERROR_HITL_EVENT_REVALIDATION_REFUSED",
+    "ERROR_HITL_GATE_CLOSED",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
@@ -145,6 +149,16 @@ ERROR_EVIDENCE_CLASS_UNRECOVERABLE: Final[str] = "evidence-class-unrecoverable"
 #: its own shell hid.
 ERROR_EVIDENCE_DISCLOSURE_WITHHELD: Final[str] = "evidence-disclosure-withheld"
 
+#: The caller's own record exists and its grant holds, but owner read-back is
+#: not open for it (Dave's Q12, 2026-10-07; ``D-IMPL-378``): the tenant's
+#: entitlement policy does not list the record's product class in
+#: ``evidence_readable_classes``, or the record does not carry its class's
+#: affirmation that its answers never withhold their subject — which no record
+#: written before the affirmation existed does. Internal truth only; decided per
+#: class and per record generation, never per decision, so it is never an
+#: existence channel.
+ERROR_EVIDENCE_CLASS_SEALED: Final[str] = "evidence-class-sealed"
+
 #: Nothing readable is at the reference: no such address, a malformed one, a
 #: URI naming no registered version, bytes that are not a record, or bytes
 #: that do not hash to their address (``D-IMPL-345`` R-4). ONE code for every
@@ -198,6 +212,20 @@ ERROR_APPROVER_NOT_ELIGIBLE: Final[str] = "approver-not-eligible"
 #: snapshot and its record (409; `D-IMPL-366` §4b 6a). Nothing was consumed
 #: or recorded; the client re-presents against the current event.
 ERROR_HITL_EVENT_REVALIDATION_REFUSED: Final[str] = "hitl-event-revalidation-refused"
+
+#: The suspension a verdict names was already decided, so the verdict is
+#: refused and nothing is recorded (409; ``D-IMPL-378``): it can no longer
+#: change that gate's passage, and it does not stand beside it.
+ERROR_HITL_GATE_CLOSED: Final[str] = "hitl-gate-closed"
+
+#: A write that ends a workflow passage found the execution's record moved by a
+#: writer other than that passage, so the engine wrote, audited and enqueued
+#: nothing (409; ``D-IMPL-378``;
+#: :class:`~ccf_runtime.workflow.engine.ExecutionFenced`). Answered by
+#: ``POST /workflow/invocations`` and ``POST /workflow/resumptions``. The record
+#: stands as that other writer left it, and the step the passage ran before the
+#: fenced write may already have had effects.
+ERROR_EXECUTION_FENCED: Final[str] = "execution-fenced"
 
 #: The authenticated caller's grant does not authorize this tenant ×
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —
@@ -292,6 +320,21 @@ ERROR_PRODUCT_PARAMETERS_MALFORMED: Final[str] = "product-parameters-malformed"
 #: ``create_app`` argument to supply, which is what keeps the boot-time
 #: ``TypeError`` this replaces from being a diagnostic that was simply lost.
 ERROR_ROUTE_HANDLE_ABSENT: Final[str] = "route-handle-absent"
+
+#: The deployment's artifact store presented a credential its server's guard
+#: did not authenticate (HTTP 401), so an evidence door cannot answer (503;
+#: :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`). Decision
+#: 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted): *"(a) A typed 5xx, so
+#: a rejected credential and an outage are not the same response."*
+#:
+#: A 503 and not a 500 for the :data:`ERROR_ARTIFACT_STORE_UNAUTHENTICATED` reason: the
+#: fault is the deployment's, not the caller's. The credential is the one the
+#: deployment gave its store, never the caller's, and the framework's opaque
+#: 500 is what an outage of that store is answered with, which this is not.
+#: Answered by ``GET /replay/decisions``, ``GET /replay/resolutions`` and
+#: ``GET /artifact/{content_address}``, with one constant message: the same
+#: answer for every ask, naming no address, URI, subject or store location.
+ERROR_ARTIFACT_STORE_UNAUTHENTICATED: Final[str] = "artifact-store-unauthenticated"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:

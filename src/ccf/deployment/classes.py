@@ -67,8 +67,10 @@ would close roughly a third of the hole and leave the identical shape reachable
 under every other spelling — a refusal that does not close the shape does not
 close the defect.
 
-So a ``ccf.``-prefixed id in neither mapping is refused rather than enveloped.
-Two kinds of id land there and both are refusals for the same reason: an SDK
+So a ``ccf.``-prefixed id in neither mapping is refused rather than enveloped,
+as :class:`~ccf.controlplane.artifact_base.ReservedArtifactClassId` — the one
+name the reservation has wherever it is refused (OWED-RULINGS-3 item 3P2 (b),
+``D-IMPL-378``, Dave, 2026-10-09 06:21 MST). Two kinds of id land there and both are refusals for the same reason: an SDK
 class that is not manifest-addressable (``ccf.hitl-policy``,
 ``ccf.scope-mapping`` — registered by adopter code against their real contracts,
 never through a manifest), and an id the SDK does not own at all. In both cases
@@ -81,6 +83,8 @@ Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
 
 from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT, TASK_DEFINITION
 from ccf.controlplane.artifacts import (
@@ -108,6 +112,8 @@ from ccf.controlplane.artifacts import (
     RegistrationMode,
     declared_artifact_class,
 )
+from ccf.controlplane.artifact_base import _RESERVED_CLASS_ID_PREFIX, ReservedArtifactClassId
+from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
@@ -124,12 +130,16 @@ __all__ = [
     "resolve_artifact_class",
 ]
 
-#: The prefix the SDK owns (D-IMPL-84). Private and stated once, so the
-#: reservation and its refusal message cannot drift apart. Deliberately not in
-#: ``__all__``: the reservation is a *behavior* of
+#: The prefix the SDK owns (D-IMPL-84). Private and stated once — in
+#: :mod:`ccf.controlplane.artifact_base`, beside
+#: :meth:`~ccf.controlplane.artifact_base.ArtifactClass.validate`, which applies
+#: the same reservation, as
+#: :func:`~ccf.controlplane.artifacts.declared_artifact_class` does (D-IMPL-378
+#: K1 and its follow-up) — so the three places cannot drift apart on the prefix.
+#: Deliberately not in ``__all__``: the reservation is a *behavior* of
 #: :func:`resolve_artifact_class`, and exporting the string would invite an
 #: adopter to branch on it instead of letting the refusal fire.
-_CCF_NAMESPACE = "ccf."
+_CCF_NAMESPACE = _RESERVED_CLASS_ID_PREFIX
 
 #: Every artifact class whose schema the SDK owns, keyed by ``class_id``.
 #:
@@ -204,6 +214,13 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # TYPED, not versioned: the contract carries no author lanes. It is
     # deliberately absent from `SDK_VERSIONED_ARTIFACT_CLASSES`.
     TEMPORAL_BOUNDARY_POLICY.class_id: TEMPORAL_BOUNDARY_POLICY,
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11). Manifest-addressable so the
+    # `demonstration_serve_instant:` section can be derived and registered, and a
+    # manifest deployment can register the same class at the same derived key.
+    # TYPED, with no author lanes, like the temporal boundary above. Registering
+    # it does not by itself move any clock: the composition admits it only on the
+    # SDK's own approved development backends (`ccf.products.demonstration_clock`).
+    DEMONSTRATION_SERVE_INSTANT.class_id: DEMONSTRATION_SERVE_INSTANT,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``
@@ -242,14 +259,23 @@ SDK_VERSIONED_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
 #: answer rather than the adopter (D-IMPL-80).
 #:
 #: A class appears here only when declaring the other role would delete a
-#: whitepaper property, not merely be unusual. Today exactly one does:
-#: ``ccf.signal-batch`` is fixed to ``load``, because registering a batch would
-#: content-hash raw event data into Control Plane state, and by D-06's rationale
-#: the registered artifact set is dimension 2 of the five-dimension Decision
-#: Replay record (whitepaper §7.10.1). Re-authoring an events file would then
-#: change "what was in force" exactly as a policy-bundle bump does — which is
-#: not what an event stream is. Events are what the fabric *observed*; the
-#: Control Plane is what the fabric was *permitted to do*.
+#: whitepaper property or silently disable a control, not merely be unusual.
+#: Two do today, each with its reason in :data:`_SDK_ROLE_REASONS`:
+#:
+#: * ``ccf.signal-batch`` is fixed to ``load``, because registering a batch would
+#:   content-hash raw event data into Control Plane state, and by D-06's
+#:   rationale the registered artifact set is dimension 2 of the five-dimension
+#:   Decision Replay record (whitepaper §7.10.1). Re-authoring an events file
+#:   would then change "what was in force" exactly as a policy-bundle bump does
+#:   — which is not what an event stream is. Events are what the fabric
+#:   *observed*; the Control Plane is what the fabric was *permitted to do*.
+#: * ``ccf.demonstration-serve-instant`` is fixed to ``register`` (`D-IMPL-378`
+#:   C1; SDK-defined, CLAUDE.md §11). A ``load`` entry is parsed and never
+#:   registered, so the composition that honors the declaration
+#:   (`ccf.products.demonstration_clock.compose_serve_clock`) finds none and the
+#:   fabric serves on its real clock while the manifest says it declared an
+#:   instant — silently. ``D-IMPL-134`` reads the role of a ``ccf.*`` class as
+#:   the SDK's to know, and here there is exactly one correct value.
 #:
 #: Why a mapping and not a rule in the manifest module: the fact is a property
 #: of the *class*, so it belongs beside the class registry that already answers
@@ -261,6 +287,24 @@ SDK_VERSIONED_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
 #: the default. The SDK fixes a role only where it can say why.
 SDK_ARTIFACT_ROLES: dict[str, ArtifactRole] = {
     SIGNAL_BATCH.class_id: "load",
+    DEMONSTRATION_SERVE_INSTANT.class_id: "register",
+}
+
+#: Why each role in :data:`SDK_ARTIFACT_ROLES` is fixed, in the words
+#: :func:`refuse_role_the_sdk_fixes` refuses with. Keyed exactly as that mapping
+#: is (held equal by ``tests/deployment/test_demonstration_serve_instant_role.py``),
+#: so no class can be fixed without a stated reason. Private: the reason is part
+#: of the refusal, not a second vocabulary.
+_SDK_ROLE_REASONS: Mapping[str, str] = {
+    SIGNAL_BATCH.class_id: (
+        "the other choice would put raw event data into Decision Replay"
+        " dimension 2 (D-IMPL-80)"
+    ),
+    DEMONSTRATION_SERVE_INSTANT.class_id: (
+        "a `load` entry is never registered, so the deployment would serve on"
+        " its real clock while this manifest declares a demonstration serve"
+        " instant (D-IMPL-378 C1; D-IMPL-134)"
+    ),
 }
 
 
@@ -269,10 +313,13 @@ def refuse_role_the_sdk_fixes(class_id: str, role: ArtifactRole) -> None:
 
     The machine-checkable half of D-IMPL-80. The required ``role`` field on a
     manifest entry stops the choice being made *silently*; this stops it being
-    made *wrongly* for the one class where the SDK knows the answer. Without it
-    an adopter could write ``role: register`` against ``ccf.signal-batch``, and
-    nothing — no contract, no lint, no test — would fire before raw event data
-    was content-hashed into replay dimension 2.
+    made *wrongly* for the classes where the SDK knows the answer
+    (:data:`SDK_ARTIFACT_ROLES`). Without it an adopter could write ``role:
+    register`` against ``ccf.signal-batch``, and nothing — no contract, no lint,
+    no test — would fire before raw event data was content-hashed into replay
+    dimension 2; or ``role: load`` against ``ccf.demonstration-serve-instant``,
+    and the deployment would serve on its real clock with nothing saying the
+    declaration was never registered (`D-IMPL-378` C1).
 
     A class the SDK does not fix is not checked here at all: the adopter's
     declaration stands, which is the default and the common case.
@@ -287,9 +334,8 @@ def refuse_role_the_sdk_fixes(class_id: str, role: ArtifactRole) -> None:
     if fixed is not None and role != fixed:
         raise ValueError(
             f"artifact class {class_id!r} is role {fixed!r} and the manifest"
-            f" declares {role!r}; the SDK fixes this class's role because the"
-            " other choice would put raw event data into Decision Replay"
-            " dimension 2 (D-IMPL-80) — correct the manifest entry"
+            f" declares {role!r}; the SDK fixes this class's role because"
+            f" {_SDK_ROLE_REASONS[class_id]} — correct the manifest entry"
         )
 
 
@@ -365,8 +411,15 @@ def resolve_artifact_class(class_id: str) -> ArtifactClass:
         ValueError: ``class_id`` is empty or whitespace-only. Refused rather
             than defaulted: an unnamed class is a manifest the audit plane
             cannot read back, and only the manifest's author knows what it
-            should have said. Or ``class_id`` claims the SDK's reserved
-            ``ccf.`` prefix without being a class the SDK ships (D-IMPL-84).
+            should have said.
+        ReservedArtifactClassId: ``class_id`` claims the SDK's reserved
+            ``ccf.`` prefix without being a class the SDK ships (D-IMPL-84) —
+            the reservation's one name, as
+            :func:`~ccf.controlplane.artifacts.declared_artifact_class` and
+            :meth:`~ccf.controlplane.artifact_base.ArtifactClass.validate`
+            raise it (OWED-RULINGS-3 item 3P2 (b), ``D-IMPL-378``). A
+            ``ValueError``, so a caller catching ``ValueError`` keeps catching
+            it; it carries ``class_id``.
     """
     if not class_id.strip():
         raise ValueError(
@@ -381,13 +434,6 @@ def resolve_artifact_class(class_id: str) -> ArtifactClass:
     if versioned_class is not None:
         return versioned_class
     if class_id.startswith(_CCF_NAMESPACE):
-        raise ValueError(
-            f"artifact class id {class_id!r} claims the SDK's reserved"
-            f" {_CCF_NAMESPACE!r} prefix but is not a class the SDK ships"
-            " (D-IMPL-84); the open DeclaredArtifact envelope is refused here"
-            " because a document that satisfies it would register, pin and"
-            " enter Decision Replay dimension 2 under an SDK class name with"
-            " arbitrary content — choose a class id in your own namespace, or"
-            " correct the spelling of the SDK class you meant"
-        )
+        # OWED-RULINGS-3 item 3P2 (b) (`D-IMPL-378`): one rule, one name.
+        raise ReservedArtifactClassId(class_id)
     return declared_artifact_class(class_id)

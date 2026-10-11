@@ -73,7 +73,13 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
 
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWrite
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    DerivedWrite,
+    artifact_uri,
+)
 from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -85,17 +91,25 @@ from ccf.controlplane.audit import (
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
-from ccf.controlplane.state import AuditedStateWriter, state_key
+from ccf.controlplane.state import (
+    AuditedStateWriter,
+    ConditionalStateStore,
+    StateConflict,
+    state_key,
+)
 from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
 from ccf.hitl.escalation import ESCALATION_EVENT_CLASS
 from ccf.hitl.transport import (
     ApproverNotEligible,
+    GateAlreadyClosed,
+    GateVerdictsChanged,
     check_approver_eligibility,
     HITLTransportProtocol,
     HitlActionSubmission,
     PendingHitlEvent,
 )
+from ccf.replay.serve import _same_string
 from ccf.skills.grants import SplitAuditPlaneError
 from ccf.workflow.definitions import (
     WORKFLOW_DEFINITION,
@@ -106,6 +120,7 @@ from ccf_runtime.workflow.state import (
     WORKFLOW_STATE,
     TraceEntry,
     WorkflowStateRecord,
+    suspension_left_by,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -114,6 +129,7 @@ __all__ = [
     "WORKFLOW_TRACE_ARTIFACT_CLASS",
     "AgentNodeBinding",
     "DebtAssessmentBinding",
+    "ExecutionFenced",
     "ForeignStateRecordError",
     "SkillNodeBinding",
     "UnboundDebtAssessmentError",
@@ -124,6 +140,7 @@ __all__ = [
     "WorkflowOutcome",
     "WorkflowResumeRefused",
     "WorkflowSuspended",
+    "WorkflowTraceReferenceMismatch",
     "WorkflowWiringError",
 ]
 
@@ -141,6 +158,12 @@ WORKFLOW_TRACE_ARTIFACT_CLASS = "ccf.workflow-trace"
 #: held across an ``await``.
 _RESUMPTIONS_IN_FLIGHT: set[tuple[int, str]] = set()
 _RESUMPTIONS_IN_FLIGHT_LOCK = threading.Lock()
+
+#: The two sharing scopes a Control Plane state store and a HITL transport
+#: declare (``D-IMPL-378``): ``process`` — no other process reaches them — and
+#: ``shared`` — a durable implementation several processes reach. Mechanism
+#: vocabulary, read by the construction checks; no deployment value.
+_SCOPES: frozenset[str] = frozenset({"process", "shared"})
 
 
 def _claim_resumption(claim: tuple[int, str]) -> bool:
@@ -194,6 +217,18 @@ class UnboundDebtAssessmentError(WorkflowWiringError):
     """
 
 
+class ExecutionFenced(RuntimeError):
+    """A later write of a passage found the record moved by another writer.
+
+    SDK-defined (``D-IMPL-378``). Every write after a passage commit is
+    conditional on the version that passage wrote. A conflict means a writer
+    other than this passage moved the execution's record while the passage
+    ran — which the engine's own refusals make impossible on a conforming
+    store, since a ``running`` execution is never resumed or restarted — so the
+    engine fails closed rather than overwrite what it never saw.
+    """
+
+
 class ForeignStateRecordError(TypeError):
     """The state store returned a record this machine did not write.
 
@@ -201,6 +236,70 @@ class ForeignStateRecordError(TypeError):
     :data:`~ccf_runtime.workflow.state.WORKFLOW_STATE` record class is the
     workflow machine's alone (D-IMPL-18/27).
     """
+
+
+class WorkflowTraceReferenceMismatch(ArtifactStoreError):
+    """The store answered an execution trace's write with a reference that is not that trace's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation):
+    *"(a) Fix the four writers in one small lane."* It extends decision 5 (a)
+    (06:21 MST), *"Verify the returned record address against the record
+    actually written."*, from
+    ``src/ccf/replay/serve.py::ReplayWriter.write_replay_record`` to the trace
+    the engine writes through to the artifact store (D-IMPL-18).
+
+    **What the engine knows before the store answers.** Under ``D-IMPL-26``
+    the whole reference of a trace it files is fixed by the trace, the
+    execution and the capability that authorized the run: the content address
+    is :func:`~ccf.contracts.canonical.content_hash` of the trace, the name is
+    the execution id, the tenant is the capability's, the class is
+    :data:`WORKFLOW_TRACE_ARTIFACT_CLASS`, and the versioned URI is
+    ``ccf-artifact://{tenant}/{class}/{execution id}@{address}``. Every field
+    of the store's answer is held to that as an exact string. Before this
+    check the answer was handed to callers unchecked as the outcome's
+    ``trace_artifact``. Measured on ``dl-378-integ`` @ ``6cd6023e``: a store
+    that filed a second execution's trace faithfully and answered with the
+    first execution's trace reference had the second execution's suspended,
+    exception-routed and completed outcomes carry the first execution's
+    reference, and one changed field was handed out the same way
+    (``tests/workflow/test_trace_writer_checks_the_returned_reference.py``).
+
+    **The reference is derived before the store's** ``put`` **is called**
+    (``D-IMPL-380``, ruling 1 (a), 2026-10-10 05:34 MST), from the trace as
+    the engine built it, so a store that rewrites the trace while holding it
+    and answers the rewritten trace's own reference is refused here too
+    (``tests/workflow/test_trace_writer_hashes_before_put.py``).
+
+    **Raised after the store's ``put`` returns, so no outcome carrying the
+    reference is returned** — at the point, and with the effect, of a store
+    failure there. The engine writes the trace after it persists the
+    transition the trace describes, so that transition and its audit row
+    stand; at a suspension the approval request has not yet been enqueued.
+    An :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the
+    store's answer is what failed. The text names the fields that differ and
+    no value the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the trace's own reference
+    while holding other bytes under it is found by a reader that re-hashes
+    what it fetches before using it, such as
+    :func:`~ccf.replay.engine.resolve_artifact`.
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            trace's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the artifact store answered an execution trace's write with a"
+            f" reference whose {', '.join(fields)} are not the trace's own; the"
+            " engine hands out only the reference of the trace it wrote, so no"
+            " outcome carrying it is returned (D-IMPL-378 decision 5 (a))"
+        )
 
 
 @runtime_checkable
@@ -384,6 +483,39 @@ class WorkflowEngine:
                 " defaults to `control_plane.audit_log`) or pass that same"
                 " log (INV-CH7-71; CLAUDE.md §10)"
             )
+        # D-IMPL-378 (Dave: "Unsupported third-party implementations must fail
+        # at construction"): a store or transport that cannot make a gate's
+        # passage exactly-once is refused here, by name, before any execution
+        # runs — never discovered at the first resumption.
+        store = control_plane.state_store
+        store_scope = getattr(store, "scope", None)
+        if not isinstance(store, ConditionalStateStore) or store_scope not in _SCOPES:
+            raise WorkflowWiringError(
+                f"the Control Plane state store {type(store).__name__} is not a"
+                " ConditionalStateStore declaring a scope of 'process' or"
+                " 'shared' (get_versioned, put_if, scope); without a conditional"
+                " write, two resumptions of one suspension, or two starts of one"
+                " execution id, can both commit (D-IMPL-378; SEC-001)"
+            )
+        transport_scope = getattr(hitl_transport, "scope", None)
+        if (
+            not isinstance(hitl_transport, HITLTransportProtocol)
+            or transport_scope not in _SCOPES
+        ):
+            raise WorkflowWiringError(
+                f"the HITL transport {type(hitl_transport).__name__} does not"
+                " offer the whole HITLTransportProtocol (close_gate, closures,"
+                " scope among it) with a scope of 'process' or 'shared'; without"
+                " close_gate, a verdict recorded while a gate is being decided"
+                " is never judged (D-IMPL-378; SEC-001)"
+            )
+        if store_scope == "shared" and transport_scope != "shared":
+            raise WorkflowWiringError(
+                "the Control Plane state store is shared between processes but"
+                " the HITL transport is not: a verdict recorded through another"
+                " process would never be judged here, and that process's gate"
+                " closures would never be seen (D-IMPL-378; SEC-001)"
+            )
         self._control_plane = control_plane
         self._artifact_store = artifact_store
         self._hitl_transport = hitl_transport
@@ -421,6 +553,19 @@ class WorkflowEngine:
             execution_id: Caller-supplied execution identity; state is keyed
                 ``(authorized.tenant, execution_id)`` (D-23; §1.3).
 
+        An execution id is started once (D-23): the start is recorded
+        ``running`` by a create-if-absent write before its first node runs, and
+        a second start is refused. One exception is the starter's own retry
+        of a start whose first node is a ``hitl-gate`` and whose engine stopped
+        before suspending there: no step ran, so it is FINISHED — the
+        version-fenced suspension write and its one queue event — never started
+        again (``D-IMPL-378``, Dave's D2 ruling). The other is the starter's own
+        retry of an execution left ``suspended`` with no approval request, its
+        engine having stopped, or its artifact store failed, between the
+        suspension write and the queue: the retry RESTORES that one request and
+        returns the suspension, and no step runs (Dave's decision 8 (a);
+        :meth:`_restore_request`).
+
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
                 handle.
@@ -428,12 +573,45 @@ class WorkflowEngine:
                 not an ``Execute``, or minted for another definition key.
             WorkflowWiringError: a step ref resolves to nothing, or nominal
                 routing is ambiguous.
+            ExecutionFenced: a finished start lost its suspension write, or a
+                restored request its write, to another writer.
         """
         self._require_handle(workflow)
         verify(authorized, kind=Execute, resource=workflow.definition_key)
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
-        if self._control_plane.state_store.get(WORKFLOW_STATE, key) is not None:
+        # D-IMPL-378: the execution is recorded as started BEFORE its first
+        # node runs, by a create-if-absent write, so a second start of the same
+        # id is refused before it runs anything — in this process or any other
+        # over the same store (D-23: an execution id is started once).
+        try:
+            version = self._write_state(
+                authorized,
+                workflow,
+                key,
+                self._record(
+                    workflow,
+                    tenant=tenant,
+                    execution_id=execution_id,
+                    current_state=workflow.definition.start,
+                    status="running",
+                    trace=(),
+                    started_by=authorized.principal,
+                ),
+                action="workflow_started",
+                actor=None,
+                expected_version=0,
+            )
+        except StateConflict:
+            # D-IMPL-378, Dave's D2: the retry of a start whose commit landed
+            # and whose engine stopped before suspending on its first node — a
+            # gate, so no step ran — is FINISHED for its own starter, never
+            # started again. Anything else under this id is a second start.
+            finished = self._finish_start(
+                authorized, workflow, execution_id=execution_id, key=key
+            )
+            if finished is not None:
+                return finished
             return self._refuse(
                 authorized,
                 workflow,
@@ -453,6 +631,7 @@ class WorkflowEngine:
             # execution reaches is the starter — the Execute capability's
             # principal — stamped once here and carried on every record.
             started_by=authorized.principal,
+            version=version,
         )
 
     async def resume(
@@ -476,29 +655,84 @@ class WorkflowEngine:
         from the suspended node (CINV-01 — routing is the artifact's
         statement; the engine interprets, never decides).
 
-        **One resumption per execution at a time, in this process
-        (D-IMPL-377).** Before the state record is read, the resumption
-        takes a single-flight claim on the execution, keyed by the Control
-        Plane state store the record lives in and by its state key, and
-        shared by every engine in this process over that store. While it is
-        held, a second resumption of the same execution is REFUSED, never
-        queued: a typed :class:`WorkflowResumeRefused`, audited
-        ``resolved=False``, which the HTTP door answers with the same 409 as
-        the sequential refusal. Without it, two resumes of one approved
-        suspension both read the record before either committed over it,
-        both passed the authority and conflict checks, and ran the
-        downstream node twice under two attributed ``workflow_resumed`` rows
-        (residual 2(a) of :meth:`_gate_authority`). The claim is released on
-        every exit — completion, refusal, exception and cancellation — and
-        its lock guards only the test-and-set, never an ``await``, so it
-        holds for threads and for one event loop alike. **It does not
-        reach** several processes, or several state-store objects fronting
-        one durable store:
-        :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
-        compare-and-set, so serialize resumptions per execution in front of
-        the door there. Nor does it reach a verdict recorded while a
-        resumption is in flight (residual 2(b)): verdicts are recorded
-        through the HITL transport, which this claim never touches.
+        **One approval, one passage, however many processes resume**
+        (``D-IMPL-378``; ``SEC-001``). Three mechanisms stand between one
+        human approval and a second passage, and each is measured on its own:
+
+        * **The in-process claim** (``D-IMPL-377``). Before the state record
+          is read, the resumption takes a single-flight claim on the
+          execution, keyed by the Control Plane state store the record lives
+          in and by its state key, and shared by every engine in this process
+          over that store. While it is held, a second resumption of the same
+          execution is REFUSED, never queued: a typed
+          :class:`WorkflowResumeRefused`, audited ``resolved=False``, which the
+          HTTP door answers with the same 409 as the sequential refusal. It is
+          released on every exit — completion, refusal, exception and
+          cancellation — and its lock guards only the test-and-set, never an
+          ``await``.
+        * **The gate's closure on the authority path.** After every check has
+          passed and before anything is written, the resumption asks the HITL
+          transport to close the gate on exactly the verdicts it judged
+          (:meth:`~ccf.hitl.transport.HITLTransportProtocol.close_gate`). A
+          verdict recorded after the resumption read the verdicts makes the
+          closure fail, and the resumption is refused ("present the resumption
+          again"); a verdict arriving after the closure is refused at every
+          door with ``hitl-gate-closed``, so it never stands beside a decision
+          it can no longer reach, and the queue stops offering the gate.
+        * **The conditional passage commit.** The passage — the record leaving
+          the gate — is committed conditionally on the version the resumption
+          read, BEFORE the step after the gate runs, and its attributed
+          ``workflow_resumed`` row is appended after the commit lands
+          (:meth:`~ccf.controlplane.state.AuditedStateWriter.write_if`). Of two
+          resumptions in two processes, or through two state-store objects
+          over one durable store, exactly one commit lands; the other is
+          refused before it runs anything. The commit and the row are two
+          writes, not one: an append that fails after the commit landed leaves
+          the execution past its gate with no ``workflow_resumed`` row
+          (``public/how-to/security-and-deployment.md`` §4.13 states what an
+          operator then finds). Detecting and recovering such a passage is
+          being designed (``D-IMPL-378``, decision 7 (b)), not built.
+
+        **An interrupted passage is never re-run** (Dave's Q4 and D2 rulings
+        on ``D-IMPL-378``). A passage whose commit never landed leaves the
+        record ``suspended`` with no step started, so presenting the
+        resumption again re-takes the same closure (it names the passage, not
+        the engine) and exactly one commit can land. A passage whose commit
+        landed is ``running`` until it suspends or completes. When its state
+        is a ``hitl-gate`` or a terminal state, no step lies between that
+        commit and its next write, so a resumption that finds it FINISHES it —
+        the version-fenced suspension or completion write and, at a gate, its
+        one queue event, nothing else — provided its durable claim names it:
+        the gate's closure, found by the suspension the passage left
+        (:func:`~ccf_runtime.workflow.state.suspension_left_by`) and routing
+        its decided verdict to that state; for an execution's start, the
+        create-if-absent record. A finisher racing the original passage loses
+        or wins the fenced write; the loser raises :class:`ExecutionFenced`
+        and writes nothing. A ``running`` record at a step is refused, typed,
+        because the step may already have had effects no engine can see, and
+        an operator reconciles the execution outside the fabric.
+
+        **A suspension whose approval request never reached the queue** (its
+        suspension write landed and its engine stopped, or its artifact store
+        failed, before the enqueue) has no approval to find. A resumption that
+        finds none is refused, and its refusal row (``workflow_resumed``,
+        ``resolved=False``) is appended first, as for any refused resumption
+        (Dave's repair 1.4 (a)). It then RESTORES that one request, built as
+        the suspension built it and bound to its unchanged content hash, and
+        returns the suspension: nothing passes the gate, and a verdict
+        recorded while the request was missing is never authority (Dave's
+        decision 8 (a); :meth:`_restore_request`, which also states what a
+        recovery cannot see). The row and the restore are separate writes: a
+        restore that fails after the row leaves the row and no request, and
+        the next resumption that finds no approval is refused and restores in
+        the same way.
+
+        Measured by ``tests/workflow/test_approval_gate_limits.py``,
+        ``tests/http_api/test_approval_gate_limits_door.py``,
+        ``tests/workflow/test_resume_single_flight.py``,
+        ``tests/workflow/test_finish_interrupted_passage.py``,
+        ``tests/workflow/test_restore_missing_approval_request.py`` and
+        ``tests/workflow/test_restore_keeps_the_refused_resumption_row.py``.
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -507,6 +741,8 @@ class WorkflowEngine:
                 not a ``Resume``, or minted for another definition key.
             ForeignStateRecordError: the state store returned a record this
                 machine did not write.
+            ExecutionFenced: a writer other than this passage moved the
+                execution's record while the passage ran.
         """
         self._require_handle(workflow)
         verify(authorized, kind=Resume, resource=workflow.definition_key)
@@ -550,7 +786,7 @@ class WorkflowEngine:
     ) -> WorkflowOutcome:
         """:meth:`resume`'s body, run only while its single-flight claim is held."""
         tenant = authorized.tenant
-        record = self._control_plane.state_store.get(WORKFLOW_STATE, key)
+        record, version = self._read_versioned(key)
         if record is None:
             return self._refuse(
                 authorized,
@@ -597,6 +833,72 @@ class WorkflowEngine:
                     " SEC-001)"
                 ),
             )
+        if record.status == "running":
+            # D-IMPL-378. A ``running`` record is a passage whose commit LANDED.
+            # Dave's Q4 ruling: an interrupted passage is never retried unless
+            # a durable claim identifies it and no effect can repeat. His D2
+            # ruling: a passage whose current state is a gate or a terminal
+            # state ran no step — what is left is this engine's own
+            # version-fenced write and, at a gate, its one queue event — so it
+            # is FINISHED, never re-run, under the claim that names it
+            # (:meth:`_remainder`). At a step, what the step did is outside
+            # anything this engine can see, so it is refused, typed, whoever
+            # asks, until an operator reconciles the execution outside the
+            # fabric. (A passage whose commit never landed is still
+            # ``suspended`` and IS retried below: its step never started, its
+            # gate's closure names it, and only one commit can land.)
+            remainder = self._remainder(
+                workflow, tenant=tenant, key=key, record=record
+            )
+            if remainder == "complete":
+                return self._complete(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    terminal_state=record.current_state,
+                    trace=record.trace,
+                    started_by=record.started_by,
+                    version=version,
+                )
+            if remainder == "suspend":
+                return self._suspend(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    gate=record.current_state,
+                    trace=record.trace,
+                    started_by=record.started_by,
+                    version=version,
+                )
+            if remainder == "unclaimed":
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} has a committed passage that has"
+                        f" not finished and ran no step since, at"
+                        f" {record.current_state!r}, but no durable claim on the"
+                        " HITL authority path names it. An interrupted passage"
+                        " is never retried without the claim that identifies"
+                        " it; an operator reconciles it outside the fabric"
+                        " (D-IMPL-378; SEC-001)"
+                    ),
+                )
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} has a committed passage that has not"
+                    " finished: it is running in another process, or it was"
+                    " interrupted after its step began. An interrupted passage"
+                    " is never retried, because the effects its step may"
+                    " already have had cannot be shown not to repeat; an"
+                    " operator reconciles it outside the fabric (D-IMPL-378;"
+                    " SEC-001)"
+                ),
+            )
         if record.status == "suspended":
             # SEC-001: a gate opens on a human action returned through the
             # HITL authority path, never on the caller's decision string.
@@ -621,15 +923,28 @@ class WorkflowEngine:
             # ``resolved=True, actor=None`` in the audit — the exact
             # signature SEC-001 named. Never ask the caller what kind of
             # node the fabric is waiting on.
+            # D-IMPL-378: ONE read of the recorded verdicts, from which the
+            # authority, the conflict population and the count the gate's
+            # closure is judged against are all derived.
+            snapshot = self._hitl_transport.submissions(tenant=tenant)
             qualifying = self._gate_authority(
                 tenant=tenant,
                 key=key,
                 gate=record.current_state,
                 record=record,
                 workflow=workflow,
+                snapshot=snapshot,
             )
             if not qualifying:
-                return self._refuse(
+                # D-IMPL-378, Dave's repair 1.4 (a) of 2026-10-09: "Preserve the
+                # refused-resumption audit row, then restore the missing approval
+                # request idempotently." No approval qualifies, so this
+                # resumption is refused, and its refusal row is appended FIRST,
+                # whatever follows. THEN, by his decision 8 (a), a suspension
+                # whose approval request never reached the queue gets that one
+                # request back, and nothing passes the gate. Two separate acts: a
+                # restore that fails after the row leaves the row standing.
+                refused = self._refuse(
                     authorized,
                     workflow,
                     execution_id=execution_id,
@@ -642,6 +957,18 @@ class WorkflowEngine:
                         " (CLAUDE.md §8.2; D-IMPL-20)"
                     ),
                 )
+                restored = self._restore_request(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    key=key,
+                    record=record,
+                    version=version,
+                    snapshot=snapshot,
+                )
+                if restored is not None:
+                    return restored
+                return refused
             # Selection is UNCHANGED (D-IMPL-357 A4): the head of the
             # eligible tuple is the submission the single-submission form
             # returned, because ``submissions`` is oldest-first. What changed
@@ -655,6 +982,7 @@ class WorkflowEngine:
                 key=key,
                 gate=record.current_state,
                 record=record,
+                snapshot=snapshot,
             )
             if len({submission.action for submission in recorded}) > 1:
                 # D-IMPL-357 A4: two distinct human verdicts on ONE
@@ -736,18 +1064,107 @@ class WorkflowEngine:
                     verdict_integrity="route_disagreement",
                     recorded_approver=actor,
                 )
+            # D-IMPL-378: decide the gate ONCE, on exactly the verdicts judged
+            # above, in the authority path's own atomic step. A verdict recorded
+            # since the read changes the count and the decision fails; one
+            # arriving after it is refused by name at every door; another
+            # passage cannot take the closure.
+            event_key = self._event_key(key, record.current_state)
+            suspension = content_hash(record)
+            observed = sum(
+                1
+                for submission in snapshot
+                if submission.event_key == event_key
+                and submission.principal.product_content_hash == suspension
+            )
+            # The passage is named by WHAT it decides — this suspension, this
+            # authority submission, this verdict — never by who decides it. A
+            # retry of a passage whose commit never landed re-presents the same
+            # name, so the gate's closure (the durable claim on the authority
+            # path) is re-taken idempotently, and the conditional passage
+            # commit below lets exactly one attempt land (D-IMPL-378, Q4).
+            passage = content_hash(
+                {
+                    "suspension": suspension,
+                    "authority": content_hash(authority),
+                    "action": authority.action,
+                }
+            )
+            try:
+                self._hitl_transport.close_gate(
+                    authorized,
+                    event_key=event_key,
+                    product_content_hash=suspension,
+                    passage=passage,
+                    decided_action=authority.action,
+                    decided_by=authority.principal.approver.subject_id,
+                    observed_submissions=observed,
+                )
+            except GateAlreadyClosed:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"the gate {record.current_state!r} of execution"
+                        f" {key!r} was already decided by another passage; one"
+                        " approval authorizes one passage (D-IMPL-378; SEC-001)"
+                    ),
+                )
+            except GateVerdictsChanged:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"a verdict on gate {record.current_state!r} of"
+                        f" execution {key!r} was recorded while this resumption"
+                        " was deciding, so nothing was decided; present the"
+                        " resumption again and it judges the verdicts that now"
+                        " stand (D-IMPL-378; D-IMPL-357 A4)"
+                    ),
+                )
             trace = record.trace + (
                 self._entry(
                     record.trace, record.current_state, decision, "resume"
                 ),
             )
-            self._append(
-                workflow,
-                key,
-                action="workflow_resumed",
-                resolved=True,
-                actor=actor,
-            )
+            # D-IMPL-378: the passage — the record leaving the gate — is
+            # committed conditionally on the version read, BEFORE the step
+            # after the gate runs, and its attributed row is appended after the
+            # commit lands: two writes, not one. Of two resumptions anywhere,
+            # exactly one commit lands; a refused or failed commit appends no
+            # row, and a row append that fails after the commit leaves the
+            # passage without its row (decision 7 of D-IMPL-378; SP §4.13).
+            try:
+                version = self._write_state(
+                    authorized,
+                    workflow,
+                    key,
+                    self._record(
+                        workflow,
+                        tenant=tenant,
+                        execution_id=execution_id,
+                        current_state=decision,
+                        status="running",
+                        trace=trace,
+                        started_by=record.started_by,
+                    ),
+                    action="workflow_resumed",
+                    actor=actor,
+                    expected_version=version,
+                )
+            except StateConflict:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} moved while this resumption decided"
+                        " its gate; the passage that moved it stands, and one"
+                        " approval authorizes one passage (D-IMPL-378; SEC-001)"
+                    ),
+                )
             if decision in workflow.definition.effective_terminal_states:
                 return self._complete(
                     authorized,
@@ -756,6 +1173,7 @@ class WorkflowEngine:
                     terminal_state=decision,
                     trace=trace,
                     started_by=record.started_by,
+                    version=version,
                 )
             return await self._advance(
                 authorized,
@@ -764,6 +1182,7 @@ class WorkflowEngine:
                 state=decision,
                 trace=trace,
                 started_by=record.started_by,
+                version=version,
             )
         # exception-routed: the handler handed the state back — retry the
         # node it was routed from.
@@ -801,17 +1220,42 @@ class WorkflowEngine:
         resolution = self._escalation_authority(
             tenant=tenant, key=key, record=record
         )
-        self._append(
-            workflow,
-            key,
-            action="workflow_resumed",
-            resolved=True,
-            actor=(
-                None
-                if resolution is None
-                else resolution.principal.approver.subject_id
-            ),
-        )
+        # D-IMPL-378: the retry of the routed node is a passage too, committed
+        # conditionally before the node runs, so two resumptions of one
+        # exception-routed execution cannot both re-run it.
+        try:
+            version = self._write_state(
+                authorized,
+                workflow,
+                key,
+                self._record(
+                    workflow,
+                    tenant=tenant,
+                    execution_id=execution_id,
+                    current_state=record.current_state,
+                    status="running",
+                    trace=record.trace,
+                    started_by=record.started_by,
+                ),
+                action="workflow_resumed",
+                actor=(
+                    None
+                    if resolution is None
+                    else resolution.principal.approver.subject_id
+                ),
+                expected_version=version,
+            )
+        except StateConflict:
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} moved while this resumption decided its"
+                    " retry; the passage that moved it stands (D-IMPL-378;"
+                    " SEC-001)"
+                ),
+            )
         return await self._advance(
             authorized,
             workflow,
@@ -819,6 +1263,7 @@ class WorkflowEngine:
             state=record.current_state,
             trace=record.trace,
             started_by=record.started_by,
+            version=version,
         )
 
     # -- the machine ----------------------------------------------------------
@@ -832,8 +1277,13 @@ class WorkflowEngine:
         state: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowOutcome:
         """Drive the machine from ``state`` until suspend or terminal.
+
+        ``version`` is the state record's version this passage wrote
+        (``D-IMPL-378``); the one write this drive ends in is conditional on
+        it.
 
         ``started_by`` is the starter recorded for this execution (SEC-006;
         `D-IMPL-366` G1 (a)), threaded unchanged into every record and every
@@ -862,6 +1312,7 @@ class WorkflowEngine:
                     gate=state,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             assert step.ref is not None  # non-gate steps carry refs by schema
             if resolve_pinned(self._control_plane, step.ref) is None:
@@ -898,6 +1349,7 @@ class WorkflowEngine:
                         node=state,
                         trace=trace,
                         started_by=started_by,
+                        version=version,
                     )
             try:
                 if step.kind == "skill":
@@ -916,6 +1368,7 @@ class WorkflowEngine:
                     node=state,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             targets = self._targets(workflow, state)
             if len(targets) != 1:
@@ -942,6 +1395,7 @@ class WorkflowEngine:
                     terminal_state=target,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             state = target
 
@@ -954,11 +1408,26 @@ class WorkflowEngine:
         gate: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowSuspended:
         """Suspend on a hitl-gate: persist, enqueue, return a typed handle.
 
         The record, the state key, the trace artifact and the pending HITL
-        event are all filed under ``authorized.tenant`` (§1.3).
+        event are all filed under ``authorized.tenant`` (§1.3). A suspension
+        whose request never reached the queue, after its persist landed, gets
+        that request back from :meth:`_restore_request`.
+
+        **The HITL stall, disclosed** (``D-IMPL-380``, fifth round, ruling 1
+        (a); Dave, 2026-10-10 12:57 MST: *"Put that sentence, in the same
+        words, on ``_suspend`` and ``_restore_request``."*). A HITL transport is
+        handed the engine's own pending event, which is not copied. A transport
+        that alters it can change the ``event_key`` the caller is told in
+        ``WorkflowSuspended``, and, because resume looks for the key it
+        recomputes (``_event_key``) among the events the transport holds, a
+        transport that alters the key can keep the gate from ever opening, and
+        each recovery queues another request. Nothing is wrongly approved: the
+        approval binding, the hash of the suspension record as built, does not
+        change.
         """
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
@@ -972,29 +1441,47 @@ class WorkflowEngine:
             trace=trace,
             started_by=started_by,
         )
-        self._persist(
-            authorized, workflow, key, record, action="workflow_suspended"
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_suspended", version=version
         )
         trace_artifact = self._write_trace(authorized, key, execution_id, trace)
-        event_key = self._event_key(key, gate)
-        self._hitl_transport.enqueue(
-            event=PendingHitlEvent(
-                event_key=event_key,
-                event_class=GATE_EVENT_CLASS,
-                tenant=tenant,
-                workflow_state_ref=key,
-                product_content_hash=content_hash(record),
-                policy_ref=workflow.definition.gate_policies.get(gate),
-                # SEC-006 (D-IMPL-366 G1 (a)): the requester is the starter.
-                requested_by=started_by,
-            )
-        )
+        event = self._gate_event(workflow, tenant=tenant, key=key, record=record)
+        self._hitl_transport.enqueue(event=event)
         return WorkflowSuspended(
             tenant=tenant,
             execution_id=execution_id,
             gate=gate,
-            event_key=event_key,
+            event_key=event.event_key,
             trace_artifact=trace_artifact,
+        )
+
+    def _gate_event(
+        self,
+        workflow: Workflow,
+        *,
+        tenant: str,
+        key: str,
+        record: WorkflowStateRecord,
+    ) -> PendingHitlEvent:
+        """The one approval request a suspension files on the HITL transport.
+
+        Built here for :meth:`_suspend` and :meth:`_restore_request` alike, from
+        the suspension record and the definition alone, so a restored request is
+        the request the suspension filed, whoever restores it (``D-IMPL-378``;
+        Dave's decision 8 (a): *"Preserve the original authorization and
+        suspension identity"*). The gate's event key and class, the execution's
+        state key, the record's own content hash, the gate's pinned approval
+        policy, and the starter as requester (SEC-006; ``D-IMPL-366`` G1 (a)).
+        """
+        gate = record.current_state
+        return PendingHitlEvent(
+            event_key=self._event_key(key, gate),
+            event_class=GATE_EVENT_CLASS,
+            tenant=tenant,
+            workflow_state_ref=key,
+            product_content_hash=content_hash(record),
+            policy_ref=workflow.definition.gate_policies.get(gate),
+            requested_by=record.started_by,
         )
 
     def _route_exception(
@@ -1006,6 +1493,7 @@ class WorkflowEngine:
         node: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowOutcome:
         """Take ``node``'s exception path (D-13; D-IMPL-61 option-a)."""
         tenant = authorized.tenant
@@ -1024,8 +1512,8 @@ class WorkflowEngine:
                 trace=trace,
                 started_by=started_by,
             )
-            self._persist(
-                authorized, workflow, key, record, action="workflow_exception"
+            self._fenced_write(
+                authorized, workflow, key, record, action="workflow_exception", version=version
             )
             trace_artifact = self._write_trace(
                 authorized, key, execution_id, trace
@@ -1056,6 +1544,7 @@ class WorkflowEngine:
             terminal_state=WORKFLOW_FAILED_STATE,
             trace=trace,
             started_by=started_by,
+            version=version,
         )
 
     def _complete(
@@ -1067,6 +1556,7 @@ class WorkflowEngine:
         terminal_state: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowCompleted:
         """Reach a terminal condition: persist, write through, hand to replay."""
         tenant = authorized.tenant
@@ -1080,8 +1570,8 @@ class WorkflowEngine:
             trace=trace,
             started_by=started_by,
         )
-        self._persist(
-            authorized, workflow, key, record, action="workflow_completed"
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_completed", version=version
         )
         trace_artifact = self._write_trace(authorized, key, execution_id, trace)
         visited = {entry.source for entry in trace} | {
@@ -1142,6 +1632,7 @@ class WorkflowEngine:
         gate: str,
         record: WorkflowStateRecord,
         workflow: Workflow,
+        snapshot: tuple[HitlActionSubmission, ...],
     ) -> tuple[HitlActionSubmission, ...]:
         """Every recorded human verdict ELIGIBLE to authorize passage past ``gate``.
 
@@ -1241,17 +1732,17 @@ class WorkflowEngine:
         with the target the artifact declares for the verdict that action
         carries.
 
-        **A VERDICT RECORDED BEFORE THIS RESUMPTION READS THE CONFLICT
-        POPULATION CANNOT REACH THE APPROVING TERMINAL** — whatever it
-        contradicts, in either arrival order, stamped or not (D-IMPL-357
-        A3 + A4). **That bound is the claim, and it is deliberately not
-        unconditional:** a verdict recorded *concurrently with* a
-        resumption, after the read and before the attributed commit, is
-        not in the population this check saw, which is residual 2(b)
-        below. Routing is the compare above; selection integrity is the
-        conflict refusal in :meth:`resume` over
-        :meth:`_recorded_gate_verdicts`. Both of the paths A3's review
-        measured are shut, and each was measured again going red:
+        **No verdict recorded on this suspension is outvoted by a passage**
+        (``D-IMPL-378``). A verdict recorded before the resumption reads the
+        verdicts is in the population judged here and refuses the resumption if
+        it disagrees (``D-IMPL-357`` A3 + A4); one recorded after that read and
+        before the decision makes the gate's closure fail, and the resumption
+        is refused; one arriving after the closure is refused at the door
+        (``hitl-gate-closed``). Routing is the compare in :meth:`resume`;
+        selection integrity is the conflict refusal over
+        :meth:`_recorded_gate_verdicts`; timing integrity is the closure. The
+        paths A3's review measured are shut, and each was measured again going
+        red:
 
         * **Two distinct verdicts on one suspension** no longer resolve to
           the oldest and route on it. They refuse, in either arrival order,
@@ -1267,17 +1758,10 @@ class WorkflowEngine:
 
         **What remains OPEN, stated here because this docstring is the
         residual ledger a close panel, an adopter and the next maintainer
-        read.** Both items are real and neither may be read as closed:
-        item (2)'s first shape is refused within one process and nowhere
-        else, and its second shape is untouched. The
-        second one **can** put a rejection at an approving terminal — no
-        sentence here may reassure a reader otherwise, because a
-        reassurance is exactly what stops a maintainer looking for the
-        shape.
+        read.**
 
         * **(1) The stamp race itself is still there, in the transport.**
-          A
-          claim is keyed ``(tenant, event_key)`` and consumed by whichever
+          A claim is keyed ``(tenant, event_key)`` and consumed by whichever
           submission for that pair arrives first, so an attacker holding
           submit authority can still cause an officer's verdict to be
           recorded unstamped. What changed is the consequence: the pair now
@@ -1289,67 +1773,38 @@ class WorkflowEngine:
           ``remove`` minting an opaque claim token that ``submit``
           requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
           signature change that belongs with the D-IMPL-62 door ruling.
-        * **(2) THIS RESUMPTION'S READ-DECIDE-COMMIT IS ATOMIC ONLY AGAINST
-          OTHER RESUMPTIONS OF THE SAME EXECUTION IN THIS PROCESS**, and
-          two shapes fall out of that. :meth:`resume` performs no
-          compare-and-set: it reads the state record, reads the authority
-          and conflict populations, decides, and only then writes. Since
-          D-IMPL-377 it does all of that under a single-flight claim on the
-          execution (keyed by the state store and the state key, shared by
-          every engine in the process over that store), so **(a)** — two
-          concurrent resumes of one suspension both passing the authority
-          read AND the conflict check, executing the downstream node twice
-          from one human action and writing two attributed resumption rows
-          — is REFUSED within one process: the second resume is a typed
-          refusal. (a) stays OPEN across processes, and across several
-          state-store objects that front one durable store, because
-          :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
-          compare-and-set. **(b) is unchanged:** a verdict
-          recorded *inside that window* is not seen at all, so a rejection
-          submitted after the conflict read and before the attributed
-          commit leaves BOTH verdicts standing in the record while the
-          execution completes at the approving terminal — the outcome the
-          check above refuses when the same rejection lands first.
-          **These are one defect, and closing both takes a fix that
-          reaches both: one per-execution lock taken by both the resumption
-          and the submission path for that execution's event, or a
-          compare-and-set that covers the conflict population as well as
-          the state record, closes both; a lock or compare-and-set on the
-          state record ALONE closes only (a).** D-IMPL-377's claim is the
-          resumption half of the first remedy only — the submission path
-          does not take it — so it closes (a) in one process and leaves
-          (b) exactly as it was. The reason is structural
-          rather than incidental, and it is stated because this is the
-          sentence a maintainer would implement from: submissions live in
-          the transport's own list, and
-          :mod:`ccf.hitl.transport` names ``state_store``,
-          ``WORKFLOW_STATE`` and :class:`WorkflowStateRecord` zero times —
-          a late rejection never touches the state record at all, so a
-          compare-and-set on the state record SUCCEEDS and (b) stands. A
-          second read before the commit is not the fix
-          either: it narrows the window and invites a reader to think the
-          class is handled. **Nothing in this docstring may be read as
-          closing the concurrency class**, and no state-record guarantee
-          may be read as settling (b). Closing it needs the serialization
-          ruling.
+        * **(2) A conflicted gate stays suspended for good** (``D-GATE-357``
+          (2)). The fabric offers no primitive that reopens it; a human settles
+          the disagreement outside the fabric.
+        * **(3) An interrupted passage at a step stays ``running`` for good.**
+          It is never retried (Dave's Q4 ruling on ``D-IMPL-378``), and the
+          fabric offers no primitive that reconciles it; an operator reads the
+          gate's closure
+          (:meth:`~ccf.hitl.transport.HITLTransportProtocol.closures`) and the
+          audit row, and reconciles outside the fabric. One at a gate or a
+          terminal state ran no step, and is finished under its durable claim
+          (Dave's D2 ruling; :meth:`resume`).
+        * **(4) The guarantees are the store's and the transport's.** They
+          hold over a :class:`~ccf.controlplane.state.ConditionalStateStore`
+          and a transport whose ``close_gate`` and ``submit`` are atomic with
+          respect to each other, as the reference implementations are. The
+          engine refuses at construction an implementation that offers neither
+          the methods nor a declared scope; it cannot see whether a
+          third-party implementation keeps the atomicity it declares —
+          ``tests/conformance/test_gate_closure_and_conditional_write.py`` is
+          the suite a deployment runs against its own.
 
-          **The probe shape, carried so it is not re-derived.** No engine
-          logic is altered: a pure helper on this read path is wrapped
-          with a tenth-of-a-second sleep purely to widen a window that is
-          already there, and a real second operating-system thread submits
-          the rejection through the real transport with a real capability.
-          Both verdicts end up recorded and the execution completes
-          approved. **The window is reachable in the shipped server
-          topology** — the resumption endpoint is asynchronous on the
-          event loop, the human-action endpoint is a synchronous handler
-          the server runs on a worker thread, and the unwidened window
-          spans the target lookup, the route lookup, the trace
-          serialization and the audit construction with its canonical
-          hashing: thousands of operations against a five-millisecond
-          thread-switch interval. An in-process sweep landed zero times in
-          480 trials, which is the honest counterweight — **structurally
-          open, not demonstrated in process, and given true concurrency by
-          the served doors.**
+        **What the closure replaced, carried so it is not re-derived.**
+        Before ``D-IMPL-378`` the read-decide-commit was atomic only against
+        other resumptions in one process. Measured on 2026-10-07: two
+        resumptions through two state-store objects over one durable store
+        both passed the gate on one approval; a rejection recorded right
+        after the resumption's last read of the verdicts was outvoted
+        (15 of 15 forced-timing runs), and so was one recorded through the
+        served action door while the step after the gate ran. A second read
+        before the commit was rejected as a fix: it narrows the window and
+        invites a reader to think the class is handled, and when the step
+        after the gate has already run there is nothing left to refuse.
 
         The bound on the claim above is deliberate, because this project
         has already paid once for stating it wider: an earlier fix on this
@@ -1358,7 +1813,9 @@ class WorkflowEngine:
         in place.
 
         Note the direction of trust: the engine *reads* the authority path
-        and never writes a verdict to it. Resolution stays the gate
+        and never writes a verdict to it. The one thing it records there is
+        the gate's closure (``D-IMPL-378``), which decides no verdict: it
+        freezes the verdicts the engine judged. Resolution stays the gate
         primitive's act (CLAUDE.md §8.2).
         """
         event_key = self._event_key(key, gate)
@@ -1392,7 +1849,7 @@ class WorkflowEngine:
 
         return tuple(
             submission
-            for submission in self._hitl_transport.submissions(tenant=tenant)
+            for submission in snapshot
             if submission.event_key == event_key
             and submission.principal.product_content_hash == suspension
             and submission.action in GATE_ACTIONS
@@ -1419,6 +1876,7 @@ class WorkflowEngine:
         key: str,
         gate: str,
         record: WorkflowStateRecord,
+        snapshot: tuple[HitlActionSubmission, ...],
     ) -> tuple[HitlActionSubmission, ...]:
         """Every gate verdict RECORDED against this suspension, oldest first.
 
@@ -1499,7 +1957,7 @@ class WorkflowEngine:
         suspension = content_hash(record)
         return tuple(
             submission
-            for submission in self._hitl_transport.submissions(tenant=tenant)
+            for submission in snapshot
             if submission.event_key == event_key
             and submission.principal.product_content_hash == suspension
             and submission.action in GATE_ACTIONS
@@ -1667,7 +2125,285 @@ class WorkflowEngine:
             started_by=started_by,
         )
 
-    def _persist(
+    def _remainder(
+        self,
+        workflow: Workflow,
+        *,
+        tenant: str,
+        key: str,
+        record: WorkflowStateRecord,
+    ) -> str:
+        """What is left of a ``running`` record's passage, and whether this engine may finish it.
+
+        ``D-IMPL-378``; Dave's D2 ruling of 2026-10-07 under his Q4 condition.
+        Returns:
+
+        * ``"step"`` — the record's state is a step, which may have run: never
+          retried (Q4 (b));
+        * ``"complete"`` or ``"suspend"`` — the state is a terminal state or a
+          ``hitl-gate``, so no step lies between the commit and the passage's
+          next write, and the passage's durable claim names it;
+        * ``"unclaimed"`` — no step can have run, but no durable claim names
+          the passage.
+
+        The durable claim never names an engine. For an execution's start —
+        an empty trace at the start node — it is the create-if-absent record
+        itself. For a passage past a gate it is that gate's closure on the
+        HITL authority path, found by the content hash of the suspension the
+        passage left (:func:`~ccf_runtime.workflow.state.suspension_left_by`),
+        and its decided verdict must route to the record's state.
+        """
+        at = record.current_state
+        if at in workflow.definition.effective_terminal_states:
+            remainder = "complete"
+        else:
+            step = next(
+                (s for s in workflow.task_definition.steps if s.name == at), None
+            )
+            if step is None or step.kind != "hitl-gate":
+                return "step"
+            remainder = "suspend"
+        if not record.trace:
+            if remainder == "suspend" and at == workflow.definition.start:
+                return remainder
+            return "unclaimed"
+        left = suspension_left_by(record)
+        if left is None:
+            return "unclaimed"
+        event_key = self._event_key(key, left.current_state)
+        suspension = content_hash(left)
+        claim = next(
+            (
+                closure
+                for closure in self._hitl_transport.closures(tenant=tenant)
+                if closure.event_key == event_key
+                and closure.product_content_hash == suspension
+            ),
+            None,
+        )
+        if claim is None:
+            return "unclaimed"
+        routes = workflow.definition.gate_routes.get(left.current_state, {})
+        if routes.get(claim.decided_action) != at:
+            return "unclaimed"
+        return remainder
+
+    def _finish_start(
+        self,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        key: str,
+    ) -> WorkflowSuspended | None:
+        """Finish, for its own starter, a start that committed and never suspended on its first node.
+
+        ``D-IMPL-378``; Dave's D2 ruling. The start's durable claim is the
+        create-if-absent record: ``running`` at the start node with an empty
+        trace, under this definition, stamped with this starter. When the start
+        node is a ``hitl-gate`` no step ran, and what is left is the version-fenced
+        suspension write and its one queue event. ``None`` for anything else,
+        which the caller refuses as a second start.
+
+        Extended by Dave's decision 8 (a) of 2026-10-09: when the record, under
+        this definition and stamped with this starter, is ``suspended`` and its
+        approval request never reached the queue, the starter's retry restores
+        that request (:meth:`_restore_request`).
+
+        Raises:
+            ExecutionFenced: another finisher, or the original start, wrote the
+                suspension first; or another recovery restored the request
+                first.
+        """
+        record, version = self._read_versioned(key)
+        if (
+            not isinstance(record, WorkflowStateRecord)
+            or record.started_by != authorized.principal
+            or record.workflow_definition_uri != workflow.identity.definition_uri
+            or record.workflow_definition_hash
+            != workflow.identity.definition_hash
+        ):
+            return None
+        if record.status == "suspended":
+            return self._restore_request(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                key=key,
+                record=record,
+                version=version,
+            )
+        if (
+            record.status != "running"
+            or record.trace
+            or self._remainder(
+                workflow, tenant=authorized.tenant, key=key, record=record
+            )
+            != "suspend"
+        ):
+            return None
+        return self._suspend(
+            authorized,
+            workflow,
+            execution_id=execution_id,
+            gate=record.current_state,
+            trace=record.trace,
+            started_by=record.started_by,
+            version=version,
+        )
+
+    def _restore_request(
+        self,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        key: str,
+        record: WorkflowStateRecord,
+        version: int,
+        snapshot: tuple[HitlActionSubmission, ...] | None = None,
+    ) -> WorkflowSuspended | None:
+        """File, once, the approval request a suspension never got onto the queue.
+
+        ``D-IMPL-378``; Dave's decision 8 (a) of 2026-10-09, which extends his D2
+        ruling: *"Recover the suspended run by idempotently restoring its missing
+        approval request. Preserve the original authorization and suspension
+        identity; never manufacture approval or rerun an effect."* A suspension
+        is three acts (:meth:`_suspend`): the version-fenced ``suspended`` write,
+        the trace write-through, and the enqueue of its one request. A process
+        that dies, or an artifact store that fails, after the first act leaves
+        ``record`` suspended at its gate with no request, so no verdict on it
+        could ever count. D2's two triggers reach it, the starter's retried
+        start (:meth:`_finish_start`) and a resumption that finds no approval
+        (:meth:`resume`, which appends its refusal row first, Dave's repair
+        1.4 (a)), and this files what is left of the suspension, in this
+        order:
+
+        * the trace artifact, from the record's own trace. It is
+          content-addressed, so it is the artifact the suspension meant to file,
+          at the same address, and one already filed is unchanged;
+        * the record, re-written UNCHANGED, conditionally on ``version``, the
+          version the caller read (:meth:`_fenced_write`). Its content hash,
+          which the request, every verdict and the gate's closure are bound to,
+          does not change, and the write appends one more ``workflow_suspended``
+          row for the same suspension. That row is the suspension's own row in
+          every field but its sequence and its time, so nothing in it marks a
+          restore
+          (``tests/workflow/test_restore_keeps_the_refused_resumption_row.py::test_the_restores_row_is_the_suspensions_own_row_but_for_its_sequence_and_time``).
+          Of two recoveries that read the same
+          version, one write lands and the other raises
+          :class:`ExecutionFenced` having filed no request (a resumption's
+          refusal row, appended before, stays);
+        * the one request, built by :meth:`_gate_event` exactly as the
+          suspension built it, so its key, class, content hash, pinned approval
+          policy and requester are the suspension's, whoever recovers it.
+
+        No step runs, no verdict is recorded and no gate is closed. Returns
+        ``None``, filing nothing, unless the record is ``suspended`` at a
+        ``hitl-gate`` and the HITL transport holds nothing for this suspension:
+        no pending request, no closure, and no verdict other than one recorded
+        while no request was pending. So a request that is pending, answered or
+        decided is never filed again. The only verdicts a recovery files around
+        were recorded while the request was missing, as
+        ``event_state_at_submit="missing"``, and such a verdict is never
+        authority (:meth:`_gate_authority`), though it still counts as a
+        disagreement (``D-IMPL-366`` H2;
+        ``tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict``):
+        the gate opens only on a verdict recorded against the restored request.
+        The closure term is a backstop: a closure is taken only on a verdict,
+        which the verdict term already finds.
+
+        **What it cannot see**, each measured by
+        ``tests/workflow/test_restore_missing_approval_request.py``. Nothing in a
+        suspension says whether, or where, its request was filed:
+
+        * **Two identical requests are possible.** The conditional write orders
+          recoveries that read the same version. It does not order a recovery
+          that reads the record after another write landed and before that
+          write's enqueue: the suspension's own passage, still alive and slow at
+          its trace write, or another recovery between its write and its
+          enqueue. Each then files the request. The gate still opens once on one
+          approval: both requests are bound to the one suspension, its closure
+          judges every verdict recorded on it and retires both, and a later
+          verdict is refused ``hitl-gate-closed``. Filing at most one would take
+          an enqueue that is atomic with its own absence check, which is a change
+          to the :class:`~ccf.hitl.transport.HITLTransportProtocol`.
+        * **A request a gate primitive has claimed and not yet answered is filed
+          again.** A claim is not visible through the transport Protocol. The
+          enqueue discards the claim, as the Protocol documents, so the
+          primitive's verdict is recorded against the restored request,
+          ``pending`` and unstamped, and it carries the run past the gate once.
+        * **The request is filed on this engine's own transport.** Deployed with
+          one HITL transport per Control Plane state store, as
+          ``public/how-to/security-and-deployment.md`` §4.13 requires, that is
+          the suspension's own. With more than one, a request pending on another
+          engine's transport is filed again on this one, whose verdicts this
+          engine judges.
+
+        **The HITL stall, disclosed** (``D-IMPL-380``, fifth round, ruling 1
+        (a); Dave, 2026-10-10 12:57 MST, and 11:56 MST: *"Use the same words.
+        Do not write a second disclosure."*). A HITL transport is handed the
+        engine's own pending event, which is not copied. A transport that
+        alters it can change the ``event_key`` the caller is told in
+        ``WorkflowSuspended``, and, because resume looks for the key it
+        recomputes (``_event_key``) among the events the transport holds, a
+        transport that alters the key can keep the gate from ever opening, and
+        each recovery queues another request. Nothing is wrongly approved: the
+        approval binding, the hash of the suspension record as built, does not
+        change.
+        """
+        gate = record.current_state
+        step = next(
+            (s for s in workflow.task_definition.steps if s.name == gate), None
+        )
+        if record.status != "suspended" or step is None or step.kind != "hitl-gate":
+            return None
+        tenant = authorized.tenant
+        event_key = self._event_key(key, gate)
+        suspension = content_hash(record)
+        if snapshot is None:
+            snapshot = self._hitl_transport.submissions(tenant=tenant)
+        if (
+            any(
+                event.event_key == event_key
+                and event.event_class == GATE_EVENT_CLASS
+                and event.product_content_hash == suspension
+                for event in self._hitl_transport.pending(tenant=tenant)
+            )
+            or any(
+                closure.event_key == event_key
+                and closure.product_content_hash == suspension
+                for closure in self._hitl_transport.closures(tenant=tenant)
+            )
+            or any(
+                submission.event_key == event_key
+                and submission.principal.product_content_hash == suspension
+                and submission.event_state_at_submit != "missing"
+                for submission in snapshot
+            )
+        ):
+            return None
+        trace_artifact = self._write_trace(authorized, key, execution_id, record.trace)
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_suspended", version=version
+        )
+        event = self._gate_event(workflow, tenant=tenant, key=key, record=record)
+        self._hitl_transport.enqueue(event=event)
+        return WorkflowSuspended(
+            tenant=tenant,
+            execution_id=execution_id,
+            gate=gate,
+            event_key=event.event_key,
+            trace_artifact=trace_artifact,
+        )
+
+    def _read_versioned(self, key: str) -> tuple[object | None, int]:
+        """The execution's record and its version (``D-IMPL-378``)."""
+        store = self._control_plane.state_store
+        assert isinstance(store, ConditionalStateStore)  # refused at construction otherwise
+        return store.get_versioned(WORKFLOW_STATE, key)
+
+    def _write_state(
         self,
         authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
@@ -1675,8 +2411,10 @@ class WorkflowEngine:
         record: WorkflowStateRecord,
         *,
         action: AuditAction,
-    ) -> None:
-        """Write state through the audited surface — one write, one event.
+        actor: str | None,
+        expected_version: int,
+    ) -> int:
+        """Write state through the audited surface, conditionally: the state write, then its one event (two writes).
 
         A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): the state
         store derives the key it writes under from ``authorized.tenant`` and
@@ -1685,13 +2423,48 @@ class WorkflowEngine:
         ``key`` here is the engine's own reading of that same derivation
         (:meth:`_key`), used for the audit event and asserted equal to what
         the store derives, so the two cannot drift apart silently.
+
+        The write is conditional on ``expected_version`` and the event is
+        appended only when it lands (``D-IMPL-378``), so the audit log never
+        records a transition the store did not take.
+
+        **The state store is handed a deep copy of the record, taken before the
+        save** (``D-IMPL-380``, third round, ruling 2 (a), 2026-10-10 09:18
+        MST: *"The workflow state store is not trusted because it is the
+        Control Plane. That is the same hole as the artifact store, one writer
+        over."*), and the engine keeps its own record. Every state write passes
+        through this function (no other ``write_if`` or ``put_if`` exists in
+        ``runtime/ccf_runtime/workflow/``), and in every passage but
+        :meth:`_restore_request`, which writes the trace first (from a record
+        read back from the store), the state write comes before
+        :meth:`_write_trace` (``D-IMPL-380``, fourth round, ruling 3 (a);
+        Dave, 2026-10-10 10:58 MST: *"Always comes before"* *"is false on
+        `_restore_request`."*), so a state store that altered
+        the record it held — its trace entries are the engine's own — would
+        otherwise reach the trace artifact, a completed outcome's
+        ``step_sequence_block`` and a suspension's approval binding. They are
+        built from the engine's record, which the store never held.
+
+        **The saved-bytes limit, state-store form, disclosed.** The record the
+        state store saves is its copy. A state store that alters its copy saves
+        the alteration, and a LATER passage that reads the record back (a
+        resume, a retry, the recovery path) reads what the store saved. Nothing
+        here re-reads what the store saved: the same posture as the artifact
+        store's (:meth:`_write_trace`).
+
+        Raises:
+            StateConflict: the record moved since ``expected_version`` was read.
         """
         execution_id = key[len(authorized.tenant) + 1 :]
         assert self._key(authorized.tenant, execution_id) == key
-        self._writer.write(
+        _, version = self._writer.write_if(
             authorized,
             WORKFLOW_STATE,
-            record,
+            # A deep copy taken now, before the save; the engine keeps its own
+            # record (`D-IMPL-380`, third round; Dave, 2026-10-10 09:23 MST:
+            # *"Each of the three writers copies before the save and keeps its
+            # own."*).
+            record.model_copy(deep=True),
             record_id=execution_id,
             event=AuditEvent(
                 sequence=0,  # reassigned by the log; sequencing is its own
@@ -1700,10 +2473,44 @@ class WorkflowEngine:
                 version=workflow.identity.definition_hash,
                 resolved=True,
                 occurred_at=self._clock(),
-                actor=None,
+                actor=actor,
                 artifact_class=WORKFLOW_DEFINITION.class_id,
             ),
+            expected_version=expected_version,
         )
+        return version
+
+    def _fenced_write(
+        self,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        workflow: Workflow,
+        key: str,
+        record: WorkflowStateRecord,
+        *,
+        action: AuditAction,
+        version: int,
+    ) -> int:
+        """A write that ends a passage, conditional on the version the passage wrote.
+
+        ``D-IMPL-378``. A conflict here means a writer other than this passage
+        moved the execution's record while the passage ran; fail closed
+        (:class:`ExecutionFenced`).
+        """
+        try:
+            return self._write_state(
+                authorized,
+                workflow,
+                key,
+                record,
+                action=action,
+                actor=None,
+                expected_version=version,
+            )
+        except StateConflict as error:
+            raise ExecutionFenced(
+                f"execution {key!r} was moved by another writer while this"
+                " passage ran; nothing was written (D-IMPL-378)"
+            ) from error
 
     def _append(
         self,
@@ -1807,13 +2614,87 @@ class WorkflowEngine:
         the class the client lane, and the engine's ``Execute``/``Resume``
         capability dies at the store's ``verify_any`` on the first trace write
         — fail closed, nothing filed, no execution reported as run.
+
+        **The store's answer is held to the trace written** (``D-IMPL-378``
+        decision 5, extending 5 (a)): every field of the reference ``put``
+        returns must be the trace's own — its content address, the URI naming
+        it under the capability's tenant and the trace class with the
+        execution id as name and that address as version, and the tenant,
+        class and name — or no reference is returned. The reference returned,
+        which callers receive as the outcome's ``trace_artifact``, is the one
+        the engine derived, which the store's answer equals field for field.
+        **That reference is derived before** ``put`` **is called**, from the
+        trace as built, and never from the trace after the store has held it
+        (``D-IMPL-380``, ruling 1 (a), 2026-10-10 05:34 MST): a store that
+        rewrites the trace while holding it (``object.__setattr__`` passes a
+        frozen model's guard) and answers the rewritten trace's genuine
+        reference is refused, not believed. What is not checked: the bytes
+        the store holds (see :class:`WorkflowTraceReferenceMismatch`).
+
+        **The store is handed a deep copy of the trace, taken before** ``put``
+        (``D-IMPL-380``, second round, ruling 2 (a), 2026-10-10 07:39 MST),
+        and the engine keeps its own entries. So a store that alters what it
+        is handed and answers the trace's original reference — which passes
+        the check above, because the reference is right — alters only its
+        copy: the trace behind a completed outcome's ``step_sequence_block``,
+        the trace inside the state record the engine keeps, and the trace in
+        the record the recovery path (:meth:`_restore_request`) writes after
+        this ``put`` are the engine's own, as built. The saved-bytes limit
+        stands: such a store files altered bytes under the original's address,
+        and nothing here re-reads what it filed; a reader that re-hashes what
+        it fetches finds the difference.
+
+        Raises:
+            WorkflowTraceReferenceMismatch: the store's answer is not the
+                trace's own reference. Raised after the store returns.
         """
         del key  # the state key; the trace is named by the execution id alone
-        return self._artifact_store.put(
+        # The reference of the trace as built, derived BEFORE the store is
+        # handed it (`D-IMPL-380`, ruling 1 (a); Dave, 2026-10-10 05:34 MST:
+        # *"Hash before put in both writers. Compare the store's answer to
+        # that precomputed reference. Do not hash the object again after the
+        # store has held it."*). The entries are frozen, but
+        # ``object.__setattr__`` passes a frozen model's guard, so a store
+        # that rewrote the trace while holding it would otherwise be compared
+        # against the rewritten trace. `D-IMPL-26`: the version IS the
+        # address; the name is the execution id.
+        address = content_hash(trace)
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=authorized.tenant,
+                artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+                name=execution_id,
+                artifact_version=address,
+            ),
+            tenant_id=authorized.tenant,
+            artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+            name=execution_id,
+        )
+        # The store is handed a deep copy taken now, before the save, and never
+        # the engine's own entries (`D-IMPL-380`, second round, ruling 2 (a);
+        # Dave, 2026-10-10 07:39 MST: *"Each writer gives the store a deep copy
+        # made before the save and keeps its own."*): the entries are the ones
+        # behind ``step_sequence_block`` and inside the state record, so an
+        # alteration the store made to the objects it held would otherwise
+        # reach the caller and the replay record under a reference that checks
+        # out.
+        answered = self._artifact_store.put(
             authorized,
             DerivedWrite(
                 artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
                 name=execution_id,
-                artifact=trace,
+                artifact=tuple(entry.model_copy(deep=True) for entry in trace),
             ),
         )
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # store's answer held to the reference derived above, field for field,
+        # as exact strings — never re-derived from the trace the store held.
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise WorkflowTraceReferenceMismatch(fields=differing)
+        return own

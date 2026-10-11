@@ -245,7 +245,14 @@ class SubjectUnavailableRefusal(CCFContract):
     it crosses a consumer boundary is :func:`~ccf.products.disclosure.disclose`'s
     decision and nobody else's; at the safe default that function replaces
     :attr:`cause` with ``"undisclosed"`` while the record keeps what the fabric
-    actually determined.
+    actually determined. Two exceptions are ruled, and in each the record keeps
+    no statement of the source's: for a class with a declared early policy, a
+    refusal its subject-keyed acquisition phase raises is recorded as
+    :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`
+    (``D-IMPL-378`` repair 2.2 (a)); and for a class ruling P6 (a)'s probe
+    reads, a refusal that phase raises for the probe identifier is recorded as
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL` (repair
+    2.3 (b)).
 
     **There is deliberately no ``subject`` field.** Naming the subject on the
     shell is itself a leak channel — telling a caller *which* entity it may not
@@ -259,10 +266,15 @@ class SubjectUnavailableRefusal(CCFContract):
         cause: What the fabric actually determined. ``"nonexistent"`` — no such
             subject resolved; ``"unauthorized"`` — a subject the principal may
             not receive; ``"undisclosed"`` — the disclosure step withheld which
-            of the two it was. The third is not a determination the fabric ever
-            reaches; it is the value a **disclosed** shell carries, so that the
-            withheld case has a positive spelling rather than an absence a
-            reader must interpret.
+            of the two it was. The third is the value a **disclosed** shell
+            carries, so that the withheld case has a positive spelling rather
+            than an absence a reader must interpret; the fabric records it as a
+            determination in two places only,
+            :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`
+            (``D-IMPL-378`` repair 2.2 (a)) and
+            :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL` (repair
+            2.3 (b)), where the SDK does not state which of the other two
+            applied.
         detail: The human-readable statement. Internally this is the fabric's
             own sentence; at ``minimal`` the disclosure step replaces it with
             the one external sentence
@@ -596,6 +608,22 @@ class ResourceRequestIdentity(CCFContract):
             read from the deployment's own declared clock — the **same**
             instant the replay record's ``recorded_at`` carries, so the shell
             and its record cannot disagree about when the fabric decided.
+        tenant_from: Where :attr:`tenant_id` came from — the marker a
+            read-refusal record carries (Dave, 2026-10-07, ruling Q3;
+            ``D-IMPL-378``). ``"capability"`` is the positive claim that
+            :attr:`tenant_id` is the tenant the deciding capability was
+            verified for, bound to the principal replay dimension 4 records.
+            Only the governed evidence read
+            (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``)
+            writes it, on the read refusals it mints, and only that read
+            reads it — and only on a record its provenance check has proved
+            the fabric's record writer filed, so bytes a caller filed carrying
+            it confer nothing. ``None``, the sentinel, states nothing: a
+            read-refusal record minted before the marker named the recorder's
+            tenant whichever tenant asked, so the governed read answers it as
+            a missing address for every caller, the principal it names
+            included. Hash-transparent at ``None``, so every record minted
+            before the field existed keeps its content address.
 
     Raises:
         ValueError: ``determined_at`` carries no UTC offset. ``D-IMPL-38``
@@ -610,6 +638,9 @@ class ResourceRequestIdentity(CCFContract):
     address: str
     tenant_id: str
     determined_at: datetime
+    tenant_from: Literal["capability"] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("determined_at")
     @classmethod
@@ -970,10 +1001,23 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   contradictions"*): a governed "no" is a determination the fabric reached,
 #:   while two contradicting authoritative inputs are a state in which it
 #:   cannot determine what is true.
+#: * ``StateConflict`` — raised by a Control Plane state store's conditional
+#:   write when the record moved after its writer read it (``D-IMPL-378``). The
+#:   workflow engine turns it into its own typed resumption refusal, so no
+#:   consumer receives it as a determination: it is the store reporting a
+#:   concurrent writer, a state in which the write cannot proceed, never a
+#:   governed "no" about a product.
+#: * ``DemonstrationServeInstantConflict`` — raised at COMPOSITION when a
+#:   composition supplies its own clock while the tenant declares a
+#:   demonstration serve instant (`D-IMPL-378` C1;
+#:   `ccf.products.demonstration_clock.compose_serve_clock`). Two authorities
+#:   for one instant is a configuration contradiction on ``D-IMPL-253`` Q15's
+#:   terms, refused before any question exists, so no consumer can receive it
+#:   as a determination.
 #:
-#: The last two joined in ``24.6-L-07`` for the reason ``DefaultConflict``
-#: joined the allowlist above: the structural walk widened to the ``…Conflict``
-#: name family so that
+#: ``WebhookEndpointConflict`` and ``FragmentFamilyConflict`` joined in
+#: ``24.6-L-07`` for the reason ``DefaultConflict`` joined the allowlist above:
+#: the structural walk widened to the ``…Conflict`` name family so that
 #: :class:`~ccf.products.constraints.PolicyResolutionConflict` could not enter
 #: the vocabulary by exemption, and widening a walk means placing everything it
 #: then finds. Both are pre-existing ``ValueError`` subclasses and neither
@@ -995,6 +1039,8 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "WebhookEndpointConflict",
         "FragmentFamilyConflict",
         "ConstraintEffectivityConflict",
+        "StateConflict",
+        "DemonstrationServeInstantConflict",
     }
 )
 

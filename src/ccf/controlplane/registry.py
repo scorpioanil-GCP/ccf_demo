@@ -46,21 +46,29 @@ defaults (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import dataclass
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Final, Protocol, TypeAlias, cast, runtime_checkable
 
+from pydantic import BaseModel
+
 from ccf.authz.capability import (
     CompositionRegister,
+    InvalidationRecordRegister,
     ActionKind,
     AgentDeclare,
+    CapabilityBypassError,
     Authorized,
     Register,
     SkillCatalogRegister,
     SkillGrant,
+    verify,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.state import (
@@ -76,16 +84,22 @@ __all__ = [
     "DERIVED_REGISTER_KINDS",
     "REGISTER_KINDS",
     "AmbiguousPinnedVersionError",
+    "ArtifactIsolationRefused",
     "AuditEvent",
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
     "ControlPlaneRegistry",
     "CrossTenantKeyRefused",
     "DerivedRegisterAuthority",
+    "INVALIDATION_RECORD_CLASS_ID",
+    "INVALIDATION_RECORD_PREFIX",
+    "TypedRegisterAuthority",
+    "invalidation_record_key",
     "RegisterAuthority",
     "RefuseEmptyBump",
     "RefuseUnbumpedChange",
     "RegistrationRefusal",
+    "RegistryIntegrityFailure",
     "ReplayResolver",
 ]
 
@@ -194,6 +208,18 @@ RegisterAuthority: TypeAlias = (
 #: What ``register_versioned`` accepts: the door kinds, or the derived kind.
 DerivedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[SkillGrant]
 
+#: What ``register_typed`` accepts: the door kinds, or the invalidation-record kind (``D-IMPL-382``).
+TypedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[InvalidationRecordRegister]
+
+#: The class segment under which a tenant's entity-invalidation records live:
+#: ``{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`` (``D-IMPL-382`` option A). Mechanism,
+#: not a domain value: it is the one prefix the invalidation-record capability may write under.
+INVALIDATION_RECORD_PREFIX: Final[str] = "ccf.entity-invalidation"
+
+#: The one artifact class the invalidation-record capability may register (``D-IMPL-382``):
+#: *"It must not authorize another tenant, another artifact class, or general registry writes."*
+INVALIDATION_RECORD_CLASS_ID: Final[str] = "ccf.entity-invalidation-record"
+
 #: The separator of the ``{tenant}/{class}/{name}`` Control Plane key grammar.
 _KEY_SEPARATOR: Final[str] = "/"
 
@@ -249,7 +275,88 @@ def _door_key(authorized: DerivedRegisterAuthority) -> str:
             " capability's tenant, and a key with no tenant segment belongs to"
             " nobody (D-IMPL-353 §1.3)"
         )
+    _refuse_the_invalidation_range(resource)
     return resource
+
+
+def _refuse_the_invalidation_range(key: str) -> None:
+    """No door, composition or derived write may land in a tenant's invalidation range (``D-IMPL-382``).
+
+    ``{tenant}/ccf.entity-invalidation`` and everything under it belong to
+    :class:`~ccf.authz.capability.InvalidationRecordRegister` alone, which derives its keys
+    itself. The focused review of ``b66ab4fa`` reproduced what an open range allows: a door
+    capability minted for an exact record key planted an earlier boundary and a refused product
+    served; other content there made every serve touching that entity raise and blocked the sink.
+    """
+    _, separator, rest = key.partition(_KEY_SEPARATOR)
+    class_segment = rest.split(_KEY_SEPARATOR, 1)[0] if separator else ""
+    if class_segment == INVALIDATION_RECORD_PREFIX:
+        raise CapabilityBypassError(
+            f"{key!r} is in the entity-invalidation range, which only the invalidation-record"
+            " capability may write, under keys it derives itself (D-IMPL-382)"
+        )
+
+
+def invalidation_record_key(*, tenant_id: str, entity_uri: str) -> str:
+    """The key of one tenant's invalidation record for one entity (``D-IMPL-382`` option A).
+
+    ``{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}``: the entity URI is hashed so any URI
+    is a usable key segment and no URI can introduce a separator.
+    """
+    digest = hashlib.sha256(entity_uri.encode("utf-8")).hexdigest()
+    return f"{tenant_id}{_KEY_SEPARATOR}{INVALIDATION_RECORD_PREFIX}{_KEY_SEPARATOR}{digest}"
+
+
+def _invalidation_record_key(
+    authorized: Authorized[InvalidationRecordRegister], artifact_class: ArtifactClass, validated: object
+) -> str:
+    """The key an invalidation record lands under, derived — never named by a caller (``D-IMPL-382``).
+
+    In order, each refusal a ``CapabilityBypassError`` or ``CrossTenantKeyRefused``: the
+    capability is genuine and unretargeted for exactly this kind on its minted resource; that
+    resource is exactly the capability's own tenant's invalidation prefix; the class is the
+    entity-invalidation record class and nothing else; the record names the capability's tenant
+    and a non-empty entity. Dave, 2026-10-11 07:32: *"The authorization amendment covers only
+    entity-invalidation records belonging to the capability's tenant. It must not authorize
+    another tenant, another artifact class, or general registry writes."*
+    """
+    verify(authorized, kind=InvalidationRecordRegister, resource=getattr(authorized, "resource", ""))
+    if _KEY_SEPARATOR in authorized.tenant or not authorized.tenant:
+        raise CrossTenantKeyRefused(
+            f"tenant {authorized.tenant!r} is not a usable key segment: a tenant id containing"
+            f" {_KEY_SEPARATOR!r} would file records under another tenant's segment (D-IMPL-353 §1.3;"
+            " D-IMPL-382)"
+        )
+    expected_prefix = f"{authorized.tenant}{_KEY_SEPARATOR}{INVALIDATION_RECORD_PREFIX}"
+    if authorized.resource != expected_prefix:
+        raise CrossTenantKeyRefused(
+            f"an invalidation-record capability for tenant {authorized.tenant!r} must be minted for"
+            f" {expected_prefix!r}, not {authorized.resource!r}; it writes its own tenant's"
+            " invalidation records and nothing else (D-IMPL-382)"
+        )
+    # The class OBJECT, not its id: an ArtifactClass carrying the record's id over another contract,
+    # or over a subclass of the record, is another artifact class (review of b66ab4fa).
+    from ccf.controlplane.invalidation import ENTITY_INVALIDATION_RECORD, EntityInvalidationRecord
+
+    if artifact_class is not ENTITY_INVALIDATION_RECORD or type(validated) is not EntityInvalidationRecord:
+        raise CapabilityBypassError(
+            f"an invalidation-record capability registers {INVALIDATION_RECORD_CLASS_ID!r} only,"
+            f" not {artifact_class.class_id!r} with contract {type(validated).__name__}; it"
+            " authorizes no other artifact class (D-IMPL-382)"
+        )
+    tenant_id = getattr(validated, "tenant_id", None)
+    entity_uri = getattr(validated, "entity_uri", None)
+    if tenant_id != authorized.tenant:
+        raise CrossTenantKeyRefused(
+            f"the invalidation record names tenant {tenant_id!r} but the capability is for"
+            f" {authorized.tenant!r}; a record is filed under the capability's tenant only (D-IMPL-382)"
+        )
+    if not isinstance(entity_uri, str) or not entity_uri:
+        raise CrossTenantKeyRefused(
+            "an invalidation record must name its entity; without one there is no key to derive"
+            " and no caller may supply one (D-IMPL-382)"
+        )
+    return invalidation_record_key(tenant_id=authorized.tenant, entity_uri=entity_uri)
 
 
 def _derived_key(
@@ -277,7 +384,90 @@ def _derived_key(
             f" {authorized.tenant!r}; a derived registration is filed under the"
             " capability's tenant and nothing else may name one (D-IMPL-353 §1.3)"
         )
-    return f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
+    key = f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
+    _refuse_the_invalidation_range(key)
+    return key
+
+
+class ArtifactIsolationRefused(TypeError):
+    """An artifact the registry could not reconstruct independently — refused, never shared (``D-IMPL-380``, sixth round).
+
+    The registry holds and serves *reconstructions*, never a registrant's
+    object and never a reader's (Dave, 2026-10-10 15:50 MST, under Grok's
+    reviewed amendment: *"Use canonical serialization and reconstruction for
+    both copy-in and copy-out. Shallow copies are not accepted."*). When the
+    reconstruction of an artifact would not preserve its type, its canonical
+    bytes or its value, the door refuses with this error rather than falling
+    back (*"Do not fall back to the original object or a shallow copy."*). On a
+    write door nothing has changed when it is raised — no version, no class
+    binding, no bump entry, no audit row. On a read door nothing is returned,
+    and the artifact is not reported missing: this is a ``TypeError``, never
+    the ``LookupError`` that :class:`ControlPlaneMissing` is; ``resolve`` and
+    ``resolve_latest`` record the refused read as a resolve that did not
+    resolve, so the audit plane sees it.
+
+    Attributes:
+        artifact_type: the Python type name of the artifact that was refused.
+        door: the registry door that refused — ``register``,
+            ``register_typed``, ``register_versioned``, ``peek`` or ``resolve``.
+        reason: the guarantee the reconstruction failed to preserve.
+    """
+
+    def __init__(self, *, artifact_type: str, door: str, reason: str) -> None:
+        self.artifact_type = artifact_type
+        self.door = door
+        self.reason = reason
+        super().__init__(
+            f"{door}: the registry could not reconstruct a {artifact_type}"
+            f" independently — {reason}"
+        )
+
+
+class RegistryIntegrityFailure(RuntimeError):
+    """A registered ``(key, version)`` whose record is missing a half or whose bytes do not hash to its version.
+
+    ``D-IMPL-380``, 2026-10-11 00:15 (Dave): *"An existing artifact with missing
+    or inconsistent byte storage is an integrity failure, not 'artifact
+    missing.' Failed writes must publish neither half."* The registry stores
+    one record per ``(key, version)`` — the verified reconstruction and the
+    canonical bytes it was rebuilt from — written by one assignment after every
+    write-door check has passed. A read that finds the record without its
+    bytes, or with bytes that do not hash to the version it sits under, has
+    found corruption, and says so by this name: a ``RuntimeError``, never the
+    ``LookupError`` that :class:`ControlPlaneMissing` is, which is raised only
+    when nothing was ever registered under the key and version. ``resolve`` and
+    ``resolve_latest`` record the read as a resolve that did not resolve.
+
+    Attributes:
+        key: the Control Plane key.
+        version: the content version the record sits under.
+        door: the read door that found the failure.
+        reason: which half is missing or inconsistent.
+    """
+
+    def __init__(self, *, key: str, version: str, door: str, reason: str) -> None:
+        self.key = key
+        self.version = version
+        self.door = door
+        self.reason = reason
+        super().__init__(
+            f"{door}: the registry's record for ({key!r}, {version!r}) failed"
+            f" its integrity check — {reason}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _Held:
+    """What the registry holds under one ``(key, version)``: both halves, one record.
+
+    ``artifact`` is the write door's verified reconstruction — never served to
+    a reader, only compared against what a read parses. ``rendered`` is the
+    canonical bytes that reconstruction was rebuilt from and verified to render
+    back to; the version is their hash, and every read parses them afresh.
+    """
+
+    artifact: object
+    rendered: bytes
 
 
 class AmbiguousPinnedVersionError(RuntimeError):
@@ -337,6 +527,13 @@ class ControlPlaneProtocol(Protocol):
     :class:`ControlPlaneRegistry`, which breaks the Protocol-over-inheritance
     posture CLAUDE.md §11 mandates and forecloses remote control planes for
     manifest boot.
+
+    **Class identity is on this surface by ``D-IMPL-378`` K2** (Dave,
+    2026-10-08): both typed registration methods validate with
+    ``artifact_class.validate(artifact)``, so a document stating one class is
+    never filed as another, whichever plane registers it. The conformance check
+    for an implementation is
+    ``tests/conformance/test_control_plane_class_identity.py``.
     """
 
     def register(self, authorized: RegisterAuthority, artifact: object) -> str:
@@ -345,11 +542,23 @@ class ControlPlaneProtocol(Protocol):
 
     def register_typed(
         self,
-        authorized: RegisterAuthority,
+        authorized: TypedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
     ) -> str:
-        """Append ``artifact`` after validating it against ``artifact_class``."""
+        """Append ``artifact`` after validating it against ``artifact_class``.
+
+        **Validating means** ``artifact_class.validate(artifact)``, called
+        before anything is stored or audited (``D-IMPL-378`` K2). Among what it
+        refuses is an artifact whose own top-level ``class_id`` disagrees with
+        the class it is registered as, raised as
+        :class:`~ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, as
+        :meth:`ControlPlaneRegistry.register_typed` raises it. An implementation
+        that checks only the contract's type files a document stating one class
+        under another. An implementation proves it with
+        ``tests/conformance/test_control_plane_class_identity.py``, its factory
+        added to that module's ``PLANES``.
+        """
         ...
 
     def register_versioned(
@@ -360,7 +569,18 @@ class ControlPlaneProtocol(Protocol):
         *,
         reissuable: bool = False,
     ) -> str | RegistrationRefusal:
-        """Register an author-versioned artifact under the D-05 bump check."""
+        """Register an author-versioned artifact under the D-05 bump check.
+
+        The artifact is validated with ``artifact_class.validate(artifact)``
+        before the bump check runs and before anything is stored or audited
+        (``D-IMPL-378`` K2), so an artifact whose own top-level ``class_id``
+        disagrees with the class it is registered as is refused, raised as
+        :class:`~ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, as
+        :meth:`ControlPlaneRegistry.register_versioned` raises it. An
+        implementation proves it with
+        ``tests/conformance/test_control_plane_class_identity.py``, its factory
+        added to that module's ``PLANES``.
+        """
         ...
 
     def resolve(self, key: str, version: str) -> object:
@@ -394,6 +614,188 @@ class ControlPlaneProtocol(Protocol):
 
 def _utc_now() -> datetime:
     return datetime.now(tz=UTC)
+
+
+def _reconstructed(
+    artifact: object, *, door: str, rendered: bytes | None = None
+) -> _Held:
+    """The write side: an independent reconstruction of ``artifact`` AND the bytes it was rebuilt from, verified, or a refusal.
+
+    ``D-IMPL-380``, sixth round, as corrected on 2026-10-11 (Dave, 00:15 and
+    00:28): the artifact is rendered **once** here (or the caller passes the
+    render it already took), the version is the hash of those bytes, and the
+    bytes are kept beside the reconstruction in one :class:`_Held` so the read
+    doors can parse them instead of rendering again. Every sixth-round
+    guarantee is checked exactly as before.
+
+    **Why a reconstruction and not a copy.** The fifth round handed the
+    approval sink ``grant.model_copy(deep=True)``; the copy's content was the
+    live object's registry address and ``peek`` handed the live object back.
+    Then ``copy.deepcopy`` at these doors was measured: 377 failures at
+    ``ef84f801``, every one ``TypeError: cannot pickle 'mappingproxy' object``,
+    because :mod:`ccf.workflow.definitions` wraps ``gate_routes`` in nested
+    ``MappingProxyType`` precisely so the hash does not move — the field was
+    made tamper-proof by being made uncopyable. A reconstruction from the
+    artifact's own canonical form has no such limit: the model's validators
+    rebuild the proxies, and every nested value is new.
+
+    **What is preserved, and checked.** The artifact's canonical bytes are
+    rendered once (``canonical_bytes``), parsed, and rebuilt — through
+    ``model_validate`` on the artifact's own type for a model, or as the parsed
+    document for a plain mapping (``register`` accepts one). The result is then
+    held to three guarantees, each refused by name: the **type** is the
+    artifact's own (a typed artifact is never silently a plain dictionary);
+    the **canonical bytes** are unchanged, which is the content hash that is
+    its version; and the result is **equal** to the artifact. The third check
+    is not redundant with the second: a plain mapping holding a ``Decimal``
+    renders as a string, so its bytes agree with the rebuilt string while its
+    value does not. A hash-transparent field survives because of what the mark
+    means (``D-IMPL-243``, *"silence equals yesterday"*): it is omitted from the
+    rendering only when it equals its sentinel, and the sentinel is what the
+    field's own default restores.
+
+    **Cost, measured at this commit** on the covenant-review workflow
+    definition: about 30 µs for the rebuild plus the verifying render, against
+    the 12.8 µs the write doors already spend hashing. The read doors pay it on
+    every call; shallow copies were ruled out (*"Shallow copies are not
+    accepted."*).
+
+    Raises:
+        ArtifactIsolationRefused: the reconstruction raised, or failed one of
+            the three guarantees. Nothing is returned and nothing falls back.
+        ccf.contracts.canonical.CanonicalizationError: the artifact has no
+            canonical form — the refusal every write door already documents.
+    """
+    rendered = canonical_bytes(artifact) if rendered is None else rendered
+    artifact_type = type(artifact).__name__
+    try:
+        document = json.loads(rendered)
+        rebuilt: object
+        if isinstance(artifact, BaseModel):
+            rebuilt = type(artifact).model_validate(document)
+            if rebuilt is artifact:
+                raise ArtifactIsolationRefused(
+                    artifact_type=artifact_type,
+                    door=door,
+                    reason=(
+                        "reconstruction returned the artifact itself"
+                        " (a validator that interns instances by content)"
+                    ),
+                )
+        else:
+            rebuilt = document
+    except (TypeError, ValueError) as exc:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"reconstruction raised {type(exc).__name__}: {exc}",
+        ) from exc
+    if type(rebuilt) is not type(artifact):
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"reconstruction changed the type to {type(rebuilt).__name__}",
+        )
+    if canonical_bytes(rebuilt) != rendered:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason="reconstruction changed the canonical bytes",
+        )
+    if rebuilt != artifact:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason="reconstruction is not equal to the artifact (a nested value changed type)",
+        )
+    return _Held(artifact=rebuilt, rendered=rendered)
+
+
+def _isolated(artifact: object, *, door: str) -> object:
+    """The sixth-round name for the write-side reconstruction, kept for its callers and its severings."""
+    return _reconstructed(artifact, door=door).artifact
+
+
+def _hash_of(rendered: bytes) -> str:
+    """The content version of already-rendered canonical bytes — ``content_hash`` without the render."""
+    return hashlib.sha256(rendered).hexdigest()
+
+
+def _served(held: object, *, key: str, version: str, door: str) -> object:
+    """The read side: parse the verified bytes and prove the result is the registered artifact.
+
+    ``D-IMPL-380``, 2026-10-11 (Dave, 00:15): *"A successful parse is
+    insufficient."* In order, each refusal by name:
+
+    1. **Integrity** — the record holds both halves and its bytes hash to the
+       version it sits under; otherwise :class:`RegistryIntegrityFailure`,
+       never :class:`ControlPlaneMissing`.
+    2. **Parse** — the bytes through the stored artifact's own type (the parsed
+       document for a plain document). A parse that raises refuses.
+    3. **Type** — the parse is the stored reconstruction's type.
+    4. **Value** — the parse ``==`` the stored reconstruction, field by field,
+       with no render. This is the proof: it does not assume that identical
+       bytes make a validator deterministic; a validator that returns changed
+       content on retrieval without raising fails here.
+    5. **Identity** — the parse is not the stored reconstruction (an interning
+       validator can hand back a cached instance from a parse). Checked for
+       models and containers; an immutable scalar cannot be mutated and may be
+       interned by the interpreter.
+
+    Nothing here renders: that is the cost target, not the proof.
+    """
+    if not isinstance(held, _Held) or not held.rendered:
+        raise RegistryIntegrityFailure(
+            key=key,
+            version=version,
+            door=door,
+            reason="the record holds no verified canonical bytes beside its reconstruction",
+        )
+    if _hash_of(held.rendered) != version:
+        raise RegistryIntegrityFailure(
+            key=key,
+            version=version,
+            door=door,
+            reason="the stored canonical bytes do not hash to the version they sit under",
+        )
+    stored = held.artifact
+    artifact_type = type(stored).__name__
+    try:
+        document = json.loads(held.rendered)
+        served: object = (
+            type(stored).model_validate(document) if isinstance(stored, BaseModel) else document
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"the parse of the verified bytes raised {type(exc).__name__}: {exc}",
+        ) from exc
+    if type(served) is not type(stored):
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"the parse changed the type to {type(served).__name__}",
+        )
+    if isinstance(stored, (BaseModel, dict, list)) and served is stored:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=(
+                "the parse returned the stored reconstruction itself"
+                " (a validator that interns instances by content)"
+            ),
+        )
+    if served != stored:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=(
+                "the parse is not equal to the stored reconstruction"
+                " (a validator that returns changed content on retrieval)"
+            ),
+        )
+    return served
 
 
 class ControlPlaneRegistry:
@@ -433,7 +835,7 @@ class ControlPlaneRegistry:
     ) -> None:
         self._clock: Callable[[], datetime] = clock or _utc_now
         self._versions: dict[str, list[str]] = {}
-        self._artifacts: dict[tuple[str, str], object] = {}
+        self._artifacts: dict[tuple[str, str], _Held] = {}
         self._classes: dict[str, str] = {}
         self._bumps: dict[str, dict[str, tuple[str, str]]] = {}
         self._audit = audit_log if audit_log is not None else AuditLog()
@@ -499,7 +901,24 @@ class ControlPlaneRegistry:
 
         The artifact must be canonically serializable; anything that is not
         (a float, a naive datetime, an unsupported type) is refused at the
-        boundary rather than stored in a form replay could not reproduce.
+        boundary rather than stored in a form replay could not reproduce. It
+        must also survive reconstruction from that form with its type and
+        value intact (``D-IMPL-380``, sixth round): a plain mapping holding a
+        ``Decimal``, a ``datetime`` or a tuple — or a bare tuple, ``datetime``
+        or ``Decimal`` as the artifact — renders faithfully but rebuilds as a
+        different Python type, and is refused rather than stored with its
+        values silently changed. Register a typed model instead; its
+        validators restore the types.
+
+        **An untyped document is JSON-native** (``D-IMPL-380``, 2026-10-10
+        18:25): the values it may hold are exactly those ``json.loads`` of its
+        own canonical bytes gives back — ``str``, ``int``, ``bool``, ``None``,
+        ``list`` and ``dict`` — because that parse *is* the reconstruction the
+        registry stores and serves. A ``model_dump()`` in python mode is not
+        such a document: it keeps the model's ``Decimal``, ``datetime`` and
+        tuple values, and is refused. Pass the model itself, or
+        ``model_dump(mode="json")``. Nothing is coerced; the canonical
+        restrictions above stay as they are.
 
         Registering byte-identical content again is idempotent: the existing
         version is returned and no duplicate is appended.
@@ -511,14 +930,26 @@ class ControlPlaneRegistry:
                 capability's tenant.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
         key = _door_key(authorized)
         actor = authorized.principal
-        version = content_hash(artifact)
+        # D-IMPL-380, sixth round: the registry's own reconstruction is built
+        # and verified BEFORE any registration state changes, so a refusal
+        # leaves no version, no binding and no audit row behind — on every
+        # registration, including an idempotent one, so the drift refusal
+        # cannot be bypassed by registering known bytes under a drifted value.
+        # Rendered once: the version is the hash of the bytes the record keeps.
+        held = _reconstructed(artifact, door="register")
+        version = _hash_of(held.rendered)
+        known = version in self._versions.get(key, ())
         versions = self._versions.setdefault(key, [])
-        if version not in versions:
+        if not known:
             versions.append(version)
-            self._artifacts[(key, version)] = artifact
+            self._artifacts[(key, version)] = held
         self._record(
             action="register", key=key, version=version, resolved=True, actor=actor
         )
@@ -526,11 +957,15 @@ class ControlPlaneRegistry:
 
     def register_typed(
         self,
-        authorized: RegisterAuthority,
+        authorized: TypedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
     ) -> str:
         """Validate ``artifact`` against ``artifact_class``, then register it under ``authorized.resource``.
+
+        Under the invalidation-record kind (``D-IMPL-382``) the key is not the capability's
+        resource but derived from the record by :func:`_invalidation_record_key`, which also
+        confines the kind to its own tenant's invalidation records.
 
         The key, the tenant and the audit actor come from the capability and
         from nowhere else (D-IMPL-353 §1.2; see :meth:`register`).
@@ -553,10 +988,27 @@ class ControlPlaneRegistry:
                 capability's tenant.
             TypeError: the artifact does not satisfy the class contract, or the
                 key is already bound to a different artifact class.
+            ccf.controlplane.artifact_base.ArtifactClassIdMismatch: the
+                artifact states a ``class_id`` other than ``artifact_class``'s
+                own — a ``TypeError``, raised by ``artifact_class.validate``
+                before anything is stored or audited (``D-IMPL-378``).
+            ccf.controlplane.artifact_base.ReservedArtifactClassId: the
+                artifact states ``artifact_class``'s own ``class_id`` and it is
+                in the reserved ``ccf.`` namespace — a ``ValueError``, raised by
+                ``artifact_class.validate`` before anything is stored or audited
+                (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
-        key = _door_key(authorized)
+        if getattr(authorized, "kind", None) is InvalidationRecordRegister:
+            record_authority = cast(Authorized[InvalidationRecordRegister], authorized)
+            key = _invalidation_record_key(record_authority, artifact_class, artifact_class.validate(artifact))
+        else:
+            key = _door_key(cast(RegisterAuthority, authorized))
         actor = authorized.principal
         bound = self._classes.get(key)
         if bound is not None and bound != artifact_class.class_id:
@@ -565,11 +1017,18 @@ class ControlPlaneRegistry:
                 f" refusing to rebind it to {artifact_class.class_id!r}"
             )
         artifact_class.validate(artifact)
-        version = content_hash(artifact)
+        # D-IMPL-380, sixth round: reconstructed and re-validated against the
+        # class before any registration state changes, on every registration
+        # (the idempotent path verifies too; it only skips the store).
+        # Rendered once: the version is the hash of the bytes the record keeps.
+        rebuilt = _reconstructed(artifact, door="register_typed")
+        version = _hash_of(rebuilt.rendered)
+        known = version in self._versions.get(key, ())
+        held = _Held(artifact=artifact_class.validate(rebuilt.artifact), rendered=rebuilt.rendered)
         versions = self._versions.setdefault(key, [])
-        if version not in versions:
+        if not known:
             versions.append(version)
-            self._artifacts[(key, version)] = artifact
+            self._artifacts[(key, version)] = held
         self._classes[key] = artifact_class.class_id
         self._record(
             action="register_typed",
@@ -653,8 +1112,21 @@ class ControlPlaneRegistry:
             TypeError: the artifact fails the class contract, the key is bound
                 to a different class, or the artifact declares no string
                 ``artifact_version``.
+            ccf.controlplane.artifact_base.ArtifactClassIdMismatch: the
+                artifact states a ``class_id`` other than ``artifact_class``'s
+                own — a ``TypeError``, raised by ``artifact_class.validate``
+                before anything is stored or audited (``D-IMPL-378``).
+            ccf.controlplane.artifact_base.ReservedArtifactClassId: the
+                artifact states ``artifact_class``'s own ``class_id`` and it is
+                in the reserved ``ccf.`` namespace — a ``ValueError``, raised by
+                ``artifact_class.validate`` before anything is stored or audited
+                (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
         # The derived shape is checked for FIRST only in the sense of kind
         # selection; verification itself is one call either way, and it runs
@@ -687,7 +1159,8 @@ class ControlPlaneRegistry:
                 " string artifact_version; the hash-verified bump check (D-05)"
                 " has nothing to verify"
             )
-        incoming = content_hash(validated)
+        rendered = canonical_bytes(validated)
+        incoming = _hash_of(rendered)
         # The D-05 comparison asks whether the artifact's *content* changed,
         # and the content of an author-versioned artifact is everything except
         # the version claim itself — a bump alone must not read as a content
@@ -697,7 +1170,10 @@ class ControlPlaneRegistry:
         fingerprint = content_hash(
             validated.model_copy(update={"artifact_version": ""})
         )
-        bumps = self._bumps.setdefault(key, {})
+        # D-IMPL-380, sixth round: read-only until the reconstruction below has
+        # been verified — `setdefault` here left an empty bump map behind a
+        # refusal (the sixth-round delta review, both CLI seats).
+        bumps = self._bumps.get(key, {})
 
         def _refused(refusal: RegistrationRefusal) -> RegistrationRefusal:
             self._record(
@@ -740,11 +1216,19 @@ class ControlPlaneRegistry:
                             ),
                         )
                     )
+        known = incoming in self._versions.get(key, ())
+        # D-IMPL-380, sixth round: reconstructed and re-validated against the
+        # class before any registration state changes — after the D-05 refusals
+        # above, which record a refusal and never a registration — on every
+        # registration (the idempotent path verifies too; it only skips the store).
+        rebuilt = _reconstructed(validated, door="register_versioned", rendered=rendered)
+        held = _Held(artifact=artifact_class.validate(rebuilt.artifact), rendered=rebuilt.rendered)
         versions = self._versions.setdefault(key, [])
-        if incoming not in versions:
+        if not known:
             versions.append(incoming)
-            self._artifacts[(key, incoming)] = validated
+            self._artifacts[(key, incoming)] = held
         self._classes[key] = artifact_class.class_id
+        bumps = self._bumps.setdefault(key, {})
         bumps[declared] = (incoming, fingerprint)
         self._record(
             action="register_versioned",
@@ -786,19 +1270,32 @@ class ControlPlaneRegistry:
 
         Raises:
             ControlPlaneMissing: no such key, or no such version under it.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round).
+            RegistryIntegrityFailure: the record is missing its verified bytes
+                or they do not hash to ``version``; corruption, not absence.
         """
         try:
-            return self._artifacts[(key, version)]
+            held = self._artifacts[(key, version)]
         except KeyError:
             raise ControlPlaneMissing(
                 f"no Control Plane artifact registered as ({key!r}, {version!r})"
             ) from None
+        # D-IMPL-380, sixth round: a reader receives a reconstruction, never
+        # the registry's object — the door the fifth-round bypass used.
+        return _served(held, key=key, version=version, door="peek")
 
     def resolve(self, key: str, version: str) -> object:
         """Return the exact artifact registered as ``(key, version)``.
 
         Raises:
             ControlPlaneMissing: no such key, or no such version under it.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round).
+            RegistryIntegrityFailure: the record is missing its verified bytes
+                or they do not hash to ``version``; corruption, not absence.
         """
         try:
             artifact = self._artifacts[(key, version)]
@@ -809,8 +1306,18 @@ class ControlPlaneRegistry:
             raise ControlPlaneMissing(
                 f"no Control Plane artifact registered as ({key!r}, {version!r})"
             ) from None
+        # D-IMPL-380, sixth round: reconstructed before the success row. A
+        # refusal serves nothing and is recorded as a resolve that did not
+        # resolve — the module's promise is that every resolve, a failed one
+        # included, reaches the audit plane (the sixth-round delta review,
+        # Fable seat, F3).
+        try:
+            served = _served(artifact, key=key, version=version, door="resolve")
+        except (ArtifactIsolationRefused, RegistryIntegrityFailure):
+            self._record(action="resolve", key=key, version=version, resolved=False)
+            raise
         self._record(action="resolve", key=key, version=version, resolved=True)
-        return artifact
+        return served
 
     def resolve_latest(self, key: str) -> tuple[str, object]:
         """Return the most recently registered ``(version, artifact)``.
@@ -821,6 +1328,11 @@ class ControlPlaneRegistry:
 
         Raises:
             ControlPlaneMissing: nothing has been registered under ``key``.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round, site 6).
+            RegistryIntegrityFailure: the record is missing its verified bytes
+                or they do not hash to the version; corruption, not absence.
         """
         versions = self._versions.get(key)
         if not versions:
@@ -829,10 +1341,27 @@ class ControlPlaneRegistry:
                 f"no Control Plane versions registered under {key!r}"
             )
         version = versions[-1]
+        # D-IMPL-380, sixth round, SITE 6 — beyond the five sites the order
+        # enumerated. The order named `peek` and `resolve`; this is a third
+        # read door, and it returned the registry's object by reference (the
+        # sixth-round delta review: every seat; the Fable seat replayed the
+        # grant-sink exploit through it). The same reconstruction, through the
+        # same helper, before the success row; a refusal is recorded as a
+        # resolve that did not resolve. Struck by one revert if the ruling
+        # keeps to the five.
+        try:
+            served = _served(
+                self._artifacts[(key, version)], key=key, version=version, door="resolve_latest"
+            )
+        except (ArtifactIsolationRefused, RegistryIntegrityFailure):
+            self._record(
+                action="resolve_latest", key=key, version=version, resolved=False
+            )
+            raise
         self._record(
             action="resolve_latest", key=key, version=version, resolved=True
         )
-        return version, self._artifacts[(key, version)]
+        return version, served
 
     def versions(self, key: str) -> tuple[str, ...]:
         """Return every version registered under ``key``, oldest first.

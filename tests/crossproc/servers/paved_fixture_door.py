@@ -19,6 +19,18 @@ names (``PAVED_CHILD_TOKEN``); the parent SETS it to learn it without a side
 channel, exactly as the canonical spread's harness does.
 
 Run as ``python tests/crossproc/servers/paved_fixture_door.py``.
+
+**``--stdio``** serves the same opened product through the same door on MCP
+stdio instead (C2-A (b), ``D-IMPL-378``): the stdio caller's identity is
+composed here, the way every deployment's stdio program composes it, and
+nothing is printed, because stdout is the protocol channel. The parent spawns
+it the way an MCP client spawns any stdio server, and sets whatever
+environment it chooses — which is how a test leaves the door's two advertised
+addresses unset.
+
+**``--without-address-names``** writes the producer's environment document
+with its ``door:`` block naming the credential only (`D-IMPL-378` C2-A2 (a)):
+the two address names are optional, and no SDK transport reads them.
 """
 
 from __future__ import annotations
@@ -37,17 +49,27 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT, _REPO_ROO
 
 
 def main() -> None:
-    """Write the producer's documents, open the product, open its door, serve, announce."""
+    """Write the producer's documents, open the product, open its door, serve.
+
+    Loopback, announcing ``READY {port}``, unless ``--stdio`` is the argument.
+    """
+    from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER  # noqa: PLC0415
     from ccf.products.product import open_product  # noqa: PLC0415
     from ccf_runtime.mcp.product_door import open_door  # noqa: PLC0415
 
     from tests.products import paved_fixture as fixture  # noqa: PLC0415
 
+    arguments = sys.argv[1:]
+    unknown = sorted(set(arguments) - {"--stdio", "--without-address-names"})
+    if unknown:
+        raise SystemExit(f"unknown arguments: {unknown}")
     workspace = Path(tempfile.mkdtemp(prefix="paved-producer-"))
     root = fixture.write_tree(
         workspace / "deployment",
-        config=fixture.producer_config(),
-        environment=fixture.producer_environment_text(),
+        config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
+        environment=fixture.producer_environment_text(
+            addresses="--without-address-names" not in arguments
+        ),
     )
     environ = {**os.environ, fixture.CHILD_DSN_VAR: "postgresql://fixture"}
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
@@ -86,9 +108,24 @@ def main() -> None:
         # that instant is declared.
         clock=lambda: fixture.ADMITTED_AT,
     ) as opened:
-        open_door(opened, environ=environ).serve_loopback(
-            announce=lambda port: print(f"READY {port}", flush=True)
-        )
+        door = open_door(opened, environ=environ)
+        if "--stdio" in arguments:
+            from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: PLC0415
+
+            from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: PLC0415
+
+            door.serve_stdio(
+                identity=AuthenticatedUser(
+                    ambient_stdio_identity(
+                        credential=door.credential,
+                        principal_id=door.principal_id,
+                        scope=door.scope,
+                        tenant=door.tenant_id,
+                    )
+                )
+            )
+            return
+        door.serve_loopback(announce=lambda port: print(f"READY {port}", flush=True))
 
 
 if __name__ == "__main__":

@@ -49,7 +49,7 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
 from ccf.products.composite import CHILD_QUESTION_CLASS, CompositeAdmissionGate
-from ccf.products.contract import ChildRequirement, ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ChildRequirement, ContextProductContract
 from ccf.products.door import WireRequest
 from ccf.products.product import ConsumerContext, GrantNotInForce, OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
@@ -131,9 +131,18 @@ def producer_url() -> Iterator[str]:
 
 
 def _tree(tmp_path: pathlib.Path, *, config: Mapping[str, Any] | None = None, environment: str | None = None) -> pathlib.Path:
+    """The consumer's two documents; by default the canonical consumer.
+
+    `D-IMPL-378` P2 (c): every consumer opened through :func:`_open` — here, and
+    in the modules that import it — is asked with
+    `tests/products/paved_fixture.py::plan_factory`, whose projection never
+    raises the withheld signal (`ProjectionOutput.withheld` stays False), so the
+    composite's class states it never withholds its subject. A test that opens
+    and asks a ``config`` of its own states the same stance in it.
+    """
     return fixture.write_tree(
         tmp_path / "consumer",
-        config=config if config is not None else fixture.consumer_config(),
+        config=config if config is not None else fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
         environment=environment if environment is not None else fixture.consumer_environment_text(),
     )
 
@@ -262,7 +271,9 @@ def test_a_floor_below_the_served_lane_serves_and_the_served_lane_is_what_admiss
     """The producer serves `1.0.0`; the consumer declares floor `1.0.0-rc.1` at both
     boundaries. A floor is satisfied by a lane in the same major at or above it."""
     config = fixture.consumer_config(
-        compatible_from="1.0.0-rc.1", producers={"child": fixture.producer_section(versions_from="1.0.0-rc.1")}
+        compatible_from="1.0.0-rc.1",
+        producers={"child": fixture.producer_section(versions_from="1.0.0-rc.1")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
     )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
@@ -279,7 +290,11 @@ def test_a_floor_above_the_served_lane_is_refused_at_the_door_with_both_lanes_re
     (consistent with each other, so it opens). The door refuses `class-mismatch`
     naming the served lane and the floor; the composite refuses with the child's
     reason retained — not `no-producing-skill`, not a silent downgrade."""
-    config = fixture.consumer_config(compatible_from="1.5.0", producers={"child": fixture.producer_section(versions_from="1.5.0")})
+    config = fixture.consumer_config(
+        compatible_from="1.5.0",
+        producers={"child": fixture.producer_section(versions_from="1.5.0")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
@@ -313,7 +328,7 @@ def test_the_door_refuses_a_floor_its_lane_does_not_satisfy_with_both_lanes_in_i
     recorder; a floor the lane satisfies is answered at the served lane."""
     from ccf.projection.plan import Perspective  # noqa: PLC0415
 
-    root = fixture.write_tree(tmp_path / "producer", config=fixture.producer_config(), environment=fixture.producer_environment_text())
+    root = fixture.write_tree(tmp_path / "producer", config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER), environment=fixture.producer_environment_text())
     with open_product(
         erasure_trust=declared_erasure_trust(fixture.PRODUCER_TENANT),
         control_plane=ControlPlaneRegistry(),
@@ -497,7 +512,10 @@ def test_a_producer_asserting_another_identity_or_tenant_refuses_by_name(tmp_pat
         # answer — `SEC353-J-02`, reported for ruling).
         ("tenant", fixture.producer_section(producer_tenant="another-tenant"), "producer-unavailable"),
     ):
-        root = _tree(tmp_path / label, config=fixture.consumer_config(producers={"child": section}))
+        root = _tree(
+            tmp_path / label,
+            config=fixture.consumer_config(producers={"child": section}, subject_withholding=SUBJECT_WITHHOLDING_NEVER),
+        )
         with _open(root, tmp_path / label / "scratch", producer_url) as opened:
             refused = opened.answer(_question(opened))
             assert isinstance(refused, RefusalEnvelope), refused
@@ -587,7 +605,7 @@ def test_the_build_children_hatch_composes_over_the_sdks_own_registrations(tmp_p
     low road, built by hand from the facade's own context, composes on the paved
     surface over the ONE registry the SDK populated — no second registry, no
     second registration (the panel's finding on this half, made intentional)."""
-    config = fixture.consumer_config(skills=None, agent=None)
+    config = fixture.consumer_config(skills=None, agent=None, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url, questions=None, build_children=_low_road_children) as opened:
         assert opened.mcp_skills is not None and opened.agent is None
@@ -622,7 +640,11 @@ def test_a_served_lane_below_the_composites_floor_is_refused_at_admission_with_t
     composes from `1.5.0` (the requirement) — one major, so it opens; the door
     serves; admission holds the served lane to the composite's floor:
     `version-incompatible`, reason retained. The low road's `OFC-G19`, paved."""
-    config = fixture.consumer_config(compatible_from="1.5.0", producers={"child": fixture.producer_section(versions_from="1.0.0")})
+    config = fixture.consumer_config(
+        compatible_from="1.5.0",
+        producers={"child": fixture.producer_section(versions_from="1.0.0")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
@@ -642,7 +664,11 @@ def test_a_bumped_skill_beside_a_grant_in_force_is_refused_at_open_naming_both_v
     registry = fixture.granted_control_plane(first_root)  # the grant in force: 1.0.0
     with _open(first_root, tmp_path / "a" / "scratch", producer_url, control_plane=registry) as first:
         assert isinstance(first.answer(_question(first)), ServedProduct)
-    bumped = fixture.consumer_config(skills={SKILL: fixture.skill_section(artifact_version="1.1.0", description="asks, revised")})
+    # The same class as `_tree`'s default (stance included), so only the skill moved.
+    bumped = fixture.consumer_config(
+        skills={SKILL: fixture.skill_section(artifact_version="1.1.0", description="asks, revised")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
     with pytest.raises(ValueError, match="1.0.0.*1.1.0|1.1.0.*1.0.0"):
         _open(_tree(tmp_path / "b", config=bumped), tmp_path / "b" / "scratch", producer_url, control_plane=registry)
 
@@ -676,7 +702,12 @@ def test_a_hatch_that_hands_back_an_unadmitted_product_cannot_be_composed(tmp_pa
     def bypass(*, requirements: Any, asked_at: Any, admitted_at: Any, composition_invocation: Any, consumer_lineage: Any) -> dict[str, object]:
         return {CHILD_CLASS: vessel if vessel is not None else object()}
 
-    root = _tree(tmp_path, config=fixture.consumer_config(producers=None, skills=None, agent=None))
+    root = _tree(
+        tmp_path,
+        config=fixture.consumer_config(
+            producers=None, skills=None, agent=None, subject_withholding=SUBJECT_WITHHOLDING_NEVER
+        ),
+    )
     with _open(root, tmp_path / "scratch", producer_url, questions=None, children=bypass) as opened:
         refused = opened.answer(_question(opened))
         assert isinstance(refused, RefusalEnvelope), refused

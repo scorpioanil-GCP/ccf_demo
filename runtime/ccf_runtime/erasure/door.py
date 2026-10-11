@@ -15,8 +15,10 @@ The two halves:
   request: validate the declaration, VERIFY every requester-named address
   (fix round 1 — not already erased; filed under this tenant (I6); its STORED
   class, from the store's ``names_at``, is not the erasure record's and equals
-  the requester's label (C2); a value at a subject key path hashes to
-  ``subject_ref`` (iv); no subject in a replay-input field (§7)), judge
+  the requester's label (C2); its stored bytes hash to the address (E1 (a),
+  ``D-IMPL-378``); a value at a subject key path hashes to
+  ``subject_ref`` (iv); no subject in a replay-input field of a record the
+  fabric's record writer filed (§7; ``D-IMPL-378``)), judge
   retention and holds against the STORED class and the PINNED policy, then
   start the workflow with the request's content identity as its execution id.
   Nothing is written.
@@ -48,15 +50,16 @@ Algorithmic module (CINV-03): the clock is injected.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable
 from datetime import datetime
 
 from ccf.artifacts.protocol import (
+    ArtifactNotFound,
+    ArtifactRef,
     ArtifactStoreError,
     ArtifactStoreProtocol,
     DerivedWrite,
+    artifact_uri,
     parse_artifact_uri,
 )
 from ccf.authz.capability import (
@@ -73,7 +76,6 @@ from ccf.controlplane.state import state_key
 from ccf.erasure.contracts import (
     ERASURE_APPROVAL_CLASS,
     ERASURE_RECORD_CLASS,
-    REPLAY_INPUT_PATHS,
     ErasedAddress,
     ErasureApproval,
     ErasureRecord,
@@ -92,6 +94,13 @@ from ccf.erasure.approval import (
 from ccf.erasure.errors import ErasureCompositionRefused
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
+from ccf.erasure.subject_match import (
+    SubjectJudgment,
+    SubjectMatchQuery,
+    SubjectMatchVerdict,
+    judge_subject,
+    sign_subject_match_query,
+)
 from ccf.erasure.trust import (
     DOOR_SIGNATURE_ASSERTION,
     ErasureAuthority,
@@ -103,10 +112,13 @@ from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolutio
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.peering.identity import IdentityError, IdentityProvider
+from ccf.replay.provenance import UnattributableRecordStore, filed_by_record_writer
+from ccf.replay.serve import _same_string
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
-from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
+from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord, suspension_left_by
 from ccf_runtime.workflow.engine import (
+    ExecutionFenced,
     WorkflowCompleted,
     WorkflowEngine,
     WorkflowSuspended,
@@ -139,25 +151,6 @@ class ErasureRefused(PermissionError):
 
 class ErasureWorkflowUngated(ValueError):
     """The deployment's erasure workflow can complete without a typed approval gate (U9; SEC-009, `D-IMPL-374` (4))."""
-
-
-def _values_at(document: object, path: str) -> tuple[str, ...]:
-    """The scalar value(s) at a dotted path — a list contributes its scalar members."""
-    node = document
-    for part in path.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return ()
-        node = node[part]
-    members = node if isinstance(node, list) else [node]
-    return tuple(str(m) for m in members if isinstance(m, (str, int)) and not isinstance(m, bool))
-
-
-def _hashes_to(salt: str, values: tuple[str, ...], subject_ref: str) -> bool:
-    for value in values:
-        material = salt.encode("utf-8") + b"\x00" + value.encode("utf-8")
-        if hashlib.sha256(material).hexdigest() == subject_ref:
-            return True
-    return False
 
 
 class ErasureDoor:
@@ -290,12 +283,16 @@ class ErasureDoor:
 
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
-            ErasureRefused: tenant, declaration, retention or hold refusal; or
-                the workflow did not suspend on its gate.
+            ErasureRefused: tenant, declaration, retention or hold refusal; the
+                workflow did not suspend on its gate; or the engine fenced the
+                start's suspension, ``execution-fenced`` (``D-IMPL-378``).
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
         self._admit(authorized.tenant, workflow, request, latest=False, erase=erase)
-        outcome = await self._engine.execute(authorized, workflow, execution_id=request.request_id)
+        try:
+            outcome = await self._engine.execute(authorized, workflow, execution_id=request.request_id)
+        except ExecutionFenced as fenced:
+            raise self._fenced(fenced, consequence="no approval was requested") from fenced
         if not isinstance(outcome, WorkflowSuspended):
             raise ErasureRefused(
                 f"the erasure workflow did not suspend on an approval gate ({type(outcome).__name__});"
@@ -316,11 +313,28 @@ class ErasureDoor:
         """Resume on a RECORDED approval and, on completion, write the erasure record.
 
         Returns the record, or the next suspension when the deployment's
-        workflow declares a further gate.
+        workflow declares a further gate. A retry of a completion whose
+        passage past the gate committed before its engine stopped — the run
+        ``running`` — is held to the suspension that passage left, and the
+        engine finishes the passage when no step can have run since its commit
+        (``D-IMPL-378``, Dave's D2 ruling); otherwise the engine refuses it,
+        ``workflow-refused``.
 
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
-            ErasureRefused: any refusal; nothing is written.
+            ErasureRefused: any refusal; nothing is written. Except
+                ``execution-fenced`` in the last passage, which the engine fenced
+                after the write-ahead append (``D-IMPL-378``): no erasure record
+                is filed, and the address stays withheld under the appended
+                entries (``index-unsupported``). And the two answer checks
+                (``D-IMPL-380``, third round; :meth:`_checked_save`):
+                ``approval-reference-mismatch``, raised after the approval's
+                save and before the write-ahead append, so no entry is
+                appended (the store may hold the bytes it filed); and
+                ``record-reference-mismatch``, raised after the record's save,
+                with the address withheld under the appended entries. On
+                success the record returned is the door's own, as built —
+                never the object the store held.
             ccf.erasure.ErasureIndexWriteFailed: a write-ahead index append
                 could not write its whole line (PC1, panel C1; ``D-IMPL-374``).
                 Propagated by name before the workflow resumes: no record is
@@ -365,6 +379,15 @@ class ErasureDoor:
             resumed = [t for t in state.trace if t.kind == "resume"]
             gate = resumed[-1].source if resumed else ""
             bound = True  # checked against the approval's address below
+        elif state.status == "running" and (left := suspension_left_by(state)) is not None:
+            # D-IMPL-378 (Dave's D2): the retry of a completion whose passage
+            # past the gate committed and whose engine stopped before the
+            # passage's next write. The approval is held to the suspension that
+            # passage LEFT, rebuilt exactly; the engine, resumed below, finishes
+            # the passage when no step can have run since its commit, and
+            # refuses it otherwise ("workflow-refused").
+            gate = left.current_state
+            bound = recorded_submission.principal.product_content_hash == content_hash(left)
         else:
             raise self._approval_not_recorded()
         # Fix round 4: an erasure requires a SIGNED approval (D-IMPL-363). The
@@ -458,9 +481,12 @@ class ErasureDoor:
         final = route in workflow.definition.effective_terminal_states
         if not final:
             # A further gate follows: nothing is erased until the last approval.
-            outcome = await self._engine.resume(
-                authorized, workflow, execution_id=request.request_id, decision=route
-            )
+            try:
+                outcome = await self._engine.resume(
+                    authorized, workflow, execution_id=request.request_id, decision=route
+                )
+            except ExecutionFenced as fenced:
+                raise self._fenced(fenced, consequence="nothing was erased") from fenced
             if isinstance(outcome, WorkflowSuspended):
                 return outcome
             raise ErasureRefused(
@@ -520,12 +546,33 @@ class ErasureDoor:
         # dies anywhere after the append leaves the address WITHHELD, and a
         # retry of this method completes it (the entries are idempotent, the
         # record deterministic, and a terminal execution with this request's
-        # entries is accepted above). A record with no entry cannot exist.
-        # The approval FIRST (fix round 3): an entry must never name an
-        # approval that is not on the substrate. Idempotent — content-addressed.
-        self._store.put(
+        # entries is accepted above — as is a running one whose passage the
+        # engine finishes, D-IMPL-378). A record with no entry cannot exist.
+        # The approval FIRST (fix round 3): the approval is saved, and the
+        # store's answer to it checked, before any entry names it. Idempotent —
+        # content-addressed. What that does not reach (`D-IMPL-380`, fourth
+        # round, ruling 3 (a); Dave, 2026-10-10 10:58 MST: *"The erasure
+        # comment must not say an index entry never names an unstored
+        # approval."*): a store that files altered bytes while answering the
+        # approval's own reference leaves the entry naming an address that
+        # holds nothing verifiable, and the consult then answers unsupported
+        # (`index-unsupported`) — the saved-bytes limit (:meth:`_checked_save`).
+        #
+        # Both saves hand the store a deep copy taken before the save, keep the
+        # door's own object, and hold the store's answer to the reference the
+        # door derived before the save (`D-IMPL-380`, third round, ruling 2 (a);
+        # Dave, 2026-10-10 09:18 MST: *"Copy before the save. The erasure door
+        # also checks the store's answer and does not return the object the
+        # store held."*; 09:23 MST: *"Both saves get the copy and the answer
+        # check."*). A mismatch here is refused before the write-ahead append,
+        # so no entry names an approval the store did not answer for.
+        self._checked_save(
             erase,
-            DerivedWrite(artifact_class=ERASURE_APPROVAL_CLASS, name=approval_ref, artifact=approval),
+            artifact_class=ERASURE_APPROVAL_CLASS,
+            name=approval_ref,
+            address=approval_ref,
+            artifact=approval,
+            reason_code="approval-reference-mismatch",
         )
         for address in addresses:
             self._index.append(
@@ -544,21 +591,112 @@ class ErasureDoor:
                     door_key_id=door_key_id,
                 ),
             )
-        if state.status == "suspended":
-            outcome = await self._engine.resume(
-                authorized, workflow, execution_id=request.request_id, decision=route
-            )
+        if state.status in ("suspended", "running"):
+            try:
+                outcome = await self._engine.resume(
+                    authorized, workflow, execution_id=request.request_id, decision=route
+                )
+            except ExecutionFenced as fenced:
+                raise self._fenced(
+                    fenced,
+                    consequence=(
+                        "no erasure record was filed, and the address stays withheld"
+                        " (index-unsupported) under the index entries this completion appended"
+                    ),
+                ) from fenced
             if not isinstance(outcome, WorkflowCompleted) or outcome.terminal_state == WORKFLOW_FAILED_STATE:
                 raise ErasureRefused(
                     f"the erasure workflow did not complete ({outcome!r}); the address"
                     " stays withheld (index-unsupported) and the audit says so"[:400],
                     reason_code="workflow-refused",
                 )
-        self._store.put(
+        # The record's save: the copy, the answer held to the reference derived
+        # from ``record_address`` (computed before any write), and the door's
+        # OWN record returned — never the object the store held (`D-IMPL-380`,
+        # third round; Dave, 09:23 MST: *"The erasure door checks both answers
+        # and returns its own record."*). A mismatch is refused after the store
+        # returns; the address stays withheld under the entries appended above,
+        # as on every other failed completion.
+        self._checked_save(
             erase,
-            DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
+            artifact_class=ERASURE_RECORD_CLASS,
+            name=record_id,
+            address=record_address,
+            artifact=record,
+            reason_code="record-reference-mismatch",
         )
         return record
+
+    def _checked_save(
+        self,
+        erase: Authorized[ArtifactErase],
+        *,
+        artifact_class: str,
+        name: str,
+        address: str,
+        artifact: ErasureApproval | ErasureRecord,
+        reason_code: str,
+    ) -> ArtifactRef:
+        """File a deep copy of ``artifact`` and hold the store's answer to the door's own reference (``D-IMPL-380``, third round).
+
+        SDK-defined per CLAUDE.md §8.1/§8.2. Ruling 2 (a) of the third round
+        (Dave, 2026-10-10 09:18 MST): *"Fix all three the same way. Copy before
+        the save. The erasure door also checks the store's answer and does not
+        return the object the store held."* And 09:23 MST: *"The reading
+        stands. Both saves get the copy and the answer check."*
+
+        ``address`` is :func:`~ccf.contracts.canonical.content_hash` of
+        ``artifact``, computed by the caller BEFORE this save. From it the door
+        builds its own :class:`~ccf.artifacts.protocol.ArtifactRef` — the
+        content address, the ``D-IMPL-26`` versioned URI, the capability's
+        tenant, the class and the name — the shape
+        ``src/ccf/peering/admission.py::PeeringAdmissionGate._persist_admission_record``
+        builds as ``own``. The store is handed ``artifact.model_copy(deep=True)``
+        and the door keeps its own object, so a store that alters what it is
+        handed alters only its copy. Every field of the store's answer is then
+        held to the door's reference as an exact string
+        (``src/ccf/replay/serve.py::_same_string``); a mismatch is refused by
+        name, ``reason_code``, after the store returns.
+
+        **The saved-bytes limit, disclosed.** A store that alters its copy and
+        answers the original reference files altered bytes under the original's
+        address, and nothing here re-reads what it filed. The consult re-hashes
+        the bytes it fetches and fails closed on such a record; the door's
+        caller gets the record as the door built it.
+
+        Raises:
+            ErasureRefused: ``reason_code`` — the store's answer is not the
+                artifact's own reference. The store may already hold bytes.
+        """
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=erase.tenant,
+                artifact_class=artifact_class,
+                name=name,
+                artifact_version=address,
+            ),
+            tenant_id=erase.tenant,
+            artifact_class=artifact_class,
+            name=name,
+        )
+        answered = self._store.put(
+            erase,
+            DerivedWrite(artifact_class=artifact_class, name=name, artifact=artifact.model_copy(deep=True)),
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise ErasureRefused(
+                f"the store answered the {artifact_class} save with a reference that is not"
+                f" the one the door derived before the save (fields: {', '.join(differing)});"
+                " nothing the store held is returned (SEC-009; D-IMPL-380, third round)",
+                reason_code=reason_code,
+            )
+        return own
 
     def _door_signature(
         self, record: ErasureRecord, prior: tuple[ErasureIndexEntry, ...]
@@ -592,6 +730,23 @@ class ErasureDoor:
                 reason_code="retry-mismatch",
             ) from invalid
         return prior[0].door_signature, prior[0].door_key_id
+
+    @staticmethod
+    def _fenced(fenced: ExecutionFenced, *, consequence: str) -> ErasureRefused:
+        """A passage the engine fenced, as this door's refusal, ``execution-fenced`` (``D-IMPL-378``).
+
+        The engine raises :class:`~ccf_runtime.workflow.engine.ExecutionFenced`
+        when another writer moved the execution's record while a passage ran,
+        and then writes, audits and enqueues nothing more. The workflow doors
+        answer it 409 ``execution-fenced``; this door refuses it by the same name
+        rather than let it escape. ``consequence`` says what stands.
+        """
+        return ErasureRefused(
+            "the erasure workflow's passage was fenced: another writer moved the"
+            f" execution's record while it ran, and the engine wrote nothing more; {consequence}"
+            " (SEC-009; D-IMPL-378)",
+            reason_code="execution-fenced",
+        )
 
     @staticmethod
     def _approval_not_recorded() -> ErasureRefused:
@@ -707,11 +862,21 @@ class ErasureDoor:
         erased within the tenant; the store's naming (``names_at``) files it
         under THIS tenant (I6); its stored class is not a mechanism class an
         erasure may never reach (the erasure record — C2) and equals the
-        requester's label (C2); a value at one of the subject's key paths
-        hashes to the request's ``subject_ref`` (iv); and no replay-input path
-        of the stored document carries the subject (design §7,
-        ``replay-input``). The stored bytes are read through the UNCONSULTED
-        inner store for this check only and never leave the door.
+        requester's label (C2); its stored bytes hash to the address, read
+        before anything is judged from them (``subject-unverifiable``
+        otherwise; Dave's E1 (a), ``D-IMPL-378``); a value at one of the
+        subject's key paths hashes to the request's ``subject_ref`` (iv); and,
+        for a Decision Replay record the fabric's record writer filed, no
+        replay-input path of the stored document carries the subject (design
+        §7, ``replay-input``; :meth:`_filed_by_record_writer`, ``D-IMPL-378``).
+        The stored bytes are read through the UNCONSULTED inner store for this
+        check only and never leave the door, and judged with
+        :func:`~ccf.erasure.judge_subject`. Where that store answers an address
+        as absent and offers ``match_subject`` — the MCP-backed store, for a
+        client-lane filing its server does not serve — the door reads nothing:
+        it asks the server, which judges the bytes where they are with the same
+        function and answers a verdict (:meth:`_judged_where_the_bytes_are`;
+        D3b, ``D-IMPL-378``).
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
@@ -734,10 +899,13 @@ class ErasureDoor:
                 )
             try:
                 named = names_at(content_address=where)
-            except (McpServerUnreachable, ArtifactStoreError) as unanswered:
+            except (McpServerUnreachable, ArtifactStoreError, AttributeError) as unanswered:
                 # (d), fix round 2: a substrate whose naming read fails — an
                 # older MCP server without the names resource, or a names read
                 # the governed dereference refused — has not verified the class.
+                # `D-IMPL-378`: so has the erasure-consulting composition of a
+                # substrate that answers no naming; the decorator answers
+                # `names_at` by delegating and raises AttributeError.
                 raise ErasureRefused(
                     f"the store's naming did not answer for a requested address"
                     f" ({type(unanswered).__name__}); its stored class and tenant"
@@ -767,27 +935,69 @@ class ErasureDoor:
                     " D-IMPL-374 (4), C2)",
                     reason_code="class-label-mismatch",
                 )
+            # The ONE judgment (`ccf.erasure.judge_subject`), the same function
+            # the MCP artifact server's subject match applies (D3b).
             try:
-                document = json.loads(reader.get(content_address=where))
+                query = SubjectMatchQuery(
+                    tenant_id=tenant,
+                    content_address=where,
+                    subject_ref=request.subject_ref,
+                    key_paths=subject.key_paths,
+                    subject_ref_salt=subject.subject_ref_salt,
+                )
+            except ValueError as unaskable:
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                ) from unaskable
+            judged: SubjectJudgment | SubjectMatchVerdict
+            try:
+                payload = reader.get(content_address=where)
+            except ArtifactNotFound as absent:
+                # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): a store that
+                # answers the address as absent — the MCP artifact server does
+                # so for a client-lane filing it does not serve, a record-shaped
+                # one foremost — may judge it where the bytes are, for this door
+                # alone, and answer the verdict, never the bytes.
+                judged = self._judged_where_the_bytes_are(reader, query, absent)
             except (ArtifactStoreError, KeyError, ValueError) as unreadable:
                 raise ErasureRefused(
                     "a requested address could not be read to verify its subject (SEC-009)",
                     reason_code="subject-unverifiable",
                 ) from unreadable
-            if not any(
-                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
-                for path in subject.key_paths
-            ):
+            else:
+                judged = judge_subject(payload, query)
+            # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+            # integrity." Byte fidelity FIRST, as the replay engine holds it
+            # (`D-IMPL-89`): the address is the sha256 of the stored canonical
+            # bytes, so bytes that hash to anything else are not the artifact
+            # the request names. The subject and the replay-input rule are
+            # never judged from them (`judge_subject` stops there), and nothing
+            # reaches approval.
+            if judged == "bytes-not-at-address":
+                raise ErasureRefused(
+                    "the bytes stored at a requested address do not hash to that"
+                    " address, so they are not the artifact the request names and"
+                    " its subject cannot be verified from them (SEC-009; D-IMPL-89;"
+                    " D-IMPL-378 E1 (a))",
+                    reason_code="subject-unverifiable",
+                )
+            if judged == "subject-not-found":
                 raise ErasureRefused(
                     "no value at the subject's declared key paths in a requested"
                     " artifact hashes to the request's subject_ref; the fabric verifies"
                     " every address a request names (SEC-009; D-IMPL-374 (4), ruling (iv))",
                     reason_code="subject-not-found",
                 )
-            if any(
-                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
-                for path in REPLAY_INPUT_PATHS
-            ):
+            # Fail closed: only a judgment that FOUND the subject passes —
+            # `bytes-unparseable`, and anything a store's match answers that is
+            # not a verdict, refuses.
+            if judged != "subject-found" and judged != "subject-in-replay-input":
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                )
+            if judged == "subject-in-replay-input" and self._filed_by_record_writer(tenant, where):
                 decision = RetentionDecision(
                     policy_ref=request.retention_policy_ref,
                     verdict="refuse",
@@ -795,14 +1005,103 @@ class ErasureDoor:
                     address=where,
                 )
                 raise ErasureRefused(
-                    "the subject appears in a replay-input field of a requested record;"
-                    " erasing it would make a decision replay a different question"
-                    " (SEC-009; D-IMPL-367 §7, §2.2)",
+                    "the subject appears in a replay-input field of a requested record"
+                    " the fabric's record writer filed; erasing it would make a decision"
+                    " replay a different question (SEC-009; D-IMPL-367 §7, §2.2;"
+                    " D-IMPL-378)",
                     reason_code="replay-input",
                     decision=decision,
                 )
             stored[where] = address.artifact_class
         return stored
+
+    def _judged_where_the_bytes_are(
+        self, reader: object, query: SubjectMatchQuery, absent: ArtifactNotFound
+    ) -> SubjectMatchVerdict:
+        """The store's server-side subject match for ``query``, signed by this door (D3b; `D-IMPL-378`).
+
+        Asked only where the store answered the address as absent and offers
+        ``match_subject`` — :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.match_subject`
+        over the MCP artifact server, which answers the erasure door of the
+        caller's tenant alone, by this door's signature
+        (:func:`~ccf.erasure.sign_subject_match_query`), and judges the bytes
+        with :func:`~ccf.erasure.judge_subject`, the function this door applies
+        to bytes it reads. The bytes never reach this door; the verdict does.
+
+        Raises:
+            ErasureRefused: ``subject-unverifiable`` — the store offers no
+                subject match, the match did not answer (the cause), or it
+                answered ``subject-unverifiable`` (the absent read is the cause).
+        """
+        match = getattr(reader, "match_subject", None)
+        if not callable(match):
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject (SEC-009)",
+                reason_code="subject-unverifiable",
+            ) from absent
+        try:
+            signature = sign_subject_match_query(query, signer=self._door_signer, key_id=self._door_key_id)
+            verdict: SubjectMatchVerdict = match(query=query, door_signature=signature)
+        except (McpServerUnreachable, ArtifactStoreError, IdentityError) as unanswered:
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject, and the"
+                f" store's subject match did not answer ({type(unanswered).__name__})"
+                " (SEC-009; D-IMPL-378, D3b)",
+                reason_code="subject-unverifiable",
+            ) from unanswered
+        if verdict not in ("subject-not-found", "subject-in-replay-input", "subject-found"):
+            # `subject-unverifiable`, or an answer that is no verdict: fail closed.
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject, and the"
+                " store's subject match could not verify it from the bytes stored there"
+                " (SEC-009; D-IMPL-378, D3b)",
+                reason_code="subject-unverifiable",
+            ) from absent
+        return verdict
+
+    def _filed_by_record_writer(self, tenant: str, address: str) -> bool:
+        """Whether the fabric's record writer filed ``address`` under ``tenant`` (`D-IMPL-378`).
+
+        Record retention — the ``replay-input`` refusal — protects a Decision
+        Replay record, and a record is what the fabric's record writer filed.
+        Bytes a principal filed on a client lane are a client artifact whatever
+        their shape, and are erased like one (Dave, 2026-10-07 21:11 MST). The
+        ONE provenance check decides
+        (:func:`~ccf.replay.provenance.filed_by_record_writer`), over the store
+        this door files through and under the requesting tenant — the tenant
+        the address was verified to be filed under (I6) — so another tenant's
+        filing of the same bytes never changes this tenant's answer.
+
+        Asked only where the answer matters: a requested address whose stored
+        document carries the subject in a replay-input field.
+
+        Raises:
+            ErasureRefused: ``class-unverifiable`` — the store declares no
+                ``WriteKinds``, so it cannot say who filed an address
+                (:class:`~ccf.replay.provenance.UnattributableRecordStore` is
+                the cause), or the naming read this question makes failed. The
+                door cannot tell a record from a client artifact, so it refuses
+                rather than judge the bytes on their own word. (A store whose
+                naming cannot be read at all was already refused by the class
+                check, before this is asked.)
+        """
+        try:
+            return filed_by_record_writer(self._store, content_address=address, tenant_id=tenant)
+        except UnattributableRecordStore as unattributable:
+            raise ErasureRefused(
+                f"the store this door files through ({type(self._store).__name__}) cannot"
+                " say whether the fabric's record writer filed a requested address whose"
+                " subject appears in a replay-input field, so record retention cannot be"
+                " judged (SEC-009; D-IMPL-378)",
+                reason_code="class-unverifiable",
+            ) from unattributable
+        except (McpServerUnreachable, ArtifactStoreError) as unanswered:
+            raise ErasureRefused(
+                f"the store's naming did not answer for a requested address"
+                f" ({type(unanswered).__name__}); whether the fabric's record writer"
+                " filed it cannot be verified (SEC-009; D-IMPL-378)",
+                reason_code="class-unverifiable",
+            ) from unanswered
 
     def _judge(self, policy: object, policy_ref: str, request: ErasureRequest, now: datetime) -> RetentionDecision:
         if not isinstance(policy, RetentionHoldPolicy) or policy.tenant_id != request.tenant_id:
