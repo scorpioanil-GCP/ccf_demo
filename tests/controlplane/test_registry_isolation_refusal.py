@@ -293,3 +293,46 @@ def test_a_class_whose_validation_hands_back_the_original_is_refused_not_stored(
         registry.register(_cap(key), original)
     assert "itself" in caught.value.reason
     assert registry.versions(key) == ()
+
+
+def test_an_untyped_document_is_json_native_so_a_python_mode_dump_is_refused_and_the_model_or_json_dump_is_served() -> None:
+    """``D-IMPL-380``, 2026-10-10 18:25 (blocker 2, option (a)): the restriction, pinned.
+
+    An untyped ``register`` document may hold only what ``json.loads`` of its own
+    canonical bytes gives back. A python-mode ``model_dump()`` of a ``DebtProfile``
+    keeps three ``Decimal`` values and a tuple, so the parsed document differs in
+    type at four paths and the registry refuses rather than coerces — leaving no
+    version behind. The same profile as the typed model, or as
+    ``model_dump(mode="json")``, is served as built. Found by the post-reboot full
+    suite of ``57ec6c73`` (``tests/replay/test_engine_rehydration.py``).
+    """
+    from decimal import Decimal
+
+    from ccf.controlplane.artifacts import DebtProfile
+    from ccf.halflife.assessment import DebtSignal, SignalObligation
+
+    profile = DebtProfile(
+        semver="1.0.0",
+        risk_sensitivity=Decimal("1.0"),
+        forced_llm_threshold=Decimal("0.50"),
+        fail_closed_threshold=Decimal("0.90"),
+        signal_obligations=(
+            SignalObligation(signal=DebtSignal.OK, obligation_ref="test-duty-alpha"),
+        ),
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ArtifactIsolationRefused) as caught:
+        registry.register(_cap("acme/profile-python-dump"), profile.model_dump())
+    assert caught.value.door == "register"
+    assert caught.value.artifact_type == "dict"
+    assert registry.versions("acme/profile-python-dump") == ()
+
+    typed_version = registry.register(_cap("acme/profile-typed"), profile)
+    assert isinstance(registry.resolve("acme/profile-typed", typed_version), DebtProfile)
+
+    json_document = profile.model_dump(mode="json")
+    json_version = registry.register(_cap("acme/profile-json-dump"), json_document)
+    served = registry.resolve("acme/profile-json-dump", json_version)
+    assert served == json_document and served is not json_document
+    assert typed_version == json_version, "the typed model and its JSON-mode dump share one canonical form"
