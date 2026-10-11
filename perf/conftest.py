@@ -193,9 +193,16 @@ def boot_fabric(*, database_path: Path) -> "FabricHandle":
     policy_version = register_at_composition(
         registry, keys["policy_bundle"], control["policy_bundle"]
     )
+    # P1 (a) (2026-10-11): a SQLite file writer mints only under a declared
+    # identity lock; the SDK-managed directory beside the database file.
+    import os
+
+    from ccf.graph.leases import sdk_managed_lock_directory
+
+    lock_dir = sdk_managed_lock_directory(os.path.realpath(Path(database_path).parent))
     return boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,
