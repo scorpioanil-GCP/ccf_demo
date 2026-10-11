@@ -81,3 +81,15 @@ assertion changed. The history of each example before this amendment is in git, 
 **Frozen specimens with a diff gate.** cp-03, cp-04, cp-05, cp-06 and cp-13 are pinned by `tests/examples/specimen_base.py`
 gates that require no diff against the branch point (`CFC-G09` and its siblings). The gates are not disabled. They read
 red on a branch carrying these amendments and read the specimen as untouched once the amendment is on `main`.
+
+## Round 2 — one time anchor per run (Dave, 2026-10-11 16:23 MST, ruling 1; branch r2-mid)
+
+One line per repair: example · file · what changed · why · finding id. No governed value, threshold, TTL,
+temporal boundary, expiry check or expected business result changed; the old pinned question is still refused on
+the real clock, and that refusal is now an ordinary passing test.
+
+- (shared) · tests/examples/demonstration_deployment.py (new) · a test acting as DEPLOYER writes a copy of an example's own `ccf_config.yaml` into a directory it owns with only `demonstration_serve_instant:` set (or removed, for the real-clock refusal case) · ruling 1: "one consistent time anchor per run … use the existing, explicitly labelled development-clock mechanism"; a question cannot move the serve clock (`D-IMPL-378` C1 rule 1), so each dated scenario is served by a deployment declaring that scenario's anchor · R2-MID-F-01
+- cp-09-treasury-liquidity-position · ccf_config.yaml · declared `demonstration_serve_instant: 2026-06-17T18:10Z` (five minutes after the pinned question, labelled) · the default question was refused `asked-at-outside-temporal-bound` on the real clock · R2-MID-F-02
+- cp-09-treasury-liquidity-position · produce.py · `assemble_and_serve(..., config=HERE / "ccf_config.yaml")` — the deployment document is a parameter a deployer (a test) may replace; the request still cannot move the clock · R2-MID-F-01
+- cp-09-treasury-liquidity-position · tests/examples/test_cp_09_output.py · `serve()` boots a test-owned copy declaring `asked_at + 5 min`; new `test_the_pinned_question_on_the_real_clock_is_refused_as_expired` · R2-MID-F-01
+- cp-09-treasury-liquidity-position · README.md "Run it" · the demonstration clock disclosed; the two other dated variations (06-15 posture flip, 08-21 stale signal) now say which `serve_instant` each needs, and that against the shipped one they are refused `asked-at-outside-temporal-bound` · R2-MID-F-02
