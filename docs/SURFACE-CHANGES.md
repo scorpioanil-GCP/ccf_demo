@@ -38987,7 +38987,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: `register_typed` accepted the door kinds only and registered under the capability's resource.
 - After: `register_typed` also accepts `InvalidationRecordRegister`, and only for the `ccf.entity-invalidation-record` class, only when the capability was minted for exactly its own tenant's `ccf.entity-invalidation` prefix, and only for a record naming that tenant; the key is derived by `invalidation_record_key`, never supplied. `register` and `register_versioned` refuse the kind. Every record passes through the same write and read doors as any artifact (`D-IMPL-380`).
 - Why: `D-IMPL-382`, above.
-- Migration: none for existing callers.
+- Migration: none for existing callers. **Also, after the focused review of `b66ab4fa`:** every door, composition and derived registration refuses a key in `{tenant}/ccf.entity-invalidation` or under it (`CapabilityBypassError`), so the range is written only by `InvalidationRecordRegister`; that kind refuses a tenant id containing `/` and admits only the `ENTITY_INVALIDATION_RECORD` class object with an `EntityInvalidationRecord` of exactly that type; `invalidation_history` raises `TypeError` on any version that is not this tenant's record for its key's entity; `ccf.boot` refuses a tenant id containing `/`. The review reproduced that an open range let a door capability plant an earlier boundary and make a refused product serve; that was possible on the old whole-register key too.
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
