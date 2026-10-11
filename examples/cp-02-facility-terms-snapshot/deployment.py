@@ -77,6 +77,7 @@ FROM_ENV = "from_env"
 REMEDY = "remedy"
 PREFIX = "prefix"
 SUFFIX = "suffix"
+LOCK_DIRECTORY = "lock_directory"
 
 KEY_PERSPECTIVE = "default_perspective"
 KEY_PRODUCT_CLASS = "product_class"
@@ -198,6 +199,22 @@ def _from_environment(source: Mapping[str, Any], *, setting: str) -> str:
 # --------------------------------------------------------------------------
 # Where the graph lives — composed, never written down.
 # --------------------------------------------------------------------------
+def _private_lock_directory(path: Path) -> str:
+    """Create this run's identity-lock directory private (``0o700``) and return its real path.
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    ``backends.yaml`` declares the directory's name under the run root.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(path, 0o700)
+    return os.path.realpath(path)
+
+
 def connection(*, root: Path) -> Mapping[str, str]:
     """Compose the declared backend kind's settings.
 
@@ -212,6 +229,9 @@ def connection(*, root: Path) -> Mapping[str, str]:
     for setting, source in settings.items():
         if FROM_ENV in source:
             composed[setting] = _from_environment(source, setting=setting)
+        elif LOCK_DIRECTORY in source:
+            # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+            composed[setting] = _private_lock_directory(root / source[LOCK_DIRECTORY])
         else:
             name = f"{source[PREFIX]}_{uuid.uuid4().hex}{source[SUFFIX]}"
             composed[setting] = str(root / name)

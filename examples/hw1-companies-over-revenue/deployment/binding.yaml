@@ -116,3 +116,7 @@ server: server/serve.py
 connection:
   database_path:
     path: graph.sqlite3
+  # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+  # A private (0o700) directory beside the graph; runner/seed.py creates it.
+  writer_lease_lock_dir:
+    path: .ccf-writer-locks

@@ -121,6 +121,7 @@ import yaml
 from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
+from ccf.graph.leases import LOCK_DIRECTORY_SETTING
 from ccf.products.door import PRODUCT_REQUEST_TOOL
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -234,7 +235,7 @@ _CONTENT_ADDRESS_RE = re.compile(r"content address\s+([0-9a-f]{64})")
 #: unmeasurable, and makes CI and a developer's machine disagree about what was
 #: proven. ``__pycache__`` joins the list because a stale compiled sibling is
 #: state too.
-COPY_IGNORE = shutil.ignore_patterns("graph.sqlite3*", "artifact-store", "__pycache__")
+COPY_IGNORE = shutil.ignore_patterns("graph.sqlite3*", ".ccf-writer-locks", "artifact-store", "__pycache__")
 
 #: The one ROLE name this runner spells. Roles are the interface the declared
 #: document and the deployment's ``scenario.yaml`` share; the SOURCE keys they
@@ -644,6 +645,23 @@ def build_subject(parent: pathlib.Path) -> pathlib.Path:
     return root
 
 
+def ensure_lock_directory(deployment: pathlib.Path) -> None:
+    """Create the binding's declared identity-lock directory private (``0o700``).
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock. ``binding.yaml`` names the directory; the program that materializes
+    the deployment creates it, because the SDK refuses a lock directory that is
+    missing or writable by anyone but its owner.
+    """
+    declared = load_binding_document(deployment).connection or {}
+    directory = pathlib.Path(str(declared[LOCK_DIRECTORY_SETTING]))
+    try:
+        directory.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(directory, 0o700)
+
+
 def seed(root: pathlib.Path) -> int:
     """Populate the copy's graph from the declared document, then let go.
 
@@ -667,6 +685,7 @@ def seed(root: pathlib.Path) -> int:
     observed_at = datetime.fromisoformat(str(document["observed_at"]))
     rows = declared_rows(DECLARED_ROWS_DOCUMENT, scenario_attributes(root))
 
+    ensure_lock_directory(root)
     booted = load_config_and_boot(
         root / "ccf_config.yaml",
         registry=ControlPlaneRegistry(),

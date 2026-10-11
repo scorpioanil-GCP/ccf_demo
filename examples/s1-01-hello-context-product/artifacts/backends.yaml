@@ -101,3 +101,8 @@ declaration:
         database_path:
           per_run: path
           filename: ubo.sqlite3
+        writer_lease_lock_dir:
+          # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+          # A private (0o700) directory under the caller's run root.
+          per_run: lock_directory
+          filename: .ccf-writer-locks

@@ -4,7 +4,7 @@
 # and `D-IMPL-163` (Dave, 2026-08-20) narrows it to exactly that: a declared
 # INPUT document a program interprets is not what `D-32` forbids. This
 # deployment's declared input lives in `../runner/signal-batch.yaml`, and
-# `../runner/seed.py` produces the three names below from it through the
+# `../runner/seed.py` produces the names below from it through the
 # fabric's single writer (`D-IMPL-245` amendment 2, Dave, 2026-09-03).
 #
 # They are named here so that a developer who has run the seed cannot commit
@@ -13,3 +13,5 @@
 graph.sqlite3
 graph.sqlite3-*
 artifact-store/
+# Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+.ccf-writer-locks/

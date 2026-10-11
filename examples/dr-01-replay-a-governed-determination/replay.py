@@ -82,7 +82,8 @@ def _reopened_fabric(opened: Any, tree: Path) -> Iterator[Any]:
 
     substrate = yaml.safe_load((tree / "ccf_environment.yaml").read_text(encoding="utf-8"))["substrate"]
     minted = sorted(opened.scratch.glob(f"{substrate['prefix']}*{substrate['suffix']}"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock. The product's own SDK-managed directory.
+    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": opened.writer_lock_directory})
     try:
         yield fabric
     finally:

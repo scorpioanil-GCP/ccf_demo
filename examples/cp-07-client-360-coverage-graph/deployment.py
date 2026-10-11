@@ -22,6 +22,8 @@ a banker with no name and no seniority, with nothing raised.
 
 from __future__ import annotations
 
+import os
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -62,10 +64,32 @@ def config() -> Mapping[str, Any]:
     return document
 
 
+def _private_lock_directory(path: Path) -> str:
+    """Create this run's identity-lock directory private (``0o700``) and return its real path.
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    ``backends.yaml`` declares the directory's name under the run root.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(path, 0o700)
+    return os.path.realpath(path)
+
+
 def connection(*, root: Path) -> Mapping[str, str]:
     profile = yaml.safe_load((HERE / "backends.yaml").read_text(encoding="utf-8"))[
         "declaration"]["profiles"]["sqlite"]["settings"]["database_path"]
-    return {"database_path": str(root / f"{profile['prefix']}{profile['suffix']}")}
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    lock = yaml.safe_load((HERE / "backends.yaml").read_text(encoding="utf-8"))[
+        "declaration"]["profiles"]["sqlite"]["settings"]["writer_lease_lock_dir"]
+    return {
+        "database_path": str(root / f"{profile['prefix']}{profile['suffix']}"),
+        "writer_lease_lock_dir": _private_lock_directory(root / lock["lock_directory"]),
+    }
 
 
 def perspective() -> PerspectiveArtifact:
