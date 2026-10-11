@@ -57,7 +57,7 @@ class Assembled:
 
 
 def assemble_and_serve(
-    *, asked: ProductRequest, root: Path, at_transaction: str | None = None
+    *, asked: ProductRequest, root: Path, at_transaction: str | None = None, config: Path | None = None,
 ) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -65,6 +65,11 @@ def assemble_and_serve(
     the question is not one this class answers — a bad question is a bad
     question rather than a broken deployment, and a verdict returned as a value
     cannot be swallowed by a bare ``except``.
+
+    ``config`` is the DEPLOYMENT, not the question: this example's own
+    ``ccf_config.yaml`` (``HERE``, read at call time) unless a deployer (a test) boots a copy of it declaring a
+    different demonstration serve instant (`tests/examples/demonstration_deployment.py`).
+    Nothing on ``asked`` can move the serve clock.
     """
     registry = ControlPlaneRegistry()
 
@@ -73,7 +78,7 @@ def assemble_and_serve(
     #    Connection values arrive HERE, from the caller — never from the config,
     #    which names the backend as a KIND only.
     booted = load_config_and_boot(
-        HERE / "ccf_config.yaml",
+        config if config is not None else HERE / "ccf_config.yaml",
         registry=registry,
         connection=deployment.connection(root=root),
     )

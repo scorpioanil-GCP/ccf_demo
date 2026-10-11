@@ -51,6 +51,20 @@ DEMONSTRATION_FACILITY = "FAC-01BB3F"
 #: The drawdown date, and the instant the dispute question is asked at.
 DEMONSTRATION_DRAWDOWN = "2025-09-09"
 
+#: The instant the dispute question is ASKED: noon UTC on 2025-10-05, the day
+#: the bank booked `AMD-01BB3F-2` — after every booking the question's view
+#: holds, and the instant the tests' positive control serves at. The question is
+#: still about the drawdown date (`--as-of`, `--known-as-of`). Until 2026-10-11
+#: the run asked at the wall clock, which the evidence-anchored expiry
+#: (`CP08-F-05`) has refused `ttl-bounds` since 2026-04-03, so the default
+#: printed a refusal where this file's docstring and the README promise the
+#: served two-clocks answer. The deployment's `ccf_config.yaml` declares the
+#: labelled demonstration serve instant five minutes after this one (Dave,
+#: 2026-10-11, ruling 1: one time anchor per run). `--asked-at now` asks at the
+#: wall clock against that deployment and is refused; the real-clock refusal is
+#: asserted in `tests/examples/test_cp_08_output.py`.
+DEMONSTRATION_ASKED_AT = "2025-10-05T12:00:00+00:00"
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Covenant-in-force as-of.")
@@ -60,13 +74,21 @@ def main(argv: list[str] | None = None) -> int:
         "--known-as-of", default=None,
         help="omit to ask both axes at --as-of (the dispute question)",
     )
+    parser.add_argument(
+        "--asked-at", default=DEMONSTRATION_ASKED_AT,
+        help="the question's decision instant (ISO 8601); `now` for the wall clock",
+    )
     args = parser.parse_args(argv)
     known_as_of = args.known_as_of or args.as_of
+    asked_at = (
+        datetime.now(UTC) if args.asked_at == "now"
+        else datetime.fromisoformat(args.asked_at)
+    )
 
     asked = deployment.request(
         facility_id=args.facility,
         principal_scope=[args.facility],
-        asked_at=datetime.now(UTC),
+        asked_at=asked_at,
         as_of=args.as_of,
         known_as_of=known_as_of,
     )
@@ -77,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         if isinstance(outcome, RefusalEnvelope):
             print(f"REFUSED  {outcome.reason}")
             print(f"         {outcome.detail or ''}")
+            print(f"  replay {outcome.replay_reference}")
             return 1
 
         payload = outcome.product.payload
