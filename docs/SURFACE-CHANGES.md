@@ -38987,7 +38987,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: `preferred` guidance with a `Decimal` value and with the equal-looking name shared one canonical form and content address; the registry refused the decimal form.
 - After: a hash-transparent field `preferred_decimal: bool = False` records the kind: set by the class when the operator is `preferred` and the value a `Decimal`; a document's quoted value is read as a `Decimal` only when it carries `preferred_decimal: true`; any other combination of flag, operator and value is refused. Existing accepted forms keep their bytes and addresses; numeric `preferred` guidance gains its own and round-trips the registry as a `Decimal`.
 - Why: blocker 1 of the `D-IMPL-380` sixth round, ruled 2026-10-11 12:35 MST (option A of `GROK-BRIEF-7`).
-- Migration: none. An author never states the flag; a document that states it must agree with its operator and value.
+- Migration: none for existing constraints. In Python the class sets the flag for a `Decimal` or a whole number. In a document, numeric `preferred` guidance is written as a quoted number with `preferred_decimal: true`, because a quoted value under `preferred` is otherwise a name; a document whose flag disagrees with its operator and value is refused. An unquoted whole number under `preferred` still loads as numeric guidance, as it did before the flag.
 
 *Recorded by `380-09-preferred-guidance-carries-its-kind.md`.*
 

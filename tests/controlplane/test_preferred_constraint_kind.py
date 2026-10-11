@@ -117,8 +117,10 @@ def test_a_whole_number_under_preferred_is_numeric_guidance_as_it_was_before_the
     assert type(constraint.value) is Decimal and constraint.value == Decimal("4")
     assert constraint.preferred_decimal is True
     assert constraint == _pc("preferred", Decimal("4"))
-    document = {**_pc("preferred", "tier-a").model_dump(mode="json"), "value": 4}
-    loaded = PolicyConstraint.model_validate(document)
+    document = {k: v for k, v in _pc("preferred", "tier-a").model_dump(mode="json").items() if k != "preferred_decimal"}
+    loaded = PolicyConstraint.model_validate({**document, "value": 4})
     assert type(loaded.value) is Decimal and loaded.preferred_decimal is True
+    with pytest.raises(ValidationError):  # a document that states the name form over a number disagrees
+        PolicyConstraint.model_validate({**document, "value": 4, "preferred_decimal": False})
     with pytest.raises(ValidationError):
         _pc("preferred", True)  # a bool is not a number here
