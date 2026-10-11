@@ -911,6 +911,22 @@ class PolicyConstraint(VersionedArtifact):
     )
     reason: str
     priority: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    #: **The kind of a ``preferred`` value** — ``True`` when the guidance is a decimal, ``False``
+    #: (the default) when it is a name. Blocker 1, ruled 2026-10-11 12:35 MST (Grok's review of
+    #: GROK-BRIEF-7, adopted by Dave): the canonical form renders a ``Decimal`` as a quoted string,
+    #: so ``Decimal("4")`` and ``"4"`` under ``preferred`` rendered to the same bytes and shared one
+    #: content address while being unequal. This flag puts the kind in the bytes.
+    #:
+    #: **Hash-transparent, as a kind and not as a migration** — a widening of the marker accepted
+    #: for this field only. Elsewhere the sentinel means *"the field did not exist"*; here it means
+    #: *"this is the name form"*. So every form accepted before the flag existed renders byte for
+    #: byte as before and keeps its address, and numeric ``preferred`` guidance — refused by the
+    #: registry until now — gains its own. Bytes written before the flag carry no flag and are read
+    #: as the name form; they cannot reveal an original type they never recorded.
+    #:
+    #: Set by the before-validator, never needed from an author: ``True`` exactly when the operator
+    #: is ``preferred`` and the value a ``Decimal``. Every other combination is refused.
+    preferred_decimal: bool = Field(default=False, json_schema_extra={HASH_TRANSPARENT_KEY: True})
 
     @model_validator(mode="before")
     @classmethod
@@ -933,6 +949,18 @@ class PolicyConstraint(VersionedArtifact):
         the operator/value disagreement rather than a decimal-parse failure.
         """
         if not isinstance(data, Mapping):
+            return data
+        if data.get("operator") == "preferred":
+            value = data.get("value")
+            if isinstance(value, Decimal) and "preferred_decimal" not in data:
+                # The kind, recorded: a decimal under `preferred` says so in its own bytes.
+                return {**data, "preferred_decimal": True}
+            if data.get("preferred_decimal") is True and isinstance(value, str):
+                # A document read back: the flag, not a guess, says the quoted value is a decimal.
+                try:
+                    return {**data, "value": Decimal(value)}
+                except InvalidOperation:
+                    return data  # refused below: the flag over a value that is not a number
             return data
         if data.get("operator") not in ("maximum", "minimum"):
             return data
@@ -977,6 +1005,13 @@ class PolicyConstraint(VersionedArtifact):
             raise ValueError(
                 "operator 'preferred' is non-refusing guidance and takes a"
                 f" decimal or a name; got {type(self.value).__name__}"
+            )
+        numeric_guidance = self.operator == "preferred" and isinstance(self.value, Decimal)
+        if self.preferred_decimal != numeric_guidance:
+            raise ValueError(
+                f"preferred_decimal={self.preferred_decimal} disagrees with operator"
+                f" {self.operator!r} and a {type(self.value).__name__} value: the flag is true"
+                " exactly for decimal guidance under 'preferred' (blocker 1)"
             )
         return self
 

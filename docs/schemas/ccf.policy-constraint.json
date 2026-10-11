@@ -111,6 +111,12 @@
       "title": "Policy Id",
       "type": "string"
     },
+    "preferred_decimal": {
+      "ccf_hash_transparent": true,
+      "default": false,
+      "title": "Preferred Decimal",
+      "type": "boolean"
+    },
     "priority": {
       "ccf_hash_transparent": true,
       "default": 0,

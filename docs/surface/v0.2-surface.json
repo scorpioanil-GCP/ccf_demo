@@ -2151,6 +2151,7 @@
           "overridable": "<class 'bool'>",
           "parameter": "<class 'str'>",
           "policy_id": "<class 'str'>",
+          "preferred_decimal": "<class 'bool'>",
           "priority": "<class 'int'>",
           "reason": "<class 'str'>",
           "semver": "<class 'str'>",
