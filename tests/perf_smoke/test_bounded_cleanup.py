@@ -24,7 +24,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TIMEOUT, TERM_GRACE, REAP = 1.0, 1.0, 1.0
+#: The run's own timeout, the TERM-to-KILL grace and the KILL-to-reaped wait, kept small so each case takes seconds.
+TIMEOUT = 1.0
+TERM_GRACE = 1.0
+REAP = 1.0
 #: The stated allowance for one case, plus scheduling slack for a loaded runner.
 ALLOWANCE = TIMEOUT + TERM_GRACE + REAP
 SLACK = 3.0
@@ -142,3 +145,48 @@ def test_a_clean_suite_returns_its_output_and_leaves_no_survivor(tmp_path: Path,
     assert "suite ran" in result["stdout"]
     assert result["survivors"] == []
     assert _marked_pids(marker) == []
+
+
+def _pids_with_argv_token(token: str) -> list[int]:
+    found = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            if token.encode() in (entry / "cmdline").read_bytes():
+                found.append(int(entry.name))
+        except OSError:
+            continue
+    return found
+
+
+def test_a_descendant_the_marker_cannot_find_still_cannot_block_cleanup(tmp_path: Path, marker: str) -> None:
+    """The marker's stated limit, and why output goes to files rather than pipes.
+
+    The grandchild leaves the group AND replaces its environment, so the marker scan cannot see
+    it. Cleanup must still return within the allowance — nothing waits on its inherited output —
+    and the result honestly names no survivor. The test's own teardown kills it by a token in its
+    command line.
+    """
+    token = f"unfindable-{marker}"
+    body = textwrap.dedent(
+        f"""
+        import subprocess, sys, time
+        subprocess.Popen([sys.executable, "-c",
+            "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)  # {token}"],
+            start_new_session=True, env={{}})
+        time.sleep(60)
+        """
+    )
+    try:
+        result, _ = _drive(tmp_path, marker, body)
+        assert result["timed_out"] is True
+        _within_allowance(result)
+        assert result["survivors"] == [], "the marker cannot see a descendant that replaced its environment"
+        assert _pids_with_argv_token(token), "the unfindable descendant should still be running here"
+    finally:
+        for pid in _pids_with_argv_token(token):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
