@@ -23,6 +23,7 @@ import ccf.boot as boot_module
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.controlplane.registry import ControlPlaneRegistry
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _arguments(database: Path) -> dict[str, Any]:
@@ -45,7 +46,7 @@ def _arguments(database: Path) -> dict[str, Any]:
     policy_version = register_at_composition(registry, "test/pm10-policy", {"regime": "pm10"})
     return dict(
         backend="sqlite",
-        connection={"database_path": database},
+        connection={"database_path": database, "writer_lease_lock_dir": lock_dir_beside(database)},
         registry=registry,
         resolution_spec_key="test/pm10-spec",
         resolution_spec_version=spec_version,

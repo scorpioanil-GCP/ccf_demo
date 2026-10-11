@@ -37,6 +37,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf.products.refusal import RefusalEnvelope
 
 from tests.products import test_paved_road as paved
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _records(scratch: pathlib.Path) -> set[pathlib.Path]:
@@ -74,7 +75,7 @@ def test_an_opened_product_replays_an_earlier_record_only_after_its_environment_
         fabric = load_config_and_boot(
             reopened.config_path,
             registry=reopened.control_plane,
-            connection={"database_path": str(minted)},
+            connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))},
             read_only=True,
         )
         try:

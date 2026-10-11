@@ -35,6 +35,7 @@ from pathlib import Path
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
 from tests.graph.test_sqlite_writer_lease_file_identity import _declared, _locks
 from tests.graph.test_sqlite_writer_lease_hard_link import _two_names
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _private_directory(path: Path) -> Path:
@@ -81,7 +82,7 @@ def test_limit_a_writer_that_declares_no_lock_directory_is_not_excluded_through_
     holder = _boot("sqlite", _declared(held, _locks(tmp_path)))
     try:
         os.rename(held, moved)
-        outcome = _run_child("sqlite", {"database_path": moved})
+        outcome = _run_child("sqlite", {"database_path": moved, "writer_lease_lock_dir": lock_dir_beside(moved)})
     finally:
         holder.close()
 

@@ -35,6 +35,7 @@ from ccf.graph.backends.neo4j import MAX_DEPTH_CEILING as NEO4J_CEILING
 from ccf.graph.backends.neo4j import Neo4jGraphStore
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import TraversalDepthCapability
+from tests.support.sqlite_lease import lease_beside
 
 #: A credential-free identity string, this module's own fixture vocabulary.
 IDENTITY = "fixture://graph.example:0/ledger#partition"
@@ -114,7 +115,7 @@ def test_a_backend_with_no_ceiling_does_not_satisfy_the_capability(
     bound for a deployment running on it. A capability *flag* would have forced
     every ceiling-free store to answer a question it has no answer to.
     """
-    store = SqliteGraphStore(database_path=tmp_path / "capability.sqlite3")
+    store = SqliteGraphStore(database_path=tmp_path / "capability.sqlite3", writer_lease=lease_beside(tmp_path / "capability.sqlite3"))
     try:
         assert not isinstance(store, TraversalDepthCapability)
         assert not hasattr(store, "max_traversal_depth")

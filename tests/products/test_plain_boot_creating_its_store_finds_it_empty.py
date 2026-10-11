@@ -51,6 +51,7 @@ from ccf.products.resolver import ProductNotResolvable
 from ccf.replay.serve import ServedProduct
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 sec020 = m.sec020
 
@@ -67,7 +68,7 @@ _LATEST = datetime.max.replace(tzinfo=UTC)
 def _boot_plainly(manifest: pathlib.Path, registry: Any, path: pathlib.Path) -> Any:
     """A plain (not for a question) writer boot of ``path``: the fabric, or what the boot raised."""
     try:
-        return load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+        return load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         return raised
 
@@ -152,7 +153,7 @@ def test_2a_b_the_config_door_refuses_a_store_planted_at_a_plain_boots_path_by_n
         writer.arm()
         try:
             outcome: Any = load_config_and_boot(
-                opened.config_path, registry=opened.control_plane, connection={"database_path": str(target)}
+                opened.config_path, registry=opened.control_plane, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome = raised
@@ -182,7 +183,7 @@ def test_2a_b_a_plain_boot_reads_the_store_it_creates_once_and_a_reopening_boot_
     path = tmp_path / "fresh" / _STORE
     path.parent.mkdir()
 
-    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
     reads_creating = _latest_reads(events)
     try:
         for envelope in m._base_accounts():
@@ -190,7 +191,7 @@ def test_2a_b_a_plain_boot_reads_the_store_it_creates_once_and_a_reopening_boot_
     finally:
         created.handle.close()
     events.clear()
-    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
     reads_reopening = _latest_reads(events)
     reopened.handle.close()
 
@@ -212,7 +213,7 @@ def test_2a_b_control_the_deployments_own_store_reopened_boots_and_answers(tmp_p
     manifest, registry, records = p4e._deployment(tmp_path)
     path = tmp_path / "kept" / _STORE
     path.parent.mkdir()
-    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
     try:
         assert p4e._held(created) == 0, "the store this boot created must start empty"
         for envelope in m._base_accounts():
@@ -220,7 +221,7 @@ def test_2a_b_control_the_deployments_own_store_reopened_boots_and_answers(tmp_p
     finally:
         created.handle.close()
 
-    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
     try:
         assert reopened.store_creation == "verified", reopened.store_creation
         assert p4e._held(reopened) > 0, "the reopened store must still hold what its owner wrote"

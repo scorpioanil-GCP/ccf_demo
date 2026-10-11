@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from tests.support.sqlite_lease import lock_dir_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -555,11 +556,16 @@ def _store_identity(substrate: str, connection: dict[str, Any]) -> str:
 def test_the_sqlite_fabric_handle_reports_its_substrate_lease(tmp_path: Path) -> None:
     """The reader is general: the file-backed store's handle reports its own lease."""
     database_path = tmp_path / "handle.sqlite3"
-    handle = _boot("sqlite", {"database_path": database_path})
+    lock_dir = lock_dir_beside(database_path)
+    handle = _boot("sqlite", {"database_path": database_path, "writer_lease_lock_dir": lock_dir})
     try:
+        # P1 (a): a SQLite file writer mints only under the declared identity
+        # lock, so the handle reports the sidecar AND the identity lock.
         sidecar = f"{database_path.resolve()}.ccf-writer.lock"
+        mechanism = handle.lease_mechanism or ""
         assert handle.lease_scope == "cross-process"
-        assert handle.lease_mechanism == f"flock on {sidecar!r}"
+        assert mechanism.startswith(f"flock on {sidecar!r}; and flock on '{lock_dir}/"), mechanism
+        assert "keyed on the database file (sqlite-database-file:" in mechanism, mechanism
     finally:
         handle.close()
 

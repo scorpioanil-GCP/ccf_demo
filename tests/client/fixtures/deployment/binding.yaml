@@ -103,3 +103,8 @@ server: stdio_server.py
 connection:
   database_path:
     path: graph.sqlite3
+  # P1 (a) (D-IMPL-378; Tuesday GO item 4): a SQLite file writer mints only
+  # under a declared identity lock. The directory is created private (0o700)
+  # by whoever materializes this deployment (tests/client/conftest.py).
+  writer_lease_lock_dir:
+    path: .ccf-writer-locks

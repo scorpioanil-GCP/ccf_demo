@@ -129,6 +129,7 @@ from tests.products.test_withheld_is_indistinguishable_from_absent import (
     _table_document,
     _uri,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- fixture vocabulary --------------------------------------------------------
 
@@ -225,7 +226,7 @@ def _boot(root: pathlib.Path, *, with_similarity: bool, anchor: str) -> Any:
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(root / "graph.sqlite3")},
+        connection={"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))},
         **question,
     )
     declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)

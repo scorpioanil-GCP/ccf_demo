@@ -192,6 +192,7 @@ from tests.signal_layer.test_cp05_acquisition_boundary import (
 )
 from tests.composition import declaring_store
 from tests.composition import declare_wide_temporal_boundary
+from tests.support.sqlite_lease import lock_dir_beside
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -371,10 +372,11 @@ def _boot(root: pathlib.Path) -> Fabric:
         yaml.safe_dump(derived_config(), sort_keys=False), encoding="utf-8"
     )
     control_plane = ControlPlaneRegistry()
+    database_path = str(root / f"cp05_{uuid.uuid4().hex[:12]}.sqlite3")
     booted = load_config_and_boot(
         config_file,
         registry=control_plane,
-        connection={"database_path": str(root / f"cp05_{uuid.uuid4().hex[:12]}.sqlite3")},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
     )
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
     # refuses every question, so a fixture that means to serve declares one.

@@ -46,6 +46,7 @@ from tests.products.test_withheld_subject_child_arguments_and_question_stores im
     _later,
     _refused_by_name,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 sec020 = m.sec020
 
@@ -78,7 +79,7 @@ def _reopen(directory: pathlib.Path, booted: Any) -> Any:
     return load_and_boot(
         directory / "manifest.yaml",
         registry=booted[1],
-        connection={"database_path": str(directory / _STORE)},
+        connection={"database_path": str(directory / _STORE), "writer_lease_lock_dir": lock_dir_beside(str(directory / _STORE))},
     )
 
 
@@ -186,7 +187,7 @@ def test_p4_strict_replay_reads_an_unmarked_question_store_whose_serve_is_refuse
         assert removed, "the paved road's question boot left no marker to remove; the case was not constructed"
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(minted[0])}, read_only=read_only,
+            connection={"database_path": str(minted[0]), "writer_lease_lock_dir": lock_dir_beside(str(minted[0]))}, read_only=read_only,
         )
         try:
             outcome = replay(
@@ -443,7 +444,7 @@ def test_p4_strict_a_second_question_boot_of_a_reserved_path_is_refused_by_name(
         if not second:
             second["outcome"] = None
             try:
-                fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+                fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))}, for_question=True)
             except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
                 second["outcome"] = raised
             else:
@@ -454,7 +455,7 @@ def test_p4_strict_a_second_question_boot_of_a_reserved_path_is_refused_by_name(
         return real_boot(**kwargs)
 
     monkeypatch.setattr(manifest_module, "boot", boot_with_a_second_question_inside)
-    first = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+    first = load_and_boot(manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))}, for_question=True)
     try:
         held = _entities_in(store)
     finally:
@@ -489,7 +490,7 @@ def test_p4_strict_a_store_created_after_the_freshness_check_refuses_the_questio
         pinned = real_register(*args, **kwargs)
         if not planted:
             planted.append("planting")
-            fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)})
+            fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))})
             for envelope in m._base_accounts():
                 fabric.handle.worker.ingest(envelope)
             fabric.handle.close()
@@ -499,7 +500,7 @@ def test_p4_strict_a_store_created_after_the_freshness_check_refuses_the_questio
     monkeypatch.setattr(manifest_module, "register_manifest_entries", register_then_plant)
     held = None
     try:
-        question: Any = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+        question: Any = load_and_boot(manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))}, for_question=True)
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         question = raised
     else:

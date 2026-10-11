@@ -31,6 +31,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -247,7 +248,7 @@ def test_a_fabric_whose_policy_bundle_is_unregistered_refuses_to_boot(
     with pytest.raises(ControlPlaneMissing):
         boot(
             backend="sqlite",
-            connection={"database_path": tmp_path / "unbound.sqlite3"},
+            connection={"database_path": tmp_path / "unbound.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "unbound.sqlite3")},
             registry=registry,
             resolution_spec_key=SPEC_KEY,
             resolution_spec_version=spec_version,
@@ -275,7 +276,7 @@ def test_a_failed_boot_leaves_the_graph_bootable(
     with pytest.raises(ControlPlaneMissing):
         boot(
             backend="sqlite",
-            connection={"database_path": database_path},
+            connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
             registry=registry,
             resolution_spec_key=SPEC_KEY,
             resolution_spec_version=spec_version,
@@ -287,7 +288,7 @@ def test_a_failed_boot_leaves_the_graph_bootable(
     policy_version = register_at_composition(registry, POLICY_KEY, {"regime": "retry"})
     handle = boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=registry,
         resolution_spec_key=SPEC_KEY,
         resolution_spec_version=spec_version,

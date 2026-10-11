@@ -80,6 +80,7 @@ from tests.deployment.conftest import (
     TRAVERSAL_KEY,
     Deployment,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The four operator-parameters manifest keys, in the fixture's vocabulary.
 OPERATOR_KEYS = (TRAVERSAL_KEY, TEMPORAL_KEY, POLICY_PARAMS_KEY, SIMILARITY_KEY)
@@ -96,7 +97,7 @@ def _boot(deployment: Deployment, tmp_path: pathlib.Path, *, name: str) -> Any:
     return load_and_boot(
         deployment.manifest_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / name)},
+        connection={"database_path": str(tmp_path / name), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / name))},
     )
 
 

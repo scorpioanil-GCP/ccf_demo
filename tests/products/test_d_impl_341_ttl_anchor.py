@@ -73,6 +73,7 @@ from tests.deployment.test_replay_binding import ENTITY_CLASS
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ADMITTED_AT, ASKED_AT, THRESHOLD_PARAMETER
 from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -227,7 +228,7 @@ def test_c4_a_declaration_no_row_could_honor_is_refused_by_name_at_open_and_at_t
         finally:
             fabric.handle.close()
     registry = ControlPlaneRegistry()
-    hand = load_config_and_boot(refused_root / "ccf_config.yaml", registry=registry, connection={"database_path": str(tmp_path / "hand.sqlite3")})
+    hand = load_config_and_boot(refused_root / "ccf_config.yaml", registry=registry, connection={"database_path": str(tmp_path / "hand.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "hand.sqlite3"))})
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
     # refuses every question, so a fixture that means to serve declares one.
     declare_wide_temporal_boundary(registry, tenant_id=hand.tenant_id)
@@ -557,7 +558,7 @@ def _reopened(opened: OpenedProduct) -> Any:
     from ccf.deployment import load_config_and_boot  # noqa: PLC0415
 
     minted = sorted(opened.scratch.glob("paved_child*.sqlite3"))[-1]
-    return load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    return load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
 
 
 def test_c9_replay_re_derives_the_anchor_and_a_pre_341_record_is_skipped_by_name(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:

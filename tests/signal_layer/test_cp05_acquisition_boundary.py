@@ -50,6 +50,7 @@ import yaml
 from ccf.signal.acquisition import FileRecordAcquisitionSource
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.signal.source import SignalSourceProtocol
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --------------------------------------------------------------------------
 # cp-05's declarations, read as test inputs. Every value below is READ from
@@ -364,7 +365,7 @@ def boot_fabric(root: Path) -> Any:
     return load_config_and_boot(
         CONFIG,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(database)},
+        connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))},
     )
 
 
@@ -652,7 +653,7 @@ def resolution_probe(
     fabric = load_config_and_boot(
         path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(database)},
+        connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))},
     )
     try:
         worker = fabric.handle.worker

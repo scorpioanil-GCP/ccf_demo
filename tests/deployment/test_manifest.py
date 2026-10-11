@@ -65,6 +65,7 @@ from tests.deployment.conftest import (
     manifest_document,
     write_artifact,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The manifest entry index whose document test 11 corrupts. Fourth, so there
 #: are three entries before it whose absence from the registry is the assertion.
@@ -84,7 +85,7 @@ def _boot(
     return load_and_boot(
         manifest or deployment.manifest_path,
         registry=registry if registry is not None else ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / name)},
+        connection={"database_path": str(tmp_path / name), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / name))},
         **kwargs,
     )
 
@@ -469,7 +470,7 @@ def test_supplying_the_other_backends_argument_is_refused(
             deployment.manifest_path,
             registry=registry,
             connection={
-                "database_path": str(tmp_path / "graph.sqlite3"),
+                "database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3")),
                 "dsn": stray,
             },
         )
@@ -519,7 +520,7 @@ def test_memory_declared_with_a_connection_argument_is_refused(
         load_and_boot(
             path,
             registry=registry,
-            connection={"database_path": str(tmp_path / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
         )
     assert "database_path" in str(raised.value)
     assert registry.audit_events() == ()

@@ -76,6 +76,7 @@ from tests.products import _deployment_wait_bound as wb
 from tests.products import test_plain_boot_creating_its_store_finds_it_empty as tp
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal a boot meets where safe verification cannot be established (absent on a tree without it).
 NOT_VERIFIED = "DeploymentStoreNotVerified"
@@ -112,7 +113,7 @@ def _state(marker: pathlib.Path) -> str | None:
 
 def _boot(manifest: pathlib.Path, registry: Any, store: pathlib.Path, *, read_only: bool = False) -> Any:
     try:
-        return load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, read_only=read_only)
+        return load_and_boot(manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))}, read_only=read_only)
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         return raised
 
@@ -324,7 +325,7 @@ def _stale_with_no_store(tmp_path: pathlib.Path, manifest: pathlib.Path, registr
             f"the boot was not killed as constructed: rc {killed.returncode} {err[-2000:]}"
         )
     elif state == "verified, its store deleted":
-        load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}).handle.close()
+        load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}).handle.close()
         for suffix in ("", "-wal", "-shm"):
             pathlib.Path(f"{target}{suffix}").unlink(missing_ok=True)
     elif state == "the single-line marker of fe25536c":
@@ -577,7 +578,7 @@ def test_1_2_a_plain_boot_creating_a_store_where_a_question_marker_stands_takes_
 
     monkeypatch.setattr(manifest_module, "boot", fail_inside_the_question_boot)
     with pytest.raises(RuntimeError):
-        load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}, for_question=True)
+        load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}, for_question=True)
     question_marker = pathlib.Path(f"{target.resolve()}.ccf-question-store")
     assert question_marker.exists() and not target.exists(), "the reserved path was not constructed"
     monkeypatch.undo()
@@ -757,7 +758,7 @@ def test_1_2_control_a_read_only_boot_beside_a_live_writer_is_not_held_by_the_st
     manifest, registry, _records = p4e._deployment(tmp_path)
     target = tmp_path / "live" / _STORE
     target.parent.mkdir()
-    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     try:
         signals = tmp_path / "signals"
         signals.mkdir()
@@ -850,7 +851,7 @@ def test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_
     target.parent.mkdir()
     creation_lock = pathlib.Path(f"{target.resolve()}{_STORE_CREATION_LOCK_SUFFIX}")
     writer_lease = pathlib.Path(f"{target.resolve()}.ccf-writer.lock")
-    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     try:
         assert writer.store_creation == "verified", writer.store_creation
         assert _held_by_another(writer_lease), "control: a writer's open fabric must hold the SQLite writer lease"
@@ -858,7 +859,7 @@ def test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_
         assert _descriptors_open_on(target) >= 1, "a writer's open fabric must hold its store file open"
     finally:
         writer.handle.close()
-    reader = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}, read_only=True)
+    reader = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}, read_only=True)
     try:
         assert p4e._held(reader) == 0, "the read-only fabric must read its (empty) store"
         assert not _held_by_another(creation_lock), "a read-only fabric's open server holds the store-creation lock"

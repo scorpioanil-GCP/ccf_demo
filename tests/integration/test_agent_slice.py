@@ -93,6 +93,7 @@ from ccf.projection.plan import Perspective
 from tests.composition import register_at_composition, register_typed_at_composition, register_versioned_at_composition
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
+from tests.support.sqlite_lease import lock_dir_beside
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -139,7 +140,7 @@ def fabric(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
+        connection={"database_path": tmp_path / "acme-bank.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acme-bank.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

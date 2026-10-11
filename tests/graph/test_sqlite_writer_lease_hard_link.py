@@ -39,6 +39,7 @@ import pytest
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import WriterLeaseHeld
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
+from tests.support.sqlite_lease import lease_beside, lock_dir_beside
 
 #: The store's own words when it refuses to open a file with more than one name (P2 (b)).
 _REFUSED_AT_OPEN = "the store refuses to open it, readers included, before any connection or setup"
@@ -58,13 +59,13 @@ def _two_names(tmp_path: Path) -> tuple[Path, Path]:
 
 def test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file(tmp_path: Path) -> None:
     held, moved = _two_names(tmp_path)
-    holder = _boot("sqlite", {"database_path": held})
+    holder = _boot("sqlite", {"database_path": held, "writer_lease_lock_dir": lock_dir_beside(held)})
     try:
         before = os.stat(held)
         os.rename(held, moved)
         after = os.stat(moved)
         assert (after.st_dev, after.st_ino, after.st_nlink) == (before.st_dev, before.st_ino, 1)
-        new_name = _run_child("sqlite", {"database_path": moved})
+        new_name = _run_child("sqlite", {"database_path": moved, "writer_lease_lock_dir": lock_dir_beside(moved)})
     finally:
         holder.close()
 
@@ -111,12 +112,12 @@ def test_sqlite_keeps_a_write_ahead_log_per_name_so_a_second_name_misses_what_th
 
 def test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph(tmp_path: Path) -> None:
     held, linked = _two_names(tmp_path)
-    holder = _boot("sqlite", {"database_path": held})
+    holder = _boot("sqlite", {"database_path": held, "writer_lease_lock_dir": lock_dir_beside(held)})
     try:
         os.link(held, linked)
         assert os.path.samefile(held, linked)
-        same_name = _run_child("sqlite", {"database_path": held})
-        other_name = _run_child("sqlite", {"database_path": linked})
+        same_name = _run_child("sqlite", {"database_path": held, "writer_lease_lock_dir": lock_dir_beside(held)})
+        other_name = _run_child("sqlite", {"database_path": linked, "writer_lease_lock_dir": lock_dir_beside(linked)})
     finally:
         holder.close()
 
@@ -134,13 +135,13 @@ def test_the_lease_refuses_a_database_file_with_a_second_name_through_either_nam
     reached only for a second name made after the store opened.
     """
     held, linked = _two_names(tmp_path)
-    with SqliteGraphStore(database_path=held) as store:
+    with SqliteGraphStore(database_path=held, writer_lease=lease_beside(held)) as store:
         store.writer_lease().release()  # control: a file with one name is leased
         os.link(held, linked)  # a second name, made after this store opened through the first
         with pytest.raises(WriterLeaseHeld, match=_REFUSED_AT_THE_LEASE):
             store.writer_lease()
     os.unlink(held)  # the file's only name is now the other one
-    with SqliteGraphStore(database_path=linked) as store:
+    with SqliteGraphStore(database_path=linked, writer_lease=lease_beside(linked)) as store:
         store.writer_lease().release()  # control: one name again, leased through the other name
         os.link(linked, held)
         with pytest.raises(WriterLeaseHeld, match=_REFUSED_AT_THE_LEASE):

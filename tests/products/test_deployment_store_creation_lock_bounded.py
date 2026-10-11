@@ -67,6 +67,7 @@ from tests.deployment.test_config_equivalence import _config_document
 from tests.products import _deployment_wait_bound as wb
 from tests.products import test_deployment_marker_serialized_and_stale_refused as sr
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal a boot meets where the store-creation lock is held by another.
 NOT_VERIFIED = "DeploymentStoreNotVerified"
@@ -253,7 +254,7 @@ def test_19_b_the_config_door_carries_the_declared_wait_into_its_manifest_and_ho
         started = time.monotonic()
         try:
             booted = load_config_and_boot(
-                config_path, registry=ControlPlaneRegistry(), connection={"database_path": str(target)}
+                config_path, registry=ControlPlaneRegistry(), connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}
             )
         except BaseException as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome["result"] = raised

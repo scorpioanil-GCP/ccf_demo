@@ -53,6 +53,7 @@ from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
 from tests.products import composite_fixture as cf
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 sec020 = m.sec020
 
@@ -271,7 +272,7 @@ def test_p4_a_question_store_booted_again_refuses_every_later_serve_by_name(
         fabric = load_and_boot(
             tmp_path / name / "manifest.yaml",
             registry=booted[1],
-            connection={"database_path": str(tmp_path / name / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / name / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / name / "graph.sqlite3"))},
         )
         try:
             outcomes[name] = _later((fabric, booted[1], booted[2]))
@@ -330,7 +331,7 @@ def test_p4_a_question_store_booted_again_replays_its_own_record_and_serves_noth
         assert len(minted) == 1, minted
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(minted[0])}, read_only=read_only,
+            connection={"database_path": str(minted[0]), "writer_lease_lock_dir": lock_dir_beside(str(minted[0]))}, read_only=read_only,
         )
         try:
             outcome = replay(

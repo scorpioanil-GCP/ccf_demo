@@ -104,6 +104,7 @@ from tests.projection.test_segmentation import (
     _RecordingReader,
 )
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The query-bytes artifact class — deployment vocabulary, a *test fixture
 #: value* here exactly as ``replay_record_class`` is (the SDK assumes neither).
@@ -143,7 +144,7 @@ def fabric(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
+        connection={"database_path": tmp_path / "acme-bank.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acme-bank.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

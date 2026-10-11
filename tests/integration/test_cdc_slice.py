@@ -54,6 +54,7 @@ from ccf.signal.source import SignalSourceProtocol
 from ccf_runtime.cdc.adapter import CDCSourceAdapter
 from ccf_runtime.cdc.envelope_map import CDCMappingError, to_envelope
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 CDC_FEED = FIXTURES / "cdc_events.jsonl"
@@ -149,7 +150,7 @@ def fabric(tmp_path: Path, ontology: Any) -> Iterator[FabricHandle]:
     policy_version = register_at_composition(registry, POLICY_BUNDLE_KEY, {"regime": "cdc-fixture"})
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "cdc.sqlite3"},
+        connection={"database_path": tmp_path / "cdc.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "cdc.sqlite3")},
         registry=registry,
         resolution_spec_key=RESOLUTION_SPEC_KEY,
         resolution_spec_version=spec_version,

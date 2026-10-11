@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from ccf.graph._writer import SingleWriterViolation
+from tests.support.sqlite_lease import lock_dir_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -123,7 +124,7 @@ def test_a_second_process_cannot_mint_a_writer_for_a_held_graph(
 ) -> None:
     """Process A holds the graph; a spawned process B is refused by name."""
     database_path = tmp_path / "held.sqlite3"
-    connection = {"database_path": database_path}
+    connection = {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)}
     holder = _boot("sqlite", connection)
     try:
         status, exc_name, message = _run_child("sqlite", connection)
@@ -140,7 +141,7 @@ def test_a_second_process_cannot_mint_a_writer_for_a_held_graph(
 def test_after_the_holder_releases_a_second_process_boots(tmp_path: Path) -> None:
     """Closing the holder gives the graph back; a fresh process then boots."""
     database_path = tmp_path / "released.sqlite3"
-    connection = {"database_path": database_path}
+    connection = {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)}
     holder = _boot("sqlite", connection)
     holder.close()
 
@@ -157,7 +158,7 @@ def test_the_lease_is_an_os_lock_not_a_file_that_a_crash_leaves_behind(
 ) -> None:
     """A holder that dies without closing must not wedge every later boot."""
     database_path = tmp_path / "crashed.sqlite3"
-    connection = {"database_path": database_path}
+    connection = {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)}
 
     status, exc_name, message = _run_child(
         "sqlite", connection, close_before_exit=False
@@ -178,7 +179,7 @@ def test_the_lease_is_flock_so_a_second_descriptor_in_this_process_is_refused(
     drops them. Probed at the OS level, independent of the SDK's message.
     """
     database_path = tmp_path / "flock.sqlite3"
-    holder = _boot("sqlite", {"database_path": database_path})
+    holder = _boot("sqlite", {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)})
     try:
         fd = os.open(_sidecar(database_path), os.O_RDWR | os.O_CREAT, 0o600)
         try:
@@ -201,10 +202,10 @@ def test_one_file_spelled_two_ways_is_still_one_graph(tmp_path: Path) -> None:
     database_path = tmp_path / "spelled.sqlite3"
     other_spelling = Path(os.path.relpath(database_path))
     assert str(other_spelling) != str(database_path)
-    holder = _boot("sqlite", {"database_path": database_path})
+    holder = _boot("sqlite", {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)})
     try:
         with pytest.raises(SingleWriterViolation, match="already exists"):
-            second = _boot("sqlite", {"database_path": other_spelling})
+            second = _boot("sqlite", {"database_path": other_spelling, "writer_lease_lock_dir": lock_dir_beside(database_path)})
             second.close()
     finally:
         holder.close()
@@ -213,10 +214,10 @@ def test_one_file_spelled_two_ways_is_still_one_graph(tmp_path: Path) -> None:
 def test_the_in_process_refusal_is_byte_identical(tmp_path: Path) -> None:
     """Inside one process the live-writer table refuses first, with today's text."""
     database_path = tmp_path / "same.sqlite3"
-    holder = _boot("sqlite", {"database_path": database_path})
+    holder = _boot("sqlite", {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)})
     try:
         with pytest.raises(SingleWriterViolation) as refused:
-            _boot("sqlite", {"database_path": database_path})
+            _boot("sqlite", {"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)})
     finally:
         holder.close()
     assert str(refused.value) == (

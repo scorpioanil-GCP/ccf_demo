@@ -140,6 +140,7 @@ from http_api.composition_authority import (
     register_at_composition,
     register_typed_at_composition,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = pytest.mark.crossproc
 
@@ -518,7 +519,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
     database_path = tmp_path / "a2a-consumer.sqlite3"
     handle = boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=registry,
         resolution_spec_key=CONTROL["keys"]["resolution_spec"],
         resolution_spec_version=spec_version,

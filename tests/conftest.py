@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+from tests.support.sqlite_lease import lock_dir_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -443,7 +444,8 @@ def fabric_boot(
         elif backend == "sqlite":
             location = {
                 "database_path": database_path
-                or tmp_path / f"fabric-{counter['n']}.sqlite3"
+                or tmp_path / f"fabric-{counter['n']}.sqlite3", "writer_lease_lock_dir": lock_dir_beside(database_path
+                or tmp_path / f"fabric-{counter['n']}.sqlite3")
             }
         elif backend == "memory":
             # Phase 15.2 D-06: the zero-dependency in-memory backend. Every

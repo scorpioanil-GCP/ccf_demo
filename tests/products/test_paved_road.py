@@ -73,6 +73,7 @@ from tests.deployment.test_replay_binding import (
     _servable_config,
 )
 from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
+from tests.support.sqlite_lease import lock_dir_beside
 
 ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 LIMIT_PARAMETER = "limit"
@@ -312,7 +313,7 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         # writes into is booted for its one question, as the paved road boots its own.
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(scratch / "low-road.sqlite3")},
+            connection={"database_path": str(scratch / "low-road.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(scratch / "low-road.sqlite3"))},
             for_question=True,
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
@@ -334,7 +335,7 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         # writes into is booted for its one question, as the paved road boots its own.
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(scratch / "low-road-2.sqlite3")},
+            connection={"database_path": str(scratch / "low-road-2.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(scratch / "low-road-2.sqlite3"))},
             for_question=True,
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
@@ -412,7 +413,7 @@ def test_the_ttl_and_decision_instant_keywords_are_held_equal_to_the_declaration
     with _open(root, scratch) as opened:
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(scratch / "equal.sqlite3")},
+            connection={"database_path": str(scratch / "equal.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(scratch / "equal.sqlite3"))},
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
         # refuses every question, so a fixture that means to serve declares one.
@@ -445,7 +446,7 @@ def test_a_config_with_a_declared_decision_instant_is_built_from_the_declaration
         # R-3b: a builder keyword naming ANOTHER parameter than the declaration is refused with both named.
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(tmp_path / "scratch" / "instant.sqlite3")},
+            connection={"database_path": str(tmp_path / "scratch" / "instant.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "scratch" / "instant.sqlite3"))},
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
         # refuses every question, so a fixture that means to serve declares one.

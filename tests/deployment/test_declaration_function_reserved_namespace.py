@@ -70,6 +70,7 @@ from tests.composition import declare_wide_temporal_boundary, declared_erasure_t
 from tests.controlplane.capabilities import register_capability
 from tests.deployment.conftest import Deployment
 from tests.products import paved_fixture as fixture
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal's class name, asserted by name rather than imported (see the module docstring).
 REFUSAL = "ReservedArtifactClassId"
@@ -183,7 +184,7 @@ def test_control_the_manifest_boot_registers_the_sdks_own_classes(
     """``load_and_boot``: every SDK class registers under its own id; the declaration function sees adopters only."""
     registry = ControlPlaneRegistry()
     booted = load_and_boot(
-        deployment.manifest_path, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")}
+        deployment.manifest_path, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))}
     )
     try:
         registered = _sdk_pins(booted.pins)
@@ -232,7 +233,7 @@ def test_control_the_config_boot_and_the_paved_road_register_the_sdks_own_classe
         fabric = load_config_and_boot(
             opened.config_path,
             registry=control_plane,
-            connection={"database_path": str(tmp_path / "config-boot.sqlite3")},
+            connection={"database_path": str(tmp_path / "config-boot.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "config-boot.sqlite3"))},
             for_question=True,
         )
         try:

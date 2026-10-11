@@ -106,6 +106,7 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- fixture vocabulary --------------------------------------------------------
 
@@ -331,7 +332,7 @@ def _boot(
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(root / "graph.sqlite3")},
+        connection={"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))},
     )
     declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     for envelope in envelopes:
@@ -785,7 +786,7 @@ def _replay_once(
         minted = sorted(scratch.glob("paved_fixture*.sqlite3"))[-1]
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
-            connection={"database_path": str(minted)},
+            connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))},
         )
         try:
             outcome = replay(

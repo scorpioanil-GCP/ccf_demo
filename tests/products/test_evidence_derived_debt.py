@@ -124,6 +124,7 @@ from tests.products.test_resolver_seam import (
 )
 from tests.composition import declare_wide_temporal_boundary, composition_replay_mint, declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- this module's own fixture vocabulary ------------------------------------
 
@@ -673,7 +674,7 @@ def booted_empty(tmp_path: pathlib.Path) -> Iterator[Any]:
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(tmp_path / "evidence-derived.sqlite3")},
+        connection={"database_path": str(tmp_path / "evidence-derived.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "evidence-derived.sqlite3"))},
     )
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
     # refuses every question, so a fixture that means to serve declares one. Wide

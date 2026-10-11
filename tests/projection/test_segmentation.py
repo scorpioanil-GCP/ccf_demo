@@ -83,6 +83,7 @@ from tests.integration.test_proto_quickstart import (
 )
 from tests.properties.strategies import BOUNDARY, TENANT, shipped_operators
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lease_beside, lock_dir_beside
 
 FOUR_OPERATORS = (
     PolicyFilter.key,
@@ -125,7 +126,7 @@ def fabric(
     database_path = tmp_path / "acme-bank.sqlite3"
     handle = boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,
@@ -684,7 +685,7 @@ def test_the_degenerate_round_trip_counts_exactly_once(fabric: _Fabric) -> None:
     """
     registry = _operators(fabric)
     database_path: Path = fabric.database_path  # type: ignore[attr-defined]
-    with SqliteGraphStore(database_path=database_path) as store:
+    with SqliteGraphStore(database_path=database_path, writer_lease=lease_beside(database_path)) as store:
         fresh = store.reader
         assert fresh.translated_answers == 0
         assert fresh.fallback_answers == 0

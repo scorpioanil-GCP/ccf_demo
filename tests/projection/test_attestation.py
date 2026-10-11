@@ -75,6 +75,7 @@ from tests.projection.test_segmentation import (
     _plan,
 )
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The three well-known attestation values (D-09): three values of one schema.
 TIER_1 = SourceAttestation(
@@ -117,7 +118,7 @@ def fabric(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
+        connection={"database_path": tmp_path / "acme-bank.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acme-bank.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

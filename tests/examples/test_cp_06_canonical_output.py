@@ -70,6 +70,7 @@ from tests.examples.specimen_base import branch_point
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -954,7 +955,7 @@ def _reopened_fabric(opened: OpenedProduct) -> Iterator[Any]:
 
     substrate = ENVIRONMENT["substrate"]
     minted = sorted(opened.scratch.glob(f"{substrate['prefix']}*{substrate['suffix']}"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
     try:
         yield fabric
     finally:

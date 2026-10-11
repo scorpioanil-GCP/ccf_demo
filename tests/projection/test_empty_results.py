@@ -90,6 +90,7 @@ from tests.integration.test_proto_quickstart import (
 from tests.projection.test_segmentation import _perspective, _plan
 from tests.properties import strategies
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: A bundle version no claim in the fixture carries. The one invented value.
 NO_SUCH_VERSION = "policy-version-that-no-claim-carries"
@@ -126,7 +127,7 @@ def fabric(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
+        connection={"database_path": tmp_path / "acme-bank.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acme-bank.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

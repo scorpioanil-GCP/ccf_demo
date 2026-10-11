@@ -49,6 +49,7 @@ from ccf.operators.params import (
 )
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 _SPEC_KEY = "direct/resolution-spec"
 _POLICY_KEY = "direct/policy-bundle"
@@ -73,7 +74,7 @@ def _boot_by_hand(database_path: pathlib.Path) -> FabricHandle:
     )
     return boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=registry,
         resolution_spec_key=_SPEC_KEY,
         resolution_spec_version=spec_version,

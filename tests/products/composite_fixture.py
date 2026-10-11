@@ -90,6 +90,7 @@ from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.composition import declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
+from tests.support.sqlite_lease import lock_dir_beside
 
 CHILD_SKILL = "child-door-skill"
 CHILD_CALLABLE = "fixture.child-door"
@@ -280,7 +281,7 @@ def boot_composite(
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(tmp_path / "composite.sqlite3")},
+        connection={"database_path": str(tmp_path / "composite.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "composite.sqlite3"))},
     )
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
     # refuses every question, so a fixture that means to serve declares one. Wide

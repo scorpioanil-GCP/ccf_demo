@@ -72,6 +72,7 @@ from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.authz.capability import Register
 from tests.controlplane.capabilities import register_capability
 from tests.replay.authority import replay_store, replay_writer
+from tests.support.sqlite_lease import lock_dir_beside
 
 TENANT = "tenant-golden"
 T_MARCH = datetime(2026, 3, 1, tzinfo=UTC)
@@ -222,7 +223,7 @@ def boot_fabric(*, database_path: Path, bindings: Bindings) -> FabricHandle:
     """Boot the fabric over ``database_path`` with the bindings already registered."""
     return boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=bindings.registry,
         resolution_spec_key=RESOLUTION_SPEC_KEY,
         resolution_spec_version=bindings.spec_version,

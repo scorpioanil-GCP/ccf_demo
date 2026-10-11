@@ -67,6 +67,7 @@ from tests.examples.test_cp_14_second_slice import (
     _rows,
     family_producer,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.postgres, pytest.mark.fluree]
 
@@ -272,7 +273,7 @@ def test_both_refused_records_reconstruct_with_every_admitted_child_retained(
     for address in admitted.values():
         assert content_hash(ContextProductContract.model_validate_json(fresh.get(content_address=address))) == address
     minted = sorted(opened.scratch.glob("cp14_memo_*.sqlite3"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
     try:
         record_address = fresh.resolve_uri(uri=outcome.replay_reference)
         reconstructed = replay_refusal(

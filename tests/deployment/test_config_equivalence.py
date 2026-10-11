@@ -58,6 +58,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot, load_config_and_boot
 
 from tests.deployment.conftest import manifest_document, write_artifact
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: Fixture vocabulary. Test-side names, never SDK values (CINV-01).
 TENANT = "s1-00-equivalence-tenant"
@@ -253,7 +254,7 @@ def test_both_forms_boot_to_an_equal_resolved_pins_and_equal_artifacts(
     multifile = load_and_boot(
         manifest_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "multifile.sqlite3")},
+        connection={"database_path": str(tmp_path / "multifile.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "multifile.sqlite3"))},
     )
     try:
         multifile_pins_json = multifile.pins.model_dump_json()
@@ -266,7 +267,7 @@ def test_both_forms_boot_to_an_equal_resolved_pins_and_equal_artifacts(
     config = load_config_and_boot(
         config_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "config.sqlite3")},
+        connection={"database_path": str(tmp_path / "config.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "config.sqlite3"))},
     )
     try:
         config_pins_json = config.pins.model_dump_json()
@@ -316,7 +317,7 @@ def test_perturbing_the_single_file_form_moves_exactly_one_pin(
     baseline = load_config_and_boot(
         baseline_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "baseline.sqlite3")},
+        connection={"database_path": str(tmp_path / "baseline.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "baseline.sqlite3"))},
     )
     try:
         baseline_pins = {pin.key: pin.version for pin in baseline.pins.entries}
@@ -333,7 +334,7 @@ def test_perturbing_the_single_file_form_moves_exactly_one_pin(
     perturbed = load_config_and_boot(
         perturbed_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "perturbed.sqlite3")},
+        connection={"database_path": str(tmp_path / "perturbed.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "perturbed.sqlite3"))},
     )
     try:
         perturbed_pins = {pin.key: pin.version for pin in perturbed.pins.entries}

@@ -56,6 +56,7 @@ from tests.deployment.conftest import (
     manifest_document,
     write_artifact,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal's class name, asserted by name rather than imported (see the module docstring).
 REFUSAL = "ManifestKeysPlaceToOneKey"
@@ -85,7 +86,7 @@ def _second_half_life(deployment: Deployment) -> str:
 def _boot_manifest(manifest: pathlib.Path, tmp_path: pathlib.Path) -> Callable[[ControlPlaneRegistry], BootedFabric]:
     def boot(registry: ControlPlaneRegistry) -> BootedFabric:
         return load_and_boot(
-            manifest, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")}
+            manifest, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))}
         )
 
     return boot
@@ -274,7 +275,7 @@ def _boot_config(document: dict[str, Any], tmp_path: pathlib.Path) -> Callable[[
 
     def boot(registry: ControlPlaneRegistry) -> BootedFabric:
         return load_config_and_boot(
-            config, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")}
+            config, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))}
         )
 
     return boot

@@ -39,8 +39,10 @@ import yaml
 from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.config import load_config_and_boot
+from ccf.graph.leases import SDK_MANAGED_LOCK_DIRECTORY
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import declare_wide_temporal_boundary
+from tests.support.sqlite_lease import private_lock_directory
 
 #: The committed deployment every test copies. One authored deployment, so a
 #: second copy is never a second thing to keep in step.
@@ -122,6 +124,7 @@ def deployment_root(tmp_path: Path) -> Path:
     """A private, unseeded copy of the committed fixture deployment."""
     root = tmp_path / "deployment"
     shutil.copytree(FIXTURE_DEPLOYMENT, root)
+    private_lock_directory(root / SDK_MANAGED_LOCK_DIRECTORY)
     return root
 
 
@@ -145,6 +148,7 @@ def seed(root: Path, rows: tuple[tuple[str, str], ...] = SEEDED_ROWS) -> None:
     fabric.
     """
     attributes = scenario_document(root)["attributes"]
+    private_lock_directory(root / SDK_MANAGED_LOCK_DIRECTORY)  # the binding's declared identity-lock directory
     registry = ControlPlaneRegistry()
     booted = load_config_and_boot(
         root / "ccf_config.yaml",

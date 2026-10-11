@@ -66,6 +66,7 @@ from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
 from tests.composition import declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- cp-05's three declared values, used as inputs and never edited ----------
 #
@@ -461,7 +462,7 @@ def _boot(
     fabric = load_config_and_boot(
         config_path,
         registry=control_plane,
-        connection={"database_path": str(root / "graph.sqlite3")},
+        connection={"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))},
     )
     try:
         fabric.handle.worker.ingest(
@@ -745,7 +746,7 @@ def test_a_replay_section_carrying_a_fourth_key_is_refused_at_boot(
         load_config_and_boot(
             config_path,
             registry=ControlPlaneRegistry(),
-            connection={"database_path": str(root / "graph.sqlite3")},
+            connection={"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))},
         )
 
     assert "retention_days" in str(refused.value), refused.value
