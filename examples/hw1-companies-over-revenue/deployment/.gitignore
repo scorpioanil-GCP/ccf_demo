@@ -12,6 +12,10 @@
 # mechanism.
 graph.sqlite3
 graph.sqlite3-*
+# The SDK's store marker, store-creation lock and writer lease, filed BESIDE the
+# graph (amendment 2026-10-11, G1-HW1-F01). Tests never copy them: see
+# tests/examples/test_hw1_two_transports.py::NOT_COPIED.
+graph.sqlite3.ccf-*
 artifact-store/
 # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
 .ccf-writer-locks/

@@ -10,7 +10,7 @@ The walk covers the whole repository from the sweep's own location. The number o
 
 - Coupling rows: **360** across **114** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
-- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
+- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **250**
 
 Rows by owning plan:
 

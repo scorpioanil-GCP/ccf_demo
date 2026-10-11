@@ -384,7 +384,7 @@ def test_the_client_example_imports_only_the_client_and_stdlib(
 
 
 #: What a copied example root never needs and must not carry into a control.
-NOT_COPIED = shutil.ignore_patterns("__pycache__", "graph.sqlite3*", "artifact-store")
+NOT_COPIED = shutil.ignore_patterns("__pycache__", "graph.sqlite3*", ".ccf-writer-locks", "artifact-store")
 
 
 @pytest.fixture()

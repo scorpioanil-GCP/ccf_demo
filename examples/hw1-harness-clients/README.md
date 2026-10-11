@@ -90,6 +90,36 @@ documents are the same defect seen from two sides.
 `make example-hw1-harness-clients` runs all three legs plus the reference in one
 pass; that is the target CI runs.
 
+**Before you start.** `make venv` from the repository root of a fresh clone
+(Python 3.12 or later) installs all three harnesses. The three commands above
+then need no database, no network, no API key and no environment variable: each
+seeds its own temporary copy of the deployment, and leg 2 talks to a local model
+stand-in, not to a vendor. Only the `--live` targets below need more.
+
+**Expected output.** The tail of `make example-hw1-harness-clients`, as measured
+on 2026-10-11 (the `--legs` commands print the same lines for their one leg,
+ending `legs compared       1`):
+
+```
+reference address   c38d30f2662953fa9cbb32668d2568a0a09c51695146e00eefe47e86b6299197
+leg adk             c38d30f2662953fa9cbb32668d2568a0a09c51695146e00eefe47e86b6299197  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+leg anthropic       c38d30f2662953fa9cbb32668d2568a0a09c51695146e00eefe47e86b6299197  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+leg langgraph       c38d30f2662953fa9cbb32668d2568a0a09c51695146e00eefe47e86b6299197  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+legs compared       3
+```
+
+Above those lines the runner prints the `subject` and the door's arguments —
+a temporary directory, `/tmp/ccf-hw1-clients-<random>/…`, **different on every
+run** and removed when the run ends — and the one `question` every leg asks.
+The content address and the names do not change between runs. They are **not**
+`examples/hw1-companies-over-revenue`'s `a8335bb4…2df4` and its five companies,
+because these legs seed their copy from this example's own
+`runner/scenario-rows.yaml` (six rows of their own), not from that example's
+signal batch. The same product class, door and question, over hw1's own seeded
+deployment, is what the `--live` targets below show: each of them prints
+`a8335bb4cde42117c0efd42bac50fcf67c64c4f341e1e82a224dbcbcec5a2df4  MATCH` after
+`make example-hw1-seed`.
+
 The interpreter is spelled `.venv/bin/python` rather than `python` because
 `which python` returns nothing in this repository. If you have activated the
 virtual environment, `python` is the same interpreter and you may type that.
@@ -263,6 +293,11 @@ operator with a valid key who does not set it gets a refusal, and that refusal
 is deliberate. It is the no-silent-live-fallback property: the runner
 deliberately stops injecting the variable, and the client refuses rather than
 falling back to a vendor endpoint. Set it to a real endpoint, or to a proxy.
+Leg 2 live also needs the model credential that endpoint accepts — for
+`https://api.anthropic.com`, `ANTHROPIC_API_KEY` exported in the shell. Measured
+on 2026-10-11: `make example-hw1-seed`, then each of the three targets (leg 2
+with `ANTHROPIC_BASE_URL=https://api.anthropic.com` and the key exported) exits
+0 printing `MATCH` against `a8335bb4…2df4`.
 
 ## What to change first
 
