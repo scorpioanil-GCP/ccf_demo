@@ -692,7 +692,7 @@ def test_the_marked_needle_is_the_only_marked_line() -> None:
         for number, line in enumerate(text.splitlines(), 1):
             if line.rstrip().endswith(SWEEP_EXEMPT_MARKER):
                 marked.append(f"{path.as_posix()}:{number}")
-    assert marked == ["tests/examples/test_hw1_empty_fabric_refusal.py:508"], (
+    assert marked == ["tests/examples/test_hw1_empty_fabric_refusal.py:514"], (
         "the sabotage-input carve-out has moved or grown. One line, plan"
         f" 24.6-06's needle, is the whole of it; found {marked}"
     )
