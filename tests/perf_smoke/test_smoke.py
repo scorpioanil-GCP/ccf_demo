@@ -23,13 +23,14 @@ Runtime containment:
 
 from __future__ import annotations
 
+import json
 import os
-import signal
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests.perf_smoke.bounded import run_bounded
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -54,8 +55,27 @@ SUITES = (
 )
 
 
+#: Where each case's evidence is written as it finishes, when set (the hosted diagnostic sets it;
+#: ``GROK-BRIEF-9`` §4). One JSON line per case is appended and flushed at once, so a run that is
+#: cut off still leaves the cases that completed — where the runner lets the files be read.
+EVIDENCE_DIR_VARIABLE = "CCF_PERF_SMOKE_EVIDENCE_DIR"
+
+#: Lines of the suite's own output kept in a failure message.
+TAIL_LINES = 200
+
+
+def _tail(text: str) -> str:
+    return "\n".join(text.splitlines()[-TAIL_LINES:])
+
+
 @pytest.mark.parametrize("suite", SUITES)
-def test_suite_runs_untimed(suite: str) -> None:
+def test_suite_runs_untimed(suite: str, tmp_path: Path) -> None:
+    """Run one suite once, untimed; fail on a timeout, a non-zero exit or a leaked process.
+
+    The cleanup is bounded (``tests/perf_smoke/bounded.py``): a case returns within
+    ``SUITE_TIMEOUT_SECONDS + KILL_GRACE_SECONDS + KILL_GRACE_SECONDS`` plus scheduling slack,
+    whatever its descendants do. The 300 s per-suite cap is unchanged (Dave, 2026-10-11).
+    """
     env = dict(os.environ)
     # Mirror the Makefile's ENV_PERF (src:runtime:perf) plus the repo root so
     # package-style ``perf.*`` imports resolve from the subprocess.
@@ -70,56 +90,47 @@ def test_suite_runs_untimed(suite: str) -> None:
     # Smallest-rung-only parametrization for the ladder suites (D-04 knob).
     env["CCF_PERF_SMOKE"] = "1"
     env.setdefault("CCF_PERF_RUNNER_CLASS", "local")
-
-    # The inner pytest gets its own session so a timeout can reap the WHOLE
-    # process group: the crossproc suite's producer child is itself spawned
-    # with ``start_new_session=True`` inside a group descended from this one,
-    # and killing only the direct child would orphan it holding ports
-    # (threat T-11-10) — its fixture ``finally`` never runs after a SIGKILL.
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            f"perf/suites/{suite}",
-            "-q",
-            "--benchmark-disable",
-            "-x",
-        ],
+    evidence = os.environ.get(EVIDENCE_DIR_VARIABLE)
+    out_dir = Path(evidence) / suite if evidence else tmp_path
+    result = run_bounded(
+        [sys.executable, "-m", "pytest", f"perf/suites/{suite}", "-q", "--benchmark-disable", "-x"],
         cwd=REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
+        timeout=SUITE_TIMEOUT_SECONDS,
+        term_grace=KILL_GRACE_SECONDS,
+        reap=KILL_GRACE_SECONDS,
+        out_dir=out_dir,
     )
-    try:
-        stdout, stderr = proc.communicate(timeout=SUITE_TIMEOUT_SECONDS)
-    except subprocess.TimeoutExpired:
-        # SIGTERM → wait(grace) → SIGKILL on the whole group, mirroring the
-        # crossproc fixture's own teardown ladder, then fail loudly.
-        group = os.getpgid(proc.pid)
-        try:
-            os.killpg(group, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            proc.wait(timeout=KILL_GRACE_SECONDS)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(group, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        stdout, stderr = proc.communicate()
-        pytest.fail(
-            f"perf suite '{suite}' timed out after {SUITE_TIMEOUT_SECONDS}s; "
-            "its process group was reaped\n"
-            f"--- stdout ---\n{stdout}\n"
-            f"--- stderr ---\n{stderr}"
-        )
-    assert proc.returncode == 0, (
-        f"perf suite '{suite}' failed under --benchmark-disable "
-        f"(exit {proc.returncode})\n"
-        f"--- stdout ---\n{stdout}\n"
-        f"--- stderr ---\n{stderr}"
+    if result.timed_out:
+        outcome = "timed_out"
+    elif result.returncode != 0:
+        outcome = "failed"
+    elif result.survivors:
+        outcome = "leaked"
+    else:
+        outcome = "passed"
+    if evidence:
+        record = {
+            "suite": suite,
+            "outcome": outcome,
+            "elapsed_seconds": round(result.elapsed, 3),
+            "cap_seconds": SUITE_TIMEOUT_SECONDS,
+            "returncode": result.returncode,
+            "ladder": result.ladder,
+            "survivors": result.survivors,
+            "last_line": (result.stdout.strip().splitlines() or [""])[-1],
+        }
+        with (Path(evidence) / "cases.jsonl").open("a") as handle:
+            handle.write(json.dumps(record) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    detail = (
+        f"elapsed {result.elapsed:.1f}s against a {SUITE_TIMEOUT_SECONDS}s cap; ladder {result.ladder or ['none']};"
+        f" exit {result.returncode}; survivors {result.survivors or 'none'}\n"
+        f"--- stdout (last {TAIL_LINES} lines) ---\n{_tail(result.stdout)}\n"
+        f"--- stderr (last {TAIL_LINES} lines) ---\n{_tail(result.stderr)}"
     )
+    if outcome == "timed_out":
+        pytest.fail(f"perf suite '{suite}' timed out after {SUITE_TIMEOUT_SECONDS}s; its process group was reaped; {detail}")
+    assert outcome != "failed", f"perf suite '{suite}' failed under --benchmark-disable; {detail}"
+    assert outcome != "leaked", f"perf suite '{suite}' passed but left processes running, now killed; {detail}"
