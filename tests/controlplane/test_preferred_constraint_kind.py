@@ -107,3 +107,20 @@ def test_a_document_reads_a_quoted_number_as_a_decimal_only_when_it_carries_the_
     parsed = PolicyConstraint.model_validate(flagged)
     assert type(parsed.value) is Decimal and parsed.value == Decimal("4")
     assert parsed == _pc("preferred", Decimal("4"))
+
+
+def test_a_whole_number_under_preferred_is_numeric_guidance_as_it_was_before_the_flag() -> None:
+    """Review of b725749b (MEDIUM, a regression): at 63bea494 an unquoted whole number under
+    ``preferred`` loaded as ``Decimal``; the flag's first version refused it with a message blaming
+    a flag the author never wrote. A whole number is numeric guidance: it gets the flag and a Decimal."""
+    constraint = _pc("preferred", 4)
+    assert type(constraint.value) is Decimal and constraint.value == Decimal("4")
+    assert constraint.preferred_decimal is True
+    assert constraint == _pc("preferred", Decimal("4"))
+    document = {k: v for k, v in _pc("preferred", "tier-a").model_dump(mode="json").items() if k != "preferred_decimal"}
+    loaded = PolicyConstraint.model_validate({**document, "value": 4})
+    assert type(loaded.value) is Decimal and loaded.preferred_decimal is True
+    with pytest.raises(ValidationError):  # a document that states the name form over a number disagrees
+        PolicyConstraint.model_validate({**document, "value": 4, "preferred_decimal": False})
+    with pytest.raises(ValidationError):
+        _pc("preferred", True)  # a bool is not a number here

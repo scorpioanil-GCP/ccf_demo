@@ -924,8 +924,11 @@ class PolicyConstraint(VersionedArtifact):
     #: registry until now — gains its own. Bytes written before the flag carry no flag and are read
     #: as the name form; they cannot reveal an original type they never recorded.
     #:
-    #: Set by the before-validator, never needed from an author: ``True`` exactly when the operator
-    #: is ``preferred`` and the value a ``Decimal``. Every other combination is refused.
+    #: ``True`` exactly when the operator is ``preferred`` and the value a number. The class sets it
+    #: for a ``Decimal`` or a whole number, so a Python author need not state it. A **document**
+    #: author does state ``preferred_decimal: true`` for numeric guidance, because a document quotes
+    #: its numbers and a quoted value under ``preferred`` is otherwise a name. Every combination of
+    #: flag, operator and value that disagrees is refused.
     preferred_decimal: bool = Field(default=False, json_schema_extra={HASH_TRANSPARENT_KEY: True})
 
     @model_validator(mode="before")
@@ -952,6 +955,11 @@ class PolicyConstraint(VersionedArtifact):
             return data
         if data.get("operator") == "preferred":
             value = data.get("value")
+            if isinstance(value, int) and not isinstance(value, bool):
+                # A whole number is numeric guidance, as it was before the flag existed (review of
+                # b725749b): it was read as a Decimal then, and it is one now, with its kind recorded.
+                value = Decimal(value)
+                data = {**data, "value": value}
             if isinstance(value, Decimal) and "preferred_decimal" not in data:
                 # The kind, recorded: a decimal under `preferred` says so in its own bytes.
                 return {**data, "preferred_decimal": True}
