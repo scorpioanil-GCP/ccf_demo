@@ -15,7 +15,7 @@ import subprocess
 
 import pytest
 
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_base import branch_point, frozen_digest
 
 
 def _git(cwd: pathlib.Path, *args: str) -> str:
@@ -99,3 +99,51 @@ def test_an_existing_main_is_never_bypassed(
     _git(checkout, "checkout", "-q", "lane")
     with pytest.raises(subprocess.CalledProcessError):
         branch_point(checkout)
+
+
+# --- AMENDED 2026-10-11: the content pin (`frozen_digest`) ---------------------
+
+
+@pytest.fixture
+def specimen(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    """A repository tracking a three-file specimen directory."""
+    repo = tmp_path / "repo"
+    tree = repo / "examples" / "specimen"
+    tree.mkdir(parents=True)
+    _git(repo, "init", "-q")
+    for name in ("produce.py", "deployment.py", "README.md"):
+        (tree / name).write_text(name, encoding="utf-8")
+    _git(repo, "add", ".")
+    return repo, tree
+
+
+def test_the_content_pin_ignores_the_amended_files_and_nothing_else(
+    specimen: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    repo, tree = specimen
+    amended = frozenset({"produce.py"})
+    pinned = frozen_digest(repo, tree, amended=amended)
+    (tree / "produce.py").write_text("repaired", encoding="utf-8")
+    assert frozen_digest(repo, tree, amended=amended) == pinned
+    (tree / "README.md").write_text("edited", encoding="utf-8")
+    assert frozen_digest(repo, tree, amended=amended) != pinned
+
+
+def test_the_content_pin_moves_when_a_file_is_added_and_ignores_untracked_ones(
+    specimen: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    repo, tree = specimen
+    amended = frozenset({"produce.py"})
+    pinned = frozen_digest(repo, tree, amended=amended)
+    (tree / "scratch.txt").write_text("a run's output", encoding="utf-8")
+    assert frozen_digest(repo, tree, amended=amended) == pinned
+    _git(repo, "add", ".")
+    assert frozen_digest(repo, tree, amended=amended) != pinned
+
+
+def test_the_content_pin_refuses_an_amended_file_that_is_not_there(
+    specimen: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    repo, tree = specimen
+    with pytest.raises(AssertionError, match="does not track"):
+        frozen_digest(repo, tree, amended=frozenset({"no_such_file.py"}))

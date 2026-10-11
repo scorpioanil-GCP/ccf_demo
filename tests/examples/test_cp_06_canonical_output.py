@@ -66,7 +66,7 @@ from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_base import frozen_digest
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -77,6 +77,12 @@ pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-06-canonical-collateral-and-setoff-coverage"
 SPECIMEN = REPO_ROOT / "examples" / "cp-06-collateral-and-setoff-coverage"
+#: The specimen files the 2026-10-11 amendment changed (CSCC-G16 names them),
+#: and the content digest of every OTHER tracked file of the specimen at its
+#: freeze (`tests/examples/specimen_base.py::frozen_digest`; verified equal to
+#: the bytes at the branch point fd902e27 when pinned).
+SPECIMEN_AMENDED = frozenset({"backends.yaml", "deployment.py"})
+SPECIMEN_FROZEN_DIGEST = "f55b64b0aa896de41b67b063ae088da45d6244f599def4d73f84cfbb4172327b"
 CONSUMER = pathlib.Path(__file__).resolve().parent / "cp_06_canonical_paved_consumer"
 RUN = EXAMPLE / "run.py"
 
@@ -562,13 +568,21 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: _Answer) ->
     class ids.
 
     Declared product gate `CSCC-G16` (`CP-SPEC-006C` §G.1).
+
+    AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11; the SQLite identity-lock
+    migration in `examples/AMENDMENTS-2026-10-11.md`): the specimen is no longer
+    untouched — `backends.yaml` declares a writer-lease lock directory and
+    `deployment.py::connection` composes it, because a direct SQLite boot
+    without one is refused `WriterLeaseRequired`. The pin therefore NAMES those
+    two files and asserts that every other tracked file of the specimen is
+    byte-for-byte its frozen self, by content digest — the same verdict on any
+    branch, before and after a merge, rather than a diff against whatever
+    commit the branch happened to leave main at.
     """
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    assert frozen_digest(REPO_ROOT, SPECIMEN, amended=SPECIMEN_AMENDED) == SPECIMEN_FROZEN_DIGEST, (
+        "a file of the frozen specimen outside the 2026-10-11 amendment"
+        f" {sorted(SPECIMEN_AMENDED)} was changed, added or removed"
+    )
     specimen_config = yaml.safe_load((SPECIMEN / "ccf_config.yaml").read_text(encoding="utf-8"))
     assert CONFIG["tenant_id"] != specimen_config["tenant_id"]
     assert CONFIG["product_class"]["declared_product_gate"]["gate_id"] != specimen_config["product_class"]["declared_product_gate"]["gate_id"]
