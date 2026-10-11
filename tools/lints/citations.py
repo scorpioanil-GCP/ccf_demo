@@ -377,16 +377,16 @@ _FROZEN_TEST_SHA = "c2b03b947b9b8cbb744cbae343e0cff5dee24eed0d46742705124641033f
 PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=258,
+        line=259,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        sha256="fab1612b866b006644772f74e3cd349ea67028beffc32192435ea6972862ff52",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=2821,
+        line=2841,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        sha256="fab1612b866b006644772f74e3cd349ea67028beffc32192435ea6972862ff52",
         reason=_CP04_REASON,
     ),
     PinnedCitation(

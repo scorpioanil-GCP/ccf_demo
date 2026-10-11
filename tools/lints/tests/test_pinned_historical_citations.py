@@ -45,8 +45,8 @@ SPECIMEN = "examples/cp-04-corporate-family-tree"
 #: The three sites, as the citation checker reported them once ``b7defda9`` was
 #: reverted (lane ``378j-cites``, ``20003cee``): (file, line, citation text).
 CP04_SITES: list[tuple[str, int, str]] = [
-    (f"{SPECIMEN}/deployment.py", 258, "worker.py::SpecDrivenEntityResolution.identity"),
-    (f"{SPECIMEN}/deployment.py", 2821, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 259, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 2841, "worker.py::SpecDrivenEntityResolution.identity"),
     (
         f"{SPECIMEN}/projection.py",
         169,
@@ -130,7 +130,7 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
     )
     changed = raw + extra
     findings = check_file_bytes(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
-    expected = [f"{rel}:258", f"{rel}:2821"]
+    expected = [f"{rel}:259", f"{rel}:2841"]
     if change != "one byte appended":
         last_line = changed.count(b"\n")
         expected.append(f"{rel}:{last_line}")

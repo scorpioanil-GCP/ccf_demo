@@ -39,6 +39,10 @@ declaration:
           per_run: path
           prefix: cp_03
           suffix: .sqlite3
+        writer_lease_lock_dir:
+          # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+          # A private (0o700) directory under the caller's run root.
+          lock_directory: .ccf-writer-locks
 
   sources:
     # The financial-spread system of record — spec §C.1 rows 1-5, 9 and 10.
