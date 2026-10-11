@@ -69,6 +69,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import threading
+import weakref
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
@@ -164,6 +165,45 @@ _RESUMPTIONS_IN_FLIGHT_LOCK = threading.Lock()
 #: ``shared`` — a durable implementation several processes reach. Mechanism
 #: vocabulary, read by the construction checks; no deployment value.
 _SCOPES: frozenset[str] = frozenset({"process", "shared"})
+
+#: Each process-scoped HITL transport, mapped to a weak reference to the one
+#: process-scoped state store it was first built with (Tuesday GO item 4). A
+#: dead reference still refuses a new store: the transport's approvals belong
+#: to a store that no longer exists, and a fresh store would accept the same
+#: execution id again.
+_TRANSPORT_STORES: weakref.WeakKeyDictionary[object, weakref.ref[object]] = (
+    weakref.WeakKeyDictionary()
+)
+#: Fallback for a transport that cannot be weakly keyed: kept by identity, with
+#: a strong reference so its id cannot be reused while the entry stands.
+_TRANSPORT_STORES_BY_ID: dict[int, tuple[object, weakref.ref[object]]] = {}
+_TRANSPORT_STORES_LOCK = threading.Lock()
+
+
+def _bind_transport_to_store(transport: object, store: object) -> None:
+    """Refuse a process-scoped transport already serving another store object."""
+    with _TRANSPORT_STORES_LOCK:
+        try:
+            bound = _TRANSPORT_STORES.get(transport)
+        except TypeError:
+            entry = _TRANSPORT_STORES_BY_ID.get(id(transport))
+            bound = None if entry is None else entry[1]
+            if bound is None:
+                _TRANSPORT_STORES_BY_ID[id(transport)] = (transport, weakref.ref(store))
+                return
+        else:
+            if bound is None:
+                _TRANSPORT_STORES[transport] = weakref.ref(store)
+                return
+        if bound() is not store:
+            raise WorkflowWiringError(
+                f"the HITL transport {type(transport).__name__} is already bound"
+                " to another Control Plane state store: one queue serving two"
+                " independent stores lets one approval release the same"
+                " execution in each (SEC-001). Build every engine over one"
+                " transport with the same state store, or give each store its"
+                " own transport"
+            )
 
 
 def _claim_resumption(claim: tuple[int, str]) -> bool:
@@ -516,6 +556,24 @@ class WorkflowEngine:
                 " process would never be judged here, and that process's gate"
                 " closures would never be seen (D-IMPL-378; SEC-001)"
             )
+        # Tuesday GO item 4 (Dave, 2026-10-11 14:51): "implement the refusal of
+        # unsupported queue/store sharing". A queue that outlives or reaches
+        # past its store can release one approval twice: a shared transport
+        # beside a process-scoped store keeps its approvals across a restart
+        # that empties the store, and one process-scoped transport serving two
+        # independent stores sees the same suspension twice. Both are refused
+        # here. Scope: this check sees one Python process; independent shared
+        # stores behind one shared queue in different processes are excluded by
+        # deployment configuration, not by this check.
+        if transport_scope == "shared" and store_scope != "shared":
+            raise WorkflowWiringError(
+                "the HITL transport is shared between processes but the Control"
+                " Plane state store is not: an approval held by the transport"
+                " outlives the store that suspended it, and a restarted store"
+                " would let it release the same execution again (SEC-001)"
+            )
+        if store_scope == "process":
+            _bind_transport_to_store(hitl_transport, store)
         self._control_plane = control_plane
         self._artifact_store = artifact_store
         self._hitl_transport = hitl_transport
