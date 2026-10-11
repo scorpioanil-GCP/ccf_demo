@@ -1024,6 +1024,17 @@ class ControlPlaneRegistry:
         rebuilt = _reconstructed(artifact, door="register_typed")
         version = _hash_of(rebuilt.rendered)
         known = version in self._versions.get(key, ())
+        if known and bound is None:
+            # D-IMPL-381 (Dave, 2026-10-11 14:51: "implement the already-selected
+            # refusal before class binding or registration state changes"): the
+            # version is stored, but by the untyped door, so no class is bound.
+            # Binding one now would serve the stored mapping under a class-bound
+            # key. Refused; nothing is replaced, bound or recorded.
+            raise TypeError(
+                f"key {key!r} version {version!r} is stored untyped (registered"
+                " through `register`); refusing to bind artifact class"
+                f" {artifact_class.class_id!r} over it (D-IMPL-381)"
+            )
         held = _Held(artifact=artifact_class.validate(rebuilt.artifact), rendered=rebuilt.rendered)
         versions = self._versions.setdefault(key, [])
         if not known:
@@ -1217,6 +1228,17 @@ class ControlPlaneRegistry:
                         )
                     )
         known = incoming in self._versions.get(key, ())
+        if known and bound_class is None:
+            # D-IMPL-381 (Dave, 2026-10-11 14:51: "implement the already-selected
+            # refusal before class binding or registration state changes"): the
+            # version is stored, but by the untyped door, so no class is bound.
+            # Binding one now would serve the stored mapping under a class-bound
+            # key. Refused; nothing is replaced, bound or recorded.
+            raise TypeError(
+                f"key {key!r} version {incoming!r} is stored untyped (registered"
+                " through `register`); refusing to bind artifact class"
+                f" {artifact_class.class_id!r} over it (D-IMPL-381)"
+            )
         # D-IMPL-380, sixth round: reconstructed and re-validated against the
         # class before any registration state changes — after the D-05 refusals
         # above, which record a refusal and never a registration — on every

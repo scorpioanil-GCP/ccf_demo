@@ -27,6 +27,7 @@ import pytest
 
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.replay.record import DecisionReplayRecord
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The ONE committed pre-`served_at` record in the tree, and its provenance.
 #:
@@ -195,7 +196,7 @@ def _served_and_reopened(tmp_path: pathlib.Path) -> tuple[object, object, object
     fabric = load_config_and_boot(
         opened.config_path,
         registry=opened.control_plane,
-        connection={"database_path": str(minted)},
+        connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))},
     )
     return opened, served, fabric
 

@@ -19,6 +19,7 @@ import copy
 from pathlib import Path
 from typing import Any
 from tests.composition import declare_wide_temporal_boundary
+from tests.support.sqlite_lease import lock_dir_beside
 
 CHILD_CLASS = "fixture.child-product"
 CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
@@ -156,7 +157,7 @@ def serve_atomic_child(workspace: Path) -> str:
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(workspace / "provider.sqlite3")},
+        connection={"database_path": str(workspace / "provider.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(workspace / "provider.sqlite3"))},
     )
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)

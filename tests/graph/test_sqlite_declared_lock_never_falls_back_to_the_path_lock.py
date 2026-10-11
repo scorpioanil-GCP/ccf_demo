@@ -39,6 +39,7 @@ from ccf.graph.backends.sqlite import WRITER_LEASE_SUFFIX, SqliteGraphStore, _da
 from ccf.graph.leases import lock_file_name
 from tests.graph.test_single_writer_across_processes import _boot
 from tests.graph.test_sqlite_writer_lease_file_identity import _declared, _locks
+from tests.support.sqlite_lease import lease_beside
 
 _HELD = "another holder has the identity lock"
 _WIDENED = "the lock directory was widened after validation"
@@ -65,7 +66,7 @@ def test_a_declared_writer_boot_whose_identity_lock_cannot_be_taken_is_refused_a
 ) -> None:
     locks = _locks(tmp_path)
     database = tmp_path / "graph.sqlite3"
-    SqliteGraphStore(database_path=database).close()  # the file exists, so its identity and its lock's name are known
+    SqliteGraphStore(database_path=database, writer_lease=lease_beside(database)).close()  # the file exists, so its identity and its lock's name are known
     identity = _database_file_identity(str(database))
     assert identity is not None
     identity_lock = locks / lock_file_name(identity)

@@ -60,6 +60,7 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.composition import composition_replay_mint
 from tests.products.test_paved_road import _Acquire, _open, _question, _write_tree
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 class _AcquiresNothing(_Acquire):
@@ -104,7 +105,7 @@ class _Served:
         fabric = load_config_and_boot(
             self.opened.config_path,
             registry=self.opened.control_plane,
-            connection={"database_path": str(minted)},
+            connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))},
         )
         try:
             return replay(

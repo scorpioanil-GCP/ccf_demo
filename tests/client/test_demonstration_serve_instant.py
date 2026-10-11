@@ -67,6 +67,7 @@ from ccf.replay.record import DecisionReplayRecord, PolicyBinding
 from tests.client.conftest import SEEDED_AT, config_document
 from tests.client.fixtures import STDIO_SERVER
 from tests.composition import register_typed_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The instant the deployment declares it serves at: five minutes after the
 #: fixture's rows were observed and its pinned question asks as of, inside the
@@ -593,7 +594,7 @@ def switch_backend(root: Path, backend: str) -> None:
 
 def connection_for(store: str, root: Path) -> dict[str, object]:
     """The connection the SDK's ``store`` adapter takes: a file for SQLite, nothing in memory."""
-    return {"database_path": str(root / "graph.sqlite3")} if store == "sqlite" else {}
+    return {"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))} if store == "sqlite" else {}
 
 
 def boot_declared(

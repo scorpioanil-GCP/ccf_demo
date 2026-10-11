@@ -25,6 +25,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.config import load_config_and_boot
 from ccf.deployment.pins import ArtifactPin, ResolvedPins, UnpinnedArtifactError
 from tests.deployment.test_config_equivalence import TENANT, _config_document, write_artifact
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The fixture tenant for the synthetic pin sets. Not the config fixture's tenant,
 #: so the synthetic tests cannot pass by matching a string the boot test uses.
@@ -89,7 +90,7 @@ def test_a_booted_fabrics_pins_name_the_placed_key_for_a_bare_lookup(
     booted = load_config_and_boot(
         write_artifact(config_dir, "ccf_config.yaml", _config_document()),
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "pins-diagnosis.sqlite3")},
+        connection={"database_path": str(tmp_path / "pins-diagnosis.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "pins-diagnosis.sqlite3"))},
     )
     try:
         assert booted.keys is not None

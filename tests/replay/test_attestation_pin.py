@@ -74,6 +74,7 @@ from tests.replay.test_query_sequence_pin import (
     _stored_verbatim,
     _strip,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The live graph's well-known tier-1 value (D-09) — what BaseGraphReader
 #: reports and therefore what every live-graph execution pins.
@@ -115,7 +116,7 @@ def fabric(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
+        connection={"database_path": tmp_path / "acme-bank.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acme-bank.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

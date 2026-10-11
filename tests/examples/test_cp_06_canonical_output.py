@@ -70,6 +70,7 @@ from tests.examples.specimen_base import branch_point
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -402,7 +403,10 @@ def test_replay_dimension_two_is_a_superset_of_product_lineage(served: _Answer) 
     """
     bindings = {b.key for b in served.record.policy_bindings.bindings}
     versions = {b.version for b in served.record.policy_bindings.bindings}
-    assert "request_contract" in bindings
+    # The request contract's key is the one the loader PLACED under the tenant
+    # (`D-IMPL-354`); a bare name is no longer a key the fabric holds.
+    # Compatibility repair 2026-10-11 (examples/AMENDMENTS-2026-10-11.md).
+    assert f"{served.product.tenant_id}/request_contract" in bindings
     assert set(served.product.lineage.policy_bundle_versions) <= versions
     assert set(served.product.lineage.operators_invoked) == set(CONFIG["product_class"]["required_operator_keys"])
 
@@ -954,7 +958,7 @@ def _reopened_fabric(opened: OpenedProduct) -> Iterator[Any]:
 
     substrate = ENVIRONMENT["substrate"]
     minted = sorted(opened.scratch.glob(f"{substrate['prefix']}*{substrate['suffix']}"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
     try:
         yield fabric
     finally:

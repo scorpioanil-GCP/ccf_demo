@@ -65,6 +65,7 @@ from pydantic import AfterValidator, BaseModel
 from ccf.graph.protocols import (
     WriterLease,
     WriterLeaseHeld,
+    WriterLeaseRequired,
     WriterLeaseScope,
     WriterLeaseSource,
 )
@@ -77,7 +78,9 @@ except ImportError:  # pragma: no cover - a platform without flock
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "LOCK_DIRECTORY_SETTING",
     "LOCK_FILE_SUFFIX",
+    "SDK_MANAGED_LOCK_DIRECTORY",
     "AbsoluteLockDirectory",
     "LockFileWriterLease",
     "declared_lock_directory_lease",
@@ -85,6 +88,7 @@ __all__ = [
     "lock_file_name",
     "require_absolute_lock_directory",
     "require_private_lock_directory",
+    "sdk_managed_lock_directory",
 ]
 
 #: Appended to the identity digest to name a graph's lock file.
@@ -94,6 +98,95 @@ LOCK_FILE_SUFFIX = ".lock"
 #: field every network adapter's connection contract types as
 #: :data:`AbsoluteLockDirectory`. Named once, for the read-only boot (N-2).
 _LOCK_DIRECTORY_SETTING: Final = "writer_lease_lock_dir"
+
+#: The public name of the lock-directory connection setting (P1 (a),
+#: ``D-IMPL-378``; Tuesday GO item 4). ``_LOCK_DIRECTORY_SETTING`` is kept as
+#: its alias.
+LOCK_DIRECTORY_SETTING: Final = _LOCK_DIRECTORY_SETTING
+
+#: The directory the standard product boot keeps its identity locks in, under
+#: the deployment's declared scratch root (P1 (a), design §6.2).
+SDK_MANAGED_LOCK_DIRECTORY: Final = ".ccf-writer-locks"
+
+#: Filesystems whose ``flock`` is local and real: the only ones the SDK-managed
+#: lock directory is created on. Anything else (a network filesystem, FUSE,
+#: overlay, or a platform without ``/proc/self/mountinfo``) is refused, and the
+#: deployment declares a lock directory instead. There is never a fallback.
+_LOCAL_LOCK_FILESYSTEMS: Final = frozenset(
+    {"ext2", "ext3", "ext4", "xfs", "btrfs", "tmpfs", "f2fs", "zfs"}
+)
+
+
+def _filesystem_type(path: Path) -> str | None:
+    """The filesystem type of the mount holding ``path``, read from ``/proc/self/mountinfo``; ``None`` if unreadable."""
+    try:
+        with open("/proc/self/mountinfo", encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    best: tuple[int, str] | None = None
+    target = str(path)
+    for line in lines:
+        left, sep, right = line.partition(" - ")
+        fields = left.split()
+        if not sep or len(fields) < 5 or not right.split():
+            continue
+        mount_point = fields[4].replace("\\040", " ")
+        inside = target == mount_point or target.startswith(mount_point.rstrip("/") + "/")
+        if inside and (best is None or len(mount_point) >= best[0]):
+            best = (len(mount_point), right.split()[0])
+    return None if best is None else best[1]
+
+
+def sdk_managed_lock_directory(base: str | Path) -> str:
+    """Return the SDK-managed identity-lock directory under ``base``, creating it private if absent; refuse by name otherwise.
+
+    P1 (a) (``D-IMPL-378``, design §6.2; Tuesday GO item 4: *"wire the standard
+    product boot to supply the agreed lock directory"*). SDK extension of
+    whitepaper §7.3 / INV-CH7-10. Every process of a deployment that boots
+    through the same scratch root asks for the same
+    ``<base>/.ccf-writer-locks``, so their writers of one database file take
+    one identity lock whatever name each reached the file by.
+
+    In order: ``base`` must be absolute and its own real path; the filesystem
+    holding it must be local (:data:`_LOCAL_LOCK_FILESYSTEMS`); an absent
+    directory is created with mode ``0o700``; a present one is judged by
+    :func:`require_private_lock_directory` and refused if insecure, never
+    re-moded.
+
+    Raises:
+        WriterLeaseRequired: any of the above fails; the message names the
+            setting a deployment declares instead.
+    """
+    root = Path(base)
+    declare = (
+        f" Declare `{LOCK_DIRECTORY_SETTING}` in the connection settings"
+        " instead (P1 (a), D-IMPL-378; SEC-013)."
+    )
+    if not root.is_absolute() or os.path.realpath(root) != str(root):
+        raise WriterLeaseRequired(
+            f"the scratch root {str(root)!r} is not an absolute real path, so"
+            " the SDK-managed writer lock directory under it would not be the"
+            " same directory for every process." + declare
+        )
+    kind = _filesystem_type(root)
+    if kind not in _LOCAL_LOCK_FILESYSTEMS:
+        raise WriterLeaseRequired(
+            f"the scratch root {str(root)!r} is on filesystem {kind!r}, which is"
+            " not one whose flock the SDK trusts to exclude every writer; the"
+            " SDK-managed writer lock directory is not created there." + declare
+        )
+    directory = root / SDK_MANAGED_LOCK_DIRECTORY
+    try:
+        directory.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(directory, 0o700)
+    try:
+        return require_private_lock_directory(str(directory))
+    except ValueError as refused:
+        raise WriterLeaseRequired(str(refused) + declare) from None
 
 
 def _without_lock_directory_setting(

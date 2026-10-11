@@ -204,7 +204,16 @@ def connection(backends: dict[str, Any], root: Path) -> dict[str, object]:
     profile = backends[DECLARATION]["profiles"]["sqlite"][SETTINGS]["database_path"]
     root.mkdir(parents=True, exist_ok=True)
     name = f"{profile[PREFIX]}_{uuid.uuid4().hex[:12]}{profile[SUFFIX]}"
-    return {"database_path": str(root / name)}
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    lock = backends[DECLARATION]["profiles"]["sqlite"][SETTINGS]["writer_lease_lock_dir"]
+    lock_dir = root / lock["lock_directory"]
+    try:
+        lock_dir.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(lock_dir, 0o700)
+    return {"database_path": str(root / name), "writer_lease_lock_dir": os.path.realpath(lock_dir)}
 
 
 def boot(root: Path):

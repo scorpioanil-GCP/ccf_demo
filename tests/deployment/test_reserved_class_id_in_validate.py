@@ -81,6 +81,7 @@ from tests.controlplane.capabilities import register_capability
 from tests.controlplane.test_artifact_roundtrip import CASES
 from tests.deployment.conftest import ARTIFACT_SET, TENANT, Deployment, manifest_document, write_artifact
 from tests.products import paved_fixture as fixture
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal's class name, asserted by name rather than imported (see the module docstring).
 REFUSAL = "ReservedArtifactClassId"
@@ -573,7 +574,7 @@ def test_control_the_manifest_door_registers_every_manifest_addressable_sdk_clas
     booted = load_and_boot(
         deployment.variant_manifest("every-sdk-class.yaml", document),
         registry=registry,
-        connection={"database_path": str(tmp_path / "graph.sqlite3")},
+        connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
     )
     try:
         pinned = {pin.class_id: pin.key for pin in booted.pins.entries}
@@ -640,7 +641,7 @@ def test_control_the_config_door_and_the_paved_road_refuse_nothing_an_sdk_class_
     fabric = load_config_and_boot(
         root / "ccf_config.yaml",
         registry=control_plane,
-        connection={"database_path": str(tmp_path / "config-boot.sqlite3")},
+        connection={"database_path": str(tmp_path / "config-boot.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "config-boot.sqlite3"))},
         for_question=True,
     )
     try:
@@ -693,7 +694,7 @@ def test_control_the_manifest_door_refuses_an_envelope_stating_a_reserved_id_by_
         load_and_boot(
             deployment.variant_manifest("squat-manifest.yaml", document),
             registry=registry,
-            connection={"database_path": str(tmp_path / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
         )
     assert (type(raised.value).__name__, _raised_in(raised.value)) == (name, raised_in), raised.value
     assert registry.audit_events() == (), "the manifest door audited something before refusing"
@@ -736,7 +737,7 @@ def test_control_the_config_door_and_the_paved_road_refuse_a_reserved_policy_cla
             load_config_and_boot(
                 root / "ccf_config.yaml",
                 registry=control_plane,
-                connection={"database_path": str(tmp_path / "config-boot.sqlite3")},
+                connection={"database_path": str(tmp_path / "config-boot.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "config-boot.sqlite3"))},
                 for_question=True,
             )
         else:

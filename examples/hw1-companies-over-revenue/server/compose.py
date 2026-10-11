@@ -34,6 +34,8 @@ restated here.
 
 from __future__ import annotations
 
+import os
+
 from dataclasses import dataclass
 
 from ccf.artifacts.file_store import FileArtifactStore
@@ -47,6 +49,7 @@ from ccf.client.adapters.binding_document import (
 from ccf.controlplane.artifacts import EgressDoorBinding, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
 from ccf.deployment import BootedFabric, EnvironmentDocument, load_config_and_boot
+from ccf.graph.leases import sdk_managed_lock_directory
 from ccf.erasure import erasure_index_at
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.request import ProductRequest
@@ -132,6 +135,10 @@ def compose(
         The deployment as the standard door reads it.
     """
     control_plane = ControlPlaneRegistry()
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer
+    # mints only under a declared identity lock. `binding.yaml` declares the
+    # SDK-managed directory under the deployment root; the SDK creates it.
+    sdk_managed_lock_directory(os.path.realpath(document.root))
     fabric = load_config_and_boot(
         document.config, registry=control_plane, connection=document.connection
     )

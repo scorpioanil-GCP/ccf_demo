@@ -53,6 +53,7 @@ from ccf.deployment import load_and_boot
 from ccf.deployment.config import load_config_and_boot
 
 from tests.deployment.conftest import TENANT, Deployment, manifest_document, write_artifact
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The SDK's class id for the declaration, spelled once here.
 CLASS_ID = "ccf.demonstration-serve-instant"
@@ -99,7 +100,7 @@ def _refused_at_boot(manifest: pathlib.Path, tmp_path: pathlib.Path) -> tuple[Va
         load_and_boot(
             manifest,
             registry=registry,
-            connection={"database_path": str(tmp_path / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
         )
     return raised.value, registry
 
@@ -227,7 +228,7 @@ def test_control_one_declaration_at_the_derived_key_boots(
     booted = load_and_boot(
         _manifest(deployment, [(CLASS_ID, FIRST)], name="control.yaml"),
         registry=registry,
-        connection={"database_path": str(tmp_path / "graph.sqlite3")},
+        connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
     )
     try:
         assert len(registry.versions(DERIVED)) == 1
@@ -259,7 +260,7 @@ def test_p8_a_second_version_on_the_control_plane_is_refused_at_composition(
     booted = load_and_boot(
         _manifest(deployment, [(CLASS_ID, FIRST)], name="p8.yaml"),
         registry=registry,
-        connection={"database_path": str(tmp_path / "graph.sqlite3")},
+        connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
     )
     try:
         register_typed_at_composition(
@@ -309,7 +310,7 @@ def test_the_config_section_registers_at_the_derived_key(tmp_path: pathlib.Path)
     tenant = yaml.safe_load(config.read_text(encoding="utf-8"))["tenant_id"]
     registry = ControlPlaneRegistry()
     booted = load_config_and_boot(
-        config, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")}
+        config, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))}
     )
     try:
         assert len(registry.versions(f"{tenant}/{CLASS_ID}")) == 1
@@ -326,7 +327,7 @@ def test_the_config_section_refuses_a_stated_key(tmp_path: pathlib.Path) -> None
     )
     with pytest.raises(ValueError, match="`demonstration_serve_instant:` section states 'key'"):
         load_config_and_boot(
-            config, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "g.sqlite3")}
+            config, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "g.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "g.sqlite3"))}
         )
 
 
@@ -345,5 +346,5 @@ def test_no_other_config_section_can_carry_the_class(tmp_path: pathlib.Path) -> 
     config = _config_copy(tmp_path, override)
     with pytest.raises(ArtifactLoadError, match=f"not a valid {CLASS_ID}"):
         load_config_and_boot(
-            config, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "g.sqlite3")}
+            config, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "g.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "g.sqlite3"))}
         )

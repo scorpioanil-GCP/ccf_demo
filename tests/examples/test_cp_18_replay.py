@@ -37,6 +37,7 @@ from ccf.projection.plan import Perspective
 from ccf.replay.engine import ReplayDivergence, ReplayOutcome, replay
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres, pytest.mark.mongo]
 
@@ -244,7 +245,7 @@ def _reopened_fabric(opened: OpenedProduct) -> Iterator[Any]:
     substrate = ENVIRONMENT["substrate"]
     minted = sorted(opened.scratch.glob(f"{substrate['prefix']}*{substrate['suffix']}"))[-1]
     fabric = load_config_and_boot(
-        opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)}
+        opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))}
     )
     try:
         yield fabric

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2616 entries**, of which **2337** name a public Python surface.
+**2624 entries**, of which **2345** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1377 entries — 1331 public Python surface, 46 not public Python API.
+1380 entries — 1334 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20048,6 +20048,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
+#### ccf.graph.leases.LOCK_DIRECTORY_SETTING
+
+- Surface: ccf.graph.leases.LOCK_DIRECTORY_SETTING
+- Public surface: true
+- Change type: added
+- Before: absent; the setting's name was the private `_LOCK_DIRECTORY_SETTING`, which is kept as its alias.
+- After: the public name of the lock-directory connection setting, `"writer_lease_lock_dir"`.
+- Why: the standard product boot and deployments name the setting without reaching into a private constant.
+- Migration: none.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.graph.leases.SDK_MANAGED_LOCK_DIRECTORY
+
+- Surface: ccf.graph.leases.SDK_MANAGED_LOCK_DIRECTORY
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `".ccf-writer-locks"`, the directory under a deployment's scratch root where the standard product boot keeps its identity locks.
+- Why: P1 (a), design §6.2.
+- Migration: none.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.graph.leases.sdk_managed_lock_directory
+
+- Surface: ccf.graph.leases.sdk_managed_lock_directory
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: returns `<base>/.ccf-writer-locks`, creating it with mode `0o700` if absent. It refuses with `WriterLeaseRequired`, naming the setting to declare instead, when `base` is not an absolute real path, when the filesystem holding it is not a local one whose `flock` the SDK trusts (ext2, ext3, ext4, xfs, btrfs, tmpfs, f2fs, zfs, read from `/proc/self/mountinfo`; anything else, and a platform without it, is refused), or when an existing directory is not private to this user. An existing directory is judged, never re-moded.
+- Why: P1 (a), design §6.2: every process that boots through one scratch root takes the same identity lock for one database file, whatever name it reached the file by.
+- Migration: none.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -31175,7 +31211,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-558 entries — 519 public Python surface, 39 not public Python API.
+563 entries — 524 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39002,6 +39038,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for existing callers. **Also, after the focused review of `b66ab4fa`:** every door, composition and derived registration refuses a key in `{tenant}/ccf.entity-invalidation` or under it (`CapabilityBypassError`), so the range is written only by `InvalidationRecordRegister`; that kind refuses a tenant id containing `/` and admits only the `ENTITY_INVALIDATION_RECORD` class object with an `EntityInvalidationRecord` of exactly that type; `invalidation_history` raises `TypeError` on any version that is not this tenant's record for its key's entity; `ccf.boot` refuses a tenant id containing `/`. The review reproduced that an open range let a door capability plant an earlier boundary and make a refused product serve; that was possible on the old whole-register key too.
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: a file database with no declared writer lease minted a writer under the path-only sidecar lock, which a writer reaching the same live file through a new name (a rename) escaped.
+- After: `writer_lease()` on a file database with no declared lease raises `WriterLeaseRequired` from `acquire_declared_writer_lease`, the same refusal every network store gives; there is no fallback to the sidecar. An in-memory database keeps its process-scoped declaration. A declared lease is unchanged: the sidecar, then the identity lock, then the name count.
+- Why: P1 (a) (`D-IMPL-378`, Dave 2026-10-09 06:06 and 06:21; the Tuesday GO item 4). Design: `records/2026-10-09-d-impl-378-designs/designs/gamma/DESIGN-P1a-sqlite-identity-lock.md` on `dl-378-record`. Red test: `tests/graph/test_sqlite_writer_requires_identity_lock.py`.
+- Migration: every direct SQLite writer boot (`boot`, `load_and_boot`, `load_config_and_boot`, the in-process adapter, a hand-built `SqliteGraphStore`) declares `writer_lease_lock_dir` in its connection settings, or `writer_lease=` on the store: an absolute, private (mode `0o700`) directory every writer of that file shares. The standard product boot (`open_product`) needs nothing; it supplies the directory itself.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: behavior
+- Before: the per-question boot handed the adapter only the minted substrate path, so its SQLite writer took the path-only sidecar lock.
+- After: when the declared adapter's connection contract takes `writer_lease_lock_dir`, the product computes the SDK-managed lock directory under its scratch root once, at open (`writer_lock_directory`), so an unusable one refuses before any question; every per-question boot declares it. An adapter without the setting gets nothing.
+- Why: P1 (a) and the Tuesday GO: *"Do not ship a refusal that breaks the ordinary product path."*
+- Migration: none for the standard product boot. A scratch root on a network or overlay filesystem is now refused at open; put scratch on a local filesystem.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the engine refused a shared state store paired with a non-shared HITL transport, but admitted a shared transport beside a process-scoped store, and one process-scoped transport serving several independent store objects. Each was measured to let one approval release an execution twice (`DESIGN-2b-store-identity.md` §2, probes `p_b09` and `p2b_restart`).
+- After: both are refused at construction with `WorkflowWiringError`. A process-scoped transport is bound to the first process-scoped store object it is built with, for the life of the process, and a different store object is refused even after the first is gone. Rebuilding an engine over the same store and transport is admitted, as are replicas whose shared transport serves shared store views. A permitted approval still runs the step after the gate exactly once (`tests/workflow/test_engine_refuses_unsupported_sharing.py`). **Scope:** this check sees one Python process. Independent shared stores behind one shared queue in different processes are not detected; the controlled bank configuration excludes them (one engine, state store and approval queue per instance).
+- Why: the Tuesday GO item 4.
+- Migration: build every engine over one transport with the same state store, or give each store its own transport. A shared transport needs a shared store.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register_typed` and `register_versioned`, finding the content hash already stored by the untyped `register` door, took the idempotent path, bound the class to the key and left the stored mapping, so `resolve` served a `dict` under a class-bound key (`D-IMPL-381`).
+- After: both raise `TypeError` before validation, class binding, bump or audit state changes. Nothing is replaced. A typed idempotent re-registration is unchanged.
+- Why: `D-IMPL-381`, the refusal Dave selected; the Tuesday GO item 4. Red test: `tests/controlplane/test_registry_refuses_typed_over_untyped.py`.
+- Migration: register a key through one door: typed from the start, or untyped throughout.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: the in-process transport booted the deployment with the binding document's connection as declared.
+- After: when the binding declares exactly the SDK-managed lock directory under its own root (`writer_lease_lock_dir: {path: .ccf-writer-locks}`), the transport creates it through `ccf.graph.leases.sdk_managed_lock_directory`, with every check that function makes, before it boots. Any other declared directory is the deployment's to create and is judged as declared.
+- Why: P1 (a) and the Tuesday GO: *"Do not ship a refusal that breaks the ordinary product path."* An unseeded binding-document deployment (hw1's empty-fabric case) otherwise had no lock directory and was refused. Test: `tests/client/test_inprocess_creates_the_sdk_managed_lock_directory.py`; severing the call reddens it and the three hw1 empty-fabric tests.
+- Migration: a binding document whose deployment boots SQLite declares `writer_lease_lock_dir`.
+
+*Recorded by `20261011-01-tuesday-security-refusals.md`.*
 
 ### Not public Python API
 

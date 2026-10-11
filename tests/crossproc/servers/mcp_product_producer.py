@@ -72,6 +72,7 @@ from tests.crossproc.servers.product_producer_identity import (  # noqa: E402
     PRODUCT_CLASS,
 )
 from tests.composition import declare_wide_temporal_boundary
+from tests.support.sqlite_lease import lock_dir_beside
 PRINCIPAL = "principal-fixture"
 ROLE = "role-fixture"
 SCOPE = "ccf:egress"
@@ -218,7 +219,7 @@ def build_server(workspace: Path) -> FastMCP:
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(workspace / "producer.sqlite3")},
+        connection={"database_path": str(workspace / "producer.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(workspace / "producer.sqlite3"))},
     )
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
     # refuses every question, so a fixture that means to serve declares one.

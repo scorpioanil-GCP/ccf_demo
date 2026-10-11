@@ -40,6 +40,7 @@ import pytest
 from ccf.graph.backends.sqlite import WRITER_LEASE_SUFFIX
 from ccf.graph.protocols import WriterLeaseHeld
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal's own words for a database file with two names (the store's open, and the writer lease's).
 _TWO_NAMES = "has 2 names (hard links)"
@@ -77,14 +78,14 @@ def test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed(tmp_pa
     either name, is refused when its store opens (P2 (b): ``WriterLeaseHeld``, before the mint) naming the file's two
     names, until the link is removed."""
     live, backup = _two_names(tmp_path)
-    _boot("sqlite", {"database_path": live}).close()  # a graph, and no writer live
+    _boot("sqlite", {"database_path": live, "writer_lease_lock_dir": lock_dir_beside(live)}).close()  # a graph, and no writer live
     os.link(live, backup)  # what a hard-link backup does: the same file under a second name, not a copy
     assert os.stat(live).st_nlink == 2
 
     for name in (live, backup):
         with pytest.raises(WriterLeaseHeld) as in_process:
-            _boot("sqlite", {"database_path": name})
-        second_process = _run_child("sqlite", {"database_path": name})
+            _boot("sqlite", {"database_path": name, "writer_lease_lock_dir": lock_dir_beside(name)})
+        second_process = _run_child("sqlite", {"database_path": name, "writer_lease_lock_dir": lock_dir_beside(name)})
         assert second_process[:2] == ("REFUSED", "WriterLeaseHeld"), second_process
         # The store's own refusal, before the mint: it names the file's two names and says it refused to open it.
         for message in (str(in_process.value), second_process[2]):
@@ -92,7 +93,7 @@ def test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed(tmp_pa
             assert _REFUSED_AT_OPEN in message, message
 
     os.unlink(backup)
-    _boot("sqlite", {"database_path": live}).close()  # control: the refusal goes with the backup's name
+    _boot("sqlite", {"database_path": live, "writer_lease_lock_dir": lock_dir_beside(live)}).close()  # control: the refusal goes with the backup's name
 
 
 #: A copy SQLite writes itself, run in another process as a backup job would be.
@@ -118,7 +119,7 @@ def test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name(t
     """The backup to take instead: SQLite's online backup API or ``VACUUM INTO``, run while a writer is live, writes an
     independent copy holding the graph's tables and leaves the database file one name, so the next writer boots."""
     live, copy = _two_names(tmp_path)
-    holder = _boot("sqlite", {"database_path": live})
+    holder = _boot("sqlite", {"database_path": live, "writer_lease_lock_dir": lock_dir_beside(live)})
     try:
         subprocess.run(
             [sys.executable, "-c", _COPY_WITH[method], str(live), str(copy)], check=True, capture_output=True
@@ -129,7 +130,7 @@ def test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name(t
         assert copied == _tables_seen_through(live) and "'entities'" in copied, copied
     finally:
         holder.close()
-    _boot("sqlite", {"database_path": live}).close()  # the copy does not stand in the next writer's way
+    _boot("sqlite", {"database_path": live, "writer_lease_lock_dir": lock_dir_beside(live)}).close()  # the copy does not stand in the next writer's way
 
 
 _SEE_THEN_COMMIT_THROUGH = r"""
@@ -177,13 +178,13 @@ def test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_
     beside it, and under its new name it is one graph: a writer boots, and a second process is refused while it is
     live."""
     old, new = _two_names(tmp_path)
-    _boot("sqlite", {"database_path": old}).close()
+    _boot("sqlite", {"database_path": old, "writer_lease_lock_dir": lock_dir_beside(old)}).close()
     beside_the_old_name = sorted(entry.name for entry in old.parent.iterdir())
     assert beside_the_old_name == ["graph.sqlite3", f"graph.sqlite3{WRITER_LEASE_SUFFIX}"], beside_the_old_name
     os.rename(old, new)
-    holder = _boot("sqlite", {"database_path": new})
+    holder = _boot("sqlite", {"database_path": new, "writer_lease_lock_dir": lock_dir_beside(new)})
     try:
-        second_process = _run_child("sqlite", {"database_path": new})
+        second_process = _run_child("sqlite", {"database_path": new, "writer_lease_lock_dir": lock_dir_beside(new)})
     finally:
         holder.close()
     assert second_process[:2] == ("REFUSED", "SingleWriterViolation"), second_process

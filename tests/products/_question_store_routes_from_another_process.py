@@ -23,6 +23,7 @@ from ccf.deployment import load_and_boot
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from tests.composition import declare_wide_temporal_boundary, declaring_store
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _outcome(attempt: Callable[[], Any]) -> dict[str, Any]:
@@ -35,7 +36,7 @@ def _outcome(attempt: Callable[[], Any]) -> dict[str, Any]:
 
 def main(manifest: pathlib.Path, path: pathlib.Path, records: pathlib.Path) -> dict[str, Any]:
     registry = ControlPlaneRegistry()
-    connection = {"database_path": str(path)}
+    connection = {"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}
 
     def a_question_boot() -> str:
         load_and_boot(manifest, registry=registry, connection=connection, for_question=True).handle.close()

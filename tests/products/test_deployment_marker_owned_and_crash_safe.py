@@ -67,6 +67,7 @@ from ccf.deployment import load_and_boot
 from tests.products import test_plain_boot_creating_its_store_finds_it_empty as tp
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal a boot meets over a marker that does not show a completed verification (absent on a tree without it).
 NOT_VERIFIED = "DeploymentStoreNotVerified"
@@ -377,7 +378,7 @@ def test_1_1_a_marker_reads_pending_until_the_read_completes_and_verified_after(
         return handle
 
     monkeypatch.setattr(manifest_module, "boot", boot_and_look)
-    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     try:
         after = _state(_marker(target))
         creation = fabric.store_creation
@@ -450,7 +451,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
     for read_only in (False, True):
         try:
             outcome: Any = load_and_boot(
-                manifest, registry=registry, connection={"database_path": str(target)}, read_only=read_only
+                manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}, read_only=read_only
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome = raised
@@ -480,7 +481,7 @@ def test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for
     manifest, registry, records = p4e._deployment(tmp_path)
     target = tmp_path / "kept" / _STORE
     target.parent.mkdir()
-    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     try:
         for envelope in m._base_accounts():
             created.handle.worker.ingest(envelope)
@@ -502,7 +503,7 @@ def test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for
     for read_only in (False, True):
         try:
             outcome: Any = load_and_boot(
-                manifest, registry=registry, connection={"database_path": str(target)}, read_only=read_only
+                manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))}, read_only=read_only
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome = raised
@@ -520,7 +521,7 @@ def test_1_1_control_a_boot_that_verifies_an_empty_new_store_boots_and_a_reopen_
     p4e._record_reads(monkeypatch, events)
     target = tmp_path / "fresh" / _STORE
     target.parent.mkdir()
-    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    created = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     reads_creating = tp._latest_reads(events)
     try:
         assert created.store_creation == "verified", created.store_creation
@@ -529,7 +530,7 @@ def test_1_1_control_a_boot_that_verifies_an_empty_new_store_boots_and_a_reopen_
     finally:
         created.handle.close()
     events.clear()
-    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    reopened = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
     try:
         reads_reopening = tp._latest_reads(events)
         assert reopened.store_creation == "verified", reopened.store_creation

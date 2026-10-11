@@ -40,6 +40,7 @@ import pytest
 import yaml
 
 from tests.examples.specimen_base import branch_point
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.postgres]
 
@@ -465,10 +466,12 @@ def test_intent_is_a_governed_axis_and_the_specimens_shadow_is_refused(
     path.write_text(yaml.safe_dump(shadow), encoding="utf-8")
     with pytest.raises(Exception, match="shadow"):
         booted = load_config_and_boot(
-            path, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "shadow.sqlite3")}
+            path, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "shadow.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "shadow.sqlite3"))}
         )
         try:
-            ProductRequestContract.from_declared(booted.artifacts["request_contract"])
+            # Read by the key the loader PLACED under the tenant (`D-IMPL-354`);
+            # compatibility repair 2026-10-11 (examples/AMENDMENTS-2026-10-11.md).
+            ProductRequestContract.from_declared(booted.artifacts[booted.keys.request_contract])
         finally:
             booted.handle.close()
 

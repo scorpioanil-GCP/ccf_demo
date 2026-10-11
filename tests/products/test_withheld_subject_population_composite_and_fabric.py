@@ -110,6 +110,7 @@ from tests.products.test_resolver_seam import (
     _arguments,
     _Booted,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 FROM_DECISION = sec020.FROM_DECISION
 FROM_ENTITY_FRESHNESS = sec020.FROM_ENTITY_FRESHNESS
@@ -196,7 +197,7 @@ def _boot(
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(root / "graph.sqlite3")},
+        connection={"database_path": str(root / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(root / "graph.sqlite3"))},
         **extra,
     )
     declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
@@ -577,7 +578,7 @@ def test_q9_m6_across_a_second_boot_of_the_same_store(tmp_path: pathlib.Path, an
     fabric = load_and_boot(
         tmp_path / "planted" / "manifest.yaml",
         registry=planted[1],
-        connection={"database_path": str(tmp_path / "planted" / "graph.sqlite3")},
+        connection={"database_path": str(tmp_path / "planted" / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "planted" / "graph.sqlite3"))},
     )
     again = (fabric, planted[1], planted[2])
     second = _RefreshWhenAsked(fabric)
@@ -676,7 +677,7 @@ def test_q9_booting_for_a_question_over_a_store_that_exists_refuses(tmp_path: pa
         load_and_boot(
             manifest,
             registry=ControlPlaneRegistry(),
-            connection={"database_path": str(tmp_path / "existing" / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / "existing" / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "existing" / "graph.sqlite3"))},
             for_question=True,
         )
     assert _named(raised.value, "QuestionFabricNotFresh"), repr(raised.value)
@@ -995,7 +996,7 @@ def _composite_boot(tmp_path: pathlib.Path, *, child_anchor: str, ingest_batch: 
     manifest = write_artifact(root, "manifest.yaml", body)
     control_plane = ControlPlaneRegistry()
     question = {"for_question": True} if (for_question and _boots_for_a_question()) else {}
-    fabric = load_and_boot(manifest, registry=control_plane, connection={"database_path": str(tmp_path / "c.sqlite3")}, **question)
+    fabric = load_and_boot(manifest, registry=control_plane, connection={"database_path": str(tmp_path / "c.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "c.sqlite3"))}, **question)
     declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     if ingest_batch:
         for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
@@ -1368,7 +1369,7 @@ def test_q10_an_early_withheld_decision_replays_to_its_own_address(tmp_path: pat
         assert isinstance(served, ServedProduct), served
         record = opened.record_of(served)
         minted = sorted(scratch.glob("paved_fixture*.sqlite3"))[-1]
-        fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+        fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
         try:
             outcome = replay(
                 record_address=served.replay_ref.content_address, store=opened.artifact_store,

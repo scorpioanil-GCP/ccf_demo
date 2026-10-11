@@ -134,9 +134,8 @@ def test_a_shared_store_with_a_process_scoped_transport_is_refused_at_constructi
     [
         (InMemoryStateStore, InMemoryHitlTransport),
         (SharedStore, SharedTransport),
-        (InMemoryStateStore, SharedTransport),
     ],
-    ids=["reference-pair", "shared-pair", "process-store-shared-transport"],
+    ids=["reference-pair", "shared-pair"],
 )
 def test_the_supported_seams_are_admitted(
     tmp_path: Path, store_type: type[Any], transport_type: type[Any]

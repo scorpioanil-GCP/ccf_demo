@@ -25,6 +25,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
 
 from tests.deployment.conftest import TENANT, Deployment, manifest_document, write_artifact
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The SDK's class id for the declaration, spelled once here.
 CLASS_ID = "ccf.demonstration-serve-instant"
@@ -65,7 +66,7 @@ def test_a_load_role_demonstration_instant_is_refused_at_boot_by_name(
         load_and_boot(
             manifest,
             registry=registry,
-            connection={"database_path": str(tmp_path / "graph.sqlite3")},
+            connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
         )
     assert (
         f"artifact class {CLASS_ID!r} is role 'register' and the manifest declares 'load'"
@@ -90,7 +91,7 @@ def test_a_register_role_demonstration_instant_boots_and_is_registered(
     booted = load_and_boot(
         manifest,
         registry=registry,
-        connection={"database_path": str(tmp_path / "graph.sqlite3")},
+        connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))},
     )
     try:
         assert registry.versions(f"{TENANT}/{CLASS_ID}"), registry.audit_events()

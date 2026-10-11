@@ -135,7 +135,7 @@ def main(argv: list[str]) -> int:
             f" bound={envelope['retrieval']['bound_applied']} candidates={envelope['retrieval']['candidates_examined']}"
         )
         governing = payload["governing_text"]
-        print(f"  governing  {len(governing['documents_in_force'])} in force · {len(governing['documents_not_yet_governing'])} not yet")
+        print(f"  governing  {governing['documents_in_force']} in force · {governing['documents_not_yet_governing']} not yet")
         print(f"  in view    {payload['graph']['entities_in_view']} entities")
         for source in payload["cross_references"]:
             checked = sum(len(node["citations"]) for node in source["chain"])

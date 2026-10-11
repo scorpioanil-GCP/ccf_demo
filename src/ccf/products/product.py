@@ -152,7 +152,9 @@ from ccf.deployment.manifest import (
     manifest_under_tenant,
     register_manifest_entries,
 )
+from ccf.graph.leases import LOCK_DIRECTORY_SETTING, sdk_managed_lock_directory
 from ccf.graph.protocols import GraphView
+from ccf.graph.registry import resolve as resolve_backend
 from ccf.halflife.debt import DebtAssessment
 from ccf.mcp.client import SyncMcpBridge, bearer_client_factory
 from ccf.products.child_resolver import ChildQuestions, QuestionBoundChildResolver
@@ -571,6 +573,14 @@ class OpenedProduct:
         self.config_path = config_path
         self.scratch = scratch
         self.config = config
+        # P1 (a) (D-IMPL-378; Tuesday GO item 4): the standard product boot
+        # supplies the SDK-managed identity-lock directory under the scratch
+        # root, computed once at open so an unusable one refuses before any
+        # question. Only for an adapter whose connection contract takes the
+        # lock-directory setting; nothing here names a substrate (CINV-04).
+        self.writer_lock_directory: str | None = None
+        if LOCK_DIRECTORY_SETTING in resolve_backend(config.backend).registration.config_model.model_fields:
+            self.writer_lock_directory = sdk_managed_lock_directory(os.path.realpath(scratch))
         self.environment = environment
         self.keys = keys
         self.tenant_id = tenant_id
@@ -987,10 +997,13 @@ class OpenedProduct:
         """
         substrate = self.environment.substrate
         minted = self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
+        connection: dict[str, object] = {substrate.setting: str(minted)}
+        if self.writer_lock_directory is not None:
+            connection[LOCK_DIRECTORY_SETTING] = self.writer_lock_directory
         return load_config_and_boot(
             self.config_path,
             registry=self.control_plane,
-            connection={substrate.setting: str(minted)},
+            connection=connection,
             for_question=True,
         )
 

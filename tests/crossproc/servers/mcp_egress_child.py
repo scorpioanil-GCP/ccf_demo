@@ -100,6 +100,7 @@ from ccf_runtime.mcp.egress import (  # noqa: E402
     build_egress_server,
     product_uri,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -272,7 +273,7 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
     policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
-        connection={"database_path": database_path},
+        connection={"database_path": database_path, "writer_lease_lock_dir": lock_dir_beside(database_path)},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

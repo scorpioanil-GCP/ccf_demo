@@ -10,7 +10,7 @@ The walk covers the whole repository from the sweep's own location. The number o
 
 - Coupling rows: **360** across **114** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
-- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
+- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **250**
 
 Rows by owning plan:
 
@@ -161,7 +161,7 @@ Rows by coupling shape:
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/hw1-harness-clients/runner/drive.py` | 941 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `examples/hw1-harness-clients/runner/drive.py` | 960 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 10 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 33 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
@@ -286,8 +286,8 @@ Rows by coupling shape:
 | `tests/deployment/test_config_derivation.py` | 33 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_config_document.py` | 29 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_config_equivalence.py` | 42 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/deployment/test_manifest.py` | 930 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tests/deployment/test_operator_builder.py` | 486 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/deployment/test_manifest.py` | 931 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
+| `tests/deployment/test_operator_builder.py` | 487 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 2 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 7 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |

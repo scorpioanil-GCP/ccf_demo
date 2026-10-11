@@ -36,6 +36,7 @@ from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import GraphQuery, StoreSnapshotPin
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import register_at_composition
+from tests.support.sqlite_lease import lease_beside, lock_dir_beside
 
 TENANT = "tenant-a"
 AS_OF = datetime(2026, 3, 1, tzinfo=UTC)
@@ -82,7 +83,7 @@ def test_a_sqlite_store_opened_without_boot_refuses_a_classification_query(
     policy_version = register_at_composition(registry, "test/policy", {"regime": "x"})
     handle = boot(
         backend="sqlite",
-        connection={"database_path": str(database)},
+        connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))},
         registry=registry,
         resolution_spec_key="test/spec",
         resolution_spec_version=spec_version,
@@ -104,7 +105,7 @@ def test_a_sqlite_store_opened_without_boot_refuses_a_classification_query(
     finally:
         handle.close()
 
-    with SqliteGraphStore(database_path=database) as raw:
+    with SqliteGraphStore(database_path=database, writer_lease=lease_beside(database)) as raw:
         # Not a classification consumer: the raw store still answers.
         assert len(raw.reader.query(GraphQuery(tenant_id=TENANT, as_of=AS_OF)).entities) == 1
         with pytest.raises(ValueError) as refused:

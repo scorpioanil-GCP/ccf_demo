@@ -62,6 +62,7 @@ from http_api.gate_fixtures import (
     build_gate_app,
     grant,
 )
+from ccf.hitl.transport import InMemoryHitlTransport
 from tests.hitl.sec006_harness import register_typed_policy
 from tests.workflow import test_engine as eh
 from tests.workflow.test_approval_gate_limits import (
@@ -162,6 +163,10 @@ def give_state_store(fabric: Fabric, store: InMemoryStateStore) -> None:
     assert isinstance(original, InMemoryStateStore)
     assert not getattr(original, "_records"), "the fixture's store already holds state"
     fabric.registry._state_store = store
+    # The fixture's transport is bound to the store its engine was built over;
+    # a queue serving two independent stores is refused (Tuesday GO item 4), so
+    # the new store gets a new, empty queue, as a composition root would build.
+    fabric.hitl = InMemoryHitlTransport()
 
 
 def open_door(fabric: Fabric, key: str, version: str, root: Path, bindings: eh._Bindings) -> Door:

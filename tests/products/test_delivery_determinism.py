@@ -133,6 +133,7 @@ from tests.issuance import (
     assert_one_determination_issued_twice,
     modulo_issuance,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- this module's own vocabulary -------------------------------------------
 
@@ -1355,7 +1356,7 @@ def test_the_effectivity_boundary_record_replays_to_its_address_and_its_bindings
         fabric = load_config_and_boot(
             opened.config_path,
             registry=control_plane,
-            connection={"database_path": str(minted)},
+            connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))},
         )
 
         # THE OTHER HALF: a genuinely different later version of the governing

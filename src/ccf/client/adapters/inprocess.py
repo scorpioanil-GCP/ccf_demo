@@ -97,8 +97,9 @@ No LLM dependency on this path, ever.
 from __future__ import annotations
 
 import atexit
+import os
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -123,6 +124,7 @@ from ccf.controlplane.artifacts import ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneProtocol, ControlPlaneRegistry, namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.deployment.config import load_config_and_boot
+from ccf.graph.leases import LOCK_DIRECTORY_SETTING, SDK_MANAGED_LOCK_DIRECTORY, sdk_managed_lock_directory
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.demonstration_clock import DeclaredServeClock
 from ccf.products.door import door_answer, door_question
@@ -290,6 +292,7 @@ def _boot(
     changes this line and nothing in ``ccf.products``.
     """
     control_plane = ControlPlaneRegistry()
+    _materialize_declared_sdk_lock_directory(document.connection, root=document.root)
     fabric = load_config_and_boot(
         document.config, registry=control_plane, connection=document.connection
     )
@@ -589,3 +592,26 @@ class InProcessAdapter:
 
 
 SCHEME_REGISTRY[SCHEME] = InProcessAdapter
+
+
+def _materialize_declared_sdk_lock_directory(
+    connection: Mapping[str, object] | None, *, root: Path
+) -> None:
+    """Create the binding's declared identity-lock directory when it is the SDK-managed one under the deployment root.
+
+    P1 (a) (``D-IMPL-378``; the Tuesday GO item 4: *"Do not ship a refusal that
+    breaks the ordinary product path"*). A SQLite file writer mints only under
+    a declared identity lock, and the SDK refuses a lock directory that does
+    not exist. A binding document that declares exactly
+    ``<deployment root>/.ccf-writer-locks`` names the directory the SDK
+    manages, so the in-process transport has it created through
+    :func:`~ccf.graph.leases.sdk_managed_lock_directory`, with every check
+    that function makes. Any other declared directory is the deployment's to
+    create, and is judged as declared.
+    """
+    declared = (connection or {}).get(LOCK_DIRECTORY_SETTING)
+    if not isinstance(declared, str):
+        return
+    base = Path(os.path.realpath(root))
+    if Path(declared) == base / SDK_MANAGED_LOCK_DIRECTORY:
+        sdk_managed_lock_directory(base)

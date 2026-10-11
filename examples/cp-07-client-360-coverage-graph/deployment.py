@@ -22,9 +22,11 @@ a banker with no name and no seniority, with nothing raised.
 
 from __future__ import annotations
 
+import os
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -34,7 +36,7 @@ import yaml
 import acquisition
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable, PerspectiveArtifact
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
@@ -62,10 +64,32 @@ def config() -> Mapping[str, Any]:
     return document
 
 
+def _private_lock_directory(path: Path) -> str:
+    """Create this run's identity-lock directory private (``0o700``) and return its real path.
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    ``backends.yaml`` declares the directory's name under the run root.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(path, 0o700)
+    return os.path.realpath(path)
+
+
 def connection(*, root: Path) -> Mapping[str, str]:
     profile = yaml.safe_load((HERE / "backends.yaml").read_text(encoding="utf-8"))[
         "declaration"]["profiles"]["sqlite"]["settings"]["database_path"]
-    return {"database_path": str(root / f"{profile['prefix']}{profile['suffix']}")}
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    lock = yaml.safe_load((HERE / "backends.yaml").read_text(encoding="utf-8"))[
+        "declaration"]["profiles"]["sqlite"]["settings"]["writer_lease_lock_dir"]
+    return {
+        "database_path": str(root / f"{profile['prefix']}{profile['suffix']}"),
+        "writer_lease_lock_dir": _private_lock_directory(root / lock["lock_directory"]),
+    }
 
 
 def perspective() -> PerspectiveArtifact:
@@ -111,7 +135,7 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
     this product exists to refuse.
     """
     declared = ProductRequestContract.from_declared(
-        booted.artifacts.get("request_contract"))
+        booted.artifacts.get(namespaced_key(tenant=booted.tenant_id, key="request_contract")))
     source = ProvenanceSource(kind="artifact", identity="request_contract",
                               version=content_hash(declared))
     outcome = ReferencePolicyConstraintResolver(
@@ -120,7 +144,8 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
         product_class=asked.schema_name, request=asked, declared=declared,
         declared_source=source, perspective=perspective(), intent=asked.intent,
         tenant=booted.tenant_id, capabilities=(),
-        class_defaults=declared.defaults, class_source=source)
+        class_defaults=declared.defaults, class_source=source,
+        served_at=datetime.now(UTC))
     return {} if outcome.refusal is not None else outcome.evidence.values()
 
 

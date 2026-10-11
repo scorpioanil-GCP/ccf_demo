@@ -51,6 +51,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from typing import Any
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The latest instant a timestamp can name: the instant a boot's emptiness read is taken at.
 _LATEST = datetime.max.replace(tzinfo=UTC)
@@ -129,7 +130,7 @@ def _boot_once(observed: _Observed, manifest: pathlib.Path, registry: Any, store
     report: dict[str, Any] = {"store": str(store), "read_only": read_only, "started_ns": time.monotonic_ns()}
     try:
         fabric = load_and_boot(
-            manifest, registry=registry, connection={"database_path": str(store)}, read_only=read_only
+            manifest, registry=registry, connection={"database_path": str(store), "writer_lease_lock_dir": lock_dir_beside(str(store))}, read_only=read_only
         )
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         report.update(

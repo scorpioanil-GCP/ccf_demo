@@ -25,6 +25,7 @@ from ccf.controlplane.temporal_boundary import (
 )
 from ccf.replay.record import PolicyBinding
 from tests.deployment.test_config_equivalence import TENANT, _config_document, write_artifact
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _boot(tmp_path: pathlib.Path, document: dict[str, object]) -> object:
@@ -34,7 +35,7 @@ def _boot(tmp_path: pathlib.Path, document: dict[str, object]) -> object:
     return load_config_and_boot(
         path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / "namespaced.sqlite3")},
+        connection={"database_path": str(tmp_path / "namespaced.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "namespaced.sqlite3"))},
     )
 
 
@@ -103,7 +104,7 @@ def test_CFG6_a_declared_temporal_boundary_registers_resolves_and_pins_exactly(
     booted = load_config_and_boot(
         write_artifact(config_dir, "ccf_config.yaml", document),
         registry=registry,
-        connection={"database_path": str(tmp_path / "cfg6.sqlite3")},
+        connection={"database_path": str(tmp_path / "cfg6.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "cfg6.sqlite3"))},
     )
 
     key = temporal_boundary_policy_key(tenant_id=TENANT)
@@ -142,7 +143,7 @@ def test_CFG6_a_config_declaring_no_boundary_boots_and_resolves_undeclared(
     booted = load_config_and_boot(
         write_artifact(config_dir, "ccf_config.yaml", _config_document()),
         registry=registry,
-        connection={"database_path": str(tmp_path / "cfg6-absent.sqlite3")},
+        connection={"database_path": str(tmp_path / "cfg6-absent.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "cfg6-absent.sqlite3"))},
     )
     assert booted.keys is not None
     assert booted.keys.temporal_boundary is None

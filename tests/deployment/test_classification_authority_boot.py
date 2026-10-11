@@ -31,6 +31,7 @@ from tests.deployment.conftest import (
     Deployment,
     write_artifact,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 
 def _resolution_document() -> tuple[str, dict[str, Any]]:
@@ -44,7 +45,7 @@ def _boot(deployment: Deployment, tmp_path: pathlib.Path, name: str) -> Any:
     return load_and_boot(
         deployment.manifest_path,
         registry=ControlPlaneRegistry(),
-        connection={"database_path": str(tmp_path / name)},
+        connection={"database_path": str(tmp_path / name), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / name))},
     )
 
 

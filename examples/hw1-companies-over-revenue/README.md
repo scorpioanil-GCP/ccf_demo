@@ -19,6 +19,23 @@ client runs — and you do not need to read it to understand the example.
 fails the build the day `consume.py` grows past it. Phase 16's first attempt at
 this example was 722 lines of Python, measured by nobody.
 
+## Before you start
+
+Everything below runs from the **repository root** of a fresh clone, on Python
+3.12 or later, with nothing else set up:
+
+```
+make venv
+```
+
+That creates `.venv` and installs the hash-locked dependencies and the SDK into
+it (it needs access to the package index once). After that the example needs
+**no database, no network, no credentials and no environment variable** other
+than the `CCF_BINDING` each command below sets on its own line — it was
+re-measured on 2026-10-11 from a shell with no `CCF_*` variable and no database
+credential exported. The graph is a local SQLite file the seed step writes
+inside `deployment/`; nothing outside the repository is read or written.
+
 ## Run it — two transports, one `consume.py`
 
 **What you are looking at.** The two commands below reach **the same Context
@@ -81,8 +98,12 @@ is character-identical to the recipe that runs it, because a documented command
 nobody runs and a run command nobody documents are the same defect seen from
 two sides.
 
-The MCP run also prints a couple of `INFO Processing request of type …` lines.
-Those are the child server talking, on **stderr**; the answer is on stdout.
+The MCP run also prints, on **stderr**, the child server talking —
+`Processing request of type CallToolRequest` and `… ListToolsRequest` — and,
+from a dependency of the MCP server, a `pydantic_settings`
+`IncompleteFieldDefinitionWarning` about a field named `lifespan`. Neither is
+part of the answer; the answer is on stdout, and it is the same bytes as the
+in-process run's but for the one per-answer value named below.
 
 The interpreter is spelled `.venv/bin/python` rather than `python` because
 `which python` returns nothing in this repository. If you have activated the
@@ -166,6 +187,30 @@ and what a SELECT would not have told you:
    replay record      ccf-artifact://hw1-demo/hw1.replay-record/<issued per answer>@<issued per answer>
    answer expires     2026-08-01 00:10:00+00:00
 ```
+
+**What changes from run to run, and what does not.** Only the replay record's
+address (both `<issued per answer>` segments) changes — between two runs, and
+between the two transports. The five companies, `5 of 8 assembled`, `D_c
+0.4271 → forced_llm`, the content address `a8335bb4…2df4` and the expiry
+`2026-08-01 00:10:00+00:00` are the same on every run and on both transports,
+because the question pins its instant and the deployment serves at its declared
+demonstration instant (below). Change the question and the content address
+changes with it: `--min-revenue 2000000000` answers two companies (Ardent
+Fenwick Holdings, Marrowgate Shipping), `2 of 8 assembled`, the same `D_c`, under
+content address `86afaa6251bdf5f9494117633990b714c20a16d676a3c6511698adbc99867d1f`.
+
+### An expired question is refused, by name
+
+The demonstration instant is a labelled clock, not a switched-off check. Ask
+either documented command with its `--as-of` moved further back than the
+declared hour before the serve instant — `--as-of 2026-07-31T22:00:00+00:00` —
+and it prints `refused: asked-at-outside-temporal-bound` and exits 1. Move it
+inside the hour but more than the answer's ten-minute lifetime before the serve
+instant — `--as-of 2026-07-31T23:50:00+00:00` — and it prints
+`refused: ttl-bounds` and exits 1. No content address is printed for either:
+a refusal never reaches a caller as a product.
+`tests/examples/test_hw1_expired_question_refusal.py` runs both, over both
+transports, as ordinary passing tests.
 
 `D_c` is a **measured** number here, not a constant: the deployment's λ_c
 declares a one-year half-life for a revenue observation, and the eight filings
@@ -276,9 +321,23 @@ does, ingests every envelope through the one writer, and closes that writer
 before either transport starts — nothing in the SDK knows it exists.
 
 `binding.yaml` points `connection.database_path` at `graph.sqlite3` inside
-`deployment/`, and that file and `artifact-store/` are what the seed generates;
-both are `.gitignore`d. Point `binding.yaml` at your own populated graph
-instead, and the seed step is not needed.
+`deployment/`, and that file and `artifact-store/` are what the seed generates.
+Beside the graph the SDK also files its store marker, store-creation lock and
+writer lease (`graph.sqlite3.ccf-deployment-store`,
+`graph.sqlite3.ccf-store-creation.lock`, `graph.sqlite3.ccf-writer.lock`), and
+the binding declares the writer's identity-lock directory, `.ccf-writer-locks/`.
+All of it is generated state in the deployment's declared location, none of it
+is committed, and the tests never read it: every test that runs this example
+copies it into its own temporary directory **without** those files and seeds the
+copy itself, so a developer's populated tree cannot make a test pass or fail.
+Point `binding.yaml` at your own populated graph instead, and the seed step is
+not needed.
+
+**Checking it yourself.** The same three suites CI runs:
+
+```
+PYTHONPATH=.:src:runtime .venv/bin/python -m pytest tests/examples/test_hw1_two_transports.py tests/examples/test_hw1_readme_expected_output.py tests/examples/test_hw1_empty_fabric_refusal.py tests/examples/test_hw1_expired_question_refusal.py -q
+```
 
 ## What to change first
 

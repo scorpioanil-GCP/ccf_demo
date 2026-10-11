@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -41,6 +42,7 @@ from ccf.graph.leases import lock_directory_writer_lease, lock_file_name
 from ccf.graph.protocols import ProcessScopedWriterLease, WriterLeaseHeld, WriterLeaseRequired
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
 from tests.graph.test_sqlite_writer_lease_hard_link import _two_names
+from tests.support.sqlite_lease import lease_beside, lock_dir_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -184,7 +186,10 @@ def test_after_the_holder_closes_the_file_boots_through_its_new_name(tmp_path: P
 # --- What the lease reports, and what it leaves behind --------------------------------------------------------------
 
 
-def test_the_holder_reports_both_locks_and_an_undeclared_boot_reports_the_sidecar_alone(tmp_path: Path) -> None:
+def test_the_holder_reports_both_locks_and_an_undeclared_boot_is_refused(tmp_path: Path) -> None:
+    """P1 (a) (D-IMPL-378; Tuesday GO item 4): before it, an undeclared boot reported the path sidecar alone, the lock
+    a renamed live file escapes. Now an undeclared SQLite file writer is refused by the declared-lease rule, by the
+    frame that refuses every network store, and no sidecar is taken."""
     locks = _locks(tmp_path)
     declared = tmp_path / "declared.sqlite3"
     undeclared = tmp_path / "undeclared.sqlite3"
@@ -196,16 +201,14 @@ def test_the_holder_reports_both_locks_and_an_undeclared_boot_reports_the_sideca
         held_locks = _lock_files(locks)
     finally:
         holder.close()
-    plain = _boot("sqlite", {"database_path": undeclared})
-    try:
-        plain_mechanism = plain.lease_mechanism
-    finally:
-        plain.close()
+    with pytest.raises(WriterLeaseRequired, match="has no declared writer lease") as refused:
+        _boot("sqlite", {"database_path": undeclared})
 
     assert len(held_locks) == 1, held_locks
     assert f"flock on {sidecar!r}" in mechanism, mechanism
     assert f"flock on {str(held_locks[0])!r}" in mechanism, mechanism
-    assert plain_mechanism == f"flock on {str(undeclared.resolve()) + '.ccf-writer.lock'!r}"
+    assert any(frame.name == "acquire_declared_writer_lease" for frame in traceback.extract_tb(refused.tb))
+    assert not Path(f"{undeclared.resolve()}.ccf-writer.lock").exists()
 
 
 def test_a_holder_that_dies_without_closing_does_not_block_the_next_boot_through_its_lock_file(
@@ -303,7 +306,7 @@ def test_a_writer_boot_refuses_a_lock_directory_the_precedent_refuses_naming_the
     from ccf.graph.registry import InvalidBackendConfig
 
     with pytest.raises(InvalidBackendConfig) as refused:
-        _boot("sqlite", {"database_path": tmp_path / "graph.sqlite3", LEASE_FIELD: declared})
+        _boot("sqlite", {"database_path": tmp_path / "graph.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "graph.sqlite3"), LEASE_FIELD: declared})
     assert LEASE_FIELD in str(refused.value), str(refused.value)
 
 
@@ -370,5 +373,5 @@ def test_a_declared_lease_that_does_not_exclude_other_processes_is_refused(tmp_p
     with SqliteGraphStore(database_path=database, writer_lease=a_process_scoped_lease) as store:
         with pytest.raises(WriterLeaseRequired, match=r"has scope 'process'"):
             store.writer_lease()
-    with SqliteGraphStore(database_path=database) as store:
+    with SqliteGraphStore(database_path=database, writer_lease=lease_beside(database)) as store:
         store.writer_lease().release()  # the refused attempt gave its sidecar back

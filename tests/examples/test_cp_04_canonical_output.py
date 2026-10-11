@@ -345,8 +345,11 @@ def test_replay_dimension_two_is_a_superset_of_the_product_lineage(
     lineage = set(at_depth_three.product.lineage.policy_bundle_versions)
 
     assert lineage <= versions, "the product claims a policy replay does not carry"
-    assert "request_contract" in bindings
-    assert bindings > {"policy"}, "dimension 2 carries no more than the lineage does"
+    # The request contract's key is the one the loader PLACED under the tenant
+    # (`D-IMPL-354`); a bare name is no longer a key the fabric holds.
+    # Compatibility repair 2026-10-11 (examples/AMENDMENTS-2026-10-11.md).
+    assert f"{at_depth_three.product.tenant_id}/request_contract" in bindings
+    assert bindings > {f"{at_depth_three.product.tenant_id}/policy"}, "dimension 2 carries no more than the lineage does"
 
 
 def test_the_store_pin_is_execution_provenance_and_not_product_identity(

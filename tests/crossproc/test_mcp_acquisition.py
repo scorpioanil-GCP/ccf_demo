@@ -54,6 +54,7 @@ from http_api.composition_authority import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from crossproc.servers.mcp_content_child import load_content_fixture  # noqa: E402
+from tests.support.sqlite_lease import lock_dir_beside
 
 CHILD = str(
     Path(__file__).resolve().parent / "servers" / "mcp_content_child.py"
@@ -151,7 +152,7 @@ def fabric(tmp_path: Path) -> Iterator[Any]:
     policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "acquisition.sqlite3"},
+        connection={"database_path": tmp_path / "acquisition.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "acquisition.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

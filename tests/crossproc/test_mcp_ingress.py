@@ -69,6 +69,7 @@ from crossproc.servers.mcp_ingress_child import load
 from http_api.composition_authority import (
     register_at_composition,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = pytest.mark.crossproc
 
@@ -268,7 +269,7 @@ def test_acquired_signal_reaches_the_graph_only_through_l2(
     )
     handle = boot(
         backend="sqlite",
-        connection={"database_path": tmp_path / "mcp-ingress.sqlite3"},
+        connection={"database_path": tmp_path / "mcp-ingress.sqlite3", "writer_lease_lock_dir": lock_dir_beside(tmp_path / "mcp-ingress.sqlite3")},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

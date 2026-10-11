@@ -127,9 +127,11 @@ policy_version = register_at_composition(registry, "probe/policy", {"regime": "p
 
 with tempfile.TemporaryDirectory() as directory:
     resolved = {
-        key: str(pathlib.Path(directory) / value) if key == "database_path" else value
+        key: str(pathlib.Path(directory) / value) if key in ("database_path", "writer_lease_lock_dir") else value
         for key, value in connection.items()
     }
+    if "writer_lease_lock_dir" in resolved:  # P1 (a): the declared identity-lock directory, created private
+        pathlib.Path(resolved["writer_lease_lock_dir"]).mkdir(mode=0o700)
     handle = boot(
         backend=adapter,
         connection=resolved,
@@ -193,7 +195,7 @@ def test_a_complete_boot_loads_no_other_adapters_write_module() -> None:
     adapter is covered on arrival.
     """
     loaded = _modules_after_boot(
-        DEVELOPMENT_ADAPTER, {"database_path": "probe.sqlite3"}
+        DEVELOPMENT_ADAPTER, {"database_path": "probe.sqlite3", "writer_lease_lock_dir": ".ccf-writer-locks"}
     )
     # Non-vacuity: the subprocess really booted. An empty or truncated report
     # would satisfy every assertion below by asserting nothing.
@@ -214,7 +216,7 @@ def test_a_complete_boot_loads_no_optional_driver() -> None:
     drivers = _optional_driver_packages()
     assert drivers, "the derived driver set is empty — the derivation broke"
     loaded = _modules_after_boot(
-        DEVELOPMENT_ADAPTER, {"database_path": "probe.sqlite3"}
+        DEVELOPMENT_ADAPTER, {"database_path": "probe.sqlite3", "writer_lease_lock_dir": ".ccf-writer-locks"}
     )
     assert "ccf.boot" in loaded
     assert not (drivers & loaded), sorted(drivers & loaded)

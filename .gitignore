@@ -66,3 +66,7 @@ census-evidence/
 *.census.json
 *.census.xml
 *.census.log
+
+# P1 (a) (2026-10-11): the SDK-managed SQLite identity-lock directory a
+# standard product boot creates under its scratch root.
+.ccf-writer-locks/

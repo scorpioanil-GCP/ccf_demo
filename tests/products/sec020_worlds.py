@@ -82,6 +82,7 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 
 from tests.composition import register_typed_at_composition
+from tests.support.sqlite_lease import lock_dir_beside
 
 # =============================================================================
 # Fixture vocabulary
@@ -1507,7 +1508,7 @@ class LowRoadSite:
         fabric = load_and_boot(
             self.manifest,
             registry=self.control_plane,
-            connection={"database_path": str(self.root / f"graph-{self.counter}.sqlite3")},
+            connection={"database_path": str(self.root / f"graph-{self.counter}.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(self.root / f"graph-{self.counter}.sqlite3"))},
             for_question=True,
         )
         for envelope in envelopes:
@@ -2095,14 +2096,14 @@ def build_reused_store(
     )
     site = low_road_site(base, manifest, evidence_readable=readable)
     database = site.root / "persisted-graph.sqlite3"
-    seeded = load_and_boot(manifest, registry=site.control_plane, connection={"database_path": str(database)})
+    seeded = load_and_boot(manifest, registry=site.control_plane, connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))})
     seeded.handle.worker.ingest(envelope_for(sibling_holding(), tenant=TENANT, ingested_at=LOW_ROAD_INGESTED_AT))
     seeded.handle.close()
     factory = PolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
     holdings = {SUBJECT: subject_holding()} if holds else {}
 
     def answer(*, perspective: Perspective, request: ProductRequest) -> Any:
-        fabric = load_and_boot(manifest, registry=site.control_plane, connection={"database_path": str(database)})
+        fabric = load_and_boot(manifest, registry=site.control_plane, connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))})
         try:
             seam = SubjectKeyedSeam(fabric, holdings, tenant=TENANT, ingested_at=ASKED_AT)
             return low_road_resolver(

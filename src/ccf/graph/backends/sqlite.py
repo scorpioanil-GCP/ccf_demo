@@ -68,6 +68,7 @@ from typing import ClassVar
 from ccf.contracts.canonical import canonical_timestamp
 from ccf.graph.protocols import (
     GraphQuery,
+    ProcessScopedWriterLease,
     WriterLease,
     WriterLeaseHeld,
     WriterLeaseScope,
@@ -595,6 +596,15 @@ class SqliteGraphStore:
             WriterLeaseRequired: the declared lease's scope is not
                 ``"cross-process"``.
         """
+        if self._declared_file_lease is None:
+            # P1 (a) (D-IMPL-378; Tuesday GO item 4): a file database mints a
+            # writer only under the declared identity lock. No silent fallback
+            # to the path-only sidecar, which a renamed live file escapes.
+            if self._database_path in _NO_FILE_DATABASES:
+                return ProcessScopedWriterLease(substrate="sqlite")
+            return acquire_declared_writer_lease(
+                None, substrate="sqlite", graph_identity=self._database_path
+            )
         resolved = Path(self._database_path).resolve()
         lease: WriterLease = SqliteWriterLease(
             sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}")

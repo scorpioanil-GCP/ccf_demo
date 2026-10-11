@@ -55,6 +55,7 @@ from ccf.graph.protocols import WriterLeaseHeld
 from tests.graph.test_single_writer_across_processes import _boot
 from tests.graph.test_sqlite_writer_lease_file_identity import _boot_read_only, _declared, _locks
 from tests.graph.test_sqlite_writer_lease_hard_link import _two_names
+from tests.support.sqlite_lease import lease_beside, lock_dir_beside
 
 _TIMEOUT_SECONDS = 120
 
@@ -99,8 +100,9 @@ def _a_live_writer_that_has_committed(held: Path, locks: Path | None) -> Iterato
     The row stays in the holder's write-ahead log, uncheckpointed, until the holder closes, as a live writer's commits
     do between checkpoints.
     """
+    # P1 (a): a file writer mints only under a declared identity lock, so the holder always declares one.
     store = SqliteGraphStore(
-        database_path=held, writer_lease=None if locks is None else lock_directory_writer_lease(str(locks))
+        database_path=held, writer_lease=lease_beside(held) if locks is None else lock_directory_writer_lease(str(locks))
     )
     try:
         lease = store.writer_lease()
@@ -157,7 +159,7 @@ def test_a_second_open_through_a_hard_link_is_refused_before_it_writes_anything_
 ) -> None:
     held, linked = _two_names(tmp_path)
     locks = _locks(tmp_path) if kind == _DECLARING_WRITER else None
-    connection = {"database_path": linked} if locks is None else _declared(linked, locks)
+    connection = {"database_path": linked, "writer_lease_lock_dir": lock_dir_beside(linked)} if locks is None else _declared(linked, locks)
     with _a_live_writer_that_has_committed(held, locks):
         os.link(held, linked)
         beside_the_link_before, bytes_before = _entries(linked.parent), _sha256(held)
@@ -191,30 +193,30 @@ def test_a_second_open_through_a_hard_link_is_refused_before_it_writes_anything_
 
 def test_a_reader_open_of_a_file_with_two_names_is_refused_by_name_through_either_name(tmp_path: Path) -> None:
     held, linked = _two_names(tmp_path)
-    SqliteGraphStore(database_path=held).close()  # a graph, and nobody has it open
+    SqliteGraphStore(database_path=held, writer_lease=lease_beside(held)).close()  # a graph, and nobody has it open
     os.link(held, linked)
     before = (_entries(held.parent), _entries(linked.parent), _sha256(held))
 
     for name in (held, linked):
         with pytest.raises(WriterLeaseHeld) as store_open:
-            SqliteGraphStore(database_path=name)
+            SqliteGraphStore(database_path=name, writer_lease=lease_beside(name))
         with pytest.raises(WriterLeaseHeld) as read_only_boot:
-            _boot_read_only({"database_path": name})
+            _boot_read_only({"database_path": name, "writer_lease_lock_dir": lock_dir_beside(name)})
         for refusal in (store_open, read_only_boot):
             assert f"{str(name)!r} {_TWO_NAMES}" in str(refusal.value), str(refusal.value)
             assert _REFUSED_AT_OPEN in str(refusal.value), str(refusal.value)
 
     assert (_entries(held.parent), _entries(linked.parent), _sha256(held)) == before
     os.unlink(linked)
-    SqliteGraphStore(database_path=held).close()  # control: the refusal goes with the second name
-    _boot_read_only({"database_path": held}).close()
+    SqliteGraphStore(database_path=held, writer_lease=lease_beside(held)).close()  # control: the refusal goes with the second name
+    _boot_read_only({"database_path": held, "writer_lease_lock_dir": lock_dir_beside(held)}).close()
 
 
 def test_the_store_opens_no_sqlite_connection_to_a_file_with_more_than_one_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     held, linked = _two_names(tmp_path)
-    SqliteGraphStore(database_path=held).close()
+    SqliteGraphStore(database_path=held, writer_lease=lease_beside(held)).close()
     os.link(held, linked)
     connected: list[str] = []
     real_connect = sqlite3.connect
@@ -225,7 +227,7 @@ def test_the_store_opens_no_sqlite_connection_to_a_file_with_more_than_one_name(
 
     monkeypatch.setattr(sqlite3, "connect", counting_connect)
     with pytest.raises(WriterLeaseHeld) as refused:
-        SqliteGraphStore(database_path=linked)
+        SqliteGraphStore(database_path=linked, writer_lease=lease_beside(linked))
     monkeypatch.undo()
 
     assert _REFUSED_AT_OPEN in str(refused.value), str(refused.value)
@@ -236,7 +238,7 @@ def test_a_second_name_made_between_the_first_count_and_the_connection_is_refuse
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     held, linked = _two_names(tmp_path)
-    SqliteGraphStore(database_path=held).close()
+    SqliteGraphStore(database_path=held, writer_lease=lease_beside(held)).close()
     before = (_entries(held.parent), _sha256(held))
     opened: list[sqlite3.Connection] = []
     real_connect = sqlite3.connect
@@ -249,7 +251,7 @@ def test_a_second_name_made_between_the_first_count_and_the_connection_is_refuse
 
     monkeypatch.setattr(sqlite3, "connect", connect_after_a_second_name_appears)
     with pytest.raises(WriterLeaseHeld) as refused:
-        SqliteGraphStore(database_path=held)
+        SqliteGraphStore(database_path=held, writer_lease=lease_beside(held))
     monkeypatch.undo()
 
     assert f"{str(held)!r} {_TWO_NAMES}" in str(refused.value), str(refused.value)

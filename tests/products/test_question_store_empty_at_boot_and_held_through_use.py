@@ -56,6 +56,7 @@ from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
+from tests.support.sqlite_lease import lock_dir_beside
 
 sec020 = m.sec020
 
@@ -92,7 +93,7 @@ def _used_question_store(tmp_path: pathlib.Path, manifest: pathlib.Path, registr
     """A question's store after its question: the deployment's three accounts, and the fresher claim its acquisition fetched."""
     path = tmp_path / "used" / _STORE
     path.parent.mkdir()
-    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True)
     try:
         for envelope in m._base_accounts():
             fabric.handle.worker.ingest(envelope)
@@ -157,7 +158,7 @@ def _question_over(
     fabric held when its boot returned (``None`` when it never returned).
     """
     try:
-        fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+        fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True)
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         return raised, [], None
     try:
@@ -231,7 +232,7 @@ def test_p4e_a_store_written_at_a_question_boots_path_is_refused_by_name_before_
     manifest, registry, records = _deployment(tmp_path)
 
     def fill_through_a_plain_boot(target: pathlib.Path) -> None:
-        fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+        fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(target), "writer_lease_lock_dir": lock_dir_beside(str(target))})
         try:
             for envelope in m._base_accounts():
                 fabric.handle.worker.ingest(envelope)
@@ -378,7 +379,7 @@ def test_p4e_the_emptiness_read_precedes_acquisition_by_hand(tmp_path: pathlib.P
     _record_reads(monkeypatch, events)
     path = tmp_path / "question" / _STORE
     path.parent.mkdir()
-    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True)
     events.append(("boot returned",))
     try:
         outcome = m._ask(
@@ -437,14 +438,14 @@ def test_p4e_a_boot_for_a_question_that_would_hold_no_writer_lease_is_refused_by
     audited = len(registry.audit_events())
     try:
         fabric = load_and_boot(
-            manifest, registry=registry, connection={"database_path": str(path)}, for_question=True, read_only=True,
+            manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True, read_only=True,
         )
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         refused: BaseException = raised
     else:
         try:
             scope = fabric.handle.lease_scope
-            other = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+            other = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))})
             try:
                 for envelope in m._base_accounts():
                     other.handle.worker.ingest(envelope)
@@ -472,7 +473,7 @@ def test_p4e_a_boot_for_a_question_that_would_hold_no_writer_lease_is_refused_by
         audited = len(opened.control_plane.audit_events())
         try:
             fabric = load_config_and_boot(
-                opened.config_path, registry=opened.control_plane, connection={"database_path": str(path)},
+                opened.config_path, registry=opened.control_plane, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))},
                 for_question=True, read_only=True,
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
@@ -594,8 +595,8 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
         return real_boot(**kwargs)
 
     monkeypatch.setattr(manifest_module, "boot", capture)
-    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
-    connection = {"database_path": str(path)}
+    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True)
+    connection = {"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}
 
     def a_question_boot() -> Any:
         load_and_boot(manifest, registry=registry, connection=connection, for_question=True).handle.close()
@@ -690,7 +691,7 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
             handed.append(context.request.subject)
             minted = sorted(scratch.glob("paved_fixture*.sqlite3"))
             assert len(minted) == 1, minted
-            connection = {"database_path": str(minted[0])}
+            connection = {"database_path": str(minted[0]), "writer_lease_lock_dir": lock_dir_beside(str(minted[0]))}
 
             def a_question_boot() -> Any:
                 load_config_and_boot(
@@ -824,7 +825,7 @@ def test_p4e_from_another_process_nothing_claims_opens_or_writes_a_question_stor
     path = tmp_path / "question" / _STORE
     path.parent.mkdir()
     other_records = tmp_path / "other-process-records"
-    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path), "writer_lease_lock_dir": lock_dir_beside(str(path))}, for_question=True)
     seam = _AnotherProcess(manifest, path, other_records, read_held=lambda: _held(question))
     try:
         outcome = m._ask(m._governed((question, registry, records), plan_factory=m._late(), acquisition=seam), sec020.MISSING)
@@ -872,7 +873,7 @@ def test_p4e_control_a_record_served_over_a_fresh_question_store_replays_to_its_
         minted = sorted(scratch.glob("paved_fixture*.sqlite3"))
         assert len(minted) == 1, minted
         fabric = load_config_and_boot(
-            opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted[0])},
+            opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted[0]), "writer_lease_lock_dir": lock_dir_beside(str(minted[0]))},
             read_only=True,
         )
         stack.callback(fabric.handle.close)

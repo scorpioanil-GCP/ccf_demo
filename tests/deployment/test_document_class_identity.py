@@ -36,6 +36,7 @@ from tests.deployment.conftest import (
     Deployment,
     write_artifact,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: The refusal's class name, asserted by name rather than imported (see the module docstring).
 REFUSAL = "ArtifactClassIdMismatch"
@@ -50,7 +51,7 @@ def _policy_document() -> dict[str, object]:
 
 
 def _boot(manifest: pathlib.Path, tmp_path: pathlib.Path, registry: ControlPlaneRegistry) -> object:
-    return load_and_boot(manifest, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")})
+    return load_and_boot(manifest, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))})
 
 
 def _assert_refused_before_anything(
@@ -109,7 +110,7 @@ def test_control_the_fixture_deployment_whose_documents_state_their_entries_clas
 ) -> None:
     registry = ControlPlaneRegistry()
     booted = load_and_boot(
-        deployment.manifest_path, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3")}
+        deployment.manifest_path, registry=registry, connection={"database_path": str(tmp_path / "graph.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "graph.sqlite3"))}
     )
     try:
         pin = next(p for p in booted.pins.entries if p.key == POLICY_BUNDLE_KEY)

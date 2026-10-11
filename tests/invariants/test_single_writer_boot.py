@@ -30,6 +30,7 @@ from ccf.graph._writer import BootToken, SingleWriterViolation
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.backends.sqlite_write import SqliteGraphWriter
 from ccf.graph.protocols import GraphWriter
+from tests.support.sqlite_lease import lease_beside
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -65,7 +66,7 @@ def test_a_token_authorizes_exactly_one_writer(tmp_path: Path) -> None:
     """Tokens are single-use, so "reuse the token" is not a second-writer path."""
     from ccf.graph._writer import mint_boot_token
 
-    store = SqliteGraphStore(database_path=tmp_path / "once.sqlite3")
+    store = SqliteGraphStore(database_path=tmp_path / "once.sqlite3", writer_lease=lease_beside(tmp_path / "once.sqlite3"))
     token = mint_boot_token(store=store)
     writer = SqliteGraphWriter(store=store, token=token)
 
@@ -79,7 +80,7 @@ def test_a_token_authorizes_exactly_one_writer(tmp_path: Path) -> None:
 
 def test_a_writer_cannot_be_constructed_without_a_token(tmp_path: Path) -> None:
     """Omitting the token is a TypeError; forging one is a violation."""
-    store = SqliteGraphStore(database_path=tmp_path / "tokenless.sqlite3")
+    store = SqliteGraphStore(database_path=tmp_path / "tokenless.sqlite3", writer_lease=lease_beside(tmp_path / "tokenless.sqlite3"))
     try:
         with pytest.raises(TypeError):
             SqliteGraphWriter(store=store)  # type: ignore[call-arg]

@@ -64,6 +64,7 @@ from tests.examples.test_cp_14_first_slice import (
     UNREACHABLE,
     modules,  # noqa: F401  # the CP-14 modules, imported from their own directory
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.postgres, pytest.mark.fluree]
 
@@ -330,7 +331,7 @@ def test_f32_a_refused_composite_that_admitted_a_child_is_reconstructed_from_its
 
         # 2. the refused determination, reconstructed with the producers stopped
         minted = sorted(opened.scratch.glob("cp14_memo_*.sqlite3"))[-1]
-        fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+        fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": lock_dir_beside(str(minted))})
         try:
             record_address = consumer_store.resolve_uri(uri=outcome.replay_reference)
             reconstructed = replay_refusal(

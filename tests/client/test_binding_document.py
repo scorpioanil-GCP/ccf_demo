@@ -245,7 +245,8 @@ def test_binding_document_loads_the_committed_fixture(deployment_root: Path) -> 
     assert document.perspective.role == "fixture-role"
     assert document.artifact_store == (deployment_root / "artifact-store").resolve()
     assert document.connection == {
-        "database_path": str((deployment_root / "graph.sqlite3").resolve())
+        "database_path": str((deployment_root / "graph.sqlite3").resolve()),
+        "writer_lease_lock_dir": str((deployment_root / ".ccf-writer-locks").resolve()),
     }
 
 

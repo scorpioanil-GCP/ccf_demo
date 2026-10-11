@@ -78,6 +78,7 @@ from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.client.conftest import FIXTURE_DEPLOYMENT, SEEDED_AT, seed
 from tests.products import test_paved_road as paved
+from tests.support.sqlite_lease import lock_dir_beside
 
 #: This tree's root: the child imports THIS tree's SDK and test helpers.
 _TREE = Path(__file__).resolve().parents[2]
@@ -246,7 +247,7 @@ def _child_paved(spec: dict[str, Any]) -> dict[str, Any]:
             # The question's own minted substrate, reopened read-only (dr-01's shape).
             fabric = load_config_and_boot(
                 opened.config_path, registry=opened.control_plane,
-                connection={"database_path": entry["minted"]}, read_only=True,
+                connection={"database_path": entry["minted"], "writer_lease_lock_dir": lock_dir_beside(entry["minted"])}, read_only=True,
             )
             try:
                 environment = RecordedEnvironment(record=record, opened=opened, fabric=fabric)

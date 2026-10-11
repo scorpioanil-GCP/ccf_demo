@@ -130,6 +130,8 @@ SOURCE_FROM_ENV = "from_env"
 SOURCE_PER_RUN = "per_run"
 PER_RUN_IDENTIFIER = "identifier"
 PER_RUN_PATH = "path"
+#: Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+PER_RUN_LOCK_DIRECTORY = "lock_directory"
 SETTING_PREFIX = "prefix"
 SETTING_FILENAME = "filename"
 SETTING_REMEDY = "remedy"
@@ -682,10 +684,20 @@ def _per_run(setting: str, source: Mapping[str, Any], *, root: Path) -> str:
         return minted
     if rule == PER_RUN_PATH:
         return str(root / source[SETTING_FILENAME])
+    if rule == PER_RUN_LOCK_DIRECTORY:
+        # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+        lock_dir = root / source[SETTING_FILENAME]
+        try:
+            lock_dir.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        else:
+            os.chmod(lock_dir, 0o700)
+        return os.path.realpath(lock_dir)
     raise ValueError(
         f"`{setting}` names the per-run rule {rule!r}, which is not one this"
         f" module interprets. Declared rules: {PER_RUN_IDENTIFIER},"
-        f" {PER_RUN_PATH}."
+        f" {PER_RUN_PATH}, {PER_RUN_LOCK_DIRECTORY}."
     )
 
 

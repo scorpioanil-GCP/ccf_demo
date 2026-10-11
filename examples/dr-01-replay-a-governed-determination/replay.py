@@ -47,7 +47,6 @@ from typing import Any
 
 import yaml
 
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -82,7 +81,8 @@ def _reopened_fabric(opened: Any, tree: Path) -> Iterator[Any]:
 
     substrate = yaml.safe_load((tree / "ccf_environment.yaml").read_text(encoding="utf-8"))["substrate"]
     minted = sorted(opened.scratch.glob(f"{substrate['prefix']}*{substrate['suffix']}"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+    # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock. The product's own SDK-managed directory.
+    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted), "writer_lease_lock_dir": opened.writer_lock_directory})
     try:
         yield fabric
     finally:
@@ -92,8 +92,7 @@ def _reopened_fabric(opened: Any, tree: Path) -> Iterator[Any]:
 def _record_address(opened: Any, outcome: Any) -> str:
     """The RECORD's address — where the determination landed, served or refused."""
     if isinstance(outcome, RefusalEnvelope):
-        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
-        return store.resolve_uri(uri=outcome.replay_reference)
+        return opened.artifact_store.resolve_uri(uri=outcome.replay_reference)
     return outcome.replay_ref.content_address
 
 
@@ -101,7 +100,10 @@ def _record_address(opened: Any, outcome: Any) -> str:
 def reconstruct(*, tree: Path, opened: Any, produce: Any, outcome: Any) -> None:
     """Reproduce the determination `outcome` records, through the SDK's engine."""
     from ccf.replay.engine import replay, replay_refusal
-    store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    # The opened product's ONE store, never a second handle on its directory:
+    # `FileArtifactStore` now requires the deployment's `write_kinds`, which
+    # the opened product already declared (amended 2026-10-11, G1-DR01-F01).
+    store = opened.artifact_store
     record_address = _record_address(opened, outcome)
     record = DecisionReplayRecord.model_validate_json(store.get(content_address=record_address))
     with _reopened_fabric(opened, tree) as fabric:

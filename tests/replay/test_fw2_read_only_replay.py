@@ -44,6 +44,7 @@ import pytest
 
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from tests.support.sqlite_lease import lock_dir_beside
 
 _TIMEOUT_SECONDS = 180
 
@@ -119,7 +120,7 @@ def _live_writer(config_path: str, minted: str, held: "mp.Queue[str]", release: 
         from ccf.deployment import load_config_and_boot
 
         live = load_config_and_boot(
-            config_path, registry=ControlPlaneRegistry(), connection={"database_path": minted}
+            config_path, registry=ControlPlaneRegistry(), connection={"database_path": minted, "writer_lease_lock_dir": lock_dir_beside(minted)}
         )
     except BaseException as exc:  # noqa: BLE001 - reported by name, asserted by the parent
         held.put(f"FAILED|{type(exc).__name__}: {exc}")
@@ -139,7 +140,7 @@ def _replay_beside(opened: Any, served: Any, minted: str) -> tuple[str, str]:
     record = opened.record_of(served)
     try:
         fabric = _replay_road(
-            opened.config_path, registry=opened.control_plane, connection={"database_path": minted}
+            opened.config_path, registry=opened.control_plane, connection={"database_path": minted, "writer_lease_lock_dir": lock_dir_beside(minted)}
         )
     except Exception as exc:  # noqa: BLE001 - the defect as measured, asserted below
         return "REFUSED", f"{type(exc).__name__}<-{type(exc.__cause__).__name__}"
@@ -334,7 +335,7 @@ def _sqlite_boot(database: pathlib.Path, *, read_only: bool) -> Any:
     policy_version = register_at_composition(registry, POLICY_KEY, {"regime": "fw-2"})
     arguments: dict[str, Any] = dict(
         backend="sqlite",
-        connection={"database_path": str(database)},
+        connection={"database_path": str(database), "writer_lease_lock_dir": lock_dir_beside(str(database))},
         registry=registry,
         resolution_spec_key=SPEC_KEY,
         resolution_spec_version=spec_version,

@@ -116,6 +116,7 @@ PER_RUN = "per_run"
 PER_RUN_PATH = "path"
 PREFIX = "prefix"
 SUFFIX = "suffix"
+LOCK_DIRECTORY = "lock_directory"
 KEY_BACKEND = "backend"
 KEY_TENANT = "tenant_id"
 
@@ -229,6 +230,22 @@ def source_dsn() -> str:
     return dsn
 
 
+def _private_lock_directory(path: Path) -> str:
+    """Create this run's identity-lock directory private (``0o700``) and return its real path.
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+    ``backends.yaml`` declares the directory's name under the run root.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(path, 0o700)
+    return os.path.realpath(path)
+
+
 def connection(*, root: Path) -> Mapping[str, str]:
     """Compose the declared backend kind's connection settings.
 
@@ -253,6 +270,9 @@ def connection(*, root: Path) -> Mapping[str, str]:
             if not value:
                 raise SystemExit(f"{variable} is not set.\n\n{source[REMEDY]}")
             composed[setting] = value
+        elif LOCK_DIRECTORY in source:
+            # Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock.
+            composed[setting] = _private_lock_directory(root / source[LOCK_DIRECTORY])
         elif source.get(PER_RUN) == PER_RUN_PATH:
             # A FRESH PATH PER RUN, and the uuid is what makes the byte-identity
             # claim (criterion 37) mean something. Two runs of the same question

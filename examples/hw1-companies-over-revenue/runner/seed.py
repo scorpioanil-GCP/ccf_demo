@@ -38,6 +38,7 @@ this file out of a temporary copy and reaches that copy's deployment.
 
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 import sys
@@ -46,6 +47,7 @@ from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.artifacts import SIGNAL_BATCH, load_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
+from ccf.graph.leases import LOCK_DIRECTORY_SETTING
 
 #: The deployment this program populates: the one beside it, never an argument.
 DEPLOYMENT = pathlib.Path(__file__).resolve().parents[1] / "deployment"
@@ -53,11 +55,11 @@ DEPLOYMENT = pathlib.Path(__file__).resolve().parents[1] / "deployment"
 #: The declared input. Every id and instant the fabric will record is in it.
 DOCUMENT = pathlib.Path(__file__).with_name("signal-batch.yaml")
 
-#: What a populated deployment leaves on disk — the three names
+#: What a populated deployment leaves on disk — the four names
 #: ``deployment/.gitignore`` lists, and nothing else. Removed before every run
 #: so the store is rebuilt from the document alone, which is what makes two
 #: consecutive runs print the same content address.
-GENERATED_STATE = ("graph.sqlite3", "graph.sqlite3-*", "artifact-store")
+GENERATED_STATE = ("graph.sqlite3", "graph.sqlite3-*", "artifact-store", ".ccf-writer-locks")
 
 
 def clear_generated_state(deployment: pathlib.Path) -> None:
@@ -70,11 +72,29 @@ def clear_generated_state(deployment: pathlib.Path) -> None:
                 path.unlink()
 
 
+def ensure_lock_directory(deployment: pathlib.Path) -> None:
+    """Create the binding's declared identity-lock directory private (``0o700``).
+
+    Amendment 2026-10-11 (P1 (a), Tuesday GO item 4): a SQLite file writer mints only under a declared identity lock. ``binding.yaml`` names the directory; the program that materializes
+    the deployment creates it, because the SDK refuses a lock directory that is
+    missing or writable by anyone but its owner.
+    """
+    declared = load_binding_document(deployment).connection or {}
+    directory = pathlib.Path(str(declared[LOCK_DIRECTORY_SETTING]))
+    try:
+        directory.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        os.chmod(directory, 0o700)
+
+
 def main() -> int:
     """Seed ``DEPLOYMENT`` from ``DOCUMENT`` through the single writer."""
     clear_generated_state(DEPLOYMENT)
     batch = load_artifact(DOCUMENT.read_text(encoding="utf-8"), SIGNAL_BATCH)
 
+    ensure_lock_directory(DEPLOYMENT)
     booted = load_config_and_boot(
         DEPLOYMENT / "ccf_config.yaml",
         registry=ControlPlaneRegistry(),

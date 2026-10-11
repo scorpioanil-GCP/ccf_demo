@@ -142,6 +142,7 @@ from tests.issuance import (
     differences_modulo_issuance,
     modulo_issuance,
 )
+from tests.support.sqlite_lease import lock_dir_beside
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -569,7 +570,7 @@ def _boot(
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
-        connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
+        connection={"database_path": str(tmp_path / "resolver-seam.sqlite3"), "writer_lease_lock_dir": lock_dir_beside(str(tmp_path / "resolver-seam.sqlite3"))},
         for_question=for_question,
     )
     # 24.5-L-24, kept under 24.6-L-06: the fixture ingests the deployment's

@@ -4446,18 +4446,25 @@
   "ccf.graph.leases": {
     "__all__": [
       "AbsoluteLockDirectory",
+      "LOCK_DIRECTORY_SETTING",
       "LOCK_FILE_SUFFIX",
       "LockFileWriterLease",
+      "SDK_MANAGED_LOCK_DIRECTORY",
       "declared_lock_directory_lease",
       "lock_directory_writer_lease",
       "lock_file_name",
       "require_absolute_lock_directory",
-      "require_private_lock_directory"
+      "require_private_lock_directory",
+      "sdk_managed_lock_directory"
     ],
     "exports": {
       "AbsoluteLockDirectory": {
         "kind": "function",
         "shape": "typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]"
+      },
+      "LOCK_DIRECTORY_SETTING": {
+        "kind": "constant",
+        "shape": "str"
       },
       "LOCK_FILE_SUFFIX": {
         "kind": "constant",
@@ -4466,6 +4473,10 @@
       "LockFileWriterLease": {
         "kind": "class",
         "shape": "(*, path: 'Path') -> 'None'"
+      },
+      "SDK_MANAGED_LOCK_DIRECTORY": {
+        "kind": "constant",
+        "shape": "str"
       },
       "declared_lock_directory_lease": {
         "kind": "function",
@@ -4486,6 +4497,10 @@
       "require_private_lock_directory": {
         "kind": "function",
         "shape": "(value: 'str') -> 'str'"
+      },
+      "sdk_managed_lock_directory": {
+        "kind": "function",
+        "shape": "(base: 'str | Path') -> 'str'"
       }
     }
   },

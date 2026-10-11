@@ -42,7 +42,7 @@ export CCF_CP_24_TOKEN_COVERAGE=... CCF_CP_24_TOKEN_CREDIT=... \
 
 make -s example-cp-24
 make -s example-cp-24 PRINCIPAL="--principal PRIN-CO-002" INTENT="--intent credit-review"
-make -s example-cp-24 SCENARIO='--scenario {"rate_shift_bp":300,"collateral_shift_bp":-2000,"collateral_class":"real_property"}'
+make -s example-cp-24 SCENARIO="--scenario '{\"rate_shift_bp\":300,\"collateral_shift_bp\":-2000,\"collateral_class\":\"real_property\"}'"
 ```
 
 **Many scenarios are many requests.** There is no sweep, no scheduler and no
