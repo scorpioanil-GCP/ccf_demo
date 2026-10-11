@@ -448,10 +448,14 @@ def test_a_register_holding_the_wrong_type_is_refused_by_name() -> None:
     indistinguishable from an empty one, and every product would serve.
     """
     registry = ControlPlaneRegistry()
-    register_at_composition(registry, record_key(TENANT_A, ENTITY_X), MaxTTL(seconds=1))
+    # Since the review of b66ab4fa the range is reserved: something else cannot even be written
+    # there (D-IMPL-382). The reader's own type guard below that reservation is pinned by
+    # tests/controlplane/test_invalidation_namespace_reserved.py.
+    from ccf.authz.capability import CapabilityBypassError
 
-    with pytest.raises(TypeError, match="EntityInvalidationRecord"):
-        resolve_record(registry, tenant_id=TENANT_A, entity_uri=ENTITY_X)
+    with pytest.raises(CapabilityBypassError, match="entity-invalidation range"):
+        register_at_composition(registry, record_key(TENANT_A, ENTITY_X), MaxTTL(seconds=1))
+    assert resolve_record(registry, tenant_id=TENANT_A, entity_uri=ENTITY_X) is None
 
 
 def test_the_record_carries_its_cause(registry: ControlPlaneRegistry) -> None:

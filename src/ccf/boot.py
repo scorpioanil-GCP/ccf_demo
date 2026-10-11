@@ -396,6 +396,12 @@ def _composed_tenants(tenant_ids: Sequence[str]) -> tuple[str, ...]:
         )
     seen: list[str] = []
     for tenant_id in tenant_ids:
+        if isinstance(tenant_id, str) and "/" in tenant_id:
+            raise ValueError(
+                f"tenant id {tenant_id!r} contains '/', the Control Plane key separator: its"
+                " invalidation records would be filed under another tenant's key segment"
+                " (D-IMPL-353 §1.3; D-IMPL-382) — not a tenant id"
+            )
         if not isinstance(tenant_id, str) or not tenant_id or tenant_id != tenant_id.strip():
             raise ValueError(
                 f"tenant_ids contains {tenant_id!r}, which is not a tenant id"

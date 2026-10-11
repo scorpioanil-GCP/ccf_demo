@@ -64,7 +64,7 @@ a graph handle: the boundary instant arrives from the write that caused it.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from ccf.authz.capability import Authorized, InvalidationRecordRegister, verify
 from ccf.contracts.base import CCFContract
@@ -332,7 +332,20 @@ def invalidation_history(
         if not key.startswith(prefix):
             continue
         chain = tuple(registry.peek(key, version) for version in registry.versions(key))
-        records = tuple(r for r in chain if isinstance(r, EntityInvalidationRecord))
+        for version_artifact in chain:
+            # Refuse, as resolve_record does — never drop or misfile (review of b66ab4fa): every version
+            # under this key must be this tenant's record for the entity whose key it is.
+            if (
+                type(version_artifact) is not EntityInvalidationRecord
+                or version_artifact.tenant_id != tenant_id
+                or record_key(tenant_id, version_artifact.entity_uri) != key
+            ):
+                raise TypeError(
+                    f"{key!r} holds {type(version_artifact).__name__}"
+                    f" for {getattr(version_artifact, 'entity_uri', None)!r}, not this key's"
+                    " EntityInvalidationRecord"
+                )
+        records = cast(tuple[EntityInvalidationRecord, ...], chain)
         if records:
             history[records[-1].entity_uri] = records
     return history
