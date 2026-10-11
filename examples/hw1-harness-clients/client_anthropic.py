@@ -22,8 +22,8 @@ knowing that before they choose than after.
 repeated `--server-arg` are an ordinary program invocation — the shape any MCP
 server is configured with — and `--question-json` carries the tool's name and
 its arguments. Every deployment fact lives in that document rather than in this
-file (CLAUDE.md §6.4/§9). One difference from the siblings: this leg does not
-build the tool's arguments at all, because the *model* fills a tool call in.
+file (CLAUDE.md §6.4/§9). One difference from the siblings: the *model* makes
+the call, so the arguments reach it as data after the instruction (G1-HWC-F02).
 
 **The whole tool surface is the door's own tool.** `tools=[]` withdraws every
 built-in the harness would offer, `skills=[]` and `setting_sources=[]` withdraw
@@ -74,25 +74,17 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import McpStdioServerConfig
 
-#: The namespace this process gives the door when it configures it. This
-#: program's own naming of a server it is about to declare — not a deployment
-#: value and not something a caller chooses, which is why it is here and not on
-#: `argv`. It is half of the namespaced tool name the model sees.
+#: This program's own name for the door it declares; half the tool name the model sees.
 SERVER_LABEL = "ccf"
 
-#: Where the instruction comes from. Required, and read with no default: see
-#: the module docstring.
+#: Where the instruction comes from. Required, no default: see the module docstring.
 PROMPT_VARIABLE = "CCF_HARNESS_PROMPT"
 
-#: The model label this leg pins on every request. Model names never appear in
-#: code; the runner reads this one from the same declared document the model
-#: stand-in reads, so both sides of the pin come from one declaration.
+#: The model label pinned on every request, from the runner's declared document.
 MODEL_VARIABLE = "CCF_HARNESS_MODEL"
 
-#: The variable that decides where the CLI's model lives. Checked rather than
-#: passed: this program does not speak to the model API — the agent binary
-#: does, inheriting this process's environment — so the only honest thing this
-#: program can do about it is refuse to start when it is unset.
+#: Where the CLI's model lives. Checked, not passed: the agent binary inherits it,
+#: so this program can only refuse to start when it is unset.
 BASE_URL_VARIABLE = "ANTHROPIC_BASE_URL"
 
 #: The key MCP's own tool-result envelope carries the door's answer under.
@@ -102,6 +94,10 @@ MCP_RESULT_KEY = "result"
 #: One turn to call the door, one to report. A bound rather than a preference:
 #: an agent binary left to loop would turn a drifted conversation into a hang.
 MAXIMUM_TURNS = 2
+
+#: How long to wait for the agent binary to connect the door (120 x 0.5 s).
+CONNECT_POLLS = 120
+CONNECT_POLL_SECONDS = 0.5
 
 
 def parse_args() -> argparse.Namespace:
@@ -118,13 +114,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def required(name: str, why: str) -> str:
-    """Read one required environment variable, or refuse naming it.
-
-    Subscripted rather than defaulted, deliberately. A defaulted read puts the
-    value back in this file for the case that actually runs, and for the prompt
-    variable that is precisely the No-Hardcoding violation this leg exists to
-    not commit.
-    """
+    """Read one required environment variable, or refuse naming it (never defaulted)."""
     if name not in os.environ or not os.environ[name]:
         raise SystemExit(f"{name} is not set; {why}")
     return os.environ[name]
@@ -217,6 +207,27 @@ def report(outcome: Mapping[str, Any]) -> int:
     return 0
 
 
+def call_arguments(question: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The tool's arguments plus the opaque `request`, encoded as `client_adk.py` does (G1-HWC-F02)."""
+    args = question["arguments"]
+    request = {"product_id": args["product_class"], "parameters": args["parameters"],
+               "temporal_boundary": question["temporal_boundary"]}
+    return {**args, "request": json.dumps(request, sort_keys=True, separators=(",", ":"))}
+
+
+async def door_connected(client: ClaudeSDKClient) -> None:
+    """Wait for the CLI to report the door connected; it no longer blocks on MCP (G1-HWC-F01)."""
+    for _ in range(CONNECT_POLLS):
+        servers = (await client.get_mcp_status()).get("mcpServers", [])
+        state = next((s.get("status") for s in servers if s.get("name") == SERVER_LABEL), None)
+        if state == "connected":
+            return
+        if state in ("failed", "needs-auth", "disabled"):
+            raise SystemExit(f"the door's MCP server is {state}")
+        await asyncio.sleep(CONNECT_POLL_SECONDS)
+    raise SystemExit("the door's MCP server never reported connected")
+
+
 async def ask(options: ClaudeAgentOptions, prompt: str) -> Mapping[str, Any]:
     """Run one session and recover what crossed the MCP boundary.
 
@@ -228,6 +239,7 @@ async def ask(options: ClaudeAgentOptions, prompt: str) -> Mapping[str, Any]:
     client = ClaudeSDKClient(options=options)
     await client.connect()
     try:
+        await door_connected(client)
         await client.query(prompt)
         served: dict[str, Any] | None = None
         async for message in client.receive_response():
@@ -279,7 +291,7 @@ async def main() -> int:
                 tool=question["tool"],
                 model=model,
             ),
-            prompt,
+            f"{prompt}\n\n{json.dumps(call_arguments(question), sort_keys=True)}",
         )
     )
 
