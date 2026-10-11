@@ -10,7 +10,7 @@ The problem, stated once
 ------------------------
 
 ``D-IMPL-334``/``D-IMPL-335`` answer *may this product still serve* by reading
-the tenant's :class:`~ccf.controlplane.invalidation.EntityInvalidationRegister`
+the tenant's per-entity :class:`~ccf.controlplane.invalidation.EntityInvalidationRecord` records
 and comparing each touched entity's invalidation boundary against the product's
 ``graph_snapshot_at``. That register is **tenant-scoped**: it records what *this*
 tenant learned was superseded. It knows nothing about the entities a remote

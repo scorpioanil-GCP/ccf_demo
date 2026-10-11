@@ -99,6 +99,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "CompositionRegister",
+    "InvalidationRecordRegister",
     "COMPOSITION_PRINCIPAL",
     "verify_any",
     "COMPOSITION_KINDS",
@@ -274,6 +275,27 @@ class CompositionRegister(ActionKind, action_id="composition.register"):
     """
 
 
+class InvalidationRecordRegister(ActionKind, action_id="composition.invalidation-record.register"):
+    """The kind a composition root hands the invalidation sink: write ONE tenant's entity-invalidation records.
+
+    ``D-IMPL-382`` option A (Dave, 2026-10-11 07:32 MST, adopting Grok's ruling): invalidation
+    boundaries are one registry artifact per ``(tenant, entity)``, so the sink writes many keys under
+    its tenant's invalidation prefix instead of one register key. *"The authorization amendment
+    covers only entity-invalidation records belonging to the capability's tenant. It must not
+    authorize another tenant, another artifact class, or general registry writes."* It is the one
+    amendment to the one-key-per-capability rule of ``D-IMPL-353`` §1.2 / ``D-IMPL-354``, and it is
+    narrow by construction:
+
+    * **No door declares it** and :func:`kind_for_action` refuses its id by name, so no served
+      surface can obtain one; only :func:`mint_at_composition` mints it.
+    * Its ``resource`` is the tenant's invalidation **prefix**, never a key. The registry admits it
+      on ``register_typed`` alone, for the entity-invalidation record class alone, requires the
+      prefix to be the capability's own tenant's, and **derives** the key from the record's entity —
+      a caller names no key. ``register`` and ``register_versioned`` refuse it, as every door does
+      (it is not in ``REGISTER_KINDS``).
+    """
+
+
 class ArtifactErase(ActionKind, action_id=ACTION_ARTIFACT_ERASE):
     """The erasure door's kind (SEC-009; `D-IMPL-374` (4), ruling 3; design `D-IMPL-367` §4.1).
 
@@ -323,6 +345,12 @@ def kind_for_action(action_id: str) -> type[ActionKind]:
             f"{action_id!r} is the governed-record mint and no door declares"
             " it: a served surface cannot obtain Authorized[ReplayMint]"
             " (D-IMPL-353 §2 P3)"
+        )
+    if action_id == InvalidationRecordRegister.action_id:
+        raise CapabilityBypassError(
+            f"{action_id!r} is the composition root's invalidation-record kind and"
+            " no door declares it: a served surface cannot obtain"
+            " Authorized[InvalidationRecordRegister] (D-IMPL-382, ruled 2026-10-11)"
         )
     if action_id == CompositionRegister.action_id:
         raise CapabilityBypassError(
@@ -471,7 +499,11 @@ def mint(
 #: are the deployment acting on its own fabric; neither is an action a served
 #: caller can request, and a ``CompositionRegister`` minted here is bound to ONE key, so
 #: a composition root cannot hand a served surface a wildcard.
-COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (ReplayMint, CompositionRegister)
+COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (
+    ReplayMint,
+    CompositionRegister,
+    InvalidationRecordRegister,
+)
 
 #: The principal a composition root mints under — the SDK's own name for a
 #: deployment acting on the fabric it composes (D-IMPL-354). Wire vocabulary
@@ -489,6 +521,10 @@ def mint_at_composition(
 def mint_at_composition(
     kind: type[CompositionRegister], *, tenant: str, principal: str, resource: str, decision_id: str
 ) -> Authorized[CompositionRegister]: ...
+@overload
+def mint_at_composition(
+    kind: type[InvalidationRecordRegister], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[InvalidationRecordRegister]: ...
 
 
 def mint_at_composition(

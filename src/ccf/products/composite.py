@@ -62,7 +62,7 @@ Eligibility authority follows the producing fabric, not the skill label
 A ``local_callable``, ``tool``, ``mcp`` or ``peering`` label says how bytes
 were fetched. It does not say whose Control Plane knows the entities'
 invalidation state. Where the producing fabric is this one, the local
-:class:`~ccf.controlplane.invalidation.EntityInvalidationRegister` is
+per-entity :class:`~ccf.controlplane.invalidation.EntityInvalidationRecord` set is
 authoritative (``D-IMPL-334``/``D-IMPL-335``, reused — no second invalidation
 mechanism is built). Where it is another fabric, the producer's signed
 :class:`~ccf.peering.eligibility.EligibilityAssertion` is, and **local-register

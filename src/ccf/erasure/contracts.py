@@ -16,7 +16,7 @@ different question under the same identifier (G2).
 
 Every defaulted field is declared NOT hash-transparent: these contracts are
 new, so there is no yesterday for silence to equal (``D-IMPL-243``; the
-``EntityInvalidationRegister`` precedent).
+``EntityInvalidationRecord`` precedent, ``D-IMPL-382``).
 
 Algorithmic module (CINV-03): no clock is read here — every instant arrives
 from the caller's injected fabric clock.
