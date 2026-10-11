@@ -65,7 +65,7 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.authz.capability import (
-    CompositionRegister,
+    InvalidationRecordRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -350,30 +350,33 @@ def _utc_now() -> datetime:
     return datetime.now(tz=UTC)
 
 
-def _mint_invalidation_register(
+def _mint_invalidation_records(
     registry: ControlPlaneProtocol, *, tenant_id: str
-) -> Authorized[CompositionRegister]:
-    """The composition recipe, for one tenant's invalidation register (D-IMPL-354).
+) -> Authorized[InvalidationRecordRegister]:
+    """The composition recipe, for one tenant's invalidation records (D-IMPL-354; D-IMPL-382).
 
     This module is a composition root — the one place the fabric's own
     writes obtain authority — and this is the whole of how it does so: the
     decision to let THIS fabric move ``tenant_id``'s invalidation boundary is
     recorded on the Control Plane's own audit log as a ``composition`` event,
     and the capability is minted with that event's content address as its
-    ``decision_id``. One key, one tenant, one capability; nothing here is a
-    wildcard and nothing here can be widened.
+    ``decision_id``. One tenant, one capability. Since ``D-IMPL-382`` (Dave,
+    2026-10-11, adopting Grok's ruling) the capability's resource is the tenant's
+    invalidation PREFIX, because each entity's boundary is its own record; the
+    registry confines the kind to that tenant's records of that one class, derives
+    every key itself, and refuses it on every other door. Nothing here can be widened.
     """
     key = register_key(tenant_id)
     event = registry.audit_log.append(
         action="composition",
         key=key,
-        version=CompositionRegister.action_id,
+        version=InvalidationRecordRegister.action_id,
         resolved=True,
         occurred_at=_utc_now(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        CompositionRegister,
+        InvalidationRecordRegister,
         tenant=tenant_id,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,
@@ -641,13 +644,13 @@ def boot(
         attach = getattr(writer, "attach_invalidation_sink", None)
         if attach is not None:
             # D-IMPL-354: the sink is not a composition root and mints
-            # nothing; this function is, and mints exactly one `Register` per
-            # composed tenant — for that tenant's register key and no other.
+            # nothing; this function is, and mints exactly one invalidation-record
+            # capability per composed tenant — for that tenant's records and no other.
             attach(
                 ControlPlaneInvalidationSink(
                     registry=registry,
                     authorities=tuple(
-                        _mint_invalidation_register(registry, tenant_id=tenant_id)
+                        _mint_invalidation_records(registry, tenant_id=tenant_id)
                         for tenant_id in composed
                     ),
                 )

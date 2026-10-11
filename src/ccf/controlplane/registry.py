@@ -57,12 +57,15 @@ from pydantic import BaseModel
 
 from ccf.authz.capability import (
     CompositionRegister,
+    InvalidationRecordRegister,
     ActionKind,
     AgentDeclare,
+    CapabilityBypassError,
     Authorized,
     Register,
     SkillCatalogRegister,
     SkillGrant,
+    verify,
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -88,6 +91,10 @@ __all__ = [
     "ControlPlaneRegistry",
     "CrossTenantKeyRefused",
     "DerivedRegisterAuthority",
+    "INVALIDATION_RECORD_CLASS_ID",
+    "INVALIDATION_RECORD_PREFIX",
+    "TypedRegisterAuthority",
+    "invalidation_record_key",
     "RegisterAuthority",
     "RefuseEmptyBump",
     "RefuseUnbumpedChange",
@@ -201,6 +208,18 @@ RegisterAuthority: TypeAlias = (
 #: What ``register_versioned`` accepts: the door kinds, or the derived kind.
 DerivedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[SkillGrant]
 
+#: What ``register_typed`` accepts: the door kinds, or the invalidation-record kind (``D-IMPL-382``).
+TypedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[InvalidationRecordRegister]
+
+#: The class segment under which a tenant's entity-invalidation records live:
+#: ``{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`` (``D-IMPL-382`` option A). Mechanism,
+#: not a domain value: it is the one prefix the invalidation-record capability may write under.
+INVALIDATION_RECORD_PREFIX: Final[str] = "ccf.entity-invalidation"
+
+#: The one artifact class the invalidation-record capability may register (``D-IMPL-382``):
+#: *"It must not authorize another tenant, another artifact class, or general registry writes."*
+INVALIDATION_RECORD_CLASS_ID: Final[str] = "ccf.entity-invalidation-record"
+
 #: The separator of the ``{tenant}/{class}/{name}`` Control Plane key grammar.
 _KEY_SEPARATOR: Final[str] = "/"
 
@@ -257,6 +276,57 @@ def _door_key(authorized: DerivedRegisterAuthority) -> str:
             " nobody (D-IMPL-353 §1.3)"
         )
     return resource
+
+
+def invalidation_record_key(*, tenant_id: str, entity_uri: str) -> str:
+    """The key of one tenant's invalidation record for one entity (``D-IMPL-382`` option A).
+
+    ``{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}``: the entity URI is hashed so any URI
+    is a usable key segment and no URI can introduce a separator.
+    """
+    digest = hashlib.sha256(entity_uri.encode("utf-8")).hexdigest()
+    return f"{tenant_id}{_KEY_SEPARATOR}{INVALIDATION_RECORD_PREFIX}{_KEY_SEPARATOR}{digest}"
+
+
+def _invalidation_record_key(
+    authorized: Authorized[InvalidationRecordRegister], artifact_class: ArtifactClass, validated: object
+) -> str:
+    """The key an invalidation record lands under, derived — never named by a caller (``D-IMPL-382``).
+
+    In order, each refusal a ``CapabilityBypassError`` or ``CrossTenantKeyRefused``: the
+    capability is genuine and unretargeted for exactly this kind on its minted resource; that
+    resource is exactly the capability's own tenant's invalidation prefix; the class is the
+    entity-invalidation record class and nothing else; the record names the capability's tenant
+    and a non-empty entity. Dave, 2026-10-11 07:32: *"The authorization amendment covers only
+    entity-invalidation records belonging to the capability's tenant. It must not authorize
+    another tenant, another artifact class, or general registry writes."*
+    """
+    verify(authorized, kind=InvalidationRecordRegister, resource=getattr(authorized, "resource", ""))
+    expected_prefix = f"{authorized.tenant}{_KEY_SEPARATOR}{INVALIDATION_RECORD_PREFIX}"
+    if authorized.resource != expected_prefix:
+        raise CrossTenantKeyRefused(
+            f"an invalidation-record capability for tenant {authorized.tenant!r} must be minted for"
+            f" {expected_prefix!r}, not {authorized.resource!r}; it writes its own tenant's"
+            " invalidation records and nothing else (D-IMPL-382)"
+        )
+    if artifact_class.class_id != INVALIDATION_RECORD_CLASS_ID:
+        raise CapabilityBypassError(
+            f"an invalidation-record capability registers {INVALIDATION_RECORD_CLASS_ID!r} only,"
+            f" not {artifact_class.class_id!r}; it authorizes no other artifact class (D-IMPL-382)"
+        )
+    tenant_id = getattr(validated, "tenant_id", None)
+    entity_uri = getattr(validated, "entity_uri", None)
+    if tenant_id != authorized.tenant:
+        raise CrossTenantKeyRefused(
+            f"the invalidation record names tenant {tenant_id!r} but the capability is for"
+            f" {authorized.tenant!r}; a record is filed under the capability's tenant only (D-IMPL-382)"
+        )
+    if not isinstance(entity_uri, str) or not entity_uri:
+        raise CrossTenantKeyRefused(
+            "an invalidation record must name its entity; without one there is no key to derive"
+            " and no caller may supply one (D-IMPL-382)"
+        )
+    return invalidation_record_key(tenant_id=authorized.tenant, entity_uri=entity_uri)
 
 
 def _derived_key(
@@ -440,7 +510,7 @@ class ControlPlaneProtocol(Protocol):
 
     def register_typed(
         self,
-        authorized: RegisterAuthority,
+        authorized: TypedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
     ) -> str:
@@ -855,11 +925,15 @@ class ControlPlaneRegistry:
 
     def register_typed(
         self,
-        authorized: RegisterAuthority,
+        authorized: TypedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
     ) -> str:
         """Validate ``artifact`` against ``artifact_class``, then register it under ``authorized.resource``.
+
+        Under the invalidation-record kind (``D-IMPL-382``) the key is not the capability's
+        resource but derived from the record by :func:`_invalidation_record_key`, which also
+        confines the kind to its own tenant's invalidation records.
 
         The key, the tenant and the audit actor come from the capability and
         from nowhere else (D-IMPL-353 §1.2; see :meth:`register`).
@@ -898,7 +972,11 @@ class ControlPlaneRegistry:
                 identity preserved; nothing was registered (``D-IMPL-380``,
                 sixth round).
         """
-        key = _door_key(authorized)
+        if getattr(authorized, "kind", None) is InvalidationRecordRegister:
+            record_authority = cast(Authorized[InvalidationRecordRegister], authorized)
+            key = _invalidation_record_key(record_authority, artifact_class, artifact_class.validate(artifact))
+        else:
+            key = _door_key(cast(RegisterAuthority, authorized))
         actor = authorized.principal
         bound = self._classes.get(key)
         if bound is not None and bound != artifact_class.class_id:

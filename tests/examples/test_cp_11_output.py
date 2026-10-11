@@ -694,7 +694,7 @@ def test_ews_g25_the_cross_product_case_through_the_real_mechanism(
     shipped with the wrong one because no test in `tests/` drove the mechanism
     through L2. This gate is the one that would have caught it.
     """
-    from ccf.controlplane.invalidation import resolve_register
+    from ccf.controlplane.invalidation import invalidation_history
     from ccf.controlplane.registry import ControlPlaneRegistry
     import ccf.products.gates as gates_module
     import ccf.products.resolver as resolver_module
@@ -737,8 +737,9 @@ def test_ews_g25_the_cross_product_case_through_the_real_mechanism(
         for name, outcome in (("A1", a1), ("B1", b1), ("A2", a2)):
             assert hasattr(outcome, "product"), f"{name} did not serve"
 
-        register = resolve_register(registry, tenant_id=a1.tenant_id)
-        assert register is not None, (
+        # D-IMPL-382: one record per entity; the latest of each entity's chain is its boundary.
+        latest = [chain[-1] for chain in invalidation_history(registry, tenant_id=a1.tenant_id).values()]
+        assert latest, (
             "the writer recorded no invalidation boundary at all; the"
             " D-IMPL-334 sink is not bound or the write superseded nothing"
         )
@@ -750,7 +751,7 @@ def test_ews_g25_the_cross_product_case_through_the_real_mechanism(
         )
 
         moved = [
-            entry for entry in register.entries
+            entry for entry in latest
             if entry.entity_uri in set(touched_a)
             and entry.invalidated_from > G25_T1
         ]

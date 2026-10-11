@@ -339,8 +339,11 @@ class TestMintAtComposition:
                 door_kind, tenant=TENANT, principal=PRINCIPAL, resource="x", decision_id=DECISION
             )
 
-    def test_the_composition_kinds_are_exactly_two(self) -> None:
-        assert COMPOSITION_KINDS == (ReplayMint, CompositionRegister)
+    def test_the_composition_kinds_are_exactly_three(self) -> None:
+        """``D-IMPL-382`` (Dave, 2026-10-11 07:32) added the invalidation-record kind, and only it."""
+        from ccf.authz.capability import InvalidationRecordRegister
+
+        assert COMPOSITION_KINDS == (ReplayMint, CompositionRegister, InvalidationRecordRegister)
 
 
 class TestNoDoorMintsTheGovernedRecord:

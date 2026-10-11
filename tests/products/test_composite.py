@@ -100,8 +100,7 @@ from ccf.skills.dispatch import (
 )
 from ccf.skills.grants import BoundSkillView, GrantLedger, SkillGrant
 from tests.composition import register_at_composition, register_typed_at_composition
-from tests.composition import composition_register
-from ccf.controlplane.invalidation import register_key
+from tests.composition import composition_invalidation_records
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.products.bound_answer import answered_as_asked
@@ -749,7 +748,7 @@ def test_f3_a_superseded_child_is_now_refused_whatever_the_caller_omits(
     """
     child = served(deliver(registry, _contract(schema=FAMILY)))
     ControlPlaneInvalidationSink(
-        registry=registry, authorities=(composition_register(registry, register_key(TENANT)),)
+        registry=registry, authorities=(composition_invalidation_records(registry, TENANT),)
     ).record(
         tenant_id=TENANT,
         entity_uri=ENTITY_OBLIGOR,
@@ -1381,7 +1380,7 @@ def test_f3_REOPENED_a_local_child_with_no_execution_record_REFUSES(
     """
     child = served(deliver(registry, _contract(schema=FAMILY)))
     ControlPlaneInvalidationSink(
-        registry=registry, authorities=(composition_register(registry, register_key(TENANT)),)
+        registry=registry, authorities=(composition_invalidation_records(registry, TENANT),)
     ).record(
         tenant_id=TENANT,
         entity_uri=ENTITY_OBLIGOR,

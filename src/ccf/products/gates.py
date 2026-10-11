@@ -160,7 +160,7 @@ from typing import TYPE_CHECKING, Final, Literal, Never, cast
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.invalidation import resolve_register
+from ccf.controlplane.invalidation import resolve_record
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import SourceAttestation
 from ccf.halflife.assessment import DebtAssessment
@@ -1390,12 +1390,10 @@ def refuse_dependency_invalidation(
     """
     if touched_entities is None:
         return None
-    register = resolve_register(registry, tenant_id=candidate.tenant_id)
-    if register is None:
-        return None
     snapshot = candidate.lineage.graph_snapshot_at
     for entity_uri in touched_entities:
-        entry = register.entry_for(entity_uri)
+        # D-IMPL-382: one record per touched entity; nothing about unrelated entities is read.
+        entry = resolve_record(registry, tenant_id=candidate.tenant_id, entity_uri=entity_uri)
         if entry is None or entry.invalidated_from <= snapshot:
             continue
         return DependencyInvalidationRefusal(
