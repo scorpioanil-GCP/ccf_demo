@@ -538,7 +538,8 @@ def mint_at_composition(
     (the replay writer, the query-pin writer, the admitted-child and
     admission-record writers), or ``CompositionRegister`` on one Control Plane key (a
     manifest entry, a resolver's governed default, a door's own entitlement
-    and scope mapping, a tenant's invalidation register). Not a gate's act —
+    and scope mapping), or ``InvalidationRecordRegister`` on a tenant's invalidation prefix
+    (``D-IMPL-382``). Not a gate's act —
     there is no request, no authorizer, and no caller — which is why it takes
     no :class:`AuthzDecision`: the decision is the deployment's, recorded
     under ``decision_id`` on the Control Plane audit log by the caller.

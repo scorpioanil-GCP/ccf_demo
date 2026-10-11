@@ -275,7 +275,26 @@ def _door_key(authorized: DerivedRegisterAuthority) -> str:
             " capability's tenant, and a key with no tenant segment belongs to"
             " nobody (D-IMPL-353 §1.3)"
         )
+    _refuse_the_invalidation_range(resource)
     return resource
+
+
+def _refuse_the_invalidation_range(key: str) -> None:
+    """No door, composition or derived write may land in a tenant's invalidation range (``D-IMPL-382``).
+
+    ``{tenant}/ccf.entity-invalidation`` and everything under it belong to
+    :class:`~ccf.authz.capability.InvalidationRecordRegister` alone, which derives its keys
+    itself. The focused review of ``b66ab4fa`` reproduced what an open range allows: a door
+    capability minted for an exact record key planted an earlier boundary and a refused product
+    served; other content there made every serve touching that entity raise and blocked the sink.
+    """
+    _, separator, rest = key.partition(_KEY_SEPARATOR)
+    class_segment = rest.split(_KEY_SEPARATOR, 1)[0] if separator else ""
+    if class_segment == INVALIDATION_RECORD_PREFIX:
+        raise CapabilityBypassError(
+            f"{key!r} is in the entity-invalidation range, which only the invalidation-record"
+            " capability may write, under keys it derives itself (D-IMPL-382)"
+        )
 
 
 def invalidation_record_key(*, tenant_id: str, entity_uri: str) -> str:
@@ -302,6 +321,12 @@ def _invalidation_record_key(
     another tenant, another artifact class, or general registry writes."*
     """
     verify(authorized, kind=InvalidationRecordRegister, resource=getattr(authorized, "resource", ""))
+    if _KEY_SEPARATOR in authorized.tenant or not authorized.tenant:
+        raise CrossTenantKeyRefused(
+            f"tenant {authorized.tenant!r} is not a usable key segment: a tenant id containing"
+            f" {_KEY_SEPARATOR!r} would file records under another tenant's segment (D-IMPL-353 §1.3;"
+            " D-IMPL-382)"
+        )
     expected_prefix = f"{authorized.tenant}{_KEY_SEPARATOR}{INVALIDATION_RECORD_PREFIX}"
     if authorized.resource != expected_prefix:
         raise CrossTenantKeyRefused(
@@ -309,10 +334,15 @@ def _invalidation_record_key(
             f" {expected_prefix!r}, not {authorized.resource!r}; it writes its own tenant's"
             " invalidation records and nothing else (D-IMPL-382)"
         )
-    if artifact_class.class_id != INVALIDATION_RECORD_CLASS_ID:
+    # The class OBJECT, not its id: an ArtifactClass carrying the record's id over another contract,
+    # or over a subclass of the record, is another artifact class (review of b66ab4fa).
+    from ccf.controlplane.invalidation import ENTITY_INVALIDATION_RECORD, EntityInvalidationRecord
+
+    if artifact_class is not ENTITY_INVALIDATION_RECORD or type(validated) is not EntityInvalidationRecord:
         raise CapabilityBypassError(
             f"an invalidation-record capability registers {INVALIDATION_RECORD_CLASS_ID!r} only,"
-            f" not {artifact_class.class_id!r}; it authorizes no other artifact class (D-IMPL-382)"
+            f" not {artifact_class.class_id!r} with contract {type(validated).__name__}; it"
+            " authorizes no other artifact class (D-IMPL-382)"
         )
     tenant_id = getattr(validated, "tenant_id", None)
     entity_uri = getattr(validated, "entity_uri", None)
@@ -354,7 +384,9 @@ def _derived_key(
             f" {authorized.tenant!r}; a derived registration is filed under the"
             " capability's tenant and nothing else may name one (D-IMPL-353 §1.3)"
         )
-    return f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
+    key = f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
+    _refuse_the_invalidation_range(key)
+    return key
 
 
 class ArtifactIsolationRefused(TypeError):
