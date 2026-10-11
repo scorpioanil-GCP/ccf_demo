@@ -34,6 +34,27 @@ What a SELECT would not have told you:
    replay record      437d9b10dcc400426c17357567e4af5e7dd1336820ca3c4f469437f833fc8726
 ```
 
+**Amended 2026-10-11 (`examples/AMENDMENTS-2026-10-11.md`).** The block above is
+the *historical* output, recorded before `D-IMPL-358` (temporal bound and
+serve-time expiry) and `D-IMPL-378` C1 (a pinned demonstration serve instant is
+admitted only on the SDK's development substrates — this example runs on
+Postgres). Today the documented default question, asked as of
+2026-08-01, is a **governed refusal** and the target exits non-zero:
+
+```
+refused: asked-at-outside-temporal-bound — None
+```
+
+(followed by a `recorded at ccf-artifact://hw1-demo/hw1.replay-record/…` line —
+the refusal is recorded). To see the product served, ask as of now; the rows,
+the policy version and the method are the same, and `D_c` is measured at the
+instant you ask:
+
+```sh
+PYTHONPATH=src:runtime .venv/bin/python examples/s1-00-companies-over-revenue/consume.py \
+    --min-revenue 1000000000 --as-of "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
+```
+
 Run it again with a different number. The answer changes, **and so does the
 content address** — because the caller's number is part of the question.
 

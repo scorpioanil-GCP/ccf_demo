@@ -67,6 +67,8 @@ from typing import Protocol
 
 from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
     PerspectiveArtifact,
@@ -76,6 +78,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.contract import ContextProductContract
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest, ProductRequestContract
@@ -282,7 +285,22 @@ def assemble_and_serve(
         def debt_scorer(*, view: GraphView, evidence: object = None) -> DebtAssessment:
             return scenario.debt(view)
 
-        store = FileArtifactStore(root=root / scenario.artifact_store_dirname)
+        # The deployment's declaration of what its own mechanism writes and
+        # under which kind (D-IMPL-353 §1.2): the replay-record and query-pin
+        # classes `deployment.py` names, and the SDK's admitted-child class, each
+        # `ReplayMint` — the shape `s1-01`'s spine and HW-2's composer use.
+        # `write_kinds` became required on `FileArtifactStore`; added
+        # 2026-10-11 (`examples/AMENDMENTS-2026-10-11.md`).
+        store = FileArtifactStore(
+            root=root / scenario.artifact_store_dirname,
+            write_kinds=WriteKinds.declare(
+                {
+                    scenario.replay_record_class: (ReplayMint,),
+                    scenario.query_pin_class: (ReplayMint,),
+                    ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                }
+            ),
+        )
         resolve = build_governed_resolver(
             fabric=booted,
             control_plane=registry,
