@@ -1,0 +1,15 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# The demonstration question verify.py asks the controlled instance: CP-SPEC-014's facility and borrower,
+# at the demonstration instant (examples/cp-06-canonical-collateral-and-setoff-coverage/run.py defaults).
+tenant: cp-06-canonical-demo
+product_class: credit-risk.collateral-coverage
+version: "1.0.0"
+subject: FAC-5B8418
+intent: lgd-assessment
+freshness: as-filed
+asked_at: "2026-09-07T12:00:00+00:00"
+parameters:
+  facility_id: FAC-5B8418
+  borrower_scope: [2549001IGRCG4F0RLD36]
+# A tenant this instance does not serve: the call must be refused.
+foreign_tenant: another-bank-tenant
