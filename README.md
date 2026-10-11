@@ -23,6 +23,13 @@ import name is `ccf`: read
 [the distribution name](#the-distribution-is-ccf-sdk-the-import-name-is-ccf)
 before installing.
 
+> **License: proposed agreement, not yet executed.** This private repository includes materials licensed by
+> David Castillo under the CCF SDK Interim Software and Patent License in [`LICENSE.md`](LICENSE.md). The
+> license requires execution by the parties and applies only to its identified materials, authorized users, and
+> term. Until both parties sign it, it is a review draft and grants no rights; no one, including Wells Fargo,
+> yet holds the proposed license. Repository delivery does not transfer ownership. Third-party materials remain
+> subject to their own terms.
+
 ## Install
 
 Python 3.12+ required. From the repository root:
