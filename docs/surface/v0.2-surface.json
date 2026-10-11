@@ -2502,6 +2502,7 @@
       "RefuseUnbumpedChange",
       "RegisterAuthority",
       "RegistrationRefusal",
+      "RegistryIntegrityFailure",
       "ReplayResolver",
       "namespaced_key"
     ],
@@ -2586,6 +2587,10 @@
           "detail": "<class 'str'>",
           "key": "<class 'str'>"
         }
+      },
+      "RegistryIntegrityFailure": {
+        "kind": "class",
+        "shape": "(*, key: 'str', version: 'str', door: 'str', reason: 'str') -> 'None'"
       },
       "ReplayResolver": {
         "kind": "class",

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2607 entries**, of which **2328** name a public Python surface.
+**2609 entries**, of which **2330** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1371 entries — 1325 public Python surface, 46 not public Python API.
+1372 entries — 1326 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19976,6 +19976,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
 
+#### ccf.controlplane.registry.RegistryIntegrityFailure
+
+- Surface: ccf.controlplane.registry.RegistryIntegrityFailure
+- Public surface: true
+- Change type: added
+- Before: no such failure existed; the registry held only the reconstruction, and a read reconstructed it.
+- After: a `RuntimeError` raised by `peek`, `resolve` and `resolve_latest` when the record under an existing `(key, version)` is missing its verified canonical bytes or those bytes do not hash to the version, carrying `key`, `version`, `door` and `reason`. Distinct from `ControlPlaneMissing` (nothing registered) and from `ArtifactIsolationRefused` (the parse did not prove the artifact). `resolve` and `resolve_latest` record it as a resolve that did not resolve.
+- Why: Dave, 00:15: *"An existing artifact with missing or inconsistent byte storage is an integrity failure, not 'artifact missing.'"*
+- Migration: none for a caller of the public doors; the record is written whole by the write doors and a consistent registry never raises it.
+
+*Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -31103,7 +31115,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-555 entries — 516 public Python surface, 39 not public Python API.
+556 entries — 517 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38894,6 +38906,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller that treats a resolved artifact as a value. A caller that compared two reads by identity, or mutated a returned artifact expecting a later read to show it, changes — no such caller was detected in the exercised tests (baseline 34 failures / 4 errors before and after, by id).
 
 *Recorded by `380-06-the-registry-holds-and-serves-reconstructions.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: each read door rendered the stored reconstruction to canonical bytes, parsed and rebuilt it, rendered the rebuild again to compare, and returned the rebuild (two renders per read).
+- After: each write door renders the artifact once, keeps the verified canonical bytes beside the verified reconstruction in one record, and the version is the hash of those bytes; each read door checks the record's integrity, parses the bytes through the artifact's own type, and verifies the parse's type, value (equality against the stored reconstruction, no render) and identity before returning it. Every read is still a fresh object sharing nothing with the registry or with any earlier read; nothing is cached; a failed parse or a failed check refuses by name and never reports the artifact missing.
+- Why: `D-IMPL-380` 21:00 / 00:15 / 00:28, above. The guarantees are unchanged; the second render is gone.
+- Migration: none. A caller that never reached the registry's internals sees the same objects, the same versions and the same refusals; `ArtifactIsolationRefused.reason` on a read now names the parse ("the parse is not equal to the stored reconstruction") rather than the reconstruction.
+
+*Recorded by `380-08-the-read-doors-parse-the-verified-bytes.md`.*
 
 ### Not public Python API
 
