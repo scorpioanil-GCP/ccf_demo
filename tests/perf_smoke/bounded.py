@@ -12,11 +12,19 @@ Here:
 2. **Every wait is bounded.** ``wait(timeout)``; on expiry SIGTERM to the group and
    ``wait(term_grace)``; then SIGKILL and ``wait(reap)``. The **allowance** for one run is
    ``timeout + term_grace + reap``, plus scheduling slack.
-3. **Escaped descendants are looked for, killed and named.** The child's environment carries a
-   unique marker (``CCF_PERF_SMOKE_RUN``); after the run, ``/proc/*/environ`` is scanned for it and
-   any process still carrying it is SIGKILLed and returned in ``survivors``. This *assists*
-   cleanup and is **not a universal guarantee** (Dave, 07:32): a descendant that replaces its own
-   environment, or one whose ``environ`` cannot be read, is not found by it.
+3. **Leftover processes are found, killed and named.** After the run, two populations are looked
+   for and returned in ``survivors``: members of the suite's own process group (a clean exit that
+   left a child running is a leak, not a pass — review of ``b66ab4fa``), and processes carrying
+   the run's unique environment marker (``CCF_PERF_SMOKE_RUN``), which finds descendants that
+   left the group. Each is killed through a process file descriptor opened first and re-checked
+   after, so a recycled process id is never signaled; no group signal is sent once the leader has
+   been reaped. The marker *assists* cleanup and is **not a universal guarantee** (Dave, 07:32): a
+   descendant that leaves the group AND replaces its own environment, or whose ``/proc`` entries
+   cannot be read, is not found.
+
+**Residual, stated:** the ``/proc`` reads are not themselves bounded by the allowance; reading a
+process's ``environ`` waits on that process's memory lock, so a process stuck in uninterruptible
+sleep can delay the scan (review of ``b66ab4fa``, R2).
 """
 
 from __future__ import annotations
@@ -63,14 +71,61 @@ def _carrying(marker: str) -> list[tuple[int, str]]:
     return found
 
 
-def _kill_carriers(marker: str) -> list[tuple[int, str]]:
-    survivors = _carrying(marker)
-    for pid, _ in survivors:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-    return survivors
+def _group_of(pid: int) -> int | None:
+    """The process group id of ``pid``, from ``/proc/<pid>/stat`` (field 5, after the parenthesized name)."""
+    try:
+        stat = (Path("/proc") / str(pid) / "stat").read_text()
+    except OSError:
+        return None
+    fields = stat[stat.rfind(")") + 2 :].split()
+    return int(fields[2]) if len(fields) > 2 else None
+
+
+def _cmdline(pid: int) -> str:
+    try:
+        return (Path("/proc") / str(pid) / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def _members(group: int) -> list[tuple[int, str]]:
+    """Live members of process group ``group``. While any member lives, the kernel does not reuse its id."""
+    own = os.getpid()
+    return [
+        (int(entry.name), _cmdline(int(entry.name)))
+        for entry in Path("/proc").iterdir()
+        if entry.name.isdigit() and int(entry.name) != own and _group_of(int(entry.name)) == group
+    ]
+
+
+def _carries(pid: int, marker: str) -> bool:
+    try:
+        return f"{MARKER_VARIABLE}={marker}".encode() in (Path("/proc") / str(pid) / "environ").read_bytes()
+    except OSError:
+        return False
+
+
+def _kill_verified(pid: int, *, group: int, marker: str) -> None:
+    """SIGKILL ``pid`` only if, after a pidfd pins it, it is still in ``group`` or still carries ``marker``."""
+    try:
+        pidfd = os.pidfd_open(pid)
+    except OSError:
+        return  # already gone
+    try:
+        if _group_of(pid) == group or _carries(pid, marker):
+            signal.pidfd_send_signal(pidfd, signal.SIGKILL)
+    except OSError:
+        pass
+    finally:
+        os.close(pidfd)
+
+
+def _leftovers(group: int, marker: str) -> list[tuple[int, str]]:
+    found = dict(_members(group))
+    found.update(dict(_carrying(marker)))
+    for pid in found:
+        _kill_verified(pid, group=group, marker=marker)
+    return sorted(found.items())
 
 
 def _signal_group(group: int, signum: int) -> bool:
@@ -123,9 +178,9 @@ def run_bounded(
                 ladder.append("not-reaped")
     if timed_out and proc.returncode is not None:
         ladder.append("reaped")
-    # The group may still hold members whose leader has exited; and a descendant may have left it.
-    _signal_group(group, signal.SIGKILL)
-    survivors = _kill_carriers(marker)
+    # No group signal after the leader is reaped: its id is only pinned while members live. The
+    # members still alive, and marker carriers that left the group, are found, killed and named.
+    survivors = _leftovers(group, marker)
     stdout = out_path.read_text(errors="replace")
     stderr = err_path.read_text(errors="replace")
     return BoundedResult(timed_out, proc.returncode, time.monotonic() - start, stdout, stderr, ladder, survivors)
