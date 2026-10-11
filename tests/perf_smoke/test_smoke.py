@@ -24,12 +24,12 @@ Runtime containment:
 from __future__ import annotations
 
 import os
-import signal
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests.perf_smoke.bounded import run_bounded
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -76,7 +76,7 @@ def test_suite_runs_untimed(suite: str) -> None:
     # with ``start_new_session=True`` inside a group descended from this one,
     # and killing only the direct child would orphan it holding ports
     # (threat T-11-10) — its fixture ``finally`` never runs after a SIGKILL.
-    proc = subprocess.Popen(
+    result = run_bounded(
         [
             sys.executable,
             "-m",
@@ -88,38 +88,22 @@ def test_suite_runs_untimed(suite: str) -> None:
         ],
         cwd=REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
+        timeout=SUITE_TIMEOUT_SECONDS,
+        term_grace=KILL_GRACE_SECONDS,
+        reap=KILL_GRACE_SECONDS,
+        out_dir=REPO_ROOT,
     )
-    try:
-        stdout, stderr = proc.communicate(timeout=SUITE_TIMEOUT_SECONDS)
-    except subprocess.TimeoutExpired:
-        # SIGTERM → wait(grace) → SIGKILL on the whole group, mirroring the
-        # crossproc fixture's own teardown ladder, then fail loudly.
-        group = os.getpgid(proc.pid)
-        try:
-            os.killpg(group, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            proc.wait(timeout=KILL_GRACE_SECONDS)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(group, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        stdout, stderr = proc.communicate()
+    stdout, stderr = result.stdout, result.stderr
+    if result.timed_out:
         pytest.fail(
             f"perf suite '{suite}' timed out after {SUITE_TIMEOUT_SECONDS}s; "
             "its process group was reaped\n"
             f"--- stdout ---\n{stdout}\n"
             f"--- stderr ---\n{stderr}"
         )
-    assert proc.returncode == 0, (
+    assert result.returncode == 0, (
         f"perf suite '{suite}' failed under --benchmark-disable "
-        f"(exit {proc.returncode})\n"
+        f"(exit {result.returncode})\n"
         f"--- stdout ---\n{stdout}\n"
         f"--- stderr ---\n{stderr}"
     )
