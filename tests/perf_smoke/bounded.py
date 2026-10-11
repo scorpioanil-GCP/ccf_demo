@@ -1,4 +1,7 @@
-"""Run a perf suite in its own session and reap it within a stated allowance — ``GROK-BRIEF-9`` §2.
+"""Run a perf suite in its own session and reap it, every wait timed against a stated allowance — ``GROK-BRIEF-9`` §2.
+
+**Not universally bounded.** Two limits are disclosed below: the ``/proc`` scan is not itself
+timed, and a descendant that leaves the group and replaces its environment is not found.
 
 ``D-IMPL-380``, 2026-10-11 07:13 and 07:32 (Dave). The earlier cleanup read the suite's output
 through pipes and, after killing the process group, called ``communicate()`` with no timeout; a

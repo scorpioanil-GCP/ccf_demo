@@ -72,9 +72,11 @@ def _tail(text: str) -> str:
 def test_suite_runs_untimed(suite: str, tmp_path: Path) -> None:
     """Run one suite once, untimed; fail on a timeout, a non-zero exit or a leaked process.
 
-    The cleanup is bounded (``tests/perf_smoke/bounded.py``): a case returns within
+    Every wait in the cleanup is timed (``tests/perf_smoke/bounded.py``): a case is designed to return within
     ``SUITE_TIMEOUT_SECONDS + KILL_GRACE_SECONDS + KILL_GRACE_SECONDS`` plus scheduling slack,
-    whatever its descendants do. The 300 s per-suite cap is unchanged (Dave, 2026-10-11).
+    except for the two limits ``bounded.py`` discloses (the ``/proc`` scan is not itself timed; a
+    descendant that leaves the group and clears its environment is not found). The 300 s per-suite
+    cap is unchanged (Dave, 2026-10-11).
     """
     env = dict(os.environ)
     # Mirror the Makefile's ENV_PERF (src:runtime:perf) plus the repo root so
