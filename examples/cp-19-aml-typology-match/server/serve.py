@@ -42,7 +42,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies  # noqa: E402
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant  # noqa: E402
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
 from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
-from ccf_runtime.mcp.product_door import ProductDoor, open_door  # noqa: E402
+from ccf_runtime.mcp.product_door import ProductDoor, open_door_with_verifier  # noqa: E402
 from ccf.products.entitlement import (  # noqa: E402
     PRODUCT_ENTITLEMENT_POLICY, ProductEntitlementGrant, ProductEntitlementPolicy, product_entitlement_key,
 )
@@ -70,7 +70,7 @@ def token_source(opened: OpenedProduct) -> StaticTokenSource:
     """The four credentials the environment names, each to its principal."""
     scope = opened.door.required_scope if opened.door is not None else "ccf:egress"
     return StaticTokenSource(grants={
-        token: TokenGrant(client_id=principal_id, scopes=(scope,))
+        token: TokenGrant(client_id=principal_id, scopes=(scope,), tenants=frozenset({opened.tenant_id}))
         for token, principal_id in deployment.credential_grants(opened.sources).items()
     })
 
@@ -131,7 +131,7 @@ def entitle(opened: OpenedProduct) -> None:
 
 def open_aml_door(opened: OpenedProduct, *, environ: Mapping[str, str] | None = None) -> ProductDoor:
     """The standard door with its three overrides, then the tenant policy."""
-    door = open_door(
+    door = open_door_with_verifier(
         opened,
         environ=environ,
         token_verifier=SourceBackedTokenVerifier(source=token_source(opened)),

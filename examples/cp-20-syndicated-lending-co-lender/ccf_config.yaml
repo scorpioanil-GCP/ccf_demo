@@ -309,3 +309,27 @@ producers:
     credential_from_env: CCF_CP20_PEER_TOKEN
     offers:
       - {product_class: cb.co-lender-position, versions_from: "1.0.0"}
+
+# THE TEMPORAL BOUNDARY (`D-IMPL-358`; compatibility amendment 2026-10-11,
+# examples/AMENDMENTS-2026-10-11.md, finding G4-F-02). Since D-IMPL-358 every
+# governed serve resolves the tenant's `ccf.temporal-boundary-policy` and a
+# tenant that declares none is refused `temporal-boundary-undeclared`; this
+# tree predates that and declared none. The values are hw1-companies-over-
+# revenue's precedent: a request may reach one hour before the fabric's serve
+# clock and no further, with no future skew.
+#
+# KNOWN CONSEQUENCE (finding G4-F-01, an SDK finding, not repaired here): the
+# paved road serves at the real clock and cannot honor a
+# `demonstration_serve_instant:` declaration (DemonstrationServeInstantConflict),
+# so the pinned demonstration question in artifacts/question.yaml is refused
+# today. Asking at the current instant (ASKED_AT=--asked-at=<now>) serves.
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+temporal_boundary:
+  max_past_seconds: 3600
+  permitted_clock_skew_seconds: 0
