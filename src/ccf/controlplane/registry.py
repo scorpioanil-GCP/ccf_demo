@@ -667,6 +667,16 @@ class ControlPlaneRegistry:
         values silently changed. Register a typed model instead; its
         validators restore the types.
 
+        **An untyped document is JSON-native** (``D-IMPL-380``, 2026-10-10
+        18:25): the values it may hold are exactly those ``json.loads`` of its
+        own canonical bytes gives back — ``str``, ``int``, ``bool``, ``None``,
+        ``list`` and ``dict`` — because that parse *is* the reconstruction the
+        registry stores and serves. A ``model_dump()`` in python mode is not
+        such a document: it keeps the model's ``Decimal``, ``datetime`` and
+        tuple values, and is refused. Pass the model itself, or
+        ``model_dump(mode="json")``. Nothing is coerced; the canonical
+        restrictions above stay as they are.
+
         Registering byte-identical content again is idempotent: the existing
         version is returned and no duplicate is appended.
 

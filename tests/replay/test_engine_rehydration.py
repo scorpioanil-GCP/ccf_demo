@@ -1486,8 +1486,12 @@ def test_a_replay_reproduces_the_obligation_in_force_at_decision_time(
     that never took effect.
     """
     address, record = _serve(deployment)
+    # The typed model, not ``REBOUND_PROFILE.model_dump()``: an untyped document
+    # is JSON-native, and a python-mode dump keeps its ``Decimal`` and tuple
+    # values, which the registry refuses rather than coerces (D-IMPL-380,
+    # 2026-10-10 18:25 — blocker 2, option (a)).
     rebound_version = deployment.registry.register(
-        register_capability("test/debt-profile", Register), REBOUND_PROFILE.model_dump()
+        register_capability("test/debt-profile", Register), REBOUND_PROFILE
     )
 
     outcome = _replay(deployment, address)
