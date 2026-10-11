@@ -56,7 +56,7 @@ class Assembled:
 
 
 def assemble_and_serve(
-    *, asked: ProductRequest, root: Path, config: Path = HERE / "ccf_config.yaml"
+    *, asked: ProductRequest, root: Path, config: Path | None = None
 ) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -67,7 +67,7 @@ def assemble_and_serve(
     swallowed by a bare ``except``.
 
     ``config`` is the DEPLOYMENT, not the question: this example's own
-    ``ccf_config.yaml`` unless a deployer (a test) boots a copy of it declaring a
+    ``ccf_config.yaml`` (``HERE``, read at call time) unless a deployer (a test) boots a copy of it declaring a
     different demonstration serve instant (`tests/examples/demonstration_deployment.py`).
     Nothing on ``asked`` can move the serve clock.
     """
@@ -80,7 +80,7 @@ def assemble_and_serve(
     #    resulting pins. Connection values arrive HERE, from the caller — never
     #    from the config, which names the backend as a KIND only.
     booted = load_config_and_boot(
-        config,
+        config if config is not None else HERE / "ccf_config.yaml",
         registry=registry,
         connection=deployment.connection(root=root),
     )
