@@ -765,6 +765,8 @@ def test_every_exported_kind_is_classified_read_or_mutating() -> None:
         capability.Resume,
         capability.ReplayMint,
         capability.CompositionRegister,
+        # D-IMPL-382 (Dave, 2026-10-11 07:32): writes one tenant's invalidation records.
+        capability.InvalidationRecordRegister,
     }
     assert READ_KINDS & mutating == frozenset()
     unclassified = exported - READ_KINDS - mutating

@@ -49,6 +49,36 @@ are refused with nothing registered; a record read is a fresh object a mutation 
 - Public surface: true
 - Change type: added
 - Before: no such function.
-- After: `invalidation_record_key(*, tenant_id, entity_uri) -> str`, the derived key `{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`; `INVALIDATION_RECORD_PREFIX`, `INVALIDATION_RECORD_CLASS_ID` and `TypedRegisterAuthority` are added beside it.
+- After: `invalidation_record_key(*, tenant_id, entity_uri) -> str`, the derived key `{tenant}/ccf.entity-invalidation/{sha256(entity_uri)}`.
+- Why: `D-IMPL-382`, above.
+- Migration: none.
+
+## ccf.controlplane.registry.INVALIDATION_RECORD_PREFIX
+
+- Surface: ccf.controlplane.registry.INVALIDATION_RECORD_PREFIX
+- Public surface: true
+- Change type: added
+- Before: the prefix lived only in `ccf.controlplane.invalidation.KEY_PREFIX`.
+- After: `"ccf.entity-invalidation"`, the one class segment the invalidation-record capability may write under; `KEY_PREFIX` now names it.
+- Why: the registry confines the capability to its tenant's prefix, so the registry owns the prefix (`D-IMPL-382`).
+- Migration: none.
+
+## ccf.controlplane.registry.INVALIDATION_RECORD_CLASS_ID
+
+- Surface: ccf.controlplane.registry.INVALIDATION_RECORD_CLASS_ID
+- Public surface: true
+- Change type: added
+- Before: no such constant; the register's class id was `ccf.entity-invalidation-register`.
+- After: `"ccf.entity-invalidation-record"`, the one artifact class the invalidation-record capability may register; `ENTITY_INVALIDATION_RECORD` uses it. The class `ccf.entity-invalidation-register` no longer exists.
+- Why: *"It must not authorize … another artifact class"* (`D-IMPL-382`).
+- Migration: none; nothing shipped under the old class.
+
+## ccf.controlplane.registry.TypedRegisterAuthority
+
+- Surface: ccf.controlplane.registry.TypedRegisterAuthority
+- Public surface: true
+- Change type: added
+- Before: `register_typed` was annotated `RegisterAuthority`.
+- After: `RegisterAuthority | Authorized[InvalidationRecordRegister]`, the static type of `register_typed`'s first parameter on the registry and on `ControlPlaneProtocol`.
 - Why: `D-IMPL-382`, above.
 - Migration: none.

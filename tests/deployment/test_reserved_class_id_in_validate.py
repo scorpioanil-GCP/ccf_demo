@@ -269,7 +269,14 @@ _UNCASED: dict[str, dict[str, Any]] = {
     },
     "ccf.approval-policy": {"semver": "1.0.0", "eligible_principals": ["fixture-approver"]},
     "ccf.eligibility-evidence-policy": {"max_evidence_age_seconds": 1, "permitted_clock_skew_seconds": 1},
-    "ccf.entity-invalidation-register": {"semver": "1.0.0", "tenant_id": TENANT, "entries": []},
+    "ccf.entity-invalidation-record": {
+        "semver": "1.0.0",
+        "tenant_id": TENANT,
+        "entity_uri": "entity://fixture",
+        "invalidated_from": "2026-03-02T12:00:00.000000Z",
+        "reason": "entity-claim-superseded",
+        "source": "claim-fixture",
+    },
     "ccf.erasure-subject-declaration": {
         "semver": "1.0.0",
         "tenant_id": TENANT,
