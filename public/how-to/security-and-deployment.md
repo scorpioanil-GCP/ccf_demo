@@ -2640,11 +2640,30 @@ rebuilding."*):
   The in-process adapter boots each deployment once per process from its
   `ccf_config.yaml` (`src/ccf/client/adapters/inprocess.py::InProcessAdapter._ensure_booted`),
   so there a declaration takes effect when the process next starts.
-- The paved road never honors a declaration. It builds a resolver for every
-  question but composes its own clock, so a declaration registered after
-  `open_product` makes the next question raise
-  `DemonstrationServeInstantConflict`, by name, before anything is acquired
+- The paved road takes its snapshot at `open_product` (amended 2026-10-11,
+  G1-SDK-01; Dave, 16:23 MST, ruling 4). A declaration in the deployment's
+  `ccf_config.yaml` when it is opened, with no clock composed by the caller, is
+  honored on every question: the dated question is served at the declared
+  instant, the ingress write guard judges envelopes at that same instant, and
+  every record pins the declaration
+  (`tests/products/test_paved_road_demonstration_instant.py::test_a_paved_deployment_with_no_composed_clock_serves_at_its_declared_instant`).
+  Every refusal is kept: a caller-composed clock beside a declaration raises
+  `DemonstrationServeInstantConflict`
+  (`::test_a_caller_composed_clock_beside_the_declaration_is_still_refused`); a
+  second declaration raises `DemonstrationServeInstantMisplaced`
+  (`::test_several_declarations_are_still_refused`); a store that is not the
+  SDK's own is refused even inside the SDK's erasure-consult wrapper, which the
+  exact-type test looks through by exact type
+  (`::test_a_store_that_is_not_the_sdks_own_is_still_refused`); a question
+  outside the window around the declared instant is refused
+  `asked-at-outside-temporal-bound`
+  (`::test_a_question_outside_the_declared_instants_window_is_refused`). A
+  declaration registered after `open_product` is not the snapshot: the next
+  question raises `DemonstrationServeInstantConflict`, by name, before anything
+  is acquired
   (`tests/client/test_demonstration_serve_instant.py::test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question`).
+  The served instant is still a development instant, refused outside the SDK's
+  own development backends.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

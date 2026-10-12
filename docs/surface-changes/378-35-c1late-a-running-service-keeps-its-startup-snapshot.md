@@ -23,8 +23,10 @@ threat T3), and the ruling keeps it.
   the deployment's `ccf_config.yaml` at that boot
   (`src/ccf/client/adapters/inprocess.py::InProcessAdapter._ensure_booted`), so a declaration takes effect
   there when the process next starts.
-- **The paved road.** It builds a resolver for every question, but it composes its own clock, so it never
-  honors a declaration. A declaration registered after `open_product` makes the next question raise
+- **The paved road.** *(Amended 2026-10-11 by fragment `20261011-01`, G1-SDK-01: the paved road now takes
+  its snapshot at `open_product` and honors a declaration its `ccf_config.yaml` states at open when the
+  caller composes no clock. The sentence that follows is the 2026-10-08 statement, kept as history.)* It
+  builds a resolver for every question, but it composes its own clock, so it never honors a declaration. A declaration registered after `open_product` makes the next question raise
   `DemonstrationServeInstantConflict`, by name, before anything is acquired
   (`::test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question`, new). The
   standard door over an opened product calls the same `answer` (`src/ccf/products/product.py::OpenedProduct.resolve`).

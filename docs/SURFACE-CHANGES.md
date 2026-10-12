@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2624 entries**, of which **2345** name a public Python surface.
+**2627 entries**, of which **2348** name a public Python surface.
 
 ## Added
 
@@ -20819,7 +20819,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-633 entries — 439 public Python surface, 194 not public Python API.
+634 entries — 440 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28159,6 +28159,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
 
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: the constructor took no statement of the demonstration snapshot
+- After: the constructor takes `honors_demonstration_serve_instant: bool = False`, which `open_product` sets from its startup snapshot (the document declares an instant and no `clock=` was passed). It selects the admission clock handed to the resolver and the ingress guard's clock; it grants nothing — `compose_serve_clock` still makes every check
+- Why: G1-SDK-01; Dave 2026-10-11 16:23 MST ruling 4
+- Migration: none; construct through `open_product`
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31211,7 +31223,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-563 entries — 524 public Python surface, 39 not public Python API.
+565 entries — 526 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39038,6 +39050,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for existing callers. **Also, after the focused review of `b66ab4fa`:** every door, composition and derived registration refuses a key in `{tenant}/ccf.entity-invalidation` or under it (`CapabilityBypassError`), so the range is written only by `InvalidationRecordRegister`; that kind refuses a tenant id containing `/` and admits only the `ENTITY_INVALIDATION_RECORD` class object with an `EntityInvalidationRecord` of exactly that type; `invalidation_history` raises `TypeError` on any version that is not this tenant's record for its key's entity; `ccf.boot` refuses a tenant id containing `/`. The review reproduced that an open range let a door capability plant an earlier boundary and make a refused product serve; that was possible on the old whole-register key too.
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A deployment whose `ccf_config.yaml` declared `demonstration_serve_instant:` was refused with `DemonstrationServeInstantConflict` at its first question, whether or not the caller passed `clock=`
+- After: same signature. With no `clock=`, the declaration present at open is honored: the resolver serves at the declared instant, the ingress guard judges at it, and every record pins it. With `clock=` beside a declaration, unchanged (refused by name)
+- Why: G1-SDK-01; Dave 2026-10-11 16:23 MST ruling 4. Red test: `tests/products/test_paved_road_demonstration_instant.py::test_a_paved_deployment_with_no_composed_clock_serves_at_its_declared_instant`
+- Migration: a paved deployment with a dated demonstration question adds `demonstration_serve_instant: {serve_instant: "<ISO instant>"}` and a `temporal_boundary:` to its `ccf_config.yaml`, passes no `clock=` to `open_product`, and runs on the SDK's SQLite or in-memory adapter with the default artifact store
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. The store check was `type(artifact_store) is FileArtifactStore` on the store as handed in, so the SDK's own file store wrapped in the SDK's own `ErasureConsultingStore` was refused `artifact-store-not-development`
+- After: same signature. The SDK's own `ErasureConsultingStore` (exact type, not a subclass) is looked through to the store it decorates, and the exact-type test is made there. A subclass of `FileArtifactStore` inside the wrapper is still refused
+- Why: G1-SDK-01; the paved road's store is always wrapped. Red test: `tests/products/test_paved_road_demonstration_instant.py::test_a_paved_deployment_with_no_composed_clock_serves_at_its_declared_instant`; the refusal kept: `::test_a_store_that_is_not_the_sdks_own_is_still_refused`
+- Migration: none
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
 
 #### ccf.graph.backends.sqlite.SqliteGraphStore
 

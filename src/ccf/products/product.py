@@ -183,6 +183,11 @@ from ccf.products.resolver import (
     build_governed_resolver,
     declared_refusal_recorder,
 )
+# G1-SDK-01 (Dave, 2026-10-11 16:23 MST, ruling 4): the resolver's own default
+# clock, so "the caller composed no clock" is the identity test
+# `compose_serve_clock` makes, rather than two different function objects.
+from ccf.products.resolver import _utc_now as _sdk_serve_clock
+from ccf.products.demonstration_clock import compose_serve_clock
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
@@ -568,6 +573,7 @@ class OpenedProduct:
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
         population: PopulationAcquireProtocol | None = None,
+        honors_demonstration_serve_instant: bool = False,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -609,6 +615,12 @@ class OpenedProduct:
         self._assess = assess
         self._gate = gate
         self._clock = clock
+        #: G1-SDK-01: the startup snapshot (C1-late, ruled (a)). True only when
+        #: the deployment's ``ccf_config.yaml`` declared
+        #: ``demonstration_serve_instant:`` at open AND the caller composed no
+        #: clock of its own. A declaration registered after open is not this
+        #: snapshot, so it still meets the composed clock and is refused by name.
+        self._honors_demonstration_serve_instant = honors_demonstration_serve_instant
         self._constraint_resolver = constraint_resolver
         self._capabilities = capabilities
         self._children = children
@@ -739,6 +751,41 @@ class OpenedProduct:
         )
         return record
 
+    # --- the serve clock (G1-SDK-01) ---------------------------------------------
+
+    def _admission_clock(self) -> Callable[[], datetime]:
+        """The clock handed to the builder as ``admission_clock``.
+
+        Where the deployment declared a demonstration serve instant at open and
+        the caller composed no clock, it is the SDK's own default clock, so
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock` reads "no
+        composed clock" and serves at the declaration, with every one of its
+        checks (several declarations, the SDK's own development backends).
+        Otherwise it is the clock this product was opened with — a declaration
+        beside it is two authorities, refused by name.
+        """
+        return _sdk_serve_clock if self._honors_demonstration_serve_instant else self._clock
+
+    def _ingress_clock(self, fabric: BootedFabric) -> Callable[[], datetime]:
+        """The fabric's instant the ingress temporal guard judges envelopes at.
+
+        On a declared demonstration instant it is the declared serve clock, so
+        the write guard and the serve judge one question against one instant;
+        it is composed through the same
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock`, so every
+        refusal the resolver would raise is raised here first, before anything
+        is acquired. Otherwise it is the opened clock, as before.
+        """
+        if not self._honors_demonstration_serve_instant:
+            return self._clock
+        return compose_serve_clock(
+            control_plane=self.control_plane,
+            fabric=fabric,
+            artifact_store=self.artifact_store,
+            admission_clock=_sdk_serve_clock,
+            sdk_clock=_sdk_serve_clock,
+        )
+
     # --- the low road, reachable from the paved surface --------------------------
 
     def build_arguments(self, fabric: BootedFabric) -> dict[str, Any]:
@@ -796,7 +843,7 @@ class OpenedProduct:
             # and dimension 3's no-packaging sentinel is then the true claim.
             "packaging_trace": self._packaging_trace,
             "composite_children": self._children,
-            "admission_clock": self._clock,
+            "admission_clock": self._admission_clock(),
         }
         if self._constraint_resolver is not None:
             arguments["constraint_resolver"] = self._constraint_resolver
@@ -1046,7 +1093,7 @@ class OpenedProduct:
         temporal_bound = IngressTemporalBound.at_composition(
             registry=self.control_plane, tenant_ids=(tenant_id,)
         )
-        clock = self._clock
+        clock = self._ingress_clock(fabric)
 
         def ingest(envelopes: Iterable[SignalEnvelope], *, asked_at: datetime) -> None:
             # THE FABRIC'S instant, read ONCE per acquisition and handed to the
@@ -1557,6 +1604,11 @@ def open_product(
         bridge=bridge,
         agent=agent,
         population=population,
+        # G1-SDK-01: the snapshot taken at open — the deployment's document
+        # declares an instant and the caller composed no clock of its own.
+        honors_demonstration_serve_instant=(
+            clock is _utc_now and config.demonstration_serve_instant is not None
+        ),
     )
 
 
