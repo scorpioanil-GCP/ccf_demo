@@ -19,7 +19,7 @@ refusals and never admits anything.
 ## ccf.skills.dispatch.McpProductFailureKind
 
 - Surface: ccf.skills.dispatch.McpProductFailureKind
-- Public surface: true
+- Public surface: false
 - Change type: reshaped
 - Before: `Literal["timeout", "unreachable", "tool-error"]`
 - After: `Literal["timeout", "unreachable", "tool-error", "tenant-not-granted"]`; a tool error whose text carries `TENANT_NOT_GRANTED_CODE` is `"tenant-not-granted"`

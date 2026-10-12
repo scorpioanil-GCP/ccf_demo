@@ -30,7 +30,7 @@ and address). Measured in `tests/products/test_declared_decimal_default.py`.
 ## ccf.products.request.decode_declared_number
 
 - Surface: ccf.products.request.decode_declared_number
-- Public surface: true
+- Public surface: false
 - Change type: added
 - Before: the decoding lived inline in `decode_declared_request`
 - After: `decode_declared_number(value, *, declared_type)` is the one decoding, used by `decode_declared_request` (callers) and by `ProductRequestContract` (declared defaults); `decode_declared_request`'s behavior is unchanged

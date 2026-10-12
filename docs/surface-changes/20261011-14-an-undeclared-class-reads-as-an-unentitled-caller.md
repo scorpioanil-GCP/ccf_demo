@@ -25,7 +25,7 @@ the opaque directory refusal run first and are unchanged. Measured and NOT chang
 ## ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
 
 - Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
-- Public surface: true
+- Public surface: false
 - Change type: reshaped
 - Before: an authorizer deny always raised `ActionUnauthorizedRefused` (a `tenant-unauthorized` tool error)
 - After: takes `on_denied: Callable[..., Any] | None = None`; when given, an authorizer deny is answered by `on_denied(grant=, tenant=, arguments=, denial=)` with no capability minted; `None` keeps the tool error

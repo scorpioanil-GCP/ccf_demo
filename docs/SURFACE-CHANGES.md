@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2659 entries**, of which **2380** name a public Python surface.
+**2659 entries**, of which **2377** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1392 entries — 1346 public Python surface, 46 not public Python API.
+1392 entries — 1345 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20108,18 +20108,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
 
-#### ccf.products.request.decode_declared_number
-
-- Surface: ccf.products.request.decode_declared_number
-- Public surface: true
-- Change type: added
-- Before: the decoding lived inline in `decode_declared_request`
-- After: `decode_declared_number(value, *, declared_type)` is the one decoding, used by `decode_declared_request` (callers) and by `ProductRequestContract` (declared defaults); `decode_declared_request`'s behavior is unchanged
-- Why: one rule for a caller's value and a declared default, so the two cannot drift. Red test: `tests/products/test_declared_decimal_default.py::test_the_default_and_a_caller_stating_the_same_text_are_one_value`
-- Migration: none
-
-*Recorded by `20261011-11-a-number-argument-declares-a-decimal-default.md`.*
-
 #### ccf.skills.dispatch.TENANT_NOT_GRANTED_CODE
 
 - Surface: ccf.skills.dispatch.TENANT_NOT_GRANTED_CODE
@@ -20959,11 +20947,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
 
+#### ccf.products.request.decode_declared_number
+
+- Surface: ccf.products.request.decode_declared_number
+- Public surface: false
+- Change type: added
+- Before: the decoding lived inline in `decode_declared_request`
+- After: `decode_declared_number(value, *, declared_type)` is the one decoding, used by `decode_declared_request` (callers) and by `ProductRequestContract` (declared defaults); `decode_declared_request`'s behavior is unchanged
+- Why: one rule for a caller's value and a declared default, so the two cannot drift. Red test: `tests/products/test_declared_decimal_default.py::test_the_default_and_a_caller_stating_the_same_text_are_one_value`
+- Migration: none
+
+*Recorded by `20261011-11-a-number-argument-declares-a-decimal-default.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-642 entries — 448 public Python surface, 194 not public Python API.
+642 entries — 446 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28351,30 +28351,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
 
-#### ccf.skills.dispatch.McpProductFailureKind
-
-- Surface: ccf.skills.dispatch.McpProductFailureKind
-- Public surface: true
-- Change type: reshaped
-- Before: `Literal["timeout", "unreachable", "tool-error"]`
-- After: `Literal["timeout", "unreachable", "tool-error", "tenant-not-granted"]`; a tool error whose text carries `TENANT_NOT_GRANTED_CODE` is `"tenant-not-granted"`
-- Why: Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/skills/test_mcp_product_dispatch.py::test_a_producer_that_cannot_answer_is_a_minted_value[tenancy-denial]`
-- Migration: code that switches on `McpProductFailure.failure` handles the fourth kind
-
-*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
-
-#### ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
-
-- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
-- Public surface: true
-- Change type: reshaped
-- Before: an authorizer deny always raised `ActionUnauthorizedRefused` (a `tenant-unauthorized` tool error)
-- After: takes `on_denied: Callable[..., Any] | None = None`; when given, an authorizer deny is answered by `on_denied(grant=, tenant=, arguments=, denial=)` with no capability minted; `None` keeps the tool error
-- Why: R5-CP17-F01; the product door answers its deny the governed way
-- Migration: none
-
-*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
-
 #### ccf_runtime.mcp.product_door.open_door
 
 - Surface: ccf_runtime.mcp.product_door.open_door
@@ -30810,6 +30786,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: as for `ccf.controlplane.artifacts.DeploymentConfig`.
 
 *Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.skills.dispatch.McpProductFailureKind
+
+- Surface: ccf.skills.dispatch.McpProductFailureKind
+- Public surface: false
+- Change type: reshaped
+- Before: `Literal["timeout", "unreachable", "tool-error"]`
+- After: `Literal["timeout", "unreachable", "tool-error", "tenant-not-granted"]`; a tool error whose text carries `TENANT_NOT_GRANTED_CODE` is `"tenant-not-granted"`
+- Why: Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/skills/test_mcp_product_dispatch.py::test_a_producer_that_cannot_answer_is_a_minted_value[tenancy-denial]`
+- Migration: code that switches on `McpProductFailure.failure` handles the fourth kind
+
+*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+- Public surface: false
+- Change type: reshaped
+- Before: an authorizer deny always raised `ActionUnauthorizedRefused` (a `tenant-unauthorized` tool error)
+- After: takes `on_denied: Callable[..., Any] | None = None`; when given, an authorizer deny is answered by `on_denied(grant=, tenant=, arguments=, denial=)` with no capability minted; `None` keeps the tool error
+- Why: R5-CP17-F01; the product door answers its deny the governed way
+- Migration: none
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
 
 ## Removed
 
