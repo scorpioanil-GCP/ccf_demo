@@ -50,11 +50,16 @@
 > 10,125,000,000 / adjusted 9,325,000,000. **Not repaired:** `make
 > example-cp-05-server` (its hand-built door registers an entitlement policy,
 > which needs a capability only an SDK composition root mints — the standard
-> door over this specimen is `examples/door-cp-05-credit-exposure-rollup`), and
-> the `internal-appetite` regime without an explicit `materiality` (refused
-> `required-absent`: this tree's request-contract defaults sit under
-> `argument_defaults`, a key the SDK never reads, and a decimal default cannot
-> yet be declared where it does). Both are recorded as SDK needs.
+> door over this specimen is `examples/door-cp-05-credit-exposure-rollup`).
+> Recorded as an SDK need.
+>
+> **Amended 2026-10-11 (SDK round 5, CP05-R2-F-01).** The `internal-appetite`
+> regime without an explicit `materiality` was refused `required-absent`: the
+> request-contract defaults sat under `argument_defaults`, a key the SDK never
+> read, and a decimal default could not be declared where it does. The SDK now
+> reads a quoted decimal default for a `number` argument as the exact decimal,
+> so the defaults moved to `defaults:` (values unchanged) and the regime serves
+> at the declared `materiality` of 0.05.
 
 ## What this demonstrates
 
