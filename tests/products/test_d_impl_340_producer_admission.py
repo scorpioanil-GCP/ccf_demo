@@ -915,6 +915,11 @@ def test_every_new_refusal_reason_is_emitted_exactly_where_declared() -> None:
         "producer-unasserted": emissions(composite_source, "producer-unasserted"),
         "question-mismatch": emissions(composite_source, "question-mismatch"),
         "producer-unavailable": emissions(resolver_source, "producer-unavailable"),
+        # Round 5 SDK lane A: the SDK door's coded tenancy denial, on the
+        # registered-producer-failure path (Dave 2026-10-11 20:19 ruling 1).
+        "producer-tenant-mismatch (failure path)": emissions(
+            resolver_source, "producer-tenant-mismatch"
+        ),
     }
     assert emitted == {
         "producer-tenant-mismatch": 3,
@@ -926,4 +931,67 @@ def test_every_new_refusal_reason_is_emitted_exactly_where_declared() -> None:
         # echo of another question.
         "question-mismatch": 5,
         "producer-unavailable": 2,  # could not answer; answered with no door outcome
+        "producer-tenant-mismatch (failure path)": 1,
     }, emitted
+
+
+# --- wrong expected producer TENANT, refused by the producer's tenancy guard ---
+#
+# Round 5 SDK lane A, Dave 2026-10-11 20:19 MST ruling 1 ("wrong-tenant refusal
+# attribution"); NEEDS-SDK cp-06C CSCC-G18, cp-13C CXRC-G19, door-cp-05,
+# cp-03C OFC-G18. A registration expecting a tenant the producer's door will not
+# act as for this consumer reaches the door's SEC-018 guard, which refuses before
+# any answer exists. The refusal was right; the ROW said `producer-unavailable`
+# ("could not answer"), flattening a tenancy refusal into an outage. The door's
+# denial is the SDK's own and now carries a stable code; the row names it
+# `producer-tenant-mismatch`. Nothing new is disclosed: the denial names only the
+# tenant the CONSUMER asked for, and its first line was already recorded.
+
+
+def _the_sdk_doors_tenancy_denial(asked_tenant: str) -> str:
+    """The exact text the SDK door's SEC-018 guard raises, through the real guard."""
+    from ccf_runtime.mcp.tenancy import CrossTenantRefused, TenantSubject, _select_tenant  # noqa: PLC0415
+
+    with pytest.raises(CrossTenantRefused) as refused:
+        _select_tenant(
+            TenantSubject(argument="tenant"),
+            {"tenant": asked_tenant},
+            frozenset({"the-producers-own-tenant"}),
+        )
+    # What FastMCP returns for a tool that raised, as the consumer's client reads it.
+    return f"Error executing tool request_context_product: {refused.value}"
+
+
+def test_a_tenancy_refusal_by_the_producers_door_is_recorded_as_a_producer_tenant_mismatch(
+    booted: _Booted, vessel: str
+) -> None:
+    denial = _the_sdk_doors_tenancy_denial(PRODUCER_TENANT)
+    resolver, _r, _c = wired(
+        booted, DoorStub(vessel, fail=McpToolFailed("request_context_product", denial))
+    )
+    refused = ask(resolver)
+    assert not isinstance(refused, ServedProduct)
+    row = row_of(booted, refused)
+    assert (row.refusal_ref, row.outcome_status) == ("producer-tenant-mismatch", "unauthorized"), (
+        row.refusal_ref,
+        row.outcome_status,
+    )
+    # The registration members still name the producer that refused.
+    assert row.producer_id == PRODUCER_ID and row.producer_server == SERVER_NAME
+
+
+def test_any_other_tool_error_from_the_producer_stays_producer_unavailable(
+    booted: _Booted, vessel: str
+) -> None:
+    """The control: a tool error that is NOT the door's coded tenancy denial —
+    prose that merely mentions a tenant, or the opaque runtime id — keeps the
+    `producer-unavailable` reason (ruling 1 of D-IMPL-340)."""
+    for text in (
+        "Error executing tool request_context_product: the verified caller's grant does not carry tenant 'x'",
+        "ccf-runtime-failure:" + "cd" * 16,
+    ):
+        resolver, _r, _c = wired(
+            booted, DoorStub(vessel, fail=McpToolFailed("request_context_product", text))
+        )
+        row = refused_as(booted, ask(resolver), "producer-unavailable")
+        assert row.outcome_status == "producer-unavailable"

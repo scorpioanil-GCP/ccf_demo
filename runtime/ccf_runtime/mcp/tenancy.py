@@ -114,6 +114,7 @@ from ccf.authz.capability import (
     mint,
 )
 from ccf.skills._wire_arguments import refuse_undeclared_arguments
+from ccf.skills.dispatch import TENANT_NOT_GRANTED_CODE
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
     ERROR_DECISION_UNMINTABLE,
@@ -1170,8 +1171,12 @@ def _select_tenant(
             " compared is refused rather than admitted (SEC-018)"
         )
     if acting_on not in held:
+        # `TENANT_NOT_GRANTED_CODE` leads the text so a consumer's dispatch can
+        # name this refusal (`producer-tenant-mismatch`) rather than file it as
+        # an outage; it discloses only the tenant the caller itself sent
+        # (round 5 SDK lane A, Dave 2026-10-11 20:19 MST ruling 1).
         raise CrossTenantRefused(
-            f"the verified caller's grant does not carry tenant"
+            f"{TENANT_NOT_GRANTED_CODE}: the verified caller's grant does not carry tenant"
             f" {acting_on!r}; the tenant a call acts on is decided against"
             " the grant, never supplied by the call (SEC-018)"
         )

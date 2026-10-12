@@ -560,17 +560,15 @@ class GrantBoundChildResolver:
             # verified first: the members are about to be written into a
             # governed row.
             dispatched = verify_mcp_product_failure(dispatched)
-            return ChildAdmissionRefusal(
+            # Round 5 SDK lane A (Dave 2026-10-11 20:19 MST, ruling 1): the SDK
+            # door's SEC-018 tenancy denial is a disagreement about the
+            # producer-side TENANT the registration expects, not an outage — it
+            # is named `producer-tenant-mismatch`, the reason the served path
+            # gives the same disagreement. Still a refusal; the producer's word
+            # can only choose between two refusals.
+            members = dict(
                 gate=GATE_CHILD_ADMISSION,
-                detail=(
-                    f"registered producer {dispatched.server!r} could not"
-                    f" answer ({dispatched.failure}: {dispatched.detail}); the"
-                    " producer was reached through its registration and gave"
-                    " no governed answer, so this slot has no child"
-                    " (D-IMPL-340)"
-                ),
                 product_class=requirement.product_class,
-                reason="producer-unavailable",
                 producer_id=dispatched.producer_id,
                 producer_tenant=dispatched.producer_tenant,
                 producer_registration_address=(
@@ -579,6 +577,31 @@ class GrantBoundChildResolver:
                 producer_server=dispatched.server,
                 question_address=dispatched.question_address,
                 question_ref=question_ref,
+            )
+            if dispatched.failure == "tenant-not-granted":
+                return ChildAdmissionRefusal(
+                    detail=(
+                        f"registered producer {dispatched.server!r} refused to"
+                        " act as the producer tenant this registration expects,"
+                        f" {dispatched.producer_tenant!r}"
+                        f" ({dispatched.failure}: {dispatched.detail}); the"
+                        " registration is the authority for the producer-side"
+                        " tenant and the producer does not answer as it, so"
+                        " this slot has no child (D-IMPL-340)"
+                    ),
+                    reason="producer-tenant-mismatch",
+                    **members,
+                )
+            return ChildAdmissionRefusal(
+                detail=(
+                    f"registered producer {dispatched.server!r} could not"
+                    f" answer ({dispatched.failure}: {dispatched.detail}); the"
+                    " producer was reached through its registration and gave"
+                    " no governed answer, so this slot has no child"
+                    " (D-IMPL-340)"
+                ),
+                reason="producer-unavailable",
+                **members,
             )
         elif isinstance(dispatched, McpProductInvocation):
             dispatched = verify_mcp_product_invocation(dispatched)

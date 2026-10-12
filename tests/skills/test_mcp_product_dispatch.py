@@ -164,8 +164,10 @@ def test_the_question_identity_binds_every_axis() -> None:
         (McpServerUnreachable("down"), "unreachable", "McpServerUnreachable"),
         (McpToolFailed(PRODUCT_REQUEST_TOOL, "Error executing tool request_context_product: ccf-runtime-failure:" + "ab" * 16), "tool-error", "ccf-runtime-failure:" + "ab" * 16),
         (McpToolFailed(PRODUCT_REQUEST_TOOL, "Error executing tool: parameters {'secret': 'x'} disagree\nTraceback (most recent call last):\n  File ..."), "tool-error", "parameters"),
+        # Round 5 SDK lane A: the SDK door's coded SEC-018 denial is named, not filed as an outage.
+        (McpToolFailed(PRODUCT_REQUEST_TOOL, "Error executing tool request_context_product: ccf-tenant-not-granted: the verified caller's grant does not carry tenant 'x'"), "tenant-not-granted", "ccf-tenant-not-granted"),
     ],
-    ids=["timeout", "unreachable", "opaque-id", "prose"],
+    ids=["timeout", "unreachable", "opaque-id", "prose", "tenancy-denial"],
 )
 def test_a_producer_that_cannot_answer_is_a_minted_value(raised: Exception, kind: str, detail_fragment: str) -> None:
     result = dispatch_skill(
