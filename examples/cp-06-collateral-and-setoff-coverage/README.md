@@ -68,6 +68,47 @@ A flag you do not pass is **omitted**, so the class default resolves — a
 different act from passing the default's value, and the run prints which
 happened.
 
+### Amended 2026-10-11 — how the answer now expires and ages
+
+**Repaired on Dave's ruling** (2026-10-11 18:09 MST: *"repair cp-06"*). From
+`D-IMPL-341` until this amendment the default command could not run at all: the
+class declares an evidence-anchored expiry (`ttl_anchor: from_entity_freshness`)
+and the SDK refused to build a resolver that named no table to read the evidence
+instant from (`TTLAnchorUndeclared`). The repair ports cp-06-canonical's
+calibration (`CP06C-F-05`); **the business result is unchanged** — the same
+facility, the same coverage and allocation arithmetic (FAC-044206 still reads
+`COVERAGE 1.0890 covered`, as cp-06-canonical does). What changed, and changes
+what a reader sees:
+
+- **The expiry runs from the evidence, not the question.** `expires_at` is the
+  freshest asset valuation date the admitted view holds plus one appraisal cycle
+  (`half_life.real_property_appraisal`, 365 days). It was the question plus
+  24 hours. The window and the class ceiling were 24 hours / the deposit-balance
+  half-life; a 24-hour window from a valuation date refuses every question.
+- **Freshness ages each asset from its valuation date** (the claim's own
+  `valid_from`, at midnight UTC, under `decay_basis: valid-from` on every λ_c row
+  and a clock-only `collateral_node` row), rather than from
+  `asked_at - valuation_age_days`, a stored count that equalled the real age only
+  on the day the estate was loaded. `D_c` therefore moves with the calendar.
+- **A scope the caller does not hold is now REFUSED** (`ttl-anchor-unresolvable`:
+  the empty graph holds no valuation to anchor on) where the specimen served a
+  coverage of zero — the outcome cp-06-canonical already gives (`CSCC-G20`).
+
+The original evidence is in git, and `FINDINGS.md` is left as it was.
+`examples/AMENDMENTS-2026-10-11.md` lists every file changed.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
+**The MCP door (`server/serve.py`) is still not runnable**: its bespoke egress
+server now needs a tenant authorizer over a registered scope mapping, which only
+SDK composition code may register (`D-IMPL-353`). Its tests error at boot; that
+is recorded, not hidden.
+
 ## The story
 
 Three things will bite you if you change them.

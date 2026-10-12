@@ -31,7 +31,7 @@ import os
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -41,7 +41,7 @@ import yaml
 import acquisition
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable, PerspectiveArtifact
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
@@ -167,7 +167,8 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
     declaration.
     """
     declared = ProductRequestContract.from_declared(
-        booted.artifacts.get("request_contract"))
+        # Amendment 2026-10-11: tenant-placed (D-IMPL-354).
+        booted.artifacts.get(namespaced_key(tenant=booted.tenant_id, key="request_contract")))
     source = ProvenanceSource(kind="artifact", identity="request_contract",
                               version=content_hash(declared))
     outcome = ReferencePolicyConstraintResolver(
@@ -176,7 +177,10 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
         product_class=asked.schema_name, request=asked, declared=declared,
         declared_source=source, perspective=perspective(), intent=asked.intent,
         tenant=booted.tenant_id, capabilities=(),
-        class_defaults=declared.defaults, class_source=source)
+        class_defaults=declared.defaults, class_source=source,
+        # Amendment 2026-10-11: a required keyword since D-IMPL-358 step 5 —
+        # the live serve instant, as the SDK's own door supplies it.
+        served_at=datetime.now(UTC))
     if outcome.refusal is not None:
         # The governed path issues the refusal moments from now; acquisition
         # neither pre-empts it nor pays for a read whose answer is not served.
@@ -212,12 +216,30 @@ def _pledge_ref(pledge: acquisition.Pledge) -> str:
     return f"PLEDGE~{pledge.facility_id}~{pledge.asset_id}"
 
 
+def _valuation_instant(value: str | None) -> datetime | None:
+    """A source valuation DATE as a UTC instant at midnight, or ``None``.
+
+    Amendment 2026-10-11 (Dave, 18:09 MST: "repair cp-06"; `D-IMPL-341`,
+    ported from cp-06-canonical). ``None`` stays ``None``: an asset the source
+    never valued carries no instant.
+    """
+    if not value:
+        return None
+    return datetime.fromisoformat(value).replace(tzinfo=UTC)
+
+
 def _node(entity_ref: str, kind: str, scope: str, *, tenant_id: str,
-          at: datetime, **attributes: Any) -> SignalEnvelope:
+          at: datetime, observed: datetime | None = None,
+          **attributes: Any) -> SignalEnvelope:
     """One node's attributes, under the fabric's own vocabulary.
 
     ATTRIBUTED, therefore LAST. See the module docstring: this claim is the one
     that must survive, and it only survives if nothing thin arrives after it.
+
+    ``observed`` (amendment 2026-10-11, `D-IMPL-341`) is the SOURCE'S OWN
+    instant for this node — an asset's valuation date — and becomes the claim's
+    ``valid_from``, the clock the `decay_basis: valid-from` rows and the TTL
+    anchor read. Every other node carries ``None``.
     """
     payload = {"node_ref": entity_ref, "entity_ref": entity_ref,
                "ref": entity_ref, KIND: kind, "borrower_scope": scope}
@@ -225,7 +247,7 @@ def _node(entity_ref: str, kind: str, scope: str, *, tenant_id: str,
     return SignalEnvelope(
         tenant_id=tenant_id, envelope_id=f"node/{kind}/{entity_ref}",
         source=SourceIdentity(system_id="collateral_graph"),
-        ingestion_timestamp=at, observed_time=at, raw_payload=payload)
+        ingestion_timestamp=at, observed_time=observed, raw_payload=payload)
 
 
 def _edge(subject: str, predicate: str, obj: str, *, tenant_id: str,
@@ -294,6 +316,9 @@ def envelopes(coverage: acquisition.Coverage, *, tenant_id: str,
     for asset_id, asset in sorted(coverage.assets.items()):
         nodes.append(_node(
             asset_id, "asset", scope, tenant_id=tenant_id, at=at,
+            # Amendment 2026-10-11: the valuation date, as the claim's own
+            # instant (`D-IMPL-341`).
+            observed=_valuation_instant(asset.valuation_date),
             label=asset.description, category=asset.category,
             valuation=asset.valuation, valuation_date=asset.valuation_date,
             valuation_age_days=asset.valuation_age_days, haircut=asset.haircut,
@@ -372,10 +397,15 @@ def debt(view: GraphView) -> DebtAssessment:
         Observation(
             observation_type=DECAY_CLASS_BY_CATEGORY.get(
                 r.claim.attributes.get("category", ""), "real_property_appraisal"),
-            observed_at=now - timedelta(
-                days=int(r.claim.attributes.get("valuation_age_days") or 0)),
+            # Amendment 2026-10-11 (`D-IMPL-341`, ported from cp-06-canonical):
+            # the claim's own valuation date (`valid_from`), read under the
+            # rows' declared `decay_basis: valid-from`, instead of an age
+            # counted back from the question. An asset with no valuation date
+            # is unpriced, not aged; completeness carries it.
+            observed_at=r.claim.observed_at,
+            valid_from=r.claim.valid_from,
             subject=r.claim.entity_uri)
-        for r in assets
+        for r in assets if r.claim.valid_from is not None
     ]
     profile = DebtProfile.model_validate({"semver": "1.0.0", **config()["debt_profile"]})
     table = HalfLifeTable.model_validate({"semver": "1.0.0", "entries": config()["half_life"]})
@@ -423,10 +453,24 @@ class CoverageScenario:
 
     @property
     def max_ttl_seconds(self) -> int:
-        """The class ceiling — §B's 24 hours."""
-        return int(timedelta(hours=24).total_seconds())
+        """The class ceiling — equal to the window (amended 2026-10-11).
+
+        Was §B's 24 hours, chosen when the expiry ran from the request instant.
+        Since `D-IMPL-341` the expiry runs from the freshest VALUATION, and a
+        24-hour window from a valuation date refuses every question `ttl-bounds`
+        (measured 2026-10-11 on FAC-044206). Ported from cp-06-canonical
+        (`CP06C-F-05`): no answer may advertise more currency than one appraisal
+        cycle from its own evidence. Dave, 2026-10-11 18:09 MST: "repair cp-06".
+        """
+        return self.product_ttl_seconds
 
     @property
     def product_ttl_seconds(self) -> int:
-        """Daily, following the fastest-moving evidence the payload carries."""
-        return int(config()["half_life"]["deposit_balance"]["half_life_seconds"])
+        """One appraisal cycle from the freshest valuation (amended 2026-10-11).
+
+        Was the deposit-balance half-life (daily), a cadence the evidence anchor
+        cannot read: deposit balances carry no as-of date in this estate. Now
+        `half_life.real_property_appraisal`, the cadence governing most pledged
+        assets, as cp-06-canonical declares it (`CP06C-F-05`).
+        """
+        return int(config()["half_life"]["real_property_appraisal"]["half_life_seconds"])
