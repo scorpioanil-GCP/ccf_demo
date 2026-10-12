@@ -142,6 +142,15 @@ HITL_EVENT_CLASSES: frozenset[str] = frozenset(
 #: same string.
 APPROVAL_GATE_EVENT_CLASS = "approval-gate"
 
+#: The two approval-gate VERDICTS — ``ccf.hitl.approval_gate.GATE_ACTIONS``,
+#: spelled here for the same import-cycle reason as
+#: :data:`APPROVAL_GATE_EVENT_CLASS` and pinned equal to it by
+#: ``tests/workflow/test_conflict_population_eligibility.py``. The only actions
+#: the workflow engine's conflict population counts, and so the only ones an
+#: engine-bound eligibility judge refuses (map B item 3): an annotation or an
+#: override beside a verdict holds no gate.
+_GATE_VERDICTS: frozenset[str] = frozenset({"approve", "reject"})
+
 #: The state the transport found for a submission's event at ``submit``
 #: (`D-IMPL-366` H2; brief §4b): ``claimed`` (a primitive holds the atomic
 #: claim), ``pending`` (queued, no claim — a door submission) or ``missing``
@@ -987,6 +996,21 @@ class HITLTransportProtocol(Protocol):
     population that suspension's closure judged, or refused by name. This
     docstring is the contract's sole documentation surface (Phase-9 CONTEXT
     D-05/D-08).
+
+    **Composed into a workflow engine, a transport also judges approver
+    eligibility** (SEC-006; the security close-out's map B item 3,
+    ``D-GATE-357`` (2)). :class:`~ccf_runtime.workflow.engine.WorkflowEngine`
+    requires, beyond this Protocol, a ``bind_approver_eligibility(control_plane)``
+    method, calls it at construction with its own Control Plane, and refuses a
+    transport that offers none. A conforming implementation then judges every
+    verdict on an approval-gate event that names an approval policy at
+    :meth:`submit` with :func:`check_approver_eligibility` against that plane,
+    before anything is recorded, as
+    :meth:`InMemoryHitlTransport.bind_approver_eligibility` does.
+    The method is not a member of this Protocol, so a transport the primitives
+    use without an engine need not offer it. The engine cannot see whether a
+    third-party implementation judges what it is bound to judge; the
+    reference implementation does.
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
@@ -1166,6 +1190,24 @@ class InMemoryHitlTransport:
     All four D-16 arguments are optional together: an unconfigured
     transport behaves exactly as before this composition existed.
 
+    **Approver eligibility, and the workflow engine's binding** (SEC-006,
+    `D-IMPL-366`; the security close-out's map B item 3, SEC-001-adjacent
+    (f), ``D-GATE-357`` (2); Dave's GO of 2026-10-12 08:45 MST, step 1:
+    *"enforce eligibility on supported approval transports"*). The Control
+    Planes that judge an approval-gate verdict (``approve`` or ``reject``) on
+    an event that names an approval policy, at :meth:`submit`, are the one
+    bound at construction, if any, and every one a
+    :class:`~ccf_runtime.workflow.engine.WorkflowEngine` composed over this
+    transport bound through :meth:`bind_approver_eligibility`; each must admit
+    the verdict. Any other approval-gate submission is judged by the
+    construction plane alone, as before. A transport constructed without a
+    Control Plane therefore still judges eligibility once an engine is
+    composed over it, so a principal the gate's policy does not admit cannot
+    record, while the gate's event is queued, the opposite verdict that would
+    hold the gate as a conflict for good. A transport composed into no engine
+    and constructed without a Control Plane judges nothing, as before — the
+    pre-composition posture the primitives used alone keep.
+
     **Thread safety (WR-02; Phase-9 CONTEXT D-06).** A single plain
     :class:`threading.Lock` guards every queue mutation and snapshot read
     — the Protocol's concurrency contract, discharged here. The lock
@@ -1221,9 +1263,69 @@ class InMemoryHitlTransport:
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
+        #: The Control Planes workflow engines composed over this transport
+        #: bound as approver-eligibility judges (:meth:`bind_approver_eligibility`),
+        #: in binding order, each once by identity. Replaced, never mutated in
+        #: place, under the lock.
+        self._engine_planes: tuple[ControlPlaneProtocol, ...] = ()
 
     #: No other process reaches these queues (``D-IMPL-378``).
     scope = "process"
+
+    def bind_approver_eligibility(self, control_plane: ControlPlaneProtocol) -> None:
+        """Judge approval-gate verdicts against ``control_plane`` at :meth:`submit`.
+
+        SDK-defined (CLAUDE.md §8.2; SEC-006, `D-IMPL-366`; the security
+        close-out's map B item 3, ``D-GATE-357`` (2)). Called by
+        :class:`~ccf_runtime.workflow.engine.WorkflowEngine` at construction
+        with the engine's own Control Plane — the plane whose pinned
+        ``ccf.approval-policy`` versions the engine's authority predicate
+        judges — so a verdict (``approve`` or ``reject``, the actions the
+        engine's conflict population counts) on an approval-gate event that
+        names an approval policy is judged by the same
+        :func:`check_approver_eligibility`, before attestation, and a refused
+        one is recorded nowhere. An ``annotate`` or ``override``, and any
+        action on an event that names no policy (a gate the engine never
+        passes, `D-IMPL-366`), is judged only by a plane given at construction,
+        as before. Binding a plane already bound is a no-op, so an engine
+        rebuilt over the same pair builds again; a second engine's different
+        plane is ADDED, and a verdict must then satisfy every bound plane
+        (fail-closed).
+
+        Nothing else changes: the HITL policy (signed bindings, the
+        ``hitl_policy_ref`` stamp) still resolves only through the Control
+        Plane given at construction, and a ``missing``-state submission is
+        still recorded unjudged (`D-IMPL-366` H2).
+        """
+        with self._lock:
+            if all(plane is not control_plane for plane in self._engine_planes):
+                self._engine_planes = (*self._engine_planes, control_plane)
+
+    def _eligibility_judges_locked(
+        self, action: str, event: PendingHitlEvent | None
+    ) -> tuple[ControlPlaneProtocol, ...]:
+        """The Control Planes that judge a submission of ``action`` on ``event``.
+
+        CALLER HOLDS THE LOCK; the caller judges approval-gate events only. The
+        plane given at construction judges every action, exactly as before.
+        The planes engines bound (:meth:`bind_approver_eligibility`) judge
+        exactly the submissions that could hold a gate that could otherwise
+        pass (map B item 3), each plane once by identity: a verdict the
+        engine's conflict population counts (:data:`_GATE_VERDICTS`), on an
+        event that names an approval policy. An event that names none
+        authorizes no verdict at the engine (fail-closed, `D-IMPL-366`), so its
+        gate never passes and a verdict on it holds nothing. Empty for a
+        transport constructed without a plane and composed into no engine:
+        nothing is judged.
+        """
+        own: tuple[ControlPlaneProtocol, ...] = (
+            () if self._control_plane is None else (self._control_plane,)
+        )
+        if action not in _GATE_VERDICTS or event is None or event.policy_ref is None:
+            return own
+        return own + tuple(
+            plane for plane in self._engine_planes if plane is not self._control_plane
+        )
 
     @property
     def hitl_policy_key(self) -> str | None:
@@ -1390,13 +1492,18 @@ class InMemoryHitlTransport:
         unstamped fallback leg today, with no race at all.
 
         **Approver eligibility (SEC-006; `D-IMPL-366`).** With a Control Plane
-        bound, a submission against an APPROVAL-GATE event is judged by
-        :func:`check_approver_eligibility` — after the capability and the
-        principal check, BEFORE attestation (G2 (a)) — against a snapshot of
-        the selected event taken under the lock (§4b step 3). Other event
-        classes are not judged (G6 (a)); a ``missing`` event judges nothing
-        and is recorded as ``missing`` (H2). Under the one lock acquisition
-        that records, the event and its state are REVALIDATED against the
+        bound — at construction, or by a workflow engine composed over this
+        transport (:meth:`bind_approver_eligibility`; map B item 3) — a
+        submission against an APPROVAL-GATE event is judged by
+        :func:`check_approver_eligibility`, once per bound plane, each of which
+        must admit it (an engine's plane judges only the verdicts ``approve``
+        and ``reject``, on an event that names an approval policy) — after the
+        capability and the principal check, BEFORE attestation (G2 (a)) —
+        against a snapshot of the selected event taken under the lock (§4b
+        step 3). Other event classes are not judged (G6 (a)); a ``missing``
+        event judges nothing and is recorded as ``missing`` (H2). Under the
+        one lock acquisition that records, the event and its state are
+        REVALIDATED against the
         snapshot first (6a, :class:`HitlEventRevalidationRefused`), then the
         nonce is consumed, then the claim is popped and the copy recorded with
         ``approval_policy_ref``, ``requested_by`` and ``event_state_at_submit``
@@ -1408,8 +1515,9 @@ class InMemoryHitlTransport:
                 ``Authorized[HitlSubmit]`` for ``submission.event_key``.
             PrincipalMismatchRefused: the binding's subject is not
                 ``authorized.principal``.
-            ApproverNotEligible: the Control Plane is bound, the event is an
-                approval gate, and the principal may not approve it under the
+            ApproverNotEligible: a Control Plane is bound (at construction or
+                by a workflow engine), the event is an approval gate, and the
+                principal may not approve it under the
                 pinned ``ccf.approval-policy`` — including a missing, unresolvable
                 or wrong-class policy ref, a missing requester, or the requester
                 approving their own gate (SEC-006; `D-IMPL-366`).
@@ -1442,20 +1550,23 @@ class InMemoryHitlTransport:
         # frozen event (or None) that every judgment below reads.
         with self._lock:
             event, state = self._snapshot_locked(tenant, submission.event_key)
+            judges = self._eligibility_judges_locked(submission.action, event)
         # Step 4: eligibility, outside the lock, BEFORE attestation (G2 (a)),
         # for approval-gate events only (RULED). Missing: nothing is judged,
-        # and the submission is recorded as such below (H2).
-        if (
-            self._control_plane is not None
-            and event is not None
-            and event.event_class == APPROVAL_GATE_EVENT_CLASS
-        ):
-            check_approver_eligibility(
-                policy_ref=event.policy_ref,
-                requested_by=event.requested_by,
-                subject_id=authorized.principal,
-                control_plane=self._control_plane,
-            )
+        # and the submission is recorded as such below (H2). Every bound plane
+        # judges — the construction plane any action, each engine's a verdict
+        # on an event naming a policy (map B item 3) — so an engine-composed
+        # transport built without a plane still refuses a verdict by a
+        # principal its gate policy does not admit, before anything is
+        # recorded.
+        if event is not None and event.event_class == APPROVAL_GATE_EVENT_CLASS:
+            for plane in judges:
+                check_approver_eligibility(
+                    policy_ref=event.policy_ref,
+                    requested_by=event.requested_by,
+                    subject_id=authorized.principal,
+                    control_plane=plane,
+                )
         resolved = resolve_hitl_policy(
             control_plane=self._control_plane,
             hitl_policy_key=self._hitl_policy_key,

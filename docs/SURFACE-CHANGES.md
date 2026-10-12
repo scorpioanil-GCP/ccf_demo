@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2659 entries**, of which **2377** name a public Python surface.
+**2662 entries**, of which **2380** name a public Python surface.
 
 ## Added
 
@@ -31463,7 +31463,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-577 entries — 538 public Python surface, 39 not public Python API.
+580 entries — 541 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39518,6 +39518,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none; construct through `open_door` / `open_door_with_verifier`
 
 *Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
+
+#### ccf.hitl.transport.InMemoryHitlTransport
+
+- Surface: ccf.hitl.transport.InMemoryHitlTransport
+- Public surface: true
+- Change type: behavior
+- Before: an approval-gate verdict was judged for approver eligibility at `submit` only when a Control Plane was given at construction; a transport constructed without one judged nothing, including when a `WorkflowEngine` was composed over it.
+- After: a new method, `bind_approver_eligibility(control_plane)`, adds a Control Plane that judges approval-gate verdicts at `submit` (each plane once, by identity). The planes that judge an `approve` or `reject` on an approval-gate event that names an approval policy are the construction plane, if any, and every bound plane; each must admit it, through the same `check_approver_eligibility`, before attestation, and a refused verdict records nothing (`ApproverNotEligible`; `approver-not-eligible` at both doors). `annotate` and `override`, and any action on an approval-gate event that names no policy (a gate the engine never passes, fail-closed under `D-IMPL-366`), are judged by the construction plane alone, as before. The HITL policy (signed bindings, the `hitl_policy_ref` stamp) still resolves only through the construction plane. A transport constructed without a plane and bound by no engine judges nothing, as before.
+- Why: map B item 3; the batch GO above. Red tests: `tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_is_refused_at_submit` (the former `test_an_ineligible_principals_opposite_verdict_still_holds_the_gate`, inverted as the acceptance records) and `::test_the_eligible_approval_passes_the_gate_after_the_ineligible_verdict_is_refused`.
+- Migration: none for a deployment that binds a Control Plane at construction to the same plane its engine uses. On a transport constructed without one and composed into an engine, an `approve` or `reject` on an event that names an approval policy, by a principal that policy does not admit, by the requester, or where the policy is unresolvable or of the wrong class or the event names no requester, is now refused at submit instead of recorded. Such a verdict could never authorize passage.
+
+*Recorded by `20261012-20-an-engine-composed-transport-judges-approver-eligibility.md`.*
+
+#### ccf.hitl.InMemoryHitlTransport
+
+- Surface: ccf.hitl.InMemoryHitlTransport
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.hitl.transport.InMemoryHitlTransport`
+- After: as for `ccf.hitl.transport.InMemoryHitlTransport`
+- Why: as for `ccf.hitl.transport.InMemoryHitlTransport`
+- Migration: as for `ccf.hitl.transport.InMemoryHitlTransport`
+
+*Recorded by `20261012-20-an-engine-composed-transport-judges-approver-eligibility.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the engine composed any transport offering the whole `HITLTransportProtocol` with a declared scope, whether or not it judged approver eligibility.
+- After: at construction the engine calls the transport's `bind_approver_eligibility` with its own Control Plane, and refuses, by name (`WorkflowWiringError`, "offers no bind_approver_eligibility"), a transport that offers none. The refusal precedes every binding, so a refused construction binds nothing. The method is not a member of `HITLTransportProtocol`: a transport the HITL primitives use without an engine need not offer it.
+- Why: map B item 3; the batch GO above. Test: `tests/workflow/test_conflict_population_eligibility.py::test_an_engine_refuses_a_transport_it_cannot_bind_for_eligibility`.
+- Migration: a third-party transport composed into a `WorkflowEngine` adds `bind_approver_eligibility(control_plane)` and judges every `approve` or `reject` on an approval-gate event that names an approval policy at `submit` with `ccf.hitl.transport.check_approver_eligibility` against that plane, before recording. The engine cannot see whether a transport that offers the method does so.
+
+*Recorded by `20261012-20-an-engine-composed-transport-judges-approver-eligibility.md`.*
 
 ### Not public Python API
 

@@ -2414,16 +2414,28 @@ the same id is refused "already exists".
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
-  gate (code reading). Three kinds of principal can hold a gate this way:
-  - any eligible approver, on a transport bound to a Control Plane;
-  - on a transport constructed without a Control Plane, which judges no
-    eligibility, any holder of `HitlSubmit` for the event
-    (`tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_still_holds_the_gate`);
+  gate (code reading). Two kinds of principal can hold a gate this way:
+  - any eligible approver;
   - on any transport, a principal whose verdict is recorded after the gate
     primitive claimed the gate's event and before the gate closed. No event
     is left to judge it against, so it is recorded unjudged, and it still
     counts as a disagreement (`D-IMPL-366` H2;
     `tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict`).
+
+  While the gate's event is still queued, a principal the gate's approval
+  policy does not admit can no longer hold the gate, on the transport a
+  `WorkflowEngine` is composed over, even when that transport was
+  constructed without a Control Plane (dated 2026-10-12). The engine binds
+  its own Control Plane into the transport at construction
+  (`InMemoryHitlTransport.bind_approver_eligibility`), and the transport
+  refuses that principal's `approve` or `reject` at submit, before anything
+  is recorded; the doors answer `approver-not-eligible`
+  (`tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_is_refused_at_submit`).
+  The second kind above is unchanged: once the gate primitive's own verdict
+  has consumed the event, nothing is left to judge a later verdict against.
+  The engine refuses at construction a transport that offers no
+  `bind_approver_eligibility`. It cannot see whether a third-party transport
+  that offers one judges what it is bound to judge.
 
   Reconcile such an execution outside the fabric, and grant `HitlSubmit` for
   an approval gate's events only to its approvers.
