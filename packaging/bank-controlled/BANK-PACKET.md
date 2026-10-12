@@ -80,6 +80,44 @@ provenance matches the version, and that the CLI runs.
 
 ## 4. Verification on the final code commit
 
+### 4.0 The 2026-10-12 improvement batch (Dave's 08:45 GO)
+
+Three packages, built on branch `batch-1012` and merged to `main` only after
+these checks passed on the candidate `0af000f0`:
+
+- **A. The HTTP product door's existence leak.** An entitled caller asking
+  for an undeclared product class now gets the reply an unentitled caller
+  gets for a real class: the same status, headers and body, apart from the
+  per-answer replay reference. The internal reason is on the record only.
+- **B. Approval eligibility at submit.** A `WorkflowEngine` binds its Control
+  Plane into its approval transport, and the reference transport refuses an
+  ineligible `approve`/`reject` on a policy-named gate event before it is
+  recorded. An outsider can no longer wedge a gate with a conflicting
+  verdict.
+- **C. SEC-020 package, designs 1.1 + 1.2 + 1.3** (MCP versioned-URI
+  resolution, write-then-read, and governed evidence through the erasure
+  door), on the reading of Dave's 2026-10-09 10:54 ruling that keeps the
+  uniform "cannot verify".
+
+| check, on the candidate | result |
+|---|---|
+| Full regression suite (`b468cee4`; `0af000f0` adds one docstring) | 14,422 passed, **1 failed** (the version stamp, no tag). **The 21 SEC-020 gate cases now pass.** No new failing id |
+| `mypy` / lints / tools tests / product gates / perf smoke | 0 errors / 0 / 1,403 passed / 519 of 519 / 10 passed |
+| MCP, erasure, invariant and tools suites on `0af000f0` | 4,105 passed |
+| Every example default command and the example tests, on `0af000f0` | identical to the morning roster: 35 of 37 serve a product to a client; the same 3 failures and 5 errors, all carried (below) |
+| Both Hello World tutorials, on `0af000f0` | identical addresses (below) |
+| Bank configuration, on `0af000f0` | 16 of 16 |
+| Each package's own proof | a test red on the base and green after, plus severings that turn it red again (A: 1, B: 1, C: 5), each restored and hash-checked |
+| One focused independent review (Cursor, the diff inlined, citations checked against the tree) | 0 critical, 0 high, 1 medium: a stale docstring on `match_artifact_subject`, corrected in `0af000f0` |
+
+Existing tests whose expectations moved, each a consequence of a recorded
+ruling and named in its commit: none in A; in B, the inverted defect test (`test_an_ineligible_principals_opposite_verdict_is_refused_at_submit`)
+plus three engine-site controls rebuilt over a transport that judges nothing
+(assertions unchanged), and seven in C (the six the design predicted, plus
+one cause-only assertion).
+
+### 4.1 The Tuesday handoff measurements
+
 The examples were measured on `c0c43b26`. Everything that the nine type
 corrections (`cc9e83ab`) could affect was measured again on the final code:
 the type check, the full suite, lint, tools tests, product gates, perf
@@ -134,7 +172,13 @@ red. The declared set `{NL, US-DE}` is unchanged.
 
 ## 4a. Hosted CI
 
-**Estimated cost, recorded before launch:** about 67 billed Linux minutes
+**The batch merge's hosted run. Estimated cost, recorded before launch:**
+about 45 billed Linux minutes, from the last run's jobs (tests 32, docs 5,
+lint 5, examples 2), which is about **$0.36** at $0.008 a minute, with
+October's free quota already used. Results are recorded after the run, in
+the follow-up commit.
+
+**Earlier, for the Tuesday handoff. Estimated cost, recorded before launch:** about 67 billed Linux minutes
 (the previous run, `38222562272`, ran its jobs for 51.3 + 6.0 + 5.4 + 1.7
 minutes, and GitHub rounds each job up). At $0.008 a minute, with October's
 free quota already used, that is about **$0.54**. The previous commit is not
@@ -179,8 +223,35 @@ break that turns it red), with where each was tested:
   (D-IMPL-381). *Control Plane registry, in-process.*
 - An entitled caller asking for an undeclared product class gets the same
   reply as an unentitled one, so the reply does not reveal whether the class
-  exists (R5-CP17-F01). *The standard MCP door only. The HTTP door still
-  distinguishes the case (listed under "still open").*
+  exists (R5-CP17-F01). *The standard MCP door, and since the 2026-10-12
+  batch, the HTTP API product door (package A, tested through the HTTP app;
+  not under the bank configuration, which serves MCP).*
+- An ineligible approver's `approve`/`reject` on a policy-named approval-gate
+  event is refused at submit by the reference transport once a
+  `WorkflowEngine` is composed over it (package B). *In-process SDK; the bank
+  configuration exposes no approval surface.*
+- SEC-020's closing gate, `test_a_pin_filed_in_one_deployment_reads_alike_in_both`,
+  passes all 21 cases that failed: MCP versioned-URI resolution, write-then-read
+  for the asker and for a second principal, and the erasure door's governed
+  evidence (package C). *Tested over the MCP artifact server in-process and in
+  the two-deployment gate; not under the bank configuration, which exposes no
+  artifact server.* **SEC-020 itself stays open** (below).
+
+**Functionality removed by the batch** (each a deliberate restriction):
+
+- On the HTTP product route, every authorizer deny now answers 404, not 403,
+  matching MCP. The audit log still names which axis failed.
+- Ineligible gate verdicts are no longer recorded on an engine-composed
+  reference transport. A third-party transport must offer
+  `bind_approver_eligibility` to be composed into a `WorkflowEngine`. One
+  transport shared by engines with different Control Planes needs every plane
+  to admit a verdict.
+- Over MCP, another principal of the tenant can no longer resolve a governed
+  record it may not read, and nobody can resolve a query pin, an admitted
+  child contract or a child question. The MCP erasure door's credential needs
+  `artifact.subject.match` for every address, so it cannot erase ordinary
+  client filings without it. A new door client is refused for every address
+  by an older artifact server, so the server is upgraded first.
 
 **Constrained by this deployment, not fixed in the SDK:**
 
@@ -191,11 +262,23 @@ break that turns it red), with where each was tested:
 
 **Still open (named, not closed):**
 
-- **SEC-020**: 21 standing test ids in `tests/products/test_sec020_combined_proof.py`.
+- **SEC-020**, though its closing gate's 21 cases now pass. Still open:
+  the reported limitation blocks, unchanged (D1 (a) 30/88, P6 24/44, E2 (ii)
+  82/82); the shared-owner inspection that admits once its bound is reached
+  in a long-running service (16 (C), unbuilt); its walk's blind spots; a
+  composite child's decision record that names the stand-in; question stores
+  reachable by a raw writer of the store directory; a store's own `get`, which
+  checks nothing; timing (one extra read per question, measured at one
+  scale); and the write timing over the wire, which is disclosed but not
+  measured. SEC-020 closes only on Dave's ruling.
+- Approval: a verdict submitted after a gate resolves is recorded unjudged
+  and counts as a conflict (the D-IMPL-366 H2 rule; changing it needs a
+  ruling); escalation-class events under a gate's key are not judged (found
+  by code reading); there is no supported way to reopen a conflicted gate;
+  and durable approval identity across stores (design 1.4's remainder) is
+  unbuilt.
 - **SEC-027**: the PyPI name reservation; Dave's upload.
 - **SEC-029**: the release version stamp; no tag exists.
-- The HTTP door distinguishes an undeclared product class by status code
-  (403 vs 404).
 - A paved-road resource read without a request raises instead of refusing.
 - Designs 1.5 (audit recovery) and 1.6 (record authenticity).
 - R-1 (harness process-id reuse), R-2 (empty-tenant wording), R-3
