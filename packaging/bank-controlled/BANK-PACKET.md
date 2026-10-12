@@ -22,8 +22,8 @@ by nobody else.
 
 | item | where |
 |---|---|
-| Source commit | **`2cd96aef8050210c30b177f65f47017fb0a30555`**: the commit the final hosted run ran on, and the commit the wheel was built from. Later commits on `main` change this page and the decision log only |
-| Wheel and checksums | `ccf_sdk-1.0.2.dev1551+g2cd96aef8-py3-none-any.whl`, sha256 `69a9a7a5d9b1e5ee735f4f6ded271c827403940911700f74667d2d91b5677c18`, built from `2cd96aef` in a clean detached worktree; `SHA256SUMS` sits next to the wheel |
+| Source commit | **`01fc424d92f8d15856d5f277e9cf18ef59bc7883`**: the commit the final hosted run ran on, and the commit the wheel was built from. Its code is the checked candidate `0af000f0`; the merge commit adds this page and the decision log only. Later commits on `main` change this page only |
+| Wheel and checksums | `ccf_sdk-1.0.2.dev1564+g01fc424d9-py3-none-any.whl`, sha256 `186c9b73960c250a51e8c0ad7952721d9ca80d71055655933b09092c1fa8e9cc`, built from `01fc424d` in a clean detached worktree; `SHA256SUMS` sits next to the wheel. It replaces the Tuesday handoff wheel (`ccf_sdk-1.0.2.dev1551+g2cd96aef8`, sha256 `69a9a7a5…7c18`) |
 | Tested deployment configuration | `packaging/bank-controlled/`: `launch.sh`, `stop.sh`, `verify.py`, `instance.env.example`, `question.yaml` |
 | Example commands and transcripts | every example's default command and tests, run on the final code commit (section 4) |
 | Installation and security docs | `public/how-to/security-and-deployment.md`, `public/tutorial/`, this page |
@@ -54,7 +54,7 @@ python packaging/bank-controlled/verify.py <instance-root> <sdk-tree>
 packaging/bank-controlled/stop.sh <instance-root>
 ```
 
-**Measured on `c0c43b26` and again on the final `2cd96aef`: 16 of 16 checks passed.** The instance served the
+**Measured on `c0c43b26`, on `2cd96aef`, and again on the batch candidate `0af000f0`, whose code the final `01fc424d` carries unchanged: 16 of 16 checks passed each time.** The instance served the
 demonstration question (content address `611f5dac…03ae`) and refused a
 question for another tenant. Transcript: `bank-launch.txt`,
 `bank-verify.txt`.
@@ -109,6 +109,8 @@ these checks passed on the candidate `0af000f0`:
 | Bank configuration, on `0af000f0` | 16 of 16 |
 | Each package's own proof | a test red on the base and green after, plus severings that turn it red again (A: 1, B: 1, C: 5), each restored and hash-checked |
 | One focused independent review (Cursor, the diff inlined, citations checked against the tree) | 0 critical, 0 high, 1 medium: a stale docstring on `match_artifact_subject`, corrected in `0af000f0` |
+| Wheel (`verify_wheel.sh`), from the merge commit `01fc424d` | 5 of 5: version names the commit, imports come from the wheel, adapter provenance matches, CLI runs |
+| Hosted CI on the merge commit `01fc424d` | **every job and step passed** (section 4a) |
 
 Existing tests whose expectations moved, each a consequence of a recorded
 ruling and named in its commit: none in A; in B, the inverted defect test (`test_an_ineligible_principals_opposite_verdict_is_refused_at_submit`)
@@ -178,6 +180,32 @@ lint 5, examples 2), which is about **$0.36** at $0.008 a minute, with
 October's free quota already used. Results are recorded after the run, in
 the follow-up commit.
 
+**Run `38287169568` on `01fc424d`: completed, conclusion success.** Every job
+and every step passed. By job:
+
+| job / step | result |
+|---|---|
+| lint + `mypy --strict` | **pass**: lint checker tests 982, product-gate checker tests 48, version-stamp gate tests 15 |
+| docs gate (strict build and publish scan) | **pass**: 373 checker tests |
+| examples suite | **pass** |
+| quick suite (includes `tests/perf_smoke`) | **13,919 passed, 0 failed**, 82 skipped, 3 xfailed. **The 21 SEC-020 cases that failed in `38264811239` pass** |
+| harness adapter conformance (three legs) | **pass**: 448 passed |
+| Postgres, SEC-013 Postgres lease, Neo4j, MongoDB and Fluree legs | **pass**: 363, 1, 29, 38 and 306 passed |
+| coverage (informational) | ran, 13,919 passed |
+
+The badge is green because package C fixed what the 21 cases test. Seven existing
+tests' expectations moved in package C, each a consequence of a recorded ruling
+and named in its commit (section 4.0). No expectation or CI setting was changed
+to turn the badge green. **Green does not mean SEC-020 is closed**: its
+remaining limitations are listed in section 5, and these 21 cases do not test
+them.
+
+**Actual billed time: about 76 minutes** (tests 62, docs 6, lint 6, examples 2,
+each job rounded up), **about $0.61**, over the $0.36 estimate. The estimate came
+from a run whose quick suite failed. That skips the informational coverage step,
+which re-runs the quick suite under coverage for 30 minutes. The coverage step runs
+whenever the quick suite passes, so expect about 76 minutes for a passing run.
+
 **Earlier, for the Tuesday handoff. Estimated cost, recorded before launch:** about 67 billed Linux minutes
 (the previous run, `38222562272`, ran its jobs for 51.3 + 6.0 + 5.4 + 1.7
 minutes, and GitHub rounds each job up). At $0.008 a minute, with October's
@@ -196,7 +224,7 @@ carried SEC-020 ids alone.** By job:
 | Postgres, SEC-013 Postgres lease, Neo4j, MongoDB and Fluree legs | **pass** |
 | quick suite (includes `tests/perf_smoke`, 10 tests) | 13,865 passed; **21 failed, all carried SEC-020** (`tests/products/test_sec020_combined_proof.py::test_a_pin_filed_in_one_deployment_reads_alike_in_both[...]`); no other id |
 
-The badge is red, and that is accurate: SEC-020 is open. No test expectation or
+That run's badge was red, and that was accurate: those 21 SEC-020 cases were failing. No test expectation or
 CI setting was changed to turn it green. Actual billed time was about 44
 minutes (32 + 5 + 5 + 2), about $0.35, under the estimate.
 
