@@ -278,3 +278,7 @@ boundary, entitlement or tolerance was widened. The history of each tree before 
 Default debt tolerance: **not raised anywhere in this round.** cp-23's default, withheld in round 1 when asked at the
 real clock, SERVES at its pinned instant on the development clock (D_c 0.9425, `forced_llm`), so no tolerance move was
 required.
+
+## cp-03-canonical default question (coordinator, 2026-10-11 evening; Dave rulings 1 and 17:51)
+
+- cp-03-canonical-obligor-financial-spread · `ccf_config.yaml` declares the labelled `demonstration_serve_instant` 2026-09-07T12:05Z (the anchor cp-06-canonical, dr-01, dr-02 and cp-14 share); `run.py` `--asked-at` now defaults to the demonstration instant 2026-09-07T12:00Z (`now` asks at the wall clock and is refused `asked-at-outside-temporal-bound`), and `--debt-tolerance` defaults to an illustrative 0.90 (dated estate reads D_c 0.8433; 0.25, CP-14's own, is refused `tolerance-exceeded`). Before: the default command was refused `ttl-bounds`. After: served, expires 2026-09-09T00:00Z.

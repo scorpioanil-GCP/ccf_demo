@@ -518,3 +518,15 @@ door:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEMONSTRATION SERVE INSTANT (amended 2026-10-11; Dave's ruling 1 of
+# 2026-10-11 16:23: "For historical time-based demonstrations, retain the dated
+# scenario and use the existing, explicitly labelled development-clock
+# mechanism"). The demonstration question is asked at CP-14's instant,
+# 2026-09-07T12:00Z; this deployment SERVES as of five minutes later, the one
+# time anchor cp-06-canonical, dr-01, dr-02 and cp-14 share. Development only:
+# the SDK refuses this declaration outside its development substrates. A
+# question asked now, on the real clock, is refused as expired (an ordinary
+# passing test).
+demonstration_serve_instant:
+  serve_instant: "2026-09-07T12:05:00+00:00"
