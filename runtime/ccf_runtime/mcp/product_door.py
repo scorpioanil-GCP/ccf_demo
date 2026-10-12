@@ -404,7 +404,13 @@ def open_door(
     the retrieve action on exactly the declared class for the declared tenant,
     registered into the same Control Plane and **pinned at the version that
     registration returns**, so a later registration under the key cannot
-    widen a running door (``SEC-002``). The two seams that remain overridable
+    widen a running door (``SEC-002``). **Several principals** (G4-F-04; Dave,
+    2026-10-11, ruling 4): a deployment that declares its
+    ``ccf.product-entitlement-policy`` in ``ccf_config.yaml``
+    (``product_entitlement:``) has it registered by its own composition at
+    :func:`~ccf.products.product.open_product`, and the door composes OVER it —
+    its one-principal default is registered only where the tenant's key holds
+    nothing. The two seams that remain overridable
     are typed for the common partial departures — a role derived from scopes,
     several principals; a deployment with its own identity provider opens the
     same door through :func:`open_door_with_verifier`, and one that departs
@@ -590,24 +596,30 @@ def _compose(
     # not serve. Into the product's ONE registry: the per-question resolver
     # and the door read the same policy. Under a `Register` minted by this
     # composition root for exactly that key (D-IMPL-354).
-    product.control_plane.register_typed(
-        _registration(
-            product.control_plane,
-            tenant=tenant, key=product_entitlement_key(tenant_id=tenant),
-            clock=now,
-        ),
-        ProductEntitlementPolicy(
-            tenant_id=tenant,
-            policy_version=product.declaration.schema_version,
-            principals={
-                principal: ProductEntitlementGrant(
-                    permitted_schema_names=frozenset({product.declaration.schema_name}),
-                    permitted_roles=frozenset({role}),
-                )
-            },
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
-    )
+    #
+    # G4-F-04 (Dave, 2026-10-11 16:23 MST, ruling 4): a deployment that DECLARED
+    # its entitlement policy (`product_entitlement:`, registered by its own
+    # composition at open) is composed OVER, never replaced: the door registers
+    # its one-principal default only where the tenant's key holds nothing.
+    if not product.control_plane.versions(product_entitlement_key(tenant_id=tenant)):
+        product.control_plane.register_typed(
+            _registration(
+                product.control_plane,
+                tenant=tenant, key=product_entitlement_key(tenant_id=tenant),
+                clock=now,
+            ),
+            ProductEntitlementPolicy(
+                tenant_id=tenant,
+                policy_version=product.declaration.schema_version,
+                principals={
+                    principal: ProductEntitlementGrant(
+                        permitted_schema_names=frozenset({product.declaration.schema_name}),
+                        permitted_roles=frozenset({role}),
+                    )
+                },
+            ),
+            PRODUCT_ENTITLEMENT_POLICY,
+        )
 
     # The scope mapping the door's authorizer decides under (`D-IMPL-353`):
     # the declared scope reaches the declared tenant for exactly the retrieve

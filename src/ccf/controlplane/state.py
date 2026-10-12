@@ -97,6 +97,7 @@ from ccf.authz.capability import (
     Authorized,
     Execute,
     Resume,
+    DeclaredSkillGrant,
     SkillGrant,
     SkillRevoke,
     verify,
@@ -225,6 +226,9 @@ STATE_WRITE_KINDS: Final[tuple[type[ActionKind], ...]] = (
     Resume,
     SkillGrant,
     SkillRevoke,
+    # Ruling 4 (Dave, 2026-10-11): the composition root's declared grant writes the
+    # same grant state records, under its own distinct kind.
+    DeclaredSkillGrant,
 )
 
 #: The static type of ``put``'s first parameter — the union of the four, so a
@@ -234,6 +238,7 @@ StateWriteAuthority: TypeAlias = (
     | Authorized[Resume]
     | Authorized[SkillGrant]
     | Authorized[SkillRevoke]
+    | Authorized[DeclaredSkillGrant]
 )
 
 

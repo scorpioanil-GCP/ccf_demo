@@ -97,6 +97,11 @@ from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 # `ccf.controlplane.demonstration_serve_instant`, which imports `artifact_base`
 # rather than this module, so the direction stays acyclic.
 from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
+# G4-F-04 (Dave, 2026-10-11, ruling 4; SDK-defined): `ccf.product-entitlement-policy`
+# is manifest-addressable (the `product_entitlement:` section), and its constant
+# is re-exposed here on the same terms; the contract stays in
+# `ccf.products.entitlement`, which imports `artifact_base` rather than this module.
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY
 from ccf.halflife.assessment import (
     NO_OBLIGATION_IN_FORCE,
     NO_SIGNAL_OBLIGATIONS,
@@ -2491,6 +2496,18 @@ class DeploymentConfig(VersionedArtifact):
     door: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # Several principals on the standard door (G4-F-04; Dave, 2026-10-11 16:23
+    # MST, ruling 4; SDK-defined, CLAUDE.md §11): the deployment's
+    # `ccf.product-entitlement-policy`, declared as Control Plane DATA, derived
+    # like `temporal_boundary:` (body verbatim, key per tenant, bookkeeping keys
+    # refused, the body's `tenant_id` held equal to the deployment's) and
+    # registered by SDK composition code — `open_product` at open, and every
+    # boot. ABSENCE MEANS the door's own one-principal policy, as before.
+    # Hash-transparent at `None`, so every config that declares none keeps its
+    # content identity.
+    product_entitlement: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     agent: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
@@ -2502,6 +2519,17 @@ class DeploymentConfig(VersionedArtifact):
     # held equal wherever it restates one. Hash-transparent at ``None`` on the
     # `replay` precedent: a config declaring no skills hashes as it did.
     skills: Mapping[str, Mapping[str, Any]] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # Ruling 4 (Dave, 2026-10-11 16:23 MST; SDK-defined, CLAUDE.md §11): the
+    # skills the deployment DECLARES granted to its `agent:` — a list of
+    # `skills:` labels. `open_product` requests each through the grant ledger
+    # at composition (the policy-regime compatibility check, the regime's
+    # approval sink, the audit and state records a door grant gets); a skill
+    # declared under `skills:` but not listed here is not granted, and the
+    # paved road refuses it `GrantNotInForce` as before. Hash-transparent at
+    # `None`: a config declaring no grants hashes as it did.
+    grants: tuple[str, ...] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 

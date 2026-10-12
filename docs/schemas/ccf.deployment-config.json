@@ -105,6 +105,22 @@
       "default": null,
       "title": "Door"
     },
+    "grants": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Grants"
+    },
     "half_life": {
       "anyOf": [
         {
@@ -197,6 +213,20 @@
       "additionalProperties": true,
       "title": "Product Class",
       "type": "object"
+    },
+    "product_entitlement": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Product Entitlement"
     },
     "replay": {
       "anyOf": [

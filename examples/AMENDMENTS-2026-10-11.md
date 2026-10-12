@@ -101,3 +101,34 @@ One line per repair: example · file · what changed · why · finding id. Histo
 - s1-00-companies-over-revenue · README.md §1, §2, §4, §5 · prerequisites; the measured output with run-varying values marked; how to reproduce an address; the provokable refusals; the test commands; the old output kept under "History"; §5's claim "HW-2 reuses this product unchanged" corrected to what is measured (same class and request contract, a different deployment and data; the hw1 client cannot reach this example) · ruling 1 + Dave's step 4/5 · R2-S100-F01, R2-S100-F04
 - s1-01-hello-context-product · README.md · the reproducible disposable Fluree command (`--name ccf-s1-01-fluree --memory 4g`, readiness check, `docker stop`), `python` → `.venv/bin/python` (no `python` on PATH), the measured output with the per-answer replay addresses marked, the test commands; the fourth (ad-hoc) question now asks as of now — its pinned 2026-08-01 instants were refused `ttl-bounds` (an ad-hoc question has no declared service period and is served on the real clock) · ruling 1 + ruling 5 · R2-S101-F01, R2-S101-F02
 - Makefile · comments on `example-s1-00` (asks as of now; run-varying values) and `example-s1-01` (the disposable server command); recipes unchanged · step 5 · R2-S100-F01, R2-S101-F01
+## SDK round 2, item 1 — several principals on the standard door (G4-F-04), 2026-10-11
+
+Dave, 16:23 MST, ruling 4. `server/serve.py::entitle` registered a three-grant `ProductEntitlementPolicy` by hand,
+which D-IMPL-353 refuses (`CapabilityBypassError`). The SDK now takes the policy as a declared `product_entitlement:`
+section in `ccf_config.yaml`, registered by composition at `open_product`; the standard door composes over it.
+
+| Example | What changed |
+| --- | --- |
+| cp-15 | `ccf_config.yaml` declares `product_entitlement:` with the three grants `entitle()` used to register (PRIN-KYC-004 kyc-analyst, PRIN-COV-001 coverage-banker, PRIN-RES-002 research-analyst — the roles the estate's `ccf_v2.principal.perspective` names); `server/serve.py::entitle` and its two calls are removed. PRIN-TRD-003 stays undeclared (the negative control). Recorded friction: each granted role is now stated in the config AND read from the estate; a disagreement is refused `product-role-ungranted`, never served. |
+
+Other paved-road doors (cp-16..24; cp-07's bespoke door) adopt the same section; not changed in this round.
+
+## SDK round 2, item 3 — cp-14 declares its agent's grants, 2026-10-11
+
+Dave, 16:23 MST, ruling 4. cp-14 refused `GrantNotInForce` at open for all five skills: since D-IMPL-353 the paved road
+cannot grant and no example-reachable door could. The SDK now takes a `grants:` list in `ccf_config.yaml`; `open_product`
+requests each through the grant ledger at composition (tier-1 regime check, tier-2 approval rule, audit and state records).
+
+| Example | What changed |
+| --- | --- |
+| cp-14 | `ccf_config.yaml` declares `grants: [spread-ask, family-ask, exposure-ask, collateral-ask, covenant-ask]` — exactly its five `skills:`, one per required child class. Open now succeeds with the five in force (`grant_effective`, actor `ccf.composition-root`). Its served question still needs its producers: `door-cp-05-credit-exposure-rollup` does not boot (`examples/cp-05-credit-exposure-rollup/deployment.py` `FileArtifactStore` lacks `write_kinds` — the cp-05 owner's compatibility repair). |
+
+## SDK round 2, item 2 — cp-20's request-scoped optional child, 2026-10-11
+
+Dave, 16:23 MST, ruling 4. cp-20's `build_children=` factory hand-registered its agent and skill and requested its grant,
+which D-IMPL-353 refuses (`CapabilityBypassError` at open, federation on or off). The SDK now derives a declared chain
+for a `build_children=` factory (`ConsumerContext.derived_children`).
+
+| Example | What changed |
+| --- | --- |
+| cp-20 | `ccf_config.yaml` declares `skills: {peer-position-ask}`, `agent: {syndicate-co-lender-composer}` and `grants: [peer-position-ask]` (the agent and skill `artifacts/consumer-chain.yaml` carried, now derived by the SDK); `deployment.FederatedChildren.factory` wraps the derived resolver and registers nothing (`_registered_chain`, `_pinned_ref` and the ledger code removed); `produce.py` passes `questions=children.question`. The `include_federated` switch, the envelope check before dispatch, and the requirement's `required: false` + `absence_treatment` are unchanged. `artifacts/consumer-chain.yaml` is kept as the historical record. Not changed here: `tests/examples/test_cp_20_co_lender.py`'s own reader still builds `FileArtifactStore(root=...)` without `write_kinds` (15 errors, the cp-20 owner's test repair). |

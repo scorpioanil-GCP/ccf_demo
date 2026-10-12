@@ -17,11 +17,12 @@ gate construction, no ledger, no record readback. One producer — a SECOND
 ORGANIZATION's — is registered from `ccf_config.yaml`, its answer is held to
 that registration, and the child row is recorded, by the SDK.
 
-**What IS here that should not have to be**: the `build_children=` keyword.
-Every other composite on this ladder declares its chain and hands the road a
-`questions=` mapping. This one cannot, because `include_federated` is a
-request parameter and only the child-resolution seam can honor one. The cost
-is `deployment.FederatedChildren` and is measured as `CLD-F-04`.
+**What IS here beside the declared chain**: the `build_children=` keyword.
+`include_federated` is a request parameter and only the child-resolution seam
+can honor one. AMENDED 2026-10-11 (SDK round 2, G4-F-08): the chain itself is
+now declared and derived by the SDK like every other composite's, and handed
+to `deployment.FederatedChildren` (`ConsumerContext.derived_children`); the
+remaining cost, the switch and the envelope check, is `CLD-F-04`.
 """
 
 from __future__ import annotations
@@ -120,6 +121,10 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
         acquire=deployment.acquire,
         project=CoLenderPlanFactory(),
         assess=deployment.assess,
+        # G4-F-08 (amended 2026-10-11): the chain is DECLARED in ccf_config.yaml
+        # (`skills:`, `agent:`, `grants:`) and derived by the SDK from this
+        # question mapping; the factory only adds the request-scoped switch.
+        questions=children.question,
         build_children=children.factory,
         environ=environ,
     )

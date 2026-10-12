@@ -62,6 +62,7 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 from ccf.deployment.operators import build_operator_registry
 from ccf.deployment.pins import ResolvedPins
@@ -512,6 +513,29 @@ CASES: tuple[_Case, ...] = (
             "semver", "key", "class_id", "role", "registration", "tenant_id",
             "asked_at", "served_at",
         ),
+    ),
+    _Case(
+        artifact_class=PRODUCT_ENTITLEMENT_POLICY,
+        # A tenant's declared product entitlement policy (G4-F-04; Dave,
+        # 2026-10-11, ruling 4): several principals, each with its own classes
+        # and roles. The body is the policy itself, `tenant_id` included (held
+        # equal to the deployment's at derivation); no `semver`, and the four
+        # bookkeeping keys stay mechanism.
+        document={
+            "tenant_id": "acme-bank",
+            "policy_version": "1.0.0",
+            "principals": {
+                "principal-a": {
+                    "permitted_schema_names": ["acme.product"],
+                    "permitted_roles": ["role-a"],
+                },
+                "principal-b": {
+                    "permitted_schema_names": ["acme.product"],
+                    "permitted_roles": ["role-b"],
+                },
+            },
+        },
+        unknown_keys=("semver", "key", "class_id", "role", "registration"),
     ),
 )
 

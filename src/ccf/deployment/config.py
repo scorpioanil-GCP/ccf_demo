@@ -116,6 +116,7 @@ from ccf.controlplane.artifacts import (
     parse_artifact,
 )
 from ccf.products.contract import ChildRequirement, version_satisfies_floor
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitlement_key
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, skill_catalog_key
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment.classes import (
@@ -268,6 +269,10 @@ _RESERVED_BARE_TYPED_SECTIONS: Mapping[str, str] = {
     # declared serve instant. The same shape for the same reasons — one typed
     # member, no `semver`, a per-tenant key — and the same derivation below.
     "demonstration_serve_instant": DEMONSTRATION_SERVE_INSTANT.class_id,
+    # G4-F-04 (Dave, 2026-10-11, ruling 4): the tenant's product entitlement
+    # policy — several principals, each with its own permitted classes and
+    # roles. The same shape: the policy's own fields verbatim, a per-tenant key.
+    "product_entitlement": PRODUCT_ENTITLEMENT_POLICY.class_id,
 }
 
 #: How each bare typed section's key is derived — per tenant, never from the
@@ -277,12 +282,14 @@ _RESERVED_BARE_TYPED_SECTIONS: Mapping[str, str] = {
 _BARE_TYPED_SECTION_KEYS: Mapping[str, Callable[..., str]] = {
     "temporal_boundary": temporal_boundary_policy_key,
     "demonstration_serve_instant": demonstration_serve_instant_key,
+    "product_entitlement": product_entitlement_key,
 }
 
 #: What a refusal calls each bare typed section: ``(one of them, the thing)``.
 _BARE_TYPED_SECTION_NOUNS: Mapping[str, tuple[str, str]] = {
     "temporal_boundary": ("boundary", "temporal boundary"),
     "demonstration_serve_instant": ("declaration", "demonstration serve instant"),
+    "product_entitlement": ("policy", "product entitlement policy"),
 }
 
 _RESERVED_VERSIONED_SECTIONS: Mapping[str, str] = {
@@ -1583,6 +1590,31 @@ def derive_deployment(
             config_filename=config_filename,
         )
         parse_artifact(document, DEMONSTRATION_SERVE_INSTANT)
+        entries.append(entry)
+        documents[entry.key] = document
+    # G4-F-04 (Dave, 2026-10-11 16:23 MST, ruling 4; SDK-defined). DERIVED LAST,
+    # on the same ordering argument: a config with no `product_entitlement:`
+    # derives byte-for-byte what it derived before the section existed. The
+    # body is the policy itself, and its `tenant_id` is held EQUAL to the
+    # deployment's — never corrected, never adopted: a policy naming another
+    # tenant at this tenant's key is refused by name before anything is
+    # materialised.
+    _refuse_empty_section("product_entitlement", config.product_entitlement, fields_set)
+    if config.product_entitlement is not None:
+        entry, document = _derive_bare_typed_entry(
+            label="product_entitlement",
+            body=config.product_entitlement,
+            tenant_id=config.tenant_id,
+            config_filename=config_filename,
+        )
+        declared_policy = parse_artifact(document, PRODUCT_ENTITLEMENT_POLICY)
+        if declared_policy.tenant_id != config.tenant_id:
+            raise ValueError(
+                f"the `product_entitlement:` section states tenant_id"
+                f" {declared_policy.tenant_id!r} and this deployment's tenant is"
+                f" {config.tenant_id!r}; a deployment declares its own tenant's"
+                " entitlements and no other's (G4-F-04; D-IMPL-05; SEC-018)"
+            )
         entries.append(entry)
         documents[entry.key] = document
 
