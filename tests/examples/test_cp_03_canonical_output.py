@@ -50,13 +50,27 @@ SPECIMEN = REPO_ROOT / "examples" / "cp-03-obligor-financial-spread"
 #: and the content digest of every OTHER tracked file of the specimen
 #: (`tests/examples/specimen_base.py::frozen_digest`; verified byte-identical to
 #: the branch point fd902e27 when pinned).
+#: Round 4 (2026-10-11) adds `artifacts/question.yaml`: commit 9cc4e19b raised
+#: the specimen's default `debt_tolerance` 0.25 → 0.90 as a disclosed
+#: illustrative calibration (Dave 17:34, 17:51). Naming a seventh file moves
+#: the digest of the REST (0a0ff2fb… → 3085dd42…); measured 2026-10-11:
+#: `git diff --stat fd902e27 HEAD -- examples/cp-03-obligor-financial-spread/`
+#: lists exactly these seven files, so every other tracked file is
+#: byte-identical to the branch point.
 SPECIMEN_AMENDED = frozenset(
-    {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py", "run.py"}
+    {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py", "run.py",
+     "artifacts/question.yaml"}
 )
-SPECIMEN_FROZEN_DIGEST = "0a0ff2fbf8421fda75ff3510436688e0906174caaddf4b7966e0f5224566c5ab"
+SPECIMEN_FROZEN_DIGEST = "3085dd4223a705b33e4861f12ee4e871f9660b9d55131b0a06e1deb95ace1523"
 
 #: The instant `CP-SPEC-014` asks its children at — held, not tuned (`CP14-F-19`).
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
+
+#: A second `CP-SPEC-014` roster obligor whose spread SERVES at the CP-14
+#: instant (measured 2026-10-11 against `ccf_v2`: served, D_c ≈ 0.84 at
+#: tolerance 1.0), so `OFC-G24` can ask two obligors at the one shared anchor.
+#: An estate identity, not a count; added round 4.
+SECOND_SERVED_OBLIGOR = "549300TRW1LZMDJZAQ78"
 
 #: The intent and freshness this class serves — `run.py`'s own constants.
 INTENT = "annual-review"
@@ -234,6 +248,14 @@ def test_a_governed_served_product_of_the_required_class(
 THE_ONE_OPERATOR = frozenset({"policy.principal-subgraph"})
 
 
+def request_contract_binding(product: Any) -> str:
+    """The key the request-contract binding is held under: the deployment's
+    section name placed under the product's tenant (`D-IMPL-354`)."""
+    from ccf.controlplane.registry import namespaced_key  # noqa: PLC0415
+
+    return namespaced_key(tenant=product.tenant_id, key="request_contract")
+
+
 def dimension_two_problems(record: Any, product: Any) -> list[str]:
     """Every way replay dimension 2 fails to cover the product's lineage.
 
@@ -248,7 +270,12 @@ def dimension_two_problems(record: Any, product: Any) -> list[str]:
     missing = set(product.lineage.policy_bundle_versions) - versions
     if missing:
         problems.append(f"dimension 2 does not cover lineage policy version(s) {sorted(missing)}")
-    if "request_contract" not in keys:
+    # AMENDED 2026-10-11 round 4 (`examples/AMENDMENTS-2026-10-11.md`): since
+    # `D-IMPL-354` (b1ec0e5e, 2026-09-24) a deployment's Control Plane keys are
+    # PLACED under its tenant, so the binding dimension 2 carries for the request
+    # contract is keyed `{tenant}/request_contract`, never the bare section
+    # name. The comparison is exact against the SDK's own derivation.
+    if request_contract_binding(product) not in keys:
         problems.append("dimension 2 carries no request-contract binding")
     invoked = set(product.lineage.operators_invoked)
     if invoked != set(THE_ONE_OPERATOR):
@@ -640,14 +667,17 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: Any) -> Non
     the specimen is no longer untouched. The SQLite identity-lock migration
     changed `backends.yaml` and `deployment.py`; the compatibility repair moved
     the spine onto the governed resolver (`produce.py`, `deployment.py`,
-    `ccf_config.yaml`, `run.py`) and added a dated note to `README.md`. The pin
-    therefore NAMES those six files and asserts that every other tracked file
+    `ccf_config.yaml`, `run.py`) and added a dated note to `README.md`; the
+    illustrative-calibration repair (9cc4e19b, Dave 17:34 and 17:51) changed
+    `artifacts/question.yaml` (default `debt_tolerance` 0.25 → 0.90, disclosed
+    in the file; named here in round 4). The pin therefore NAMES those seven
+    files and asserts that every other tracked file
     of the specimen is byte-for-byte its frozen self, by content digest — the
     same verdict on any branch, before and after a merge, rather than a diff
     against whatever commit the branch happened to leave main at.
     """
     assert frozen_digest(REPO_ROOT, SPECIMEN, amended=SPECIMEN_AMENDED) == SPECIMEN_FROZEN_DIGEST, (
-        "a file of the frozen specimen outside the 2026-10-11 amendment"
+        "a file of the frozen specimen outside the 2026-10-11 amendments"
         f" {sorted(SPECIMEN_AMENDED)} was changed, added or removed"
     )
     assert served.product.debt.debt != Decimal("0.8782"), "the specimen's published debt figure"
@@ -687,7 +717,18 @@ def test_a_fresh_fabric_per_run_and_one_determination_across_roots(
 
     deployment, produce, _ = example_modules
     substrate = _environment()["substrate"]
-    instant = datetime(2026, 8, 29, 12, 0, tzinfo=UTC)  # the stale obligor's own serving instant
+    # AMENDED 2026-10-11 round 4 (`examples/AMENDMENTS-2026-10-11.md`; Dave's
+    # ruling 1: one time anchor per run). The deployment now serves as of its
+    # labelled `demonstration_serve_instant` (2026-09-07T12:05Z, d5a2ca08) under a
+    # one-hour temporal boundary, so the specimen's 2026-08-29 instant this gate
+    # used to ask at is refused `asked-at-outside-temporal-bound` — correctly.
+    # Both questions are now asked at the shared anchor, and the second obligor
+    # is one that SERVES there: Digital Turbine (`STALE_AT_THE_INSTANT`) is
+    # refused `ttl-bounds` at that instant, and a refusal cannot show order
+    # independence. The gate's subject — a second obligor under one scratch
+    # hashes to its address alone — is unchanged.
+    instant = CP14_INSTANT
+    second_obligor = SECOND_SERVED_OBLIGOR
 
     def question(opened: Any, lei: str) -> Any:
         return opened.question(
@@ -697,12 +738,12 @@ def test_a_fresh_fabric_per_run_and_one_determination_across_roots(
 
     with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
         first = opened.answer(question(opened, _demonstration("DEMONSTRATION_ANCHOR")))
-        second = opened.answer(question(opened, _demonstration("STALE_AT_THE_INSTANT")))
+        second = opened.answer(question(opened, second_obligor))
         minted = sorted(pathlib.Path(scratch).glob(f"{substrate['prefix']}_*{substrate['suffix']}"))
         assert len(minted) == 2 and minted[0] != minted[1], minted
     assert not _is_refusal(first) and not _is_refusal(second)
     with tempfile.TemporaryDirectory() as fresh, produce.product(pathlib.Path(fresh)) as opened:
-        alone = opened.answer(question(opened, _demonstration("STALE_AT_THE_INSTANT")))
+        alone = opened.answer(question(opened, second_obligor))
     assert not _is_refusal(alone)
     assert content_hash(second.product) == content_hash(alone.product)
     assert second.product.debt.debt == alone.product.debt.debt
@@ -805,7 +846,8 @@ def test_the_dimension_two_predicate_refuses_a_record_that_no_longer_covers_the_
             update={"policy_bindings": snapshot.model_copy(update={"bindings": tuple(b for b in snapshot.bindings if keep(b))})}
         )
 
-    without_contract = with_bindings(lambda b: b.key != "request_contract")
+    assert sum(b.key == request_contract_binding(product) for b in record.policy_bindings.bindings) == 1
+    without_contract = with_bindings(lambda b: b.key != request_contract_binding(product))
     assert any("request-contract" in p for p in dimension_two_problems(without_contract, product))
     version = next(iter(product.lineage.policy_bundle_versions))
     without_policy = with_bindings(lambda b: b.version != version)

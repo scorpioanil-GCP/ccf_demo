@@ -17,7 +17,9 @@ Usage::
 
 Every spread parameter omitted asks the question WITHOUT it, so the class
 default resolves — which is a different thing from passing the default's value,
-and the run prints which happened. ``--asked-at`` omitted asks now.
+and the run prints which happened. ``--asked-at`` omitted asks at the demonstration
+instant (amended 2026-10-11: the deployment declares a labelled demonstration serve
+instant); ``--asked-at now`` asks at the wall clock.
 
 **Named flags rather than positional arguments**, so a basis supplied without
 an anchor cannot silently land in the anchor's slot and be read as an LEI.
@@ -72,10 +74,20 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lei", default=DEMONSTRATION_ANCHOR)
     parser.add_argument(
-        "--asked-at", default=None,
-        help=f"ISO instant with offset; omit to ask now (CP-14 asks at {DEMONSTRATION_INSTANT})",
+        "--asked-at", default=DEMONSTRATION_INSTANT,
+        help=(
+            f"ISO instant with offset; omit to ask at the demonstration instant {DEMONSTRATION_INSTANT}"
+            " (CP-14's), which the deployment serves at its labelled demonstration serve instant;"
+            " 'now' asks at the wall clock, which the dated estate answers by refusing"
+        ),
     )
-    parser.add_argument("--debt-tolerance", default="0.25", help="the caller's D_c ceiling (required by the contract)")
+    # ILLUSTRATIVE CALIBRATION (Dave, 2026-10-11 17:51: "approved to move all
+    # tolerances as required to demonstrate the examples"). The dated estate reads
+    # D_c 0.8433 for the demonstration obligor at the demonstration instant, so the
+    # default caller tolerance is 0.90 (it was 0.25, CP-14's own, which withholds
+    # the spread `tolerance-exceeded` and stays the README's refusal variation). A
+    # demonstration value, not a recommended production threshold.
+    parser.add_argument("--debt-tolerance", default="0.90", help="the caller's D_c ceiling (required by the contract)")
     parser.add_argument("--intent", default=INTENT)
     parser.add_argument("--periods", type=int, default=None, help="omit to let the class default resolve")
     parser.add_argument("--basis", default=None, help="as-reported | latest-restated; omit for the class default")
@@ -116,7 +128,7 @@ def main(argv: list[str]) -> int:
             perspective = Perspective(principal_id=parsed.principal, role=opened.default_perspective.role)
         asked = opened.question(
             subject=parsed.lei,
-            asked_at=datetime.fromisoformat(parsed.asked_at) if parsed.asked_at else datetime.now(UTC),
+            asked_at=datetime.now(UTC) if parsed.asked_at == "now" else datetime.fromisoformat(parsed.asked_at),
             intent=parsed.intent,
             freshness=FRESHNESS,
             parameters=parameters,
