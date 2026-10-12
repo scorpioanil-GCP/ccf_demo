@@ -57,7 +57,6 @@ from ccf.erasure import ErasureTrust
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract, ProductLineage
-from ccf.products.expiry import TTLAnchorUndeclared
 from ccf.products.product import OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
@@ -68,6 +67,7 @@ from tests.deployment.conftest import write_artifact
 from tests.examples.specimen_content import frozen_by_content_violations
 from tests.examples.demonstration_deployment import (
     anchored_after,
+    deployment_serving_at,
     paved_root_on_the_real_clock,
     paved_root_serving_at,
 )
@@ -268,7 +268,15 @@ def _specimen(facility: str, scope: str, *, intent: str = INTENT, asked_at: date
         with _tree_modules(SPECIMEN) as specimen, tempfile.TemporaryDirectory() as scratch:
             asked = specimen["deployment"].request(facility_id=facility, borrower_scope=[scope], asked_at=asked_at)
             asked = asked.model_copy(update={"intent": intent})
-            outcome = specimen["produce"].assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+            # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the specimen
+            # serves again, on the wall clock; a question at a pinned instant is
+            # served by a test-owned copy of ITS config declaring that instant's
+            # labelled demonstration serve instant — one anchor for both trees.
+            config = deployment_serving_at(
+                SPECIMEN / "ccf_config.yaml", serve_instant=anchored_after(asked_at),
+                directory=pathlib.Path(scratch) / "deployment",
+            )
+            outcome = specimen["produce"].assemble_and_serve(asked=asked, root=pathlib.Path(scratch), config=config)
             # The specimen's spine returns its own `Assembled` record; the
             # successor's road returns the `ServedProduct`. Normalized here.
             return outcome if isinstance(outcome, RefusalEnvelope) else outcome.served
@@ -469,10 +477,11 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     **Re-measured at the CP-14 instant on 2026-09-18**, after the window was
     calibrated to the appraisal cycle: the successor's payload still hashes to the baseline, and
     its `expires_at` runs from the valuation rather than the question. The
-    frozen specimen no longer answers at all — it declares the same anchor over
-    a resolver wired with no λ_c table, which is a configuration failure the
-    builder refuses (`TTLAnchorUndeclared`) before a question proceeds
-    (`D-IMPL-261`: evidence of the SDK's evolution, the specimen untouched).
+    frozen specimen no longer answered at all — it declared the same anchor over
+    a resolver wired with no λ_c table, a configuration failure the builder
+    refused (`TTLAnchorUndeclared`) before a question proceeded. **Repaired
+    2026-10-11** (Dave, 18:09 MST: "repair cp-06"): the specimen now declares
+    the same evidence clock and window, and the lane is measured live again.
     Its `F` was, while it served, an asset aged by `now - valuation_age_days` —
     a STORED count that equals the valuation's real age only on the day the
     estate was loaded (two load dates, `2026-08-17` and `2026-08-22`).
@@ -490,8 +499,19 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     assert successor.product.temporal_boundary == instant
     assert successor.product.expires_at == successor.product.ttl_anchor_at + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
     assert successor.product.expires_at < instant + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"])), "the successor's expiry is running from the question"
-    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
-        _specimen(facility, scope, asked_at=instant)
+    # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the frozen specimen
+    # was repaired onto the same `D-IMPL-341` anchor (decay basis, entity clock
+    # row, appraisal-cycle window), so the lane is measured LIVE again: same
+    # payload address, same debt, same expiry, at one instant.
+    specimen = _specimen(facility, scope, asked_at=instant)
+    assert not isinstance(specimen, RefusalEnvelope), specimen
+    assert content_hash(specimen.product.payload) == content_hash(successor.product.payload), (
+        "the repaired specimen and the successor no longer serve one payload")
+    assert specimen.product.debt == successor.product.debt
+    assert (specimen.product.ttl_anchor_at, specimen.product.expires_at) == (
+        successor.product.ttl_anchor_at, successor.product.expires_at)
+    assert specimen.product.tenant_id != successor.product.tenant_id
+    assert not specimen.product.plan_id.startswith("cp-06-canonical.")
     assert (successor.product.schema_name, successor.product.schema_version) == (PRODUCT_CLASS, "1.0.0")
     assert CONFIG["product_class"]["schema_version"] == CONFIG["request_contract"]["schema_version"] == "1.0.0"
     # the contract is NOT the same, by construction
@@ -582,13 +602,10 @@ def test_the_structural_classifier_reads_this_tree_as_paved() -> None:
 #: Tuesday baseline, where the specimen was byte-identical to its freeze.
 SPECIMEN_FROZEN = {
     "FINDINGS.md": "d203ebc0cf0a1e9a10faa676669f6c8f0a4b8c8cd0a57f9bcd0eca21c25b912c",
-    "README.md": "1ae85b3a2ac81bb89df2de799589dfd508df4ef2e93bd34d3077c6e500bf40ff",
     "acquisition.py": "b3888fccab6ee072714196bd6544e8b5e56971d6949aa02f3bd6d5d4af105c41",
     "artifacts/gates.yaml": "642b32198f818f4a2343e04fe99f0d0a79774a3aae364050dac152e0833e9ce8",
     "artifacts/projection.yaml": "9a237fd39e6ea71030c43702f41aeb338fa1de60ce497170275950cf86a4fef8",
     "artifacts/source-vocabulary.yaml": "f6ebc278c0aae65bef32f854605d11470dcddd947c4965b36187cc5d049aacce",
-    "ccf_config.yaml": "20fd5ff2710190f1db2b1dc5f9b692cac8f7e6a9974143b05e209229b5875b0c",
-    "produce.py": "224e80c6492096e6a1cc342970a549f3215f64204ef8da093aedd3bfddd39c59",
     "projection.py": "13427c110ba3470e4a6770743dcbea65cb16fc9e22cd6111d8545a71688afb71",
     "run.py": "d481ef508593dd36b8860fbe910df45612c06c317637f44282ad28d24dc9272d",
     "server/door.yaml": "c3965c543218d6fa43600edeb97a933605cc6494fd7da2ac095abb6b1bca7ea4",
@@ -600,7 +617,10 @@ SPECIMEN_FROZEN = {
 #: (`examples/AMENDMENTS-2026-10-11.md`). Nothing else may differ.
 SPECIMEN_AMENDED = {
     "backends.yaml": "2026-10-11: the SQLite identity-lock directory (P1 (a))",
-    "deployment.py": "2026-10-11: the SQLite identity-lock directory (P1 (a))",
+    "deployment.py": "2026-10-11: the SQLite identity-lock directory (P1 (a)); then (Dave, 18:09 MST, \"repair cp-06\") tenant-placed request contract, served_at, the valuation date as each asset claim's valid_from, debt aged from valid_from, the appraisal-cycle window (D-IMPL-341 ported from cp-06-canonical)",
+    "ccf_config.yaml": "2026-10-11 (\"repair cp-06\"): decay_basis: valid-from on every λ_c row, the clock-only collateral_node row, temporal_boundary (D-IMPL-358)",
+    "produce.py": "2026-10-11 (\"repair cp-06\"): write_kinds, tenant-placed keys, evidence_clock_key, the deployment `config` parameter",
+    "README.md": "2026-10-11 (\"repair cp-06\"): the changed expiry and debt behavior disclosed",
 }
 
 
@@ -810,8 +830,12 @@ def test_an_unknown_intent_is_refused_on_the_declared_discovery_set(estate: None
     # question; since Dave's registration ruling its wiring is refused at the
     # builder — for the table it does not name, never for the intent
     # (`D-IMPL-261` evidence; the specimen is untouched).
-    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
-        _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
+    # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the repaired
+    # specimen serves again, and it still judges no intent — it SERVES the
+    # question the successor refuses (`CP-SPEC-006C` §G.3, the deliberate
+    # difference this gate reports).
+    specimen = _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
+    assert not isinstance(specimen, RefusalEnvelope), specimen
 
 
 def test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal(

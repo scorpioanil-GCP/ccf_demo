@@ -38,7 +38,10 @@ import deployment
 import projection
 from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.deployment import load_config_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
@@ -65,13 +68,19 @@ class Assembled:
 
 
 def assemble_and_serve(*, asked: ProductRequest,
-                       root: Path) -> Assembled | RefusalEnvelope:
+                       root: Path, config: Path | None = None,
+) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
     Returns a :class:`~ccf.products.refusal.RefusalEnvelope` **as data** when
     the question is not one this class answers. A refusal is not an exception:
     a bad question is a bad question rather than a broken deployment, and a
     verdict returned as a value cannot be swallowed by a bare ``except``.
+
+    ``config`` is the DEPLOYMENT, not the question: this example's own
+    ``ccf_config.yaml`` (``HERE``, read at call time) unless a deployer (a test) boots a copy of it declaring a
+    different demonstration serve instant (`tests/examples/demonstration_deployment.py`).
+    Nothing on ``asked`` can move the serve clock.
     """
     registry = ControlPlaneRegistry()
 
@@ -82,7 +91,7 @@ def assemble_and_serve(*, asked: ProductRequest,
     #    resulting pins. Connection values arrive HERE, from the caller — never
     #    from the config, which names the backend as a KIND only.
     booted = load_config_and_boot(
-        HERE / "ccf_config.yaml", registry=registry,
+        config if config is not None else HERE / "ccf_config.yaml", registry=registry,
         connection=deployment.connection(root=root))
     # --8<-- [end:boot]
     try:
@@ -151,16 +160,37 @@ def assemble_and_serve(*, asked: ProductRequest,
             return None
 
         scenario = deployment.CoverageScenario(coverage=coverage, asked=asked)
-        store = FileArtifactStore(root=root / "artifact-store")
+        # Amendment 2026-10-11 (compatibility repair, Dave's Tuesday GO): the
+        # store declares the record classes it may be written with (`write_kinds`,
+        # D-IMPL-353 §1.2) and every manifest key is read tenant-placed
+        # (D-IMPL-354) — the s1-01 / cp-07 shape. No governed value changed.
+        store = FileArtifactStore(
+            root=root / "artifact-store",
+            write_kinds=WriteKinds.declare({
+                "ccf.replay-record": (ReplayMint,),
+                "ccf.graph-query": (ReplayMint,),
+                ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+            }),
+        )
+
+        def placed(key: str) -> str:
+            return namespaced_key(tenant=booted.tenant_id, key=key)
+
         resolve = build_governed_resolver(
             fabric=booted,
             control_plane=registry,
-            product_class_key=scenario.product_class_key,
-            request_contract_key=scenario.request_contract_key,
-            operator_parameter_keys=scenario.operator_parameter_keys,
-            policy_bundle_key=scenario.policy_bundle_key,
+            product_class_key=placed(scenario.product_class_key),
+            request_contract_key=placed(scenario.request_contract_key),
+            operator_parameter_keys=tuple(placed(k) for k in scenario.operator_parameter_keys),
+            policy_bundle_key=placed(scenario.policy_bundle_key),
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
+            # Amendment 2026-10-11: the class declares `ttl_anchor:
+            # from_entity_freshness`, and since D-IMPL-341 R-3 a resolver with
+            # its own `debt_scorer` must name the λ_c table the evidence instant
+            # is read under (this deployment's own `half_life:` section), or it
+            # refuses to build.
+            evidence_clock_key=placed("half_life"),
             product_gate=product_gate,
             artifact_store=store,
             # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
