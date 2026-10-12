@@ -10,14 +10,16 @@
 # VALUE lives only in the environment. `D-IMPL-340` holds every answer to the
 # registration below; `CLD-G01`–`CLD-G03` are what make that real.
 #
-# WHAT IS DELIBERATELY ABSENT: `agent:`, `skills:` and `questions=`.
-# `include_federated` is a REQUEST parameter, and the only supported way a
-# request parameter reaches the child-resolution seam is `build_children=`
-# (`ccf.products.product`), which `open_product` REFUSES beside a declared
-# `agent:` or `skills:`. The chain those sections would have derived is
-# therefore hand-built in `deployment.FederatedChildren` from the artifacts in
-# `artifacts/consumer-chain.yaml`. That cost is the rung's measured friction
-# (`CLD-F-04`), not a preference.
+# AMENDED 2026-10-11 (SDK round 2, G4-F-08): `agent:`, `skills:` and `grants:`
+# are now DECLARED below. Until then they were deliberately absent, because
+# `open_product` refused `build_children=` beside a declared chain and the chain
+# was hand-built (and hand-registered) in `deployment.FederatedChildren` from
+# `artifacts/consumer-chain.yaml` — which D-IMPL-353 then refused. The SDK now
+# derives, registers and grants the declared chain at composition and hands it
+# to `build_children=`, which only adds the request-scoped `include_federated`
+# switch and the envelope check (`CLD-F-04`'s remaining cost).
+# `artifacts/consumer-chain.yaml` is kept as the historical record of the
+# hand-built chain; nothing reads it now.
 
 semver: "1.0.0"
 tenant_id: cp-20-demo
@@ -309,6 +311,30 @@ producers:
     credential_from_env: CCF_CP20_PEER_TOKEN
     offers:
       - {product_class: cb.co-lender-position, versions_from: "1.0.0"}
+
+# THE CONSUMER CHAIN, DECLARED (2026-10-11, SDK round 2, G4-F-08) — the same
+# agent and skill `artifacts/consumer-chain.yaml` carried, now derived by the SDK:
+# the skill's binding, tenant and catalog fields from `producers:`, the agent's
+# context contract, perspective, regime and debt profile from the declarations
+# above. `grants:` is the deployment's one grant, requested through the grant
+# ledger at composition against `policy.skill_governance`.
+skills:
+  peer-position-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: >-
+      asks the registered co-lender producer for one syndicate member's position
+      in one syndicated facility, at the precision that member discloses at
+    produces: cb.co-lender-position
+    requirements: {required_scopes: [], required_context_products: []}
+
+agent:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: syndicate-co-lender-composer
+  archetypes: [context_assembly]
+
+grants: [peer-position-ask]
 
 # THE TEMPORAL BOUNDARY (`D-IMPL-358`; compatibility amendment 2026-10-11,
 # examples/AMENDMENTS-2026-10-11.md, finding G4-F-02). Since D-IMPL-358 every

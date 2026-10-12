@@ -103,3 +103,13 @@ requests each through the grant ledger at composition (tier-1 regime check, tier
 | Example | What changed |
 | --- | --- |
 | cp-14 | `ccf_config.yaml` declares `grants: [spread-ask, family-ask, exposure-ask, collateral-ask, covenant-ask]` — exactly its five `skills:`, one per required child class. Open now succeeds with the five in force (`grant_effective`, actor `ccf.composition-root`). Its served question still needs its producers: `door-cp-05-credit-exposure-rollup` does not boot (`examples/cp-05-credit-exposure-rollup/deployment.py` `FileArtifactStore` lacks `write_kinds` — the cp-05 owner's compatibility repair). |
+
+## SDK round 2, item 2 — cp-20's request-scoped optional child, 2026-10-11
+
+Dave, 16:23 MST, ruling 4. cp-20's `build_children=` factory hand-registered its agent and skill and requested its grant,
+which D-IMPL-353 refuses (`CapabilityBypassError` at open, federation on or off). The SDK now derives a declared chain
+for a `build_children=` factory (`ConsumerContext.derived_children`).
+
+| Example | What changed |
+| --- | --- |
+| cp-20 | `ccf_config.yaml` declares `skills: {peer-position-ask}`, `agent: {syndicate-co-lender-composer}` and `grants: [peer-position-ask]` (the agent and skill `artifacts/consumer-chain.yaml` carried, now derived by the SDK); `deployment.FederatedChildren.factory` wraps the derived resolver and registers nothing (`_registered_chain`, `_pinned_ref` and the ledger code removed); `produce.py` passes `questions=children.question`. The `include_federated` switch, the envelope check before dispatch, and the requirement's `required: false` + `absence_treatment` are unchanged. `artifacts/consumer-chain.yaml` is kept as the historical record. Not changed here: `tests/examples/test_cp_20_co_lender.py`'s own reader still builds `FileArtifactStore(root=...)` without `write_kinds` (15 errors, the cp-20 owner's test repair). |

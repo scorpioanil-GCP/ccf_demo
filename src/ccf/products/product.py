@@ -394,6 +394,17 @@ class ConsumerContext:
         mcp_skills: The registry the declared producers were registered on,
             or ``None`` when the deployment declares none.
         clock: The one clock.
+        derived_children: The chain the SDK DERIVED from the deployment's own
+            ``producers:``, ``skills:``, ``agent:`` and ``grants:`` declarations,
+            registered and granted by composition — present when the deployment
+            declares that chain beside ``build_children=`` (G4-F-08; Dave,
+            2026-10-11 16:23 MST, ruling 4), ``None`` otherwise. A factory that
+            only decides WHETHER to ask an optional child for this request (a
+            request-scoped switch) wraps it and writes nothing to the Control
+            Plane; whether a missing child refuses stays the requirement's own
+            declaration (``required`` / ``absence_treatment``), judged by the
+            composite, never by the factory.
+        agent: The declared agent that chain's grants bind to, or ``None``.
     """
 
     tenant_id: str
@@ -401,6 +412,8 @@ class ConsumerContext:
     artifact_store: ArtifactStoreProtocol
     mcp_skills: McpSkillRegistry | None
     clock: Callable[[], datetime]
+    derived_children: QuestionBoundChildResolver | None = None
+    agent: AgentDefinition | None = None
 
 
 #: The factory form of the composite hatch: given the facade's own objects,
@@ -1580,6 +1593,27 @@ def open_product(
                 derived, registry=registry, environment=environment, environ=resolved_environ, clock=clock
             )
         if build_children is not None:
+            # G4-F-08 (Dave, 2026-10-11 16:23 MST, ruling 4): a deployment that
+            # DECLARES its chain beside `build_children=` has it derived here —
+            # registered and granted by composition, exactly as the derived
+            # road does — and the factory is handed it. The factory composes
+            # over it (a request-scoped switch for an optional child); it
+            # registers nothing.
+            derived_children: QuestionBoundChildResolver | None = None
+            if keys.agent is not None:
+                assert questions is not None  # `_refuse_half_wired_composite` held it
+                agent, derived_children = _derive_consumer_chain(
+                    derived,
+                    tenant=config.tenant_id,
+                    declaration=declaration,
+                    registry=registry,
+                    store=store,
+                    mcp_skills=mcp_skills,
+                    questions=questions,
+                    clock=clock,
+                    approval_sink=approval_sink,
+                    declared_grants=config.grants,
+                )
             child_resolver = build_children(
                 ConsumerContext(
                     tenant_id=config.tenant_id,
@@ -1587,6 +1621,8 @@ def open_product(
                     artifact_store=store,
                     mcp_skills=mcp_skills,
                     clock=clock,
+                    derived_children=derived_children,
+                    agent=agent,
                 )
             )
         elif declaration.requires and children is None:
@@ -1696,7 +1732,20 @@ def _refuse_half_wired_composite(
             "this call supplies both `children=` and `build_children=`; the hatch"
             " is a resolver OR a factory for one, never both (D-IMPL-343)"
         )
-    if handed:
+    if handed == ["build_children="] and (keys.agent is not None or keys.skills):
+        # G4-F-08 (Dave, 2026-10-11 16:23 MST, ruling 4): a factory beside a
+        # COMPLETE declared chain is handed that chain (`ConsumerContext
+        # .derived_children`) — the declared chain governs, registered and
+        # granted by composition, and the factory only composes over it. Every
+        # half-declared chain is still refused below, by name.
+        if questions is None:
+            raise ValueError(
+                "this call supplies `build_children=` beside a declared"
+                " `agent:`/`skills:` chain and no `questions=`; the SDK derives the"
+                " declared chain for the factory and needs the question mapping"
+                " to do so (G4-F-08; D-IMPL-343)"
+            )
+    elif handed:
         (name,) = handed
         if questions is not None:
             raise ValueError(

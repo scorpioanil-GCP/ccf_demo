@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2636 entries**, of which **2357** name a public Python surface.
+**2638 entries**, of which **2359** name a public Python surface.
 
 ## Added
 
@@ -20843,7 +20843,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-636 entries — 442 public Python surface, 194 not public Python API.
+637 entries — 443 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28219,6 +28219,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
 
+#### ccf.products.product.ConsumerContext
+
+- Surface: ccf.products.product.ConsumerContext
+- Public surface: true
+- Change type: reshaped
+- Before: `tenant_id`, `control_plane`, `artifact_store`, `mcp_skills`, `clock`
+- After: adds `derived_children: QuestionBoundChildResolver | None = None` and `agent: AgentDefinition | None = None` — the chain the SDK derived from the deployment's declarations, present when a complete chain is declared beside `build_children=`
+- Why: G4-F-08; ruling 4. Red test: `tests/products/test_paved_optional_child_switch.py::test_the_default_request_serves_without_the_optional_child`
+- Migration: a factory that registered an agent/skill or requested a grant moves them to `skills:`, `agent:`, `grants:` and wraps `context.derived_children`
+
+*Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31271,7 +31283,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-570 entries — 531 public Python surface, 39 not public Python API.
+571 entries — 532 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39242,6 +39254,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: refused `build_children=` beside a declared `agent:`/`skills:` chain, and `build_children=` beside `questions=`
+- After: admits `build_children=` beside a COMPLETE declared chain plus `questions=`, derives the chain first and hands it to the factory; every half-declared chain is refused as before
+- Why: G4-F-08; ruling 4. Severing proof: not deriving the chain for the factory reddens four tests by assertion
+- Migration: none
+
+*Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
 
 ### Not public Python API
 

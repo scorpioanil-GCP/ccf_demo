@@ -8503,7 +8503,7 @@
       },
       "ConsumerContext": {
         "kind": "class",
-        "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]') -> None"
+        "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]', derived_children: 'QuestionBoundChildResolver | None' = None, agent: 'AgentDefinition | None' = None) -> None"
       },
       "DeclaredGrantRefused": {
         "kind": "class",
