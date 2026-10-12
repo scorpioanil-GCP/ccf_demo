@@ -1230,11 +1230,20 @@ def test_the_tool_serves_a_depth_the_estate_cannot_exhibit(
 # ---------------------------------------------------------------------------
 
 #: A real estate anchor whose family serves a jurisdiction OUTSIDE the declared
-#: closed set `{NL, US-DE}` (`AgilysysInc`, US-OH). Asking about it trips
+#: closed set `{NL, US-DE}` (`Wd40CompanyLimited`, GB). Asking about it trips
 #: `deployment.py::refuse_open_jurisdiction_world` on the serve path — the exact
 #: per-request refusal CR-01 is about. Read as an ADDRESS into the estate, not
 #: as a figure: what matters is that its observed set is not the declared one.
-REFUSING_ANCHOR = "5299001XWB5V3B5IPN93"
+#:
+#: **RE-AIMED 2026-10-12 (Dave's cp-04 GO, 23:44 MST 2026-10-11).** The former
+#: anchor `5299001XWB5V3B5IPN93` (`AgilysysInc`) now resolves to FIVE nodes in
+#: the live `fibo-v2` (`AgilysysInc` + four engineered `EMB-RES-*` nodes), so
+#: the door refused it as `anchor-ambiguity-refusal` before the jurisdiction
+#: guard ran — governed, no product served, and nothing this test is about.
+#: `_assert_reaches_the_jurisdiction_guard` now holds the precondition, so the
+#: next estate drift fails as a named precondition rather than quietly testing
+#: a different refusal.
+REFUSING_ANCHOR = "2138003OH6E57UMQAM23"
 REFUSING_ASK = "mcp-tool(a refusing anchor)"
 POST_REFUSAL_ASK = "mcp-tool(a valid ask after a refusal)"
 
@@ -1250,6 +1259,33 @@ def _refusing_request(deployment: Any, lei: str) -> Any:
     parameters = dict(typed.parameters)
     parameters[deployment.PARAM_LEI] = lei
     return typed.model_copy(update={"subject": lei, "parameters": parameters})
+
+
+def _assert_reaches_the_jurisdiction_guard(deployment: Any, lei: str) -> None:
+    """The refusing anchor must reach `refuse_open_jurisdiction_world`.
+
+    Two preconditions, both read from the estate rather than assumed: the LEI
+    names exactly ONE graph node (else the door refuses for ambiguity, or for
+    an unresolvable anchor, first), and that node's family serves at least one
+    jurisdiction outside the declared closed set (else there is nothing to
+    refuse). Either failing means the ANCHOR has gone stale, not the door.
+    """
+    resolved = deployment.resolve_anchor(lei)
+    assert isinstance(resolved, str), (
+        f"precondition: the refusing anchor {lei!r} must resolve to exactly one"
+        f" node, and resolved to {resolved!r} — re-aim REFUSING_ANCHOR"
+    )
+    declared = set(deployment.declared_served_jurisdictions())
+    node_leis = {resolved: lei}
+    rows = deployment.resolve_attributes((lei,), source=deployment.attribute_source())
+    served = deployment.served_jurisdictions(
+        nodes=(resolved,), node_leis=node_leis, rows=rows.rows
+    )
+    outside = {value for value in served.values() if value is not None} - declared
+    assert outside, (
+        f"precondition: the refusing anchor {lei!r} must itself serve a"
+        f" jurisdiction outside {sorted(declared)}, and serves {served!r}"
+    )
 
 
 def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
@@ -1277,6 +1313,7 @@ def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
     deployment = _load("deployment")
     serve = _load("serve")
     tenant = deployment.tenant_id()
+    _assert_reaches_the_jurisdiction_guard(deployment, REFUSING_ANCHOR)
     refusing = _refusing_request(deployment, REFUSING_ANCHOR)
     demonstration = deployment.demonstration_request()
 
@@ -1345,6 +1382,19 @@ def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
     is_error_after, text_after = after
     assert not is_error_after, (
         "the door refused a valid demonstration ask after a prior refusal:"
+        f" {text_after[:1000]}"
+    )
+    # AND IT SERVED A PRODUCT. `isError=False` is not that proof: a governed
+    # refusal (e.g. `anchor-ambiguity-refusal`) also arrives with the flag
+    # clear, carrying `product_json: null` and a `refusal` body. So the body is
+    # read, and the served answer must carry a product and a content address.
+    answer = json.loads(text_after)
+    assert answer.get("refusal") is None, (
+        "the post-refusal ask came back as a governed refusal, not a served"
+        f" product: {text_after[:1000]}"
+    )
+    assert answer.get("product_json") and answer.get("content_address"), (
+        "the post-refusal ask carried no served product or content address:"
         f" {text_after[:1000]}"
     )
 
