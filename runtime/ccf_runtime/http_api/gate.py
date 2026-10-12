@@ -60,6 +60,20 @@ nothing, so a handler that runs holds proof, and a handler that holds no proof
 did not run behind this gate. This is one of the two mint sites in the tree;
 the other is the MCP ``TenantGuardedServer`` wrapper.
 
+**One exception, declared at the route and confined to the authorizer's deny**
+(R5-CP17-F01; Dave 2026-10-11 21:19 MST, "Do (a)" — the MCP ``on_denied``,
+carried to this door). A route declaring
+:attr:`~ccf_runtime.authz.route_declaration.RouteAuthorization.answers_denial`
+is handed the authorizer's deny as a
+:class:`~ccf_runtime.http_api.grants.GateDenial` on
+``request.state.scope_denial`` — still decided, still audited by the authorizer,
+still **no capability minted** — and runs to record it as the governed refusal
+an unentitled caller gets. Without this, the product door answered a class the
+scope mapping names nowhere ``403`` here and an unentitled caller's real class
+``404`` behind it: a status that said whether the class exists. Authentication,
+the tenant floor, an unreadable resource, the roster and an unmintable allow
+still refuse here for every route, unchanged.
+
 **An action no kind exists for cannot be mounted.** :func:`build_route_table`
 resolves every declared action id to its capability kind at boot and refuses
 the application otherwise, so the gate can never reach an allow it has no kind
@@ -108,6 +122,7 @@ from ccf_runtime.authz.tenancy import (
     tenants_of_grant,
 )
 from ccf_runtime.http_api.auth import HttpAuthProtocol
+from ccf_runtime.http_api.grants import GateDenial
 from ccf_runtime.http_api.errors import (
     ERROR_AMBIGUOUS_TENANT,
     ERROR_DECISION_UNMINTABLE,
@@ -538,6 +553,24 @@ class AuthorizationGate:
             resource=resource,
         )
         if not decision.allowed:
+            if entry.declaration.answers_denial:
+                # R5-CP17-F01: the route answers this deny as the governed
+                # refusal an unentitled caller gets, so the status cannot say
+                # whether the resource exists. Decided and audited above; no
+                # capability minted, none parked — the route holds the deny.
+                state = scope.setdefault("state", {})
+                state["scope_denial"] = GateDenial(
+                    grant=grant,
+                    tenant=tenant,
+                    statement=_denial_statement(
+                        action_id=action_id,
+                        resource=resource,
+                        tenant=tenant,
+                        decision_id=decision.decision_id,
+                    ),
+                )
+                await self._app(scope, replay or receive, send)
+                return
             await _refuse(
                 scope, replay or receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
             )
@@ -744,6 +777,28 @@ def _header(scope: _Scope, name: bytes) -> str | None:
         if bytes(key).lower() == name:
             return bytes(value).decode("latin-1")
     return None
+
+
+def _denial_statement(
+    *, action_id: str, resource: str, tenant: str, decision_id: str | None
+) -> str:
+    """The authorizer deny's internal truth, for the record behind a governed refusal.
+
+    R5-CP17-F01. The MCP wrapper's statement for the same deny, in this door's
+    code: what was asked, of which tenant, and the audit event that decided it.
+    It is recorded, never sent — the reply is what Disclosure decides.
+    """
+    return json.dumps(
+        refusal_detail(
+            error_code=ERROR_REQUEST_UNAUTHORIZED,
+            message=(
+                "the verified caller's grant does not authorize action"
+                f" {action_id!r} on {resource!r} under tenant {tenant!r}"
+                " against the scope mapping in force (authz decision"
+                f" {decision_id!r}; SEC-001; SEC-002 — deny-by-default)"
+            ),
+        )
+    )
 
 
 async def _refuse(

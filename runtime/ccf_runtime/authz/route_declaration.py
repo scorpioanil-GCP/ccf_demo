@@ -275,11 +275,23 @@ class RouteAuthorization:
         products: Which Context Product class a request reaches, where one is
             known at the call (``SEC-017``); ``None`` for a route that knows
             none — the roster is not consulted on it.
+        answers_denial: Whether the route answers the AUTHORIZER's deny itself,
+            as a governed refusal, in place of the gate's constant ``403``
+            (R5-CP17-F01; Dave 2026-10-11 21:19 MST, "Do (a)"). ``False`` — the
+            default, and every route but the product door — keeps the gate's
+            refusal. ``True`` makes the gate hand a denied request to the route
+            holding a :class:`~ccf_runtime.http_api.grants.GateDenial` and **no
+            capability** (none is minted on a deny), so the route can record
+            the deny through the delivery boundary and answer it in the shape
+            an unentitled caller's refusal takes. Only the authorizer's deny is
+            handed over: authentication, the tenant floor, an unreadable
+            resource and the roster still refuse at the gate, unchanged.
     """
 
     action_id: str
     resource: ResourceBinding
     products: ProductClassBinding | None = None
+    answers_denial: bool = False
 
     def __post_init__(self) -> None:
         if not self.action_id:
@@ -298,6 +310,7 @@ def authorizes(
     *,
     resource: ResourceBinding,
     products: ProductClassBinding | None = None,
+    answers_denial: bool = False,
 ) -> Callable[[_Endpoint], _Endpoint]:
     """Declare a handler's action and resource, at the handler.
 
@@ -319,12 +332,18 @@ def authorizes(
         resource: Where this route's resource is read from.
         products: Which product class a request reaches (``SEC-017``), where
             the route knows one at the call.
+        answers_denial: Whether the route answers the authorizer's deny as a
+            governed refusal (R5-CP17-F01); see
+            :attr:`RouteAuthorization.answers_denial`.
 
     Returns:
         The identity decorator that parks the declaration.
     """
     declaration = RouteAuthorization(
-        action_id=action_id, resource=resource, products=products
+        action_id=action_id,
+        resource=resource,
+        products=products,
+        answers_denial=answers_denial,
     )
 
     def attach(endpoint: _Endpoint) -> _Endpoint:

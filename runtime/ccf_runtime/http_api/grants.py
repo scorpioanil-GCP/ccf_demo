@@ -41,11 +41,23 @@ derivation) until their §1.2 signatures land; it derives no tenant and no
 actor. The join-time shim ``tenant_from_request`` is gone: every route reads
 its tenant from the capability and nothing reads a tenant off a grant.
 
+**The one other thing a handler may hold is the gate's deny, and only where its
+route declared it answers one** (R5-CP17-F01; Dave 2026-10-11 21:19 MST, "Do
+(a)"). On a route declaring
+:attr:`~ccf_runtime.authz.route_declaration.RouteAuthorization.answers_denial`,
+the gate hands the authorizer's deny to the route as a :class:`GateDenial`
+instead of refusing ``403`` itself, and mints nothing. :func:`denial_from_request`
+is how the handler reads it. A deny grants nothing: the handler holding one
+holds no capability, reaches no handle, and can only record and answer the
+refusal — so the reader checks the type and the route's declaration and nothing
+more, because a fabricated deny can only make a handler refuse.
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TypeVar, cast, overload
 
 from fastapi import HTTPException, Request
@@ -67,7 +79,14 @@ from ccf_runtime.mcp.auth import TokenGrant
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["absent", "authorized_from_request", "grant_from_request", "within_tenant"]
+__all__ = [
+    "GateDenial",
+    "absent",
+    "authorized_from_request",
+    "denial_from_request",
+    "grant_from_request",
+    "within_tenant",
+]
 
 A = TypeVar("A", bound=ActionKind)
 
@@ -99,6 +118,67 @@ def grant_from_request(request: Request) -> TokenGrant | None:
             ),
         )
     return grant
+
+
+@dataclass(frozen=True, kw_only=True)
+class GateDenial:
+    """The authorizer's deny, handed by the gate to a route that answers its own.
+
+    **SDK-defined** (CLAUDE.md §8.3, §11). Finding R5-CP17-F01; Dave, 2026-10-11
+    21:19 MST, verbatim *"Do (a)"*, carried from the MCP door to this one: an
+    entitled caller asking for a product class the scope mapping names nowhere
+    was refused ``403`` by the gate, while an unentitled caller asking for a real
+    class got the governed ``404`` refusal — a status-level answer to *"does
+    this class exist?"*. On a route declaring
+    :attr:`~ccf_runtime.authz.route_declaration.RouteAuthorization.answers_denial`
+    the gate parks this on ``request.state.scope_denial`` instead of refusing,
+    and the route records it through
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_scope_denial` — the same
+    recorder and emission site as an entitlement denial.
+
+    It is a deny, never a grant: the gate minted no capability for the request,
+    and nothing here can be exchanged for one.
+
+    Attributes:
+        grant: The verified grant the gate decided about — the principal the
+            refusal is recorded and disclosed for.
+        tenant: The tenant the gate selected from the grant and decided under.
+        statement: The deny's internal truth — action, resource, tenant and the
+            authorizer's decision id. It lands on the replay record only; what
+            crosses the wire is what Disclosure decides for the principal.
+    """
+
+    grant: TokenGrant
+    tenant: str
+    statement: str
+
+
+def denial_from_request(request: Request) -> GateDenial | None:
+    """The gate's deny for this request, or ``None`` when the gate allowed it.
+
+    R5-CP17-F01. Read only by a route that declared
+    :attr:`~ccf_runtime.authz.route_declaration.RouteAuthorization.answers_denial`;
+    ``None`` is the gate's allow, after which the handler reads its capability
+    with :func:`authorized_from_request` exactly as before.
+
+    Raises:
+        HTTPException: 403 with :data:`~ccf_runtime.http_api.errors
+            .ERROR_NO_CAPABILITY` when something is stashed that is not a
+            :class:`GateDenial`, or when a deny is stashed for a route that did
+            not declare it answers one. Both are fail-closed: the handler acts
+            on nothing.
+    """
+    found: object = getattr(request.state, "scope_denial", None)
+    if found is None:
+        return None
+    if not isinstance(found, GateDenial) or not isinstance(found.grant, TokenGrant):
+        raise _no_capability("the stashed deny is not the gate's GateDenial")
+    declaration = route_authorization(request.scope.get("endpoint"))
+    if declaration is None or not declaration.answers_denial:
+        raise _no_capability(
+            "a deny was handed to a route that does not declare it answers one"
+        )
+    return found
 
 
 def _no_capability(why: str) -> HTTPException:
