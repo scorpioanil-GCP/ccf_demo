@@ -64,6 +64,7 @@ from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 from tests.composition import register_versioned_at_composition
 from tests.hitl.capabilities import submit_capability
 from tests.hitl.sec006_harness import (
+    TransportThatJudgesNothing,
     execute_as_principal,
     expect_eligibility_refusal,
     field,
@@ -203,9 +204,12 @@ def test_t4_an_ineligible_verdict_through_an_unbound_transport_does_not_resume(
     so S2 is not used. ``_gate_authority``, judging against
     ``gate_policies[gate]`` and ``record.started_by``, excludes a verdict from a
     principal outside the policy, and the resume is refused (brief §5, S3).
+    Built over ``TransportThatJudgesNothing`` (Dave's 2026-10-12 08:45 batch GO;
+    coordinator ruling 09:20): the reference transport now refuses this verdict at submit.
     """
     engine, transport, workflow, event = _suspend_two_gate(
-        registry, tmp_path, eligible=frozenset({"officer-a", "officer-b"}), starter="officer-a"
+        registry, tmp_path, eligible=frozenset({"officer-a", "officer-b"}), starter="officer-a",
+        transport=TransportThatJudgesNothing(),
     )
     submit_as(transport, event, subject_id="outsider-1")  # unbound: lands
     assert len(transport.submissions(tenant=event.tenant)) == 1
@@ -226,9 +230,12 @@ def test_t4_a_self_verdict_through_an_unbound_transport_does_not_resume(
     The starter ``officer-a`` is eligible AND is ``record.started_by``; their
     own door approval, recorded through an unbound transport, is not
     authority (requester ≠ approver, unconditional when a policy is bound).
+    Built over ``TransportThatJudgesNothing`` (Dave's 2026-10-12 08:45 batch GO;
+    coordinator ruling 09:20): the reference transport now refuses this verdict at submit.
     """
     engine, transport, workflow, event = _suspend_two_gate(
-        registry, tmp_path, eligible=frozenset({"officer-a", "officer-b"}), starter="officer-a"
+        registry, tmp_path, eligible=frozenset({"officer-a", "officer-b"}), starter="officer-a",
+        transport=TransportThatJudgesNothing(),
     )
     submit_as(transport, event, subject_id="officer-a")
     outcome = _run(

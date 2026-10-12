@@ -563,7 +563,10 @@ def check_approver_eligibility(
     migration note); ``subject_id`` is not in ``eligible_principals``; or
     ``subject_id == requested_by`` (requester ≠ approver, unconditional). An
     unbound ``control_plane`` (``None``) performs no check — the
-    pre-composition posture :func:`signed_binding_required` keeps.
+    pre-composition posture :func:`signed_binding_required` keeps. The
+    reference transport composed into a workflow engine always passes a plane
+    for an approval-gate verdict: the engine binds its own
+    (:meth:`InMemoryHitlTransport.bind_approver_eligibility`).
 
     The refusal message is NON-ENUMERATING (G3 (a)): it names the reason class
     and the policy reference only — never a principal.

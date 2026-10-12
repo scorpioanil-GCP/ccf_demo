@@ -50,6 +50,7 @@ __all__ = [
     "ELIGIBILITY_CODE",
     "REFUSAL_TYPE",
     "RemoveSpy",
+    "TransportThatJudgesNothing",
     "contract",
     "door_submission",
     "execute_as_principal",
@@ -208,6 +209,26 @@ class RemoveSpy(InMemoryHitlTransport):
     def remove(self, *, tenant: str, event_key: str) -> PendingHitlEvent | None:
         self.remove_calls.append((tenant, event_key))
         return super().remove(tenant=tenant, event_key=event_key)
+
+
+class TransportThatJudgesNothing(InMemoryHitlTransport):
+    """The reference transport, except that it judges no approver eligibility
+    for the workflow engines composed over it.
+
+    It stands for a third-party transport that offers
+    ``bind_approver_eligibility`` but does not judge what it is bound to judge,
+    which the engine cannot detect (``WorkflowEngine.__init__`` sees only that
+    the method exists). The reference transport composed into an engine now
+    refuses an ineligible verdict at submit (the security close-out's map B
+    item 3), so the ENGINE-SITE independent controls (`D-IMPL-366` carried item
+    3) are built over this one to keep reaching the engine's own check. Built
+    without a Control Plane, it records every verdict, as the reference
+    transport did before map B item 3. Dave's 2026-10-12 08:45 batch GO;
+    coordinator ruling 09:20.
+    """
+
+    def bind_approver_eligibility(self, control_plane: Any) -> None:
+        """Accept the engine's plane and judge nothing with it."""
 
 
 def transport_state(transport: InMemoryHitlTransport) -> dict[str, Any]:
