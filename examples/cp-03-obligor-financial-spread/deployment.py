@@ -51,6 +51,7 @@ from ccf.controlplane.artifacts import (
     PerspectiveArtifact,
     ProductClassDeclaration,
 )
+from ccf.controlplane.registry import namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtAssessment, DebtFactors
@@ -106,6 +107,10 @@ PARAM_INCLUDE_PEERS = "include_peers"
 PARAM_PEER_BASIS = "peer_basis"
 PARAM_DEBT_TOLERANCE = "debt_tolerance"
 PARAM_AS_OF = "as_of"
+#: AMENDED 2026-10-11 (compatibility repair): the request parameter the policy
+#: operator's admitted set is bound to (`RequestBoundParameter`, D-IMPL-295) —
+#: stated by :func:`read` from the calling principal's expanded grant.
+PARAM_JURISDICTIONS = "jurisdictions"
 
 BASIS_AS_REPORTED = "as-reported"
 BASIS_LATEST_RESTATED = "latest-restated"
@@ -1273,8 +1278,16 @@ class SpreadScenario:
     max_ttl_seconds: int
     halflife_debt_profile: str
 
-    request_contract_key: str = KEY_REQUEST_CONTRACT
-    policy_bundle_key: str = KEY_POLICY_BUNDLE
+    # AMENDED 2026-10-11 (compatibility repair): the loader places every key
+    # under the tenant (D-IMPL-354) and the governed resolver resolves the
+    # artifacts by the placed key; `read` supplies them.
+    request_contract_key: str
+    policy_bundle_key: str
+    product_class_key: str
+    half_life_key: str
+    #: The question as governance answers it: the caller's request plus the
+    #: `jurisdictions` the calling principal is granted (see `read`).
+    effective_request: ProductRequest
     replay_record_class: str = REPLAY_RECORD_CLASS
     query_pin_class: str = QUERY_PIN_CLASS
     artifact_store_dirname: str = ARTIFACT_STORE_DIRNAME
@@ -1420,7 +1433,14 @@ def read(
     """
     artifacts = booted.artifacts
     parameters = asked.parameters
-    declared_perspective = cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE])
+
+    def placed(key: str) -> str:
+        # AMENDED 2026-10-11 (compatibility repair): every manifest key is
+        # placed under the tenant since D-IMPL-354; the bare names above stay
+        # this deployment's vocabulary.
+        return namespaced_key(tenant=booted.tenant_id, key=key)
+
+    declared_perspective = cast(PerspectiveArtifact, artifacts[placed(KEY_PERSPECTIVE)])
     # The SAME question asked by two principals is two different answers —
     # §B.2's entitlement leg suppresses 49/47/0/0 across the six principal
     # pairs. The default is the declared perspective; an override is how the
@@ -1449,10 +1469,20 @@ def read(
     # would serve one principal's obligors to every principal — a correctness
     # defect that presents intermittently. The declared artifact supplies the
     # SHAPE; the estate supplies this principal's values.
-    declared_policy = cast(OperatorParametersArtifact, artifacts[KEY_POLICY_OPERATOR])
-    policy_parameters = declared_policy.model_copy(
+    #
+    # AMENDED 2026-10-11 (compatibility repair): the values no longer overwrite
+    # the resolved artifact. The artifact declares a request binding, and the
+    # grant reaches the operator as the `jurisdictions` parameter of the
+    # effective request — governed, pinned and replayed with the question.
+    declared_policy = cast(
+        OperatorParametersArtifact, artifacts[placed(KEY_POLICY_OPERATOR)]
+    )
+    effective = asked.model_copy(
         update={
-            "permitted_classifications": tuple(read_source.permitted_jurisdictions)
+            "parameters": {
+                **dict(parameters),
+                PARAM_JURISDICTIONS: list(read_source.permitted_jurisdictions),
+            }
         }
     )
 
@@ -1465,17 +1495,19 @@ def read(
         basis=basis,
         request=asked,
         request_contract=ProductRequestContract.from_declared(
-            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+            cast(Any, artifacts[placed(KEY_REQUEST_CONTRACT)])
         ),
-        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
+        product_class=cast(
+            ProductClassDeclaration, artifacts[placed(KEY_PRODUCT_CLASS)]
+        ),
         perspective=declared_perspective,
         # ONE entry, so one operator. The spine never counts them, and
         # `OFS-G10` asserts the count is exactly one and that no operator whose
         # key or category is `Enrich` is registered.
-        operator_parameters={KEY_POLICY_OPERATOR: policy_parameters},
-        resolution=cast(EntityResolutionSpec, artifacts[KEY_RESOLUTION]),
-        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        operator_parameters={placed(KEY_POLICY_OPERATOR): declared_policy},
+        resolution=cast(EntityResolutionSpec, artifacts[placed(KEY_RESOLUTION)]),
+        half_life_table=cast(HalfLifeTable, artifacts[placed(KEY_HALF_LIFE_TABLE)]),
+        debt_profile=cast(DebtProfile, artifacts[placed(KEY_DEBT_PROFILE)]),
         ttl_seconds=declared_ttl_seconds(),
         max_ttl_seconds=max_ttl_seconds(),
         # A pinned reference, never the resolved artifact: the profile has its
@@ -1483,8 +1515,13 @@ def read(
         # identities.
         halflife_debt_profile=(
             f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
-            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
+            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(placed(KEY_DEBT_PROFILE))}"
         ),
+        request_contract_key=placed(KEY_REQUEST_CONTRACT),
+        policy_bundle_key=placed(KEY_POLICY_BUNDLE),
+        product_class_key=placed(KEY_PRODUCT_CLASS),
+        half_life_key=placed(KEY_HALF_LIFE_TABLE),
+        effective_request=effective,
     )
 
 

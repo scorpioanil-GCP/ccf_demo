@@ -71,17 +71,22 @@ operators:
     # `OFS-G15` holds all four populations AND `49 != 47`, because two
     # legitimate zeroes are exactly the condition under which a broken check
     # looks correct.
+    #
+    # AMENDED 2026-10-11 (compatibility repair; examples/AMENDMENTS-2026-10-11.md).
+    # This list was a literal the deployment then OVERWROTE per request with the
+    # calling principal's expanded grant — an ungoverned write into a resolved
+    # Control Plane artifact, which the governed resolver this specimen now
+    # serves through does not allow (it resolves operator parameters by key off
+    # the booted fabric). The SDK's supported form of exactly that substitution
+    # is a request binding (`RequestBoundParameter`, D-IMPL-295): the admitted
+    # set is the `jurisdictions` parameter of the governed effective request,
+    # which `deployment.read` states from the SAME per-principal expansion it
+    # always computed. The literal it replaces was the default principal's
+    # expanded grant (US, US-DE, US-FL, US-MD, US-MN, US-NV, US-NY, US-OH,
+    # US-TX, US-WA); which obligors each principal sees is unchanged.
     permitted_classifications:
-      - US
-      - US-DE
-      - US-FL
-      - US-MD
-      - US-MN
-      - US-NV
-      - US-NY
-      - US-OH
-      - US-TX
-      - US-WA
+      source: effective_request
+      parameter: jurisdictions
 
 # ---------------------------------------------------------------------------
 # The request contract — spec §B.4. Checked at the door, before the graph is
@@ -95,9 +100,14 @@ request_contract:
   schema_version: "1.0.0"
   arguments:
     properties:
-      intent:
-        type: string
-        description: selects the policy envelope and the intent-bound ratio definitions
+      # AMENDED 2026-10-11 (compatibility repair): `intent` was declared here as
+      # an ARGUMENT — a shadow of the request's own top-level `intent` axis,
+      # which the SDK refuses at contract construction (D-IMPL-264 D-01; the
+      # specimen's recorded Defect A). The top-level `ProductRequest.intent`
+      # always carried the same value (`deployment.request` reads both from
+      # `artifacts/question.yaml`), so the argument is removed and the axis
+      # stands alone. No `discovery.intents` is declared, so — as before —
+      # this class does not judge which intent it is asked under.
       periods:
         type: integer
         description: how many periods of history to spread
@@ -119,8 +129,19 @@ request_contract:
       as_of:
         type: string
         description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+      # AMENDED 2026-10-11: the binding target above. Stated by the deployment
+      # from the calling principal's grant as it expands against the estate,
+      # never invented by the caller's tooling.
+      jurisdictions:
+        type: array
+        items:
+          type: string
+          description: one jurisdiction the request is entitled to read.
+        description: >-
+          the jurisdictions this request is entitled to read — the calling
+          principal's grant, expanded against the estate — and the value that
+          reaches the policy operator's admitted set.
     required:
-      - intent
       - debt_tolerance
 
   # §B.5. Reconstructing a spread as it stood on a past date needs ledger
@@ -163,6 +184,21 @@ resolution:
 # express it.
 # ---------------------------------------------------------------------------
 half_life:
+  # AMENDED 2026-10-11 (compatibility repair): the clock the
+  # `from_entity_freshness` expiry runs from. Before the repair the spine
+  # computed `expires_at` itself — the latest `filed_date` in the payload plus
+  # the declared window (`artifacts/ttl.yaml`). The governed resolver computes
+  # it now, from the freshest `valid_from` on a `decay_basis: valid-from` row
+  # keyed by ENTITY CLASS, and the one entity this product mints, `obligor`,
+  # carries exactly that instant (its envelope's `observed_time` is the latest
+  # filed date). `supersede-only` declares the clock and NO rate: this row adds
+  # no half-life, and the debt below still decays per signal class exactly as
+  # it did.
+  obligor:
+    decay: supersede-only
+    decay_basis: valid-from
+    decay_driver: filing-cadence
+    supersession_event: a later filing by the same obligor
   annual_facts:
     half_life_seconds: 31536000      # ~365d — superseded by the next annual filing
     decay_driver: filing-cadence
@@ -223,3 +259,37 @@ policy:
 default_perspective:
   principal_id: PRIN-COV-001
   role: analyst
+
+# ---------------------------------------------------------------------------
+# AMENDED 2026-10-11 — compatibility repair (Dave, ruling 3 of 2026-10-11 16:23
+# MST; examples/AMENDMENTS-2026-10-11.md). Two declarations the SDK now
+# requires of every governed serve; neither changes the question, a
+# parameter, the TTL, the debt arithmetic or the expected answer.
+#
+# `temporal_boundary:` — D-IMPL-358 ruling 11: a tenant that declares no
+# boundary refuses every question. hw1-companies-over-revenue's precedent
+# values.
+#
+# `demonstration_serve_instant:` — D-IMPL-378 C1, ruled option (b). This
+# specimen's question is DATED (asked as of 2026-08-29T12:00Z), and before the
+# repair the spine judged its gates at that same instant. The governed resolver
+# judges them at its serve clock, so the dated scenario keeps its meaning only
+# if the serve clock is declared to be the question's own instant. Honored only
+# on the SDK's own development backends (this specimen's per-run SQLite graph
+# and file-backed store) and pinned into dimension 2 of every record made
+# under it. It moves `served_at` and nothing else: no observation is relabeled,
+# no expiry check is disabled, no limit is widened.
+#
+# **Illustrative calibration:** This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+# ---------------------------------------------------------------------------
+temporal_boundary:
+  max_past_seconds: 3600
+  permitted_clock_skew_seconds: 0
+
+demonstration_serve_instant:
+  serve_instant: "2026-08-29T12:00:00+00:00"

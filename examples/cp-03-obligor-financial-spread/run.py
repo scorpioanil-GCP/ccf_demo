@@ -128,7 +128,9 @@ def main(argv: list[str] | None = None) -> int:
     # text and the conversion happens here, at the caller's boundary, where a
     # client sending JSON would do it too.
     parameters: dict[str, object] = {
-        deployment.PARAM_INTENT: declared[deployment.PARAM_INTENT],
+        # AMENDED 2026-10-11 (compatibility repair): `intent` is no longer a
+        # request ARGUMENT — it travels on the request's own top-level axis
+        # (`deployment.request`), which the SDK refuses to see shadowed.
         deployment.PARAM_PERIODS: (
             args.periods
             if args.periods is not None
@@ -192,6 +194,17 @@ def main(argv: list[str] | None = None) -> int:
             )
         except AssemblyRefused as refused:
             print(f"assembly refused: {refused}")
+            return 1
+        except produce.GovernedRefusal as refused:
+            # AMENDED 2026-10-11 (compatibility repair): the governed resolver's
+            # refusal, printed as the data it is — kind, reason, the authority
+            # that set a tolerance, and the replay record that holds it.
+            envelope = refused.envelope
+            print(f"refused: {envelope.kind} · {envelope.reason}")
+            print(f"   {envelope.detail}")
+            for name, value in sorted(envelope.fields.items()):
+                print(f"   {name:<16} {value}")
+            print(f"   replay record    {envelope.replay_reference}")
             return 1
         outcome = captured[0] if captured else governed
         if isinstance(governed, ProductRequestViolation):
