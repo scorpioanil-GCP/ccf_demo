@@ -578,8 +578,29 @@ class WorkflowEngine:
                 " outlives the store that suspended it, and a restarted store"
                 " would let it release the same execution again (SEC-001)"
             )
+        # The security close-out's map B item 3 (SEC-001-adjacent (f),
+        # D-GATE-357 (2)); Dave's GO of 2026-10-12 08:45 MST, step 1: "enforce
+        # eligibility on supported approval transports". A transport that
+        # judges no approver eligibility lets any HitlSubmit holder record a
+        # verdict that can never authorize passage and still holds the gate as
+        # a conflict for good (the conflict population is not narrowed,
+        # D-IMPL-366 H2). So the engine binds its own Control Plane into the
+        # transport as an eligibility judge, and refuses here, by name, a
+        # transport that cannot take that binding. Checked before any binding
+        # below, so a refused construction binds nothing.
+        bind_eligibility = getattr(hitl_transport, "bind_approver_eligibility", None)
+        if not callable(bind_eligibility):
+            raise WorkflowWiringError(
+                f"the HITL transport {type(hitl_transport).__name__} offers no"
+                " bind_approver_eligibility, so it cannot judge approver"
+                " eligibility for this engine's gates: any holder of HitlSubmit,"
+                " eligible or not, could record a verdict that never authorizes"
+                " passage and still holds the gate as a conflict (SEC-006;"
+                " D-GATE-357 (2))"
+            )
         if store_scope == "process":
             _bind_transport_to_store(hitl_transport, store)
+        bind_eligibility(control_plane)
         self._control_plane = control_plane
         self._artifact_store = artifact_store
         self._hitl_transport = hitl_transport

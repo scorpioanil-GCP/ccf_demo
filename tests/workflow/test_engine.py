@@ -138,6 +138,7 @@ from tests.composition import (
     without_approval_policies,
 )
 from tests.hitl.capabilities import submit_capability
+from tests.hitl.sec006_harness import TransportThatJudgesNothing
 from tests.workflow.capabilities import (
     execute_as,
     execute_capability,
@@ -1190,8 +1191,10 @@ def test_a_submission_that_never_saw_this_suspension_is_not_authority(
     and does not itself compare hashes, so a submission naming the right
     gate while attesting to something else is a reachable shape. It is not
     authority: an approval authorizes the suspension it actually saw.
+    Built over ``TransportThatJudgesNothing`` (Dave's 2026-10-12 08:45 batch GO;
+    coordinator ruling 09:20): the reference transport now refuses this verdict at submit.
     """
-    engine, transport, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path, transport=TransportThatJudgesNothing())
     workflow = _covenant(registry)
     suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
