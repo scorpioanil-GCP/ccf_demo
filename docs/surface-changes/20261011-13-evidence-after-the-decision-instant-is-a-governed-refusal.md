@@ -6,7 +6,7 @@ observation dated after the instant it is evaluated at (`TemporalOrderError`), a
 exception escape where `docs/EXAMPLE-EVALUATION-CRITERIA.md` §D owes a governed refusal.
 
 What changed: the resolver catches exactly `TemporalOrderError` at its scoring step and returns
-`EvidenceAfterDecisionRefusal` (kind `evidence-after-decision-refusal`, gate `evidence-after-decision`), recorded as
+`EvidenceAfterDecisionRefusal` (kind `evidence-after-decision-refusal`, reason `evidence-after-decision`; not a gate and no `GATE_*` token, the roster being ruled exact by D-IMPL-364 C2), recorded as
 a post-projection refusal — the execution's operators and plan, no debt (none could be assessed), a replay
 reference. Nothing is excluded and nothing is scored as fresh. Any other scorer failure still raises. Minimal
 disclosure carries the fixed statement and no field; the HTTP status is the fulfillment-withheld class.
@@ -17,19 +17,9 @@ disclosure carries the fixed statement and no field; the HTTP status is the fulf
 - Public surface: true
 - Change type: added
 - Before: absent; the resolver raised `ccf.halflife.decay.TemporalOrderError`
-- After: a `GateRefusal` carrying `decided_at`, kind `evidence-after-decision-refusal` in `REFUSAL_KINDS`
+- After: a refusal (not a `GateRefusal`, on the `ToleranceExceededRefusal` precedent) carrying `reason`, `detail` and `decided_at`, kind `evidence-after-decision-refusal` in `REFUSAL_KINDS`
 - Why: CP08-R3-F-01; Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/products/test_evidence_after_decision_refusal.py::test_evidence_dated_after_the_decision_instant_is_refused_by_name_with_a_record`
 - Migration: a consumer switching on refusal kinds handles the new kind
-
-## ccf.products.gates.GATE_EVIDENCE_AFTER_DECISION
-
-- Surface: ccf.products.gates.GATE_EVIDENCE_AFTER_DECISION
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `"evidence-after-decision"`, the promoted `reason` of the new refusal
-- Why: CP08-R3-F-01
-- Migration: none
 
 ## ccf.products.resolver.GovernedResolver
 

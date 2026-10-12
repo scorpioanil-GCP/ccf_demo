@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2647 entries**, of which **2368** name a public Python surface.
+**2646 entries**, of which **2367** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1386 entries — 1340 public Python surface, 46 not public Python API.
+1385 entries — 1339 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20138,21 +20138,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent; the resolver raised `ccf.halflife.decay.TemporalOrderError`
-- After: a `GateRefusal` carrying `decided_at`, kind `evidence-after-decision-refusal` in `REFUSAL_KINDS`
+- After: a refusal (not a `GateRefusal`, on the `ToleranceExceededRefusal` precedent) carrying `reason`, `detail` and `decided_at`, kind `evidence-after-decision-refusal` in `REFUSAL_KINDS`
 - Why: CP08-R3-F-01; Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/products/test_evidence_after_decision_refusal.py::test_evidence_dated_after_the_decision_instant_is_refused_by_name_with_a_record`
 - Migration: a consumer switching on refusal kinds handles the new kind
-
-*Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
-
-#### ccf.products.gates.GATE_EVIDENCE_AFTER_DECISION
-
-- Surface: ccf.products.gates.GATE_EVIDENCE_AFTER_DECISION
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `"evidence-after-decision"`, the promoted `reason` of the new refusal
-- Why: CP08-R3-F-01
-- Migration: none
 
 *Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
 

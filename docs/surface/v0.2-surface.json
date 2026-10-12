@@ -8224,7 +8224,6 @@
       "EvidenceAfterDecisionRefusal",
       "GATE_DECLARED_OBLIGATIONS",
       "GATE_EMPTY_OPERATOR",
-      "GATE_EVIDENCE_AFTER_DECISION",
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
       "GATE_SOURCE_ATTESTATION",
@@ -8285,7 +8284,7 @@
         "shape": {
           "decided_at": "<class 'datetime.datetime'>",
           "detail": "<class 'str'>",
-          "gate": "<class 'str'>"
+          "reason": "typing.Literal['evidence-after-decision']"
         }
       },
       "GATE_DECLARED_OBLIGATIONS": {
@@ -8293,10 +8292,6 @@
         "shape": "str"
       },
       "GATE_EMPTY_OPERATOR": {
-        "kind": "constant",
-        "shape": "str"
-      },
-      "GATE_EVIDENCE_AFTER_DECISION": {
         "kind": "constant",
         "shape": "str"
       },

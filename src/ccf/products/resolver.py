@@ -262,7 +262,6 @@ from ccf.products.entitlement import (
 )
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
-    GATE_EVIDENCE_AFTER_DECISION,
     GATE_LINEAGE_EQUALITY,
     EvidenceAfterDecisionRefusal,
     GateRefusal,
@@ -4985,7 +4984,6 @@ class GovernedResolver:
             return self._record_refusal(
                 envelope=envelope_for(
                     EvidenceAfterDecisionRefusal(
-                        gate=GATE_EVIDENCE_AFTER_DECISION,
                         detail=(
                             "the Context Debt cannot be assessed at the decision"
                             f" instant {decided_at.isoformat()}: {future_dated}"
