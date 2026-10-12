@@ -49,6 +49,8 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -81,6 +83,21 @@ ESTATE_VARIABLES = (
     "CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA",
     "CCF_CP_04C_FLUREE_URL", "CCF_CP_04C_FLUREE_LEDGER", "CCF_CP_04C_POSTGRES_DSN", "CCF_CP_04C_POSTGRES_SCHEMA",
 )
+
+def _reader(opened: Any) -> FileArtifactStore:
+    """The consumer's replay store, opened to READ (AMENDED 2026-10-11, round 3).
+
+    `FileArtifactStore` now requires `write_kinds` (D-IMPL-353 §1.2); this
+    instance declares the road's own replay classes under `ReplayMint` and only
+    reads (examples/AMENDMENTS-2026-10-11.md).
+    """
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=WriteKinds.declare(
+            {opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}
+        ),
+    )
+
 
 
 @pytest.fixture(scope="module")
@@ -139,7 +156,7 @@ def _ask(modules: tuple[Any, Any], scratch: pathlib.Path, *, environ: dict[str, 
             parameters={deployment.AS_OF: CP14_INSTANT.isoformat(), deployment.DEBT_TOLERANCE: Decimal(tolerance), deployment.FACILITY_ID: BGC_FACILITY},
         )
         outcome = opened.answer(asked)
-        fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        fresh = _reader(opened)
         address = outcome.replay_ref.content_address if isinstance(outcome, ServedProduct) else fresh.resolve_uri(uri=outcome.replay_reference)
         return opened, outcome, DecisionReplayRecord.model_validate_json(fresh.get(content_address=address))
 
@@ -322,7 +339,7 @@ def test_f32_a_refused_composite_that_admitted_a_child_is_reconstructed_from_its
         assert record.content_generation_path.plan_id == NO_FABRIC_READ
 
         # 1. the admitted bytes, from a fresh store instance, re-hashing to the row's address
-        consumer_store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        consumer_store = _reader(opened)
         for product_class, address in admitted.items():
             assert address, (tolerance, product_class)
             contract = ContextProductContract.model_validate_json(consumer_store.get(content_address=address))

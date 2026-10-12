@@ -45,6 +45,8 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
 from ccf.products.refusal import RefusalEnvelope
@@ -83,6 +85,21 @@ ESTATE_VARIABLES = (
     "CCF_CP_04C_FLUREE_URL", "CCF_CP_04C_FLUREE_LEDGER", "CCF_CP_04C_POSTGRES_DSN", "CCF_CP_04C_POSTGRES_SCHEMA",
     "CCF_CP_06C_FLUREE_URL", "CCF_CP_06C_FLUREE_LEDGER", "CCF_CP_06C_POSTGRES_DSN", "CCF_CP_06C_POSTGRES_SCHEMA",
 )
+
+def _reader(opened: Any) -> FileArtifactStore:
+    """The consumer's replay store, opened to READ (AMENDED 2026-10-11, round 3).
+
+    `FileArtifactStore` now requires `write_kinds` (D-IMPL-353 §1.2); this
+    instance declares the road's own replay classes under `ReplayMint` and only
+    reads (examples/AMENDMENTS-2026-10-11.md).
+    """
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=WriteKinds.declare(
+            {opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}
+        ),
+    )
+
 
 
 @pytest.fixture(scope="module")
@@ -142,7 +159,7 @@ def _ask(modules: tuple[Any, Any], scratch: pathlib.Path, *, environ: dict[str, 
             parameters={deployment.AS_OF: CP14_INSTANT.isoformat(), deployment.DEBT_TOLERANCE: Decimal(tolerance), deployment.FACILITY_ID: BGC_FACILITY},
         )
         outcome = opened.answer(asked)
-        fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        fresh = _reader(opened)
         assert isinstance(outcome, RefusalEnvelope), outcome
         address = fresh.resolve_uri(uri=outcome.replay_reference)
         return opened, outcome, DecisionReplayRecord.model_validate_json(fresh.get(content_address=address))
@@ -162,7 +179,7 @@ def both(modules: tuple[Any, Any], estate: None, tmp_path_factory: pytest.TempPa
 
 
 def _retained(opened: Any, address: str) -> ContextProductContract:
-    store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    store = _reader(opened)
     contract = ContextProductContract.model_validate_json(store.get(content_address=address))
     assert content_hash(contract) == address
     return contract
@@ -225,7 +242,7 @@ def test_the_collateral_question_is_the_facility_specific_one_the_ruling_fixed(b
     child = _retained(opened, row.child_content_address)
     assert child.payload["facility"] == BGC_FACILITY
     assert "debt_tolerance" not in child.payload.get("basis", {}), "a tolerance was invented for the collateral child"
-    question = retained_child_question(store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname), row=row)
+    question = retained_child_question(store=_reader(opened), row=row)
     assert content_hash(question) == row.child_question_address
     assert question.subject == BGC_FACILITY
     assert "debt_tolerance" not in json.dumps(json.loads(question.request).get("parameters", {})), "a tolerance was invented for the collateral child"
@@ -269,7 +286,7 @@ def test_both_refused_records_reconstruct_with_every_admitted_child_retained(
         def rehydrate_product(self, **_: Any) -> Any:
             raise AssertionError("rehydrate_product was reached")
 
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    fresh = _reader(opened)
     for address in admitted.values():
         assert content_hash(ContextProductContract.model_validate_json(fresh.get(content_address=address))) == address
     minted = sorted(opened.scratch.glob("cp14_memo_*.sqlite3"))[-1]

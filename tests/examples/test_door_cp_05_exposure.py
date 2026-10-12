@@ -45,6 +45,8 @@ import yaml
 
 from ccf.erasure import ErasureTrust
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract
@@ -80,7 +82,16 @@ RUN = WRAPPER / "run.py"
 #: The one instant the frozen tree answers at — CP-14's demonstration instant
 #: coincides with it — and an instant it does not.
 PIN = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
-OTHER_INSTANT = PIN + timedelta(days=1)
+# AMENDED 2026-10-11 (round 3; examples/AMENDMENTS-2026-10-11.md): was `PIN + 1 day`.
+# The consumer fixture now declares the `temporal_boundary` every governed serve
+# requires (D-IMPL-358 ruling 11; an undeclared one refuses every question), and on
+# the consumer's own clock (`ADMITTED_AT`) a question a day in the FUTURE is refused
+# by the CONSUMER before the producer is asked — so the producer's own instant guard
+# (`CP05D-F-01`) was no longer reachable. Thirty minutes BEFORE the pin is inside the
+# consumer's window and is still not the producer's one recorded instant: the
+# property under test (another instant is refused by name, never answered at the pin)
+# is unchanged.
+OTHER_INSTANT = PIN - timedelta(minutes=30)
 ADMITTED_AT = PIN + timedelta(minutes=7)
 BGC = "2549001IGRCG4F0RLD36"
 REGIS = "5493000Q1S5TJIDIQH89"
@@ -181,9 +192,13 @@ def consumer_row(opened: OpenedProduct, outcome: Any) -> Any:
 
 
 def _retained_child(opened: OpenedProduct, row: Any) -> ContextProductContract:
-    return ContextProductContract.model_validate_json(
-        FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=row.child_content_address)
+    # AMENDED 2026-10-11 (round 3): `FileArtifactStore` requires `write_kinds`
+    # (D-IMPL-353 §1.2); this instance only reads, under the road's own declaration.
+    reader = FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=WriteKinds.declare({opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}),
     )
+    return ContextProductContract.model_validate_json(reader.get(content_address=row.child_content_address))
 
 
 def through_the_door(url: str, tmp_path: pathlib.Path, *, subject: str = BGC, asked_at: datetime = PIN, edit: Any = None, **question: Any) -> tuple[Any, Any, ContextProductContract | None]:

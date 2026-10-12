@@ -27,6 +27,8 @@ from typing import Any, Iterator
 
 import pytest
 
+from ccf.halflife.decay import TemporalOrderError
+
 from tests.examples.demonstration_deployment import (
     anchored_after,
     deployment_on_the_real_clock,
@@ -738,3 +740,40 @@ def test_the_default_question_on_the_real_clock_is_refused_as_expired(
     assert _ids(served, "amendments_in_force_and_known") == ["AMD-01BB3F-1"]
     assert _excluded_by(served, "AMD-01BB3F-2") is not None
 
+
+
+# --- CP08-R3-F-01: the drawdown-day question (round 3, 2026-10-11) -------------------
+#
+# Executable evidence, not a repair. Asked AT the drawdown day (the decision instant
+# 2025-09-09, on a deployment whose one time anchor is five minutes later), the
+# deployment ingests the estate as it stands — including AMD-01BB3F-2, booked
+# 2025-10-05, AFTER that decision instant — and the SDK's debt scorer RAISES
+# `TemporalOrderError` (`halflife/debt.py`, reached from the resolver's scoring)
+# where a governed outcome is owed (EXAMPLE-EVALUATION-CRITERIA §D: "never a raise
+# where a governed refusal is owed"). Two findings, classified apart (§B rule):
+#   §B.2 candidate (SDK) — the resolver lets `TemporalOrderError` escape instead of
+#       refusing (or excluding) evidence dated after the instant it evaluates at;
+#   §B.4 (example/estate) — the snapshot holds evidence booked after the asked
+#       instant and this deployment's acquisition does not bound it by `asked_at`.
+# The example is NOT changed to avoid the raise: that would erase the only
+# reproduction of the SDK half (D-IMPL-261). Strict, so the fix is noticed.
+DRAWDOWN_DAY_ASKED_AT = datetime(2025, 9, 9, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=TemporalOrderError,
+    reason=(
+        "CP08-R3-F-01 (NEEDS-SDK, §B.2 candidate): TemporalOrderError escapes the governed"
+        " resolver for evidence booked after the asked instant; a governed outcome is owed"
+    ),
+)
+def test_a_question_asked_on_the_drawdown_day_gets_a_governed_outcome_not_a_raise(
+    example: tuple[Any, Any, Any]
+) -> None:
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    _, _, run = example
+    drawdown = run.DEMONSTRATION_DRAWDOWN
+    outcome = _serve(example, asked_at=DRAWDOWN_DAY_ASKED_AT, as_of=drawdown, known_as_of=drawdown)
+    assert isinstance(outcome, RefusalEnvelope) or hasattr(outcome, "product"), outcome
