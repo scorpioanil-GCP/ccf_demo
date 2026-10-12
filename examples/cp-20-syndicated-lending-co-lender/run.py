@@ -27,6 +27,7 @@ for _path in (REPO_ROOT / "src", REPO_ROOT / "runtime", HERE):
 
 import deployment  # noqa: E402
 import produce  # noqa: E402
+from ccf.contracts.canonical import content_hash  # noqa: E402
 from ccf.products.refusal import RefusalEnvelope  # noqa: E402
 from ccf.projection.plan import Perspective  # noqa: E402
 
@@ -116,6 +117,7 @@ def main(argv: list[str]) -> int:
         print(f"findings        : {json.dumps(payload['findings'])}")
         print(f"context debt    : D_c = {outcome.product.debt.debt}")
         print(f"expires at      : {outcome.product.expires_at.isoformat()}")
+        print(f"address         : {content_hash(outcome.product)}")
         print(f"replay          : {outcome.replay_ref.content_address}")
     return 0
 
