@@ -24,6 +24,29 @@ outcome of the examples and both Hello World tutorials is unchanged, so
 existing demonstration recordings stay valid; values that depend on the time
 of the run differ on every run, as before.
 
+## Limits of this delivery (read before deploying)
+
+Dave accepted the documentation close-out on 2026-10-12 at 16:03 MST with
+these limits, and they hold for every use of this delivery:
+
+- **The handoff covers the tested bank configuration only**: the governed
+  product door over MCP streamable HTTP on 127.0.0.1, one engine, store and
+  approval queue per instance, a SQLite graph store with its identity lock
+  (the packet's section 2). The HTTP API door, MCP over stdio, A2A, the MCP artifact
+  server and the other graph backends were exercised by the test suite, not
+  under this configuration.
+- **Erasure completion over the MCP-backed artifact store is unsupported.**
+  An erasure over it reaches approval and no further, before and after this
+  release (follow-up 6). Complete erasures through an in-process store.
+- **Mixed-version erasure requests stay disabled during an upgrade.**
+  Upgrade the MCP artifact server first, or with its clients, and submit no
+  erasure request through an erasure door client until that client is
+  upgraded too: an older door client against an upgraded server admits a
+  request naming a client twin of governed evidence, which the upgraded
+  client refuses (measured).
+- **SEC-020 and the other findings in the packet's section 5 stay open.** Green CI is not
+  security closure.
+
 ## Changes that need action from an adopter
 
 ### 1. HTTP product route: a scope-mapping deny is now `404`
@@ -121,6 +144,22 @@ These apply only where the MCP artifact server is deployed.
   artifact server's only write tool refuses the door's approval as the wrong
   kind (follow-up 6). Complete erasures through an in-process store.
 
+### 4. Specification authors: the Standard v0.3's status code for an unentitled principal
+
+The Context Product Specification Standard v0.3 is preserved as written
+(`public/reference/specifications/Context_Product_Specification_Standard_v0-3.md`).
+Its status-code guidance for one condition is outdated: its section 9 error
+table maps "Principal not entitled" to `403, no detail on what exists`, and
+the spec-generation guide (section D.7) and the eleven example
+specifications written to the Standard carry the same `403`. The SDK's HTTP
+product door answers an unentitled principal, and since this release a
+scope-mapping deny too, with `404 subject-unavailable` (item 1 above), which
+serves the Standard's own reason for the row ("Existence is itself
+disclosure"). Read that row as `404 subject-unavailable` for the HTTP product
+route; the `403` cases listed under item 1's "Unchanged" still answer `403`.
+The Standard, the guide and the example specifications are not changed
+(follow-up 4).
+
 ## Fixed
 
 - The HTTP product door's class-existence oracle (R5-CP17-F01), as above.
@@ -156,7 +195,9 @@ Exact conditions are in the packet's section 5.
    opposite one holds the gate.
 3. Source docstrings that still describe pre-batch behavior (the delivered
    wheel is fixed at `01fc424d`).
-4. The authoring Standard's `403` row for "principal not entitled".
+4. The authoring Standard v0.3's `403` row for "principal not entitled",
+   preserved as written and identified as outdated in item 4 under "Changes
+   that need action from an adopter".
 5. No conformance test for a custom transport's eligibility judgment; the
    door paths' uniform "cannot verify" is uniform in bytes, not in server
    work (timing not measured).

@@ -11,7 +11,8 @@ and are limited to its stated scope and term.
 Dave's Tuesday delivery GO (2026-10-11 14:51 MST, item 7) and his 23:44 MST
 ruling, and his 2026-10-12 rulings (07:04 type corrections; 08:45
 improvement-batch GO; about 10:55 merge and hosted-run GO; 12:50
-documentation baseline and follow-ups), all recorded verbatim in
+documentation baseline and follow-ups; 16:03 documentation close-out
+accepted, with the limits below), all recorded verbatim in
 `docs/DECISIONS.md`. What changed for adopters is summarized in
 [`RELEASE-NOTES.md`](RELEASE-NOTES.md). This page covers one
 controlled deployment configuration. **It is not a claim that the SDK's
@@ -21,6 +22,29 @@ security findings are closed.** The open ones are listed by name in
 **No tag. No public upload.** The PyPI name placeholder
 (`packaging/pypi-placeholder/`) is uploaded by Dave from his own account, and
 by nobody else.
+
+## Limits of this delivery (read before deploying)
+
+Dave accepted the documentation close-out on 2026-10-12 at 16:03 MST with
+these limits, and they hold for every use of this delivery:
+
+- **The handoff covers the tested bank configuration only**: the governed
+  product door over MCP streamable HTTP on 127.0.0.1, one engine, store and
+  approval queue per instance, a SQLite graph store with its identity lock
+  (section 2). The HTTP API door, MCP over stdio, A2A, the MCP artifact
+  server and the other graph backends were exercised by the test suite, not
+  under this configuration.
+- **Erasure completion over the MCP-backed artifact store is unsupported.**
+  An erasure over it reaches approval and no further, before and after this
+  release (follow-up 6). Complete erasures through an in-process store.
+- **Mixed-version erasure requests stay disabled during an upgrade.**
+  Upgrade the MCP artifact server first, or with its clients, and submit no
+  erasure request through an erasure door client until that client is
+  upgraded too: an older door client against an upgraded server admits a
+  request naming a client twin of governed evidence, which the upgraded
+  client refuses (measured).
+- **SEC-020 and the other findings in [section 5](#5-security-statement) stay open.** Green CI is not
+  security closure.
 
 ## 1. What is delivered
 
@@ -478,8 +502,11 @@ break that turns it red), with where each was tested:
   Specification Standard v0.3 (section 9) and the spec-generation guide map
   "principal not entitled" to `403`; the SDK's HTTP product door answers it,
   and since 2026-10-12 a scope-mapping deny too, as `404
-  subject-unavailable`. The Standard is Dave's document and is not changed
-  here.
+  subject-unavailable`. Eleven example specifications written to the
+  Standard carry the same `403`. The Standard is Dave's document and is
+  preserved as written (Dave, 2026-10-12 16:03 MST); the release notes
+  identify the outdated status code (their "Changes that need action", item
+  4).
 - **Follow-up 5, smaller items found while documenting.** No conformance
   test checks that a deployment's own HITL transport judges eligibility.
   Over MCP, the door paths' uniform "cannot verify" is uniform in bytes but
@@ -533,4 +560,39 @@ break that turns it red), with where each was tested:
 |---|---|
 | Release approval, rulings, PyPI placeholder upload | Dave Castillo |
 | Build, verification and this packet | Claude Code session for the ccf-sdk agent, under Dave's direction |
-| Bank-side service account, host and operations | **to be named by the bank** |
+| Bank-side service account, host and operations (the operational owner) | **to be named by the bank**, in the record in section 8 |
+
+## 8. Handoff steps and acceptance of the disclosed limits
+
+Dave accepted the documentation close-out on 2026-10-12 at 16:03 MST: the
+source and the wheel stay pinned to `01fc424d`, and `main` supplies the
+corrected documentation (documentation only after `01fc424d`). No further
+checking agents, implementation rounds or paid CI runs before the handoff.
+No tag and no public upload.
+
+What remains, in order:
+
+1. **Deliver the sealed folder** `ccf-sdk-delivery-2026-10-13/` with its
+   `MANIFEST.sha256`. They travel together; a copy of the folder without its
+   manifest, or with any file changed, is not the delivery.
+2. **Complete the documentation and the demonstration videos.**
+3. **The bank verifies under its own service account**: section 3's
+   checksum and install steps, then section 2's launch and `verify.py`,
+   which ran under the developer account here.
+4. **The bank names its operational owner and records acceptance of the
+   disclosed limits**, in the record below.
+
+**Acceptance record** (completed by the bank; kept beside the sealed folder,
+not inside it, so its manifest stays valid):
+
+| item | entry |
+|---|---|
+| Operational owner (name, role, organization) | |
+| Service account the door runs under | |
+| `sha256sum -c MANIFEST.sha256` and `sha256sum -c SHA256SUMS` passed (date) | |
+| `verify.py` under that service account: checks passed of 16 (date) | |
+| Accepts: the handoff covers the tested configuration in section 2 only | |
+| Accepts: erasure completion over the MCP-backed artifact store is unsupported | |
+| Accepts: mixed-version erasure requests stay disabled during upgrades | |
+| Accepts: the open findings and follow-ups 1 to 6 in section 5 | |
+| Signature and date | |
