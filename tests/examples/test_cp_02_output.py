@@ -716,7 +716,17 @@ def test_a_facility_with_no_maturity_date_serves(seeded: str) -> None:
     """
     deployment = _load("deployment")
     expected = _expected()
-    assembled = _serve(seeded, facility=expected["fixtures"]["null_maturity"])
+    # ILLUSTRATIVE CALIBRATION (Dave, 2026-10-11 17:51: "approved to move all
+    # tolerances as required to demonstrate the examples"). This facility's dated
+    # data reads D_c 0.6203, above the demonstration question's 0.25, which the SDK
+    # now enforces (`tolerance-exceeded`). This test is about the payload's shape,
+    # so it asks as a caller who accepts that reading; 0.65 is a demonstration
+    # value, not a production threshold.
+    assembled = _serve(
+        seeded,
+        facility=expected["fixtures"]["null_maturity"],
+        **{deployment.PARAM_DEBT_TOLERANCE: Decimal("0.65")},
+    )
     facility = assembled.product.payload["facility"]
     assert facility["maturity_date"] is None
     assert facility["tenor_days"] == deployment.NOT_EVALUABLE
