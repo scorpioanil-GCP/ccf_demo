@@ -235,6 +235,12 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
         "the product declares an evidence-anchored time-to-live and the"
         " evidence it rests on carries no instant to anchor it on"
     ),
+    # Round 5 SDK lane A (CP08-R3-F-01). States the fact and not the
+    # evidence: which observation post-dates the instant is fabric state.
+    "evidence-after-decision-refusal": (
+        "the evidence this product rests on is dated after the instant it is"
+        " decided at, so its Context Debt cannot be assessed at that instant"
+    ),
     "composite-child-refusal": (
         "a required child Context Product did not pass admission into this"
         " composition"
@@ -381,6 +387,9 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # `D-IMPL-341`: nothing here is actionable by the caller — the evidence
     # instant is the producer's to carry, not the caller's to supply.
     "ttl-anchor-refusal": frozenset(),
+    # Round 5 SDK lane A: the decision instant is derived by the fabric, and
+    # nothing here is the caller's to change by re-sending a parameter.
+    "evidence-after-decision-refusal": frozenset(),
     # `D-IMPL-336`: the CLASS is actionable and nothing else is. A caller told
     # which child class failed can grant a producing skill, widen a version
     # lane, or ask again once the upstream product re-derives — that is a

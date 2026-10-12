@@ -102,6 +102,7 @@ from ccf.products.composite import ChildAdmissionRefusal
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.gates import (
+    EvidenceAfterDecisionRefusal,
     TTLAnchorRefusal,
     AttestationRefusal,
     DependencyInvalidationRefusal,
@@ -190,6 +191,9 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         LineageAttributionRefusal: STATUS_FULFILLMENT_WITHHELD,
         TTLRefusal: STATUS_FULFILLMENT_WITHHELD,
         TTLAnchorRefusal: STATUS_FULFILLMENT_WITHHELD,
+        # Round 5 SDK lane A (CP08-R3-F-01): the fabric's own evidence conflicts
+        # with assessing a well-posed request — the gate-family class rule.
+        EvidenceAfterDecisionRefusal: STATUS_FULFILLMENT_WITHHELD,
         # `D-IMPL-334`: the world moved under a product this fabric holds —
         # the fabric's own measured state conflicts with fulfilling a
         # well-posed request. A gate-family refusal, the class rule above.

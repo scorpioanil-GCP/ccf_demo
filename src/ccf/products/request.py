@@ -1706,6 +1706,56 @@ class ProductRequestContract(VersionedArtifact):
             "at request time instead (24.6-L-07, D-IMPL-253 Q21)"
         )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _a_number_default_declared_as_text_is_its_exact_decimal(
+        cls, data: object
+    ) -> object:
+        """Read a quoted decimal default for a declared ``number`` as the exact ``Decimal``.
+
+        CP05-R2-F-01, ruled by Dave 2026-10-11 20:19 MST (item 1, *"decimal
+        defaults ... Preserve exact decimal meaning"*). A Control Plane document
+        QUOTES its numbers — the registry refuses a bare float as not
+        bit-stable — so ``materiality: "0.05"`` arrives here as text, and the
+        type check below refused it, leaving a ``number`` argument no way to
+        declare what omission means. The decoding is
+        :func:`decode_declared_number`, the SAME function that decodes a
+        caller's value (``D-IMPL-302``): one rule, never a float.
+
+        **No kind flag is needed, unlike** ``PolicyConstraint.preferred_decimal``.
+        That flag exists because under ``preferred`` a quoted value may be a
+        decimal OR a name and both render to the same canonical bytes. Here the
+        kind is already in the same document's bytes — the argument's declared
+        ``type`` — and a decoded decimal renders back to exactly the text it was
+        read from (:data:`CANONICAL_DECIMAL` admits no exponent and no
+        normalization), so the canonical form, and with it the content address,
+        is the bytes the author wrote. Anything else (an exponent, padding,
+        ``NaN``, text under ``integer``) is left as it came and refused by name
+        below.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        defaults = data.get("defaults")
+        arguments = data.get("arguments")
+        if not isinstance(defaults, Mapping) or not defaults or arguments is None:
+            return data
+        properties = (
+            arguments.get("properties")
+            if isinstance(arguments, Mapping)
+            else getattr(arguments, "properties", None)
+        )
+        if not isinstance(properties, Mapping):
+            return data
+        decoded = {
+            name: decode_declared_number(
+                value, declared_type=_declared_type(properties.get(name))
+            )
+            for name, value in defaults.items()
+        }
+        if decoded == dict(defaults):
+            return data
+        return {**data, "defaults": decoded}
+
     @model_validator(mode="after")
     def _every_default_is_a_parameter_this_class_honors(
         self,
@@ -2964,21 +3014,49 @@ def decode_declared_request(
     verdict belongs.
     """
     properties = declared.arguments.properties
-    decoded: dict[str, Any] = {}
-    for name, value in request.parameters.items():
-        declaration = properties.get(name)
-        if (
-            declaration is not None
-            and declaration.type == DECODED_DECLARED_TYPE
-            and isinstance(value, str)
-            and CANONICAL_DECIMAL.match(value)
-        ):
-            decoded[name] = Decimal(value)
-        else:
-            decoded[name] = value
+    decoded: dict[str, Any] = {
+        name: decode_declared_number(value, declared_type=_declared_type(properties.get(name)))
+        for name, value in request.parameters.items()
+    }
     if decoded == dict(request.parameters):
         return request
     return request.model_copy(update={"parameters": decoded})
+
+
+def _declared_type(declaration: Any) -> str | None:
+    """The declared JSON type of one argument, read off a typed property or its document form."""
+    if declaration is None:
+        return None
+    if isinstance(declaration, Mapping):
+        declared = declaration.get("type")
+    else:
+        declared = getattr(declaration, "type", None)
+    return declared if isinstance(declared, str) else None
+
+
+def decode_declared_number(value: Any, *, declared_type: str | None) -> Any:
+    """The ONE decimal decoding: declared ``number`` + canonical decimal text -> exact ``Decimal``.
+
+    **SDK-defined** (CLAUDE.md §11). Factored out of
+    :func:`decode_declared_request` (``D-IMPL-302``) so that a value a CALLER
+    states and a value a request contract DECLARES as its default
+    (:attr:`ProductRequestContract.defaults`; CP05-R2-F-01, Dave 2026-10-11
+    20:19 MST: *"decimal defaults ... Preserve exact decimal meaning"*) are
+    decoded by one rule and cannot drift into two readings of *number*.
+
+    Everything the rule refuses to do is in :func:`decode_declared_request`'s
+    docstring and holds here unchanged: only a declared ``number``, only text
+    matching :data:`CANONICAL_DECIMAL`, built from the text and never through a
+    :func:`float`. Any other value is returned UNCHANGED so the type comparison
+    downstream refuses it by name — this function never refuses on its own.
+    """
+    if (
+        declared_type == DECODED_DECLARED_TYPE
+        and isinstance(value, str)
+        and CANONICAL_DECIMAL.match(value)
+    ):
+        return Decimal(value)
+    return value
 
 
 def refuse_request(

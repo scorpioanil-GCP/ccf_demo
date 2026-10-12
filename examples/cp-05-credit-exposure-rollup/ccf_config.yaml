@@ -216,7 +216,15 @@ request_contract:
   # decimal."* It caught this on the first boot of this config. A float
   # materiality would have made the content address platform-dependent — the
   # product would have reproduced on the machine that built it and nowhere else.
-  argument_defaults:
+  #
+  # AMENDED 2026-10-11 (SDK round 5, CP05-R2-F-01; examples/AMENDMENTS-2026-10-11.md):
+  # this key was `argument_defaults`, which the SDK never read — the governing
+  # resolution saw NO materiality default and refused `internal-appetite`
+  # `required-absent`. It is now `defaults`, the key
+  # `ProductRequestContract.from_declared` reads, and the SDK decodes the quoted
+  # `"0.05"` for the declared `number` argument to the exact Decimal("0.05") —
+  # the same rule that decodes a caller's value. Values unchanged.
+  defaults:
     # THE AUTHOR'S DEFAULT FITNESS BAR, not the product's truth. A consumer who
     # says nothing is treated as requiring a reasonably trustworthy answer.
     # `debt_tolerance` IS DELIBERATELY ABSENT HERE — one product-default

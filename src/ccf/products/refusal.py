@@ -139,6 +139,7 @@ from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
+    EvidenceAfterDecisionRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
@@ -830,6 +831,14 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # on — is its own kind, so a caller can tell "the window has passed" from
     # "there was nothing to run a window from".
     TTLAnchorRefusal: "ttl-anchor-refusal",
+    # Round 5 SDK lane A (Dave 2026-10-11 20:19 MST ruling 1; CP08-R3-F-01):
+    # evidence dated after the decision instant, met at the scoring step. Its
+    # own kind: a caller told "the window has passed" (`ttl-refusal`) or "the
+    # instant is outside the tenant's window" (`temporal-bound-refusal`) would
+    # retry the wrong thing. Post-projection (a plan ran), so NOT in
+    # `_PRE_ASSEMBLY_REFUSALS`. No shipped token is a substring of it or it of
+    # them.
+    EvidenceAfterDecisionRefusal: "evidence-after-decision-refusal",
     AttestationRefusal: "attestation-refusal",
     # `D-IMPL-334`. Serve-time dependency invalidation: an entity this product
     # touched moved after the snapshot it was built at, so it is no longer

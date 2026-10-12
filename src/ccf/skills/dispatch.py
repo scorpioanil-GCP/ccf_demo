@@ -125,6 +125,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "McpInvocation",
     "McpProductFailure",
+    "TENANT_NOT_GRANTED_CODE",
     "McpProductInvocation",
     "McpProductProvenanceError",
     "McpSkillRegistry",
@@ -464,7 +465,29 @@ class McpProductProvenanceError(TypeError):
 
 _MCP_PRODUCT_TOKEN: Final = object()
 
-McpProductFailureKind = Literal["timeout", "unreachable", "tool-error"]
+McpProductFailureKind = Literal[
+    "timeout", "unreachable", "tool-error", "tenant-not-granted"
+]
+
+#: The stable code the SDK's own door puts on its SEC-018 tenancy denial
+#: (`ccf_runtime.mcp.tenancy._select_tenant`): the consumer asked the producer to
+#: act as a tenant the consumer's grant there does not carry.
+#:
+#: Round 5 SDK lane A (Dave, 2026-10-11 20:19 MST, ruling 1: *"wrong-tenant
+#: refusal attribution"*). A registration expecting the wrong producer tenant
+#: was refused correctly by that guard, but :func:`_invoke_mcp_product` filed it
+#: as a ``tool-error`` and the row read ``producer-unavailable`` — an outage —
+#: where the cause is a tenancy disagreement. The code lets the dispatch name it
+#: (:data:`McpProductFailureKind` ``"tenant-not-granted"``) without parsing prose.
+#:
+#: **What it discloses: nothing new.** The denial names only the tenant the
+#: consumer itself sent, and its first line was already the recorded
+#: ``detail``. **What it is not: an authorization.** It is the producer's word
+#: about why it refused; it can only turn one refusal into another refusal —
+#: ``producer-tenant-mismatch`` instead of ``producer-unavailable`` — and never
+#: into an admission.
+TENANT_NOT_GRANTED_CODE: Final[str] = "ccf-tenant-not-granted"
+_TENANT_NOT_GRANTED = re.compile(rf"(?<![\w-]){re.escape(TENANT_NOT_GRANTED_CODE)}(?![\w-])")
 
 
 @dataclass(frozen=True)
@@ -594,7 +617,9 @@ class McpProductFailure:
     the registration members admission needs to write an honest row.
 
     Attributes:
-        failure: ``"timeout"``, ``"unreachable"`` or ``"tool-error"``.
+        failure: ``"timeout"``, ``"unreachable"``, ``"tool-error"``, or
+            ``"tenant-not-granted"`` — a tool error carrying
+            :data:`TENANT_NOT_GRANTED_CODE`, the SDK door's tenancy denial.
         detail: The producer's reported text for a tool error — for the SDK's
             own door an opaque ``ccf-runtime-failure:<id>`` or a protocol
             denial — or the client failure's class name otherwise. Never a
@@ -1104,6 +1129,8 @@ def _invoke_mcp_product(
     try:
         contents = client.call_tool_text(PRODUCT_REQUEST_TOOL, arguments)
     except McpToolFailed as reported:
+        if _TENANT_NOT_GRANTED.search(reported.text) is not None:
+            return failed("tenant-not-granted", _recordable_detail(reported.text))
         return failed("tool-error", _recordable_detail(reported.text))
     except McpTimeout as timed_out:
         return failed("timeout", type(timed_out).__name__)
