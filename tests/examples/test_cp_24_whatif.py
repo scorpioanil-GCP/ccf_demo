@@ -113,10 +113,11 @@ def ask(
     modules: dict[str, Any], scratch: pathlib.Path, *,
     principal: tuple[str, str] = COVERAGE, book: str = BOOK, intent: str = INTENT,
     scenario: Mapping[str, Any] | None = None, members: list[str] | None = None,
-    **params: Any,
+    config_root: pathlib.Path | None = None, **params: Any,
 ) -> Any:
     deployment, produce = modules["deployment"], modules["produce"]
-    with produce.product(scratch) as opened:
+    # `config_root`: a test-owned copy of the deployment (amended 2026-10-11).
+    with (produce.product(scratch) if config_root is None else produce.product(scratch, config_root=config_root)) as opened:
         parameters: dict[str, Any] = {deployment.AS_OF: AS_OF}
         parameters.update({k: v for k, v in params.items() if v is not None})
         asked = produce.book_question(
@@ -474,3 +475,26 @@ def test_a_changed_assumption_is_a_changed_determination(
     assert served["credit"].address != served["alternate"].address, (
         "a changed assumption must be a changed determination"
     )
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path,
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question, asked of this tree's own two documents with the
+    declared demonstration serve instant REMOVED, is served on the real clock —
+    outside the one-hour `temporal_boundary` — so the SDK refuses it by name, as
+    data, with a replay reference. The same question on the declared clock
+    serves (the positive control). Added 2026-10-11 (round 3).
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    from tests.examples.demonstration_deployment import paved_root_on_the_real_clock  # noqa: PLC0415
+
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    refused = ask(modules, tmp_path / "real", config_root=root)
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    assert isinstance(ask(modules, tmp_path / "declared"), Answer), "the declared clock serves it"

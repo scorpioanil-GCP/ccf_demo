@@ -45,7 +45,8 @@ from ccf_runtime.http_api.dependencies import ApiDependencies  # noqa: E402
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant  # noqa: E402
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
 from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
-from ccf_runtime.mcp.product_door import ProductDoor, open_door_with_verifier  # noqa: E402
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer  # noqa: E402
+from ccf_runtime.mcp.product_door import ProductDoor, open_door_with_verifier, scope_mapping_key  # noqa: E402
 from ccf.products.product import OpenedProduct  # noqa: E402
 from ccf.projection.plan import Perspective  # noqa: E402
 
@@ -109,6 +110,20 @@ def open_kyc_door(opened: OpenedProduct, *, environ: Mapping[str, str] | None = 
 
 def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type lives in the runtime
     """The HTTP door over the same opened product, tokens and recorder."""
+    # AMENDED 2026-10-11 (round 3): `create_app` now REQUIRES an authorizer and a
+    # replay-record class (D-IMPL-353 §4; SEC-017), and the SDK ships no paved HTTP
+    # door. The HTTP door decides under the SAME scope mapping the standard door's
+    # composition registers (tenant, `product.retrieve`, this class), pinned to the
+    # exact version that composition just returned; a deployment cannot register a
+    # mapping of its own. `replay_record_product_class=None` declares no class, which
+    # fails closed for a rostered caller's replay reads.
+    open_kyc_door(opened)
+    mapping = scope_mapping_key(tenant_id=opened.tenant_id)
+    authorizer = ControlPlaneTenantAuthorizer(
+        control_plane=opened.control_plane, scope_mapping_key=mapping,
+        scope_mapping_version=opened.control_plane.versions(mapping)[-1],
+        clock=lambda: datetime.now(UTC),
+    )
     app = create_app(
         ApiDependencies(
             control_plane=opened.control_plane,
@@ -120,11 +135,13 @@ def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type
             product_resolver=opened.resolve,
         ),
         auth=BearerTokenAuth(token_source=token_source(opened)),
+        authorizer=authorizer,
         product_entitlement=ControlPlaneProductEntitlementSource(
             control_plane=opened.control_plane, clock=lambda: datetime.now(UTC),
         ),
         perspective_resolver=perspective_resolver(opened),
         refusal_recorder=opened.refusal_recorder,
+        replay_record_product_class=None,
     )
     return app
 

@@ -38,6 +38,7 @@ sys.path.insert(0, str(HERE))
 
 import deployment  # noqa: E402
 import produce  # noqa: E402
+from ccf.contracts.canonical import content_hash  # noqa: E402
 from ccf.products.refusal import RefusalEnvelope  # noqa: E402
 from ccf.projection.plan import Perspective  # noqa: E402
 
@@ -105,7 +106,11 @@ def main(argv: list[str]) -> int:
         product = outcome.product
         payload = product.payload
         print(f"\nSERVED       {product.schema_name}@{product.schema_version}")
-        print(f"  address    {outcome.replay_ref.content_address}")
+        # AMENDED 2026-10-11 (round 3): "address" printed the REPLAY RECORD's address, which
+        # since Dave's Q11 / D-IMPL-378 E1 (a) is issued per answer and differs on every run.
+        # The product's own content address is the stable one; the record is printed beside it.
+        print(f"  address    {content_hash(outcome.product)}")
+        print(f"  record     {outcome.replay_ref.content_address}")
         print(f"  expires    {product.expires_at.isoformat()}")
         print(f"  debt       D_c={product.debt.debt if product.debt else 'n/a'}  signal={product.debt.signal if product.debt else 'n/a'}")
         posture = payload.get("posture")

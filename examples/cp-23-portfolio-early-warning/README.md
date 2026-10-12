@@ -52,6 +52,27 @@ make -s example-cp-23 SEVERITY_FLOOR="--severity-floor 0.45"
 ```
 
 
+**The demonstration clock (amended 2026-10-11, round 3).** `ccf_config.yaml` declares a labelled
+**development serve instant**, 2026-08-25T00:05Z (`demonstration_serve_instant:`, `D-IMPL-378` C1, honored on the paved road
+since the SDK round of 2026-10-11): the product, in-process and through its door, serves as if it were five minutes
+after the demonstration question (2026-08-25T00:00Z), inside its one-hour `temporal_boundary`. It is the run's ONE time
+anchor; nothing a question carries can move it; the SDK refuses it outside its own development substrates (SQLite
+graph, file-backed store); every replay record written under it names the declaration. The estate's observations
+keep their own dates — nothing is relabelled as freshly observed, and Context Debt is computed at the declared
+instant. With the declaration removed the demonstration question is refused `asked-at-outside-temporal-bound`
+(`tests/examples/test_cp_23_portfolio.py::test_the_demonstration_question_on_the_real_clock_is_refused_as_expired`). A question at
+another dated instant needs a deployment declaring its own anchor (the tests open a test-owned copy declaring five
+minutes after it).
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
+**The door's principals are declared (amended 2026-10-11, round 3).** Since D-IMPL-353 a deployment cannot register an entitlement policy from code, so the three grants `server/serve.py::entitle` used to register are stated in `ccf_config.yaml` (`product_entitlement:`) — PRIN-PM-001 coverage, PRIN-CO-002 credit, PRIN-PR-003 product — and the SDK's composition registers them at open; the standard door composes over them. `PRIN-UNG-004` holds a credential and no grant: refused `principal-not-entitled` at the door (the caller sees `subject-unavailable`).
+
 ## The story
 
 ### The two rulings this rung carries

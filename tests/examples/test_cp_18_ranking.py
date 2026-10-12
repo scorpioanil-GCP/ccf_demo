@@ -475,3 +475,27 @@ def test_the_narrower_evidence_base_is_stated_not_silent(book: Mapping[str, Answ
         # And the product-level statement agrees with the per-row one.
         assert answer.payload["optional_context"]["child_count"] == 0
         assert json.dumps(answer.payload["optional_context"])
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path,
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question, asked of this tree's own two documents with the
+    declared demonstration serve instant REMOVED, is served on the real clock —
+    outside the one-hour `temporal_boundary` — so the SDK refuses it by name, as
+    data, with a replay reference. The same question on the declared clock
+    serves (the positive control). Added 2026-10-11 (round 3).
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    from tests.examples.demonstration_deployment import paved_root_on_the_real_clock  # noqa: PLC0415
+
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        refused = opened.answer(_question(opened, modules["deployment"]), perspective=Perspective(principal_id=SUBJECT, role="ma"))
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    assert _answer(modules, tmp_path / "declared", role="ma").product is not None, "the declared clock serves it"

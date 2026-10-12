@@ -385,11 +385,11 @@ door:
 # revenue's precedent: a request may reach one hour before the fabric's serve
 # clock and no further, with no future skew.
 #
-# KNOWN CONSEQUENCE (finding G4-F-01, an SDK finding, not repaired here): the
-# paved road serves at the real clock and cannot honor a
-# `demonstration_serve_instant:` declaration (DemonstrationServeInstantConflict),
-# so the pinned demonstration question in artifacts/question.yaml is refused
-# today. Asking at the current instant (ASKED_AT=--asked-at=<now>) serves.
+# AMENDED 2026-10-11 (round 3): finding G4-F-01 is closed by the SDK round
+# (`demonstration_serve_instant:` honored on the paved road, r2-sdk item 4).
+# The pinned demonstration question is served on the labelled development
+# clock declared below; the same question on the real clock is refused
+# `asked-at-outside-temporal-bound` (an ordinary passing test keeps that).
 #
 # > **Illustrative calibration:** This example runs against a point-in-time
 # > demonstration estate rather than continuously refreshed production data.
@@ -400,3 +400,45 @@ door:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
+# 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
+# the dated scenario and use the existing, explicitly labelled development-clock
+# mechanism"). Added 2026-10-11 (examples/AMENDMENTS-2026-10-11.md, round 3). The
+# demonstration question in `artifacts/question.yaml` is asked as of
+# 2026-06-30T00:00Z; this deployment declares, in its own Control Plane, that it
+# is a DEMONSTRATION serving at 2026-06-30T00:05:00+00:00 — five minutes later, inside
+# the one-hour `temporal_boundary` above. It is the run's ONE time anchor,
+# in-process and through the door alike. Nothing a question carries can move
+# it; the SDK refuses it unless the fabric runs on its development substrates
+# (SQLite graph, file-backed store); every replay record written under it names
+# this declaration in its Policy Bindings dimension. The estate's observations
+# keep their own dates: nothing is relabelled as freshly observed. Remove this
+# section and the deployment serves on the real clock again, where the
+# demonstration question is refused `asked-at-outside-temporal-bound`
+# (`tests/examples/test_cp_16_surveillance.py::test_the_demonstration_question_on_the_real_clock_is_refused_as_expired`).
+demonstration_serve_instant:
+  serve_instant: "2026-06-30T00:05:00+00:00"
+
+# The door's principals, DECLARED (2026-10-11 compatibility repair, round 3;
+# SDK round 2 item 1, G4-F-04). Since D-IMPL-353 a deployment can no longer
+# register an entitlement policy from code, so the three-grant policy
+# `server/serve.py::entitle` used to register by hand is stated here, as
+# Control Plane data, and the SDK's composition registers it at open; the
+# standard door composes over it. The grants are exactly the ones `entitle()`
+# registered (measured 2026-10-11 against .76, read-only): the roles the declared perspectives artifact assigns (projection.PRINCIPAL_ID).
+# PRIN-UNG-004 holds a credential and is deliberately NOT here: the negative
+# control, refused `principal-not-entitled` at the door.
+product_entitlement:
+  tenant_id: cp-16-demo
+  policy_version: "1.0.0"
+  principals:
+    PRIN-SFD-001:
+      permitted_schema_names: [cib.abs-surveillance]
+      permitted_roles: [structured-finance-desk]
+    PRIN-CRR-002:
+      permitted_schema_names: [cib.abs-surveillance]
+      permitted_roles: [credit-risk]
+    PRIN-CLR-003:
+      permitted_schema_names: [cib.abs-surveillance]
+      permitted_roles: [client-reporting]

@@ -47,13 +47,13 @@ from ccf.replay.engine import (
     ReplayDivergence,
     ReplayOutcome,
     ReplayRecordKindMismatch,
-    ReplayUnresolvable,
     replay,
     replay_refusal,
 )
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.support.sqlite_lease import lock_dir_beside
+from tests.examples.demonstration_deployment import product_asked_at
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres, pytest.mark.mongo]
 
@@ -359,19 +359,20 @@ def test_each_principals_product_replays_and_the_ungranted_refusal_reconstructs(
     assert "product" not in type(reconstructed).model_fields
 
 
-# --- no gate: a first-question refusal pins a version nothing registered (CP17-F-09) ----
+# --- no gate: a first-question refusal reconstructs (CP17-F-09, closed by the SDK; mark removed 2026-10-11) ----
 
 
-@pytest.mark.xfail(
-    strict=True, raises=ReplayUnresolvable,
-    reason="CP17-F-09: a refusal recorded at the acquisition seam pins the request-contract version that `_register` mints only on the served path, so the first question of a fresh Control Plane leaves a record replay cannot resolve",
-)
 def test_a_refusal_asked_first_of_a_fresh_product_reconstructs(
     estate: None, modules: dict[str, Any], roles: dict[str, str], tmp_path: pathlib.Path
 ) -> None:
     """The same refusal as the gate above, asked FIRST of a fresh product: the
     record pins `request_contract` at the content address the resolver would
     register, and nothing has registered it yet.
+
+    AMENDED 2026-10-11 (round 3): this was a strict expected failure
+    (`CP17-F-09`, `ReplayUnresolvable`); on the current SDK it passes — the
+    first question's refusal now reconstructs — so the obsolete mark is
+    removed (Dave, 2026-10-11 ruling 6) and it runs as an ordinary test.
     """
     with modules["produce"].product(tmp_path / "fresh") as opened:
         _, record, address = _refuse_kyc(opened, modules, roles)
@@ -429,18 +430,32 @@ def test_the_reg_fd_boundary_refuses_a_determination_that_touched_the_issuer_bef
     boundary = datetime.combine(datetime.fromisoformat(disclosure["valid_from"]).date(), datetime.min.time(), tzinfo=UTC)
     assert INSTANTS["T0"] < boundary <= INSTANTS["T1"]
 
-    with modules["produce"].product(tmp_path / "before") as opened:
-        at_t0 = _serve(opened, modules, banker, asked_at=INSTANTS["T0"])
-        issuer_uri = _issuer_uri(at_t0, SUBJECT)
-    with modules["produce"].product(tmp_path / "wall") as opened:
-        at_tw = _serve(opened, modules, banker, asked_at=INSTANTS["TW"])
-        assert _issuer_uri(at_tw, SUBJECT) == issuer_uri
+    # AMENDED 2026-10-11 (round 3): every instant is asked on its OWN time anchor
+    # (Dave, 2026-10-11 ruling 1) — a deployment declares one demonstration
+    # serve instant and serves within its one-hour `temporal_boundary`, so the
+    # T0 and T1 halves below are each a deployment of this tree declaring five
+    # minutes after its question, each with the SAME boundary recorded in its
+    # own invalidation register. The claims are unchanged: the T0 question is
+    # refused under the boundary, the T1 question still serves the wall's
+    # address under it, and another issuer at T0 still serves.
+    def at(name: str, scratch: str) -> Any:
+        return product_asked_at(modules["produce"], EXAMPLE, tmp_path / scratch, INSTANTS[name])
 
-    with modules["produce"].product(tmp_path / "after") as opened:
+    def invalidate(opened: OpenedProduct) -> None:
         ControlPlaneInvalidationSink(registry=opened.control_plane).record(
             tenant_id=opened.tenant_id, entity_uri=issuer_uri, invalidated_from=boundary,
             reason=INVALIDATION_REASON, source=str(disclosure["event_id"]),
         )
+
+    with at("T0", "before") as opened:
+        at_t0 = _serve(opened, modules, banker, asked_at=INSTANTS["T0"])
+        issuer_uri = _issuer_uri(at_t0, SUBJECT)
+    with at("TW", "wall") as opened:
+        at_tw = _serve(opened, modules, banker, asked_at=INSTANTS["TW"])
+        assert _issuer_uri(at_tw, SUBJECT) == issuer_uri
+
+    with at("T0", "after") as opened:
+        invalidate(opened)
         refused = opened.answer(_question(opened, modules["deployment"], asked_at=INSTANTS["T0"]), perspective=banker)
         assert isinstance(refused, RefusalEnvelope), getattr(refused, "product", refused)
         record = opened.record_of(refused)
@@ -450,11 +465,14 @@ def test_the_reg_fd_boundary_refuses_a_determination_that_touched_the_issuer_bef
         assert str(disclosure["event_id"]) in block and boundary.isoformat() in block
         assert record.context_fabric_snapshot.temporal_boundary == INSTANTS["T0"]
 
-        served_after = _serve(opened, modules, banker, asked_at=INSTANTS["T1"])
-        assert content_hash(served_after.outcome.product) == content_hash(wall[BANKER].outcome.product)
         other = _serve(opened, modules, banker, subject=OTHER_ISSUER, asked_at=INSTANTS["T0"], debt_tolerance=DIAGNOSTIC_TOLERANCE)
         assert issuer_uri not in other.record.context_fabric_snapshot.touched_entities
         assert other.record.context_fabric_snapshot.temporal_boundary == INSTANTS["T0"]
+
+    with at("T1", "after-t1") as opened:
+        invalidate(opened)
+        served_after = _serve(opened, modules, banker, asked_at=INSTANTS["T1"])
+        assert content_hash(served_after.outcome.product) == content_hash(wall[BANKER].outcome.product)
 
 
 # --- G19: no wall-decision input on the vessel or the record; the record replays ---------
