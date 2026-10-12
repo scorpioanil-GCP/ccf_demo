@@ -572,20 +572,15 @@ class GrantBoundChildResolver:
             # is named `producer-tenant-mismatch`, the reason the served path
             # gives the same disagreement. Still a refusal; the producer's word
             # can only choose between two refusals.
-            members = dict(
-                gate=GATE_CHILD_ADMISSION,
-                product_class=requirement.product_class,
-                producer_id=dispatched.producer_id,
-                producer_tenant=dispatched.producer_tenant,
-                producer_registration_address=(
-                    dispatched.producer_registration_address
-                ),
-                producer_server=dispatched.server,
-                question_address=dispatched.question_address,
-                question_ref=question_ref,
-            )
+            # The fields are named one by one rather than unpacked from a shared
+            # dict, so each keeps its declared type (`gate` and `product_class`
+            # are `str`, the producer members `str | None`) instead of the dict's
+            # widened union; each refusal states its reason at its own call, which
+            # is what `test_every_new_refusal_reason_is_emitted_exactly_where_declared`
+            # counts.
             if dispatched.failure == "tenant-not-granted":
                 return ChildAdmissionRefusal(
+                    gate=GATE_CHILD_ADMISSION,
                     detail=(
                         f"registered producer {dispatched.server!r} refused to"
                         " act as the producer tenant this registration expects,"
@@ -595,10 +590,19 @@ class GrantBoundChildResolver:
                         " tenant and the producer does not answer as it, so"
                         " this slot has no child (D-IMPL-340)"
                     ),
+                    product_class=requirement.product_class,
                     reason="producer-tenant-mismatch",
-                    **members,
+                    producer_id=dispatched.producer_id,
+                    producer_tenant=dispatched.producer_tenant,
+                    producer_registration_address=(
+                        dispatched.producer_registration_address
+                    ),
+                    producer_server=dispatched.server,
+                    question_address=dispatched.question_address,
+                    question_ref=question_ref,
                 )
             return ChildAdmissionRefusal(
+                gate=GATE_CHILD_ADMISSION,
                 detail=(
                     f"registered producer {dispatched.server!r} could not"
                     f" answer ({dispatched.failure}: {dispatched.detail}); the"
@@ -606,8 +610,16 @@ class GrantBoundChildResolver:
                     " no governed answer, so this slot has no child"
                     " (D-IMPL-340)"
                 ),
+                product_class=requirement.product_class,
                 reason="producer-unavailable",
-                **members,
+                producer_id=dispatched.producer_id,
+                producer_tenant=dispatched.producer_tenant,
+                producer_registration_address=(
+                    dispatched.producer_registration_address
+                ),
+                producer_server=dispatched.server,
+                question_address=dispatched.question_address,
+                question_ref=question_ref,
             )
         elif isinstance(dispatched, McpProductInvocation):
             dispatched = verify_mcp_product_invocation(dispatched)

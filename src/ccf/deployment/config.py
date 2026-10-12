@@ -122,7 +122,11 @@ from ccf.controlplane.artifacts import (
     parse_artifact,
 )
 from ccf.products.contract import ChildRequirement, version_satisfies_floor
-from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitlement_key
+from ccf.products.entitlement import (
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, skill_catalog_key
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment.classes import (
@@ -1614,6 +1618,12 @@ def derive_deployment(
             config_filename=config_filename,
         )
         declared_policy = parse_artifact(document, PRODUCT_ENTITLEMENT_POLICY)
+        if not isinstance(declared_policy, ProductEntitlementPolicy):  # PRODUCT_ENTITLEMENT_POLICY's contract
+            raise TypeError(
+                f"the `product_entitlement:` section parsed as"
+                f" {type(declared_policy).__name__}, not the"
+                " ProductEntitlementPolicy its artifact class declares"
+            )
         if declared_policy.tenant_id != config.tenant_id:
             raise ValueError(
                 f"the `product_entitlement:` section states tenant_id"

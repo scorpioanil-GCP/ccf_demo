@@ -198,7 +198,11 @@ from ccf.products.resolver import (
 # `compose_serve_clock` makes, rather than two different function objects.
 from ccf.products.resolver import _utc_now as _sdk_serve_clock
 from ccf.products.demonstration_clock import compose_serve_clock
-from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitlement_key
+from ccf.products.entitlement import (
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
@@ -1617,7 +1621,12 @@ def open_product(
     # because a door composed over this product decides entitlement before any
     # question boots. Every boot re-registers the same content (idempotent).
     _register_declared_entitlement(
-        registry, documents=documents, config=config, declaration=declaration, clock=clock
+        registry,
+        documents=documents,
+        config=config,
+        tenant=config.tenant_id,
+        declaration=declaration,
+        clock=clock,
     )
 
     # --- the consumer half: producers, then the derived chain ---------------------
@@ -1889,10 +1898,16 @@ def _register_declared_entitlement(
     *,
     documents: Mapping[str, Mapping[str, Any]],
     config: DeploymentConfig,
+    tenant: str,
     declaration: ProductClassDeclaration,
     clock: Callable[[], datetime],
 ) -> None:
     """Register the declared ``product_entitlement:`` policy under the composition recipe (G4-F-04).
+
+    ``tenant`` is the deployment's tenant AFTER :func:`open_product` refused a
+    config that declares none (D-IMPL-343), passed in already checked so the
+    key and the ``CompositionRegister`` mint below are typed against a real
+    tenant rather than ``config.tenant_id``'s ``str | None``.
 
     Nothing when the deployment declares none — the door then registers its
     own one-principal policy, as before. A declared policy is held to THIS
@@ -1902,8 +1917,13 @@ def _register_declared_entitlement(
     """
     if config.product_entitlement is None:
         return
-    key = product_entitlement_key(tenant_id=config.tenant_id)
+    key = product_entitlement_key(tenant_id=tenant)
     policy = parse_artifact(documents[key], PRODUCT_ENTITLEMENT_POLICY)
+    if not isinstance(policy, ProductEntitlementPolicy):  # PRODUCT_ENTITLEMENT_POLICY's contract
+        raise TypeError(
+            f"{key!r} parsed as {type(policy).__name__}, not the"
+            " ProductEntitlementPolicy its artifact class declares"
+        )
     for principal_id, grant in policy.principals.items():
         foreign = sorted(set(grant.permitted_schema_names) - {declaration.schema_name})
         if foreign:
@@ -1924,7 +1944,7 @@ def _register_declared_entitlement(
     registry.register_typed(
         mint_at_composition(
             CompositionRegister,
-            tenant=config.tenant_id,
+            tenant=tenant,
             principal=COMPOSITION_PRINCIPAL,
             resource=key,
             decision_id=content_hash(event),
