@@ -1075,8 +1075,12 @@ Two behaviors follow from the design and are stated rather than changed:
   query pin above all, get the same answer, the governed read's `nonexistent`
   shell
   (`tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike`).
-  The door refuses all of them `class-unverifiable` ("cannot verify"), with
-  the typed refusal as the cause
+  As of 2026-10-12 (design 1.3, D-IMPL-378) the erasure door over the
+  MCP-backed store no longer reads the names resource at all: it names every
+  address through its own naming path (described below), which answers it
+  the same one refusal for all of these addresses. The door refuses them
+  `class-unverifiable` ("cannot verify"), with that path's decline as the
+  cause
   (`tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_of_the_typed_refusal`),
   so it fails closed, but the causes are not told apart: over the MCP-backed
   store an address the tenant never filed is refused `class-unverifiable`,
@@ -1202,7 +1206,30 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   Within a tenant nothing changes: the
   owner reads its own record where owner read-back is open for it (section
   4.12), and another principal's genuine record answers `unauthorized` at
-  `full`. So a tenant's blob, presence and names answers,
+  `full`. A tenant's own client-lane filing decides its client-lane reads
+  (design 1.2, F1-1c, D-IMPL-378; Dave, 2026-10-09 10:54 MST; built
+  2026-10-12): an address the tenant filed under a class the store does not
+  declare under `ReplayMint` is served from the client lane to every principal
+  of that tenant even where the same tenant also filed it as governed
+  evidence, so a query pin's bytes that the asker files back read the same
+  whether or not the record writer filed the pin
+  (`tests/mcp/test_f1_1c_write_then_read.py`). Record-shaped bytes and bytes
+  not at their address still take the governed read. The names resource
+  answers the tenant's client-lane names and adds the governed names only for
+  a principal the governed read admits (rule A6), so a record's owner keeps
+  its provenance. The versioned-URI resolution resource
+  (`ccf-artifact://{tenant}/{class}/{name}@{version}`) decides a class
+  declared under `ReplayMint` through the governed read too (design 1.1,
+  F1-1b; `runtime/ccf_runtime/authz/delivery_boundary.py::govern_resolution`):
+  an admitted principal still gets the address, and every other caller gets
+  the one recorded shell, the same for a present query pin and a URI nobody
+  filed, which the MCP store raises as
+  `ccf.artifacts.protocol.ArtifactResolutionRefused`
+  (`tests/mcp/test_f1_1b_resolution_decides_governed_classes.py`). Another
+  principal of the tenant no longer resolves a governed record it may not
+  read, and no principal resolves a query pin, an admitted child contract or
+  a child question over MCP. So a tenant's blob, presence, names and
+  resolution answers,
   and its erasure door over the MCP-backed store, do not depend on whether
   any other tenant filed the same bytes, under any class. Two properties of
   the store keep that attribution sound. A name is filed only together with
@@ -1244,8 +1271,11 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   the replay engine, `replay_refusal` and child admission do not take them as
   a record when they read through it. Two things are not refused. The write
   is not: the bytes are stored, and the names resource lists the tenant's own
-  filing under its stored class. Bytes the validator refuses, one key away
-  from a record included, are served as client artifacts. Read in process —
+  filing under its stored class (to a principal the governed read does not
+  admit it lists the client-lane names only, never the governed ones and never
+  the refusal shell: rule A6, design 1.2, D-IMPL-378). Bytes the validator
+  refuses, one key away from a record included, are served as client
+  artifacts. Read in process —
   a store handed to the SDK directly — the same filing is refused too
   (D-IMPL-378): `resolve_artifact`, `resolve_artifact_at_uri`, `replay`,
   `replay_refusal`, child admission and `OpenedProduct.record_of` accept a
@@ -1276,36 +1306,70 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   a replay-input field, and an erasure-consulting composition over a store
   that answers no `names_at`, for any address
   (`tests/erasure/test_replay_input_retention_provenance.py`). An erasure door
-  built over the MCP-backed store cannot read such a filing's bytes, and does
-  not need them (D3b, D-IMPL-378): where the blob resource answers a requested
-  address as absent, the door asks the artifact server's
-  `match_artifact_subject` tool, which judges the bytes where they are with
-  the in-process door's own judgment
-  (`src/ccf/erasure/subject_match.py::judge_subject`) and answers one verdict,
-  never the bytes. Measured: a request naming such a filing reaches the
-  in-process door's outcome (admitted, or `subject-not-found`), and no message
-  of the exchange, in either direction, carries the document
-  (`tests/mcp/test_erasure_subject_match.py`). The tool answers the erasure
-  door of the caller's tenant alone, decided before the substrate is read: the
-  deployment must grant `artifact.subject.match` by name to the door's MCP
-  credential; the caller's tenant must have an `ErasureAuthority` in the
-  server's `ErasureTrust`; and the query, rebuilt under the caller's tenant,
-  must carry a signature by that authority's declared door key, made for this
-  purpose (`src/ccf/erasure/subject_match.py::verify_subject_match_query`).
-  Every other caller gets one constant refusal — measured for a caller with no
-  identity, another tenant's bearer, this tenant's reader without the grant,
-  and a principal holding the grant but not the door key: the same bytes
-  whether the address exists, whether the filing is record-shaped, whether the
-  subject matches, and no read of the substrate. The tool judges only an
-  address the caller's tenant filed on its client lane: governed evidence and
-  addresses the tenant never filed answer `subject-unverifiable` without a
-  byte read. Not closed by this: the door key is the trust root here as for
-  the door's records, so a party holding it and a credential granted
+  built over the MCP-backed store reads no requester-facing resource to
+  verify an address (design 1.3, OWED-RULINGS-3 item 5 (B), D-IMPL-378; Dave,
+  2026-10-09 06:21 and 10:54 MST; built 2026-10-12). It names each address
+  through the artifact server's `name_artifact_for_erasure` tool, which
+  answers the door's tenant's names at the address and whether its record
+  writer filed it there, never the bytes, and it judges the subject through
+  the `match_artifact_subject` tool, which judges the bytes where they are
+  with the in-process door's own judgment
+  (`src/ccf/erasure/subject_match.py::judge_subject`), re-hashing them first,
+  and answers one verdict, never the bytes. A decline or a failure of either
+  path refuses the address, with no fallback to the names, blob or presence
+  resources. Measured: a request naming a client filing, record-shaped or
+  not, reaches the in-process door's outcome, and no message of the exchange,
+  in either direction, carries the document
+  (`tests/mcp/test_erasure_subject_match.py`); a record the fabric's record
+  writer filed reaches the in-process outcome too, `replay-input` where the
+  subject sits in a replay-input field and admitted where it sits at a key
+  path only
+  (`tests/mcp/test_erasure_subject_match.py::test_a_record_the_record_writer_filed_reaches_the_in_process_outcome_over_mcp`).
+  Both tools answer the erasure door of the caller's tenant alone, decided
+  before the substrate is read: the deployment must grant
+  `artifact.subject.match` by name to the door's MCP credential; the caller's
+  tenant must have an `ErasureAuthority` in the server's `ErasureTrust`; and
+  the query, rebuilt under the caller's tenant, must carry a signature by that
+  authority's declared door key, made for that path
+  (`src/ccf/erasure/subject_match.py::verify_subject_match_query`,
+  `::verify_door_naming_query`; a signature made for one path does not verify
+  on the other). Every other caller gets one constant refusal on each path —
+  measured for a caller with no identity, another tenant's bearer, this
+  tenant's reader without the grant, and a principal holding the grant but
+  not the door key: the same bytes whether the address exists, whether the
+  filing is record-shaped or governed, whether the subject matches, and no
+  read of the substrate (`tests/mcp/test_d3b_door_naming_path.py`). The door
+  paths keep the uniform "cannot verify" of 2026-10-09 06:21 (design 1.3,
+  Q1 (b), read as the batch coordinator ruled it on 2026-10-12): an address
+  the door's tenant never filed, governed evidence that is not a record (a
+  query pin, an admitted child contract, a child question), and a client
+  twin of such evidence are refused `class-unverifiable` over MCP, where the
+  door in process refuses them `address-not-in-tenant` or
+  `class-label-mismatch`. A client twin of governed evidence is never erased
+  over MCP
+  (`tests/mcp/test_erasure_subject_match.py::test_a_client_twin_of_governed_evidence_is_never_erased_over_mcp`).
+  Not closed by this: the door key is the trust root here as for the door's
+  records, so a party holding it and a credential granted
   `artifact.subject.match` can ask about any of that tenant's client-lane
-  addresses, as the door does; over the MCP-backed store a record the fabric's
-  record writer filed is still refused `class-unverifiable` before any
-  subject match (in process: `replay-input`); and the erasure claim this
-  bullet qualifies (SEC-009) stays open until the final panel verifies it.
+  addresses and writer-filed records, as the door does, and its signatures
+  carry no freshness; the erasure requester learns through the door's reason
+  codes what the in-process door would tell it about a writer-filed record;
+  the door's MCP credential now needs `artifact.subject.match` for every
+  address, so a door without it can no longer erase ordinary client filings
+  over MCP, and a new door client against an older artifact server is refused
+  for every address (by construction; not measured); and the erasure claim
+  this bullet qualifies (SEC-009) stays open until a panel verifies it.
+- **Content-addressed deduplication shows in write timing (design 1.2, Q4 (a),
+  D-IMPL-378; disclosed 2026-10-12, not closed).** `FileArtifactStore.put`
+  writes the file only when the bytes are not already stored, by any filing:
+  governed evidence, another principal's, another tenant's. So a client-lane
+  `put_artifact` of bytes that are already stored can return slightly faster
+  than one of new bytes. Measured by the design seat at the store level, 300
+  interleaved repetitions each: median 447.7 µs with the bytes already
+  stored against 455.7 µs new, with p10–p90 of roughly 160–3,000 µs for
+  both; over the wire, not measured. Dave ruled that the storage layer does
+  not change (design 1.2, 10:54 MST), so closing it would be a separate
+  substrate decision.
 - **A read-refusal record names who asked; one minted before its marker
   reads as missing for everyone, its owner included (forged-record re-review,
   D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
@@ -1948,7 +2012,10 @@ a nonexistent one. Each was measured on test fixtures.
   call (`runtime/ccf_runtime/mcp/experience.py::ExperienceReplayReadRefused`).
   Measured at HTTP `/replay/decisions`, `/replay/resolutions` and
   `/artifact`, at the MCP artifact server's blob, presence and names
-  resources, at the Experience door and through the `ccf` CLI
+  resources and, since 2026-10-12, its versioned-URI resolution (design 1.1,
+  D-IMPL-378;
+  `tests/mcp/test_f1_1b_resolution_decides_governed_classes.py::test_q12_the_mcp_resolution_resource_holds_the_owner_read_back_rule`),
+  at the Experience door and through the `ccf` CLI
   (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
   keep their owner read-back (section 4.10). A class that affirms `never` over
   a plan factory declaring that it withholds (an early policy that withholds
