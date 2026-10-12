@@ -96,15 +96,19 @@ well; both are libpq conninfo and neither is preferred.
 > `intent` argument is withdrawn (`D-IMPL-264`); `ccf_config.yaml` declares the
 > mandatory `temporal_boundary:`, a labeled `demonstration_serve_instant:` at the
 > question's own instant (2026-08-16T12:00Z), and a rate-free evidence-clock row
-> for the `from_entity_freshness` expiry. **Measured 2026-10-11, the default
-> command is now REFUSED `tolerance-exceeded`:** the demonstration asks with
-> `debt_tolerance` 0.25 and the honest `D_c` is 0.2929. This config has always
-> said *"Above it the debt gate refuses with 409"*; the frozen spine never
-> enforced it (and the run output below called 0.29 within tolerance). The SDK
-> now enforces the caller's tolerance. The tolerance is not changed here — that
-> is a decision owed (`CP01-R2-F01`). Asked with `DEBT_TOLERANCE=0.30` the same
-> question serves (`D_c 0.2929`, expires 2026-08-17T00:00Z). The text of this
-> README before the amendment is in git.
+> for the `from_entity_freshness` expiry. **The SDK now enforces the caller's
+> `debt_tolerance`** (this config has always said *"Above it the debt gate
+> refuses with 409"*; the frozen spine never enforced it, and the run output
+> below called 0.29 within tolerance). The honest `D_c` is 0.2929, so the
+> demonstration's former `0.25` withholds the answer `tolerance-exceeded`.
+> **Illustrative calibration (Dave, 2026-10-11, `CP01-R2-F01`):** the default
+> question now asks with `debt_tolerance` **0.30**, set just above the dated
+> estate's reading so the governed answer is served (`D_c 0.2929`, expires
+> 2026-08-17T00:00Z). This example runs against a point-in-time demonstration
+> estate rather than continuously refreshed production data; the value
+> demonstrates how the SDK applies a caller's tolerance and is not a
+> recommended production threshold. `make example-cp-01 DEBT_TOLERANCE=0.25`
+> shows the refusal. The text of this README before the amendment is in git.
 
 ```bash
 make example-cp-01

@@ -170,14 +170,19 @@ permanently fresh.
 >
 > **What the default command now does.** The SDK honors a caller's
 > `debt_tolerance` as requested (`D-IMPL-251` C1=A), which the paragraph below
-> records nothing doing in 2026-08. So `make -s example-cp-03` — still asking with
-> the demonstration's `0.25` — is **withheld**: `refused: tolerance-exceeded`,
-> authority `caller`, with a replay reference. That is spec §E.2's own promise
-> (*"Breach → 409 with the debt block, not a 200 with a warning"*). Asking as a
-> caller who accepts the reading serves the spread exactly as described below —
-> measured 2026-10-11: `make -s example-cp-03 DEBT_TOLERANCE=0.9` → 16 columns,
-> latest filing 2026-08-05, expires 2026-09-04, `D_c = 0.8782 → fail_closed`.
-> The paragraph below is kept as the record of the 2026-08-30 ruling.
+> records nothing doing in 2026-08. Asked at the demonstration's former `0.25`,
+> the spread is **withheld**: `refused: tolerance-exceeded`, authority `caller`,
+> with a replay reference — spec §E.2's own promise (*"Breach → 409 with the
+> debt block, not a 200 with a warning"*); `make -s example-cp-03
+> DEBT_TOLERANCE=0.25` shows it. **Illustrative calibration (Dave, 2026-10-11):**
+> the default question now asks with `debt_tolerance` **0.90**, set just above
+> the dated estate's reading, so `make -s example-cp-03` serves the spread
+> exactly as described below — measured 2026-10-11: 16 columns, latest filing
+> 2026-08-05, expires 2026-09-04, `D_c = 0.8782 → fail_closed`. This example runs
+> against a point-in-time demonstration estate rather than continuously
+> refreshed production data; the value demonstrates how the SDK applies a
+> caller's tolerance and is not a recommended production threshold. The
+> paragraph below is kept as the record of the 2026-08-30 ruling.
 
 **Context debt reads `0.8782` → `fail_closed`, and the spread is served
 anyway.** That is deliberate and it is recorded: the signal is advisory at every

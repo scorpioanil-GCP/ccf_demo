@@ -1465,38 +1465,43 @@ def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> N
 # ---------------------------------------------------------------------------
 
 
-def test_the_demonstration_tolerance_is_honored_and_withholds_the_spread(
+def test_a_strict_tolerance_is_honored_and_withholds_the_spread(
     seeded: str,
 ) -> None:
-    """The demonstration question's own `debt_tolerance` withholds the spread.
+    """A caller's strict `debt_tolerance` withholds the spread; the demonstration default serves it.
 
     Spec §E.2: *"Breach → 409 with the debt block, not a 200 with a warning."*
-    At the 2026-08-30 measurement nothing compared the tolerance to anything and
-    the spread was served with its `fail_closed` reading printed; the SDK now
-    honors the caller's tolerance as requested (`D-IMPL-251` C1=A), so the same
-    question — unchanged, `0.25` — is withheld, with the caller named as the
-    authority that set the tolerance and a replay reference. The control asks
-    the same question as a caller who accepts the reading, and it serves: the
-    refusal is the tolerance's, not the spread's.
+    The SDK honors the caller's tolerance as requested (`D-IMPL-251` C1=A). Until
+    2026-10-11 the demonstration question asked at `0.25`, which the dated
+    estate's reading exceeds, so it was withheld; Dave (2026-10-11 17:34, 17:51)
+    raised the demonstration default to an illustrative `0.90` so the example
+    serves. This test keeps the governance visible: the same question at the
+    former `0.25` is withheld, with the caller named as the authority that set
+    the tolerance and a replay reference, while the demonstration default
+    serves. The refusal is the tolerance's, not the spread's.
     """
     produce = _load("produce")
     deployment = _load("deployment")
     demonstration = Decimal(
         str(deployment.demonstration_parameters()[deployment.PARAM_DEBT_TOLERANCE])
     )
+    strict = Decimal("0.25")
 
     served = _serve(seeded)
-    assert served.product.debt.debt > demonstration, (
-        "the control's reading does not exceed the demonstration tolerance, so"
-        " the refusal below would not be about the tolerance"
+    assert served.product.debt.debt <= demonstration, (
+        "the demonstration default no longer covers the reading it was calibrated to serve"
+    )
+    assert served.product.debt.debt > strict, (
+        "the reading does not exceed the strict tolerance, so the refusal below"
+        " would not be about the tolerance"
     )
 
     with pytest.raises(produce.GovernedRefusal) as refused:
-        _serve(seeded, **{deployment.PARAM_DEBT_TOLERANCE: demonstration})
+        _serve(seeded, **{deployment.PARAM_DEBT_TOLERANCE: strict})
     envelope = refused.value.envelope
     assert envelope.reason == "tolerance-exceeded", envelope.reason
     assert envelope.fields["authority"] == '"caller"', envelope.fields
-    assert envelope.fields["tolerance"] == f'"{demonstration}"', envelope.fields
+    assert envelope.fields["tolerance"] == f'"{strict}"', envelope.fields
     assert envelope.replay_reference, "a withheld spread must name its record"
 
 
