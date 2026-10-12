@@ -22,7 +22,7 @@ by nobody else.
 
 | item | where |
 |---|---|
-| Source commit | the commit that carries this page on `main` (code and tests identical to `5fb28b6f`; this page is the only addition) |
+| Source commit | the commit the hosted run in [section 4a](#4a-hosted-ci) ran on: `5fb28b6f` plus the nine type corrections (`cc9e83ab`) and this page. Its SHA, and the wheel built from it, are recorded in section 4a |
 | Wheel and checksums | built from that commit in a clean detached worktree; `SHA256SUMS` sits next to the wheel (section 3) |
 | Tested deployment configuration | `packaging/bank-controlled/`: `launch.sh`, `stop.sh`, `verify.py`, `instance.env.example`, `question.yaml` |
 | Example commands and transcripts | every example's default command and tests, run on the final code commit (section 4) |
@@ -126,19 +126,41 @@ must now carry a product, not just a cleared error flag. Disabling the
 out-of-set check makes the same request serve a product, and the test goes
 red. The declared set `{NL, US-DE}` is unchanged.
 
+## 4a. Hosted CI
+
+**Estimated cost, recorded before launch:** about 67 billed Linux minutes
+(the previous run, `38222562272`, ran its jobs for 51.3 + 6.0 + 5.4 + 1.7
+minutes, and GitHub rounds each job up). At $0.008 a minute, with October's
+free quota already used, that is about **$0.54**. The previous commit is not
+re-run.
+
+Results are recorded after the run, in the follow-up commit.
+
 ## 5. Security statement
 
+**What was actually tested.** The deployment claims in this page cover one
+transport and one configuration: the governed product door over **MCP
+streamable HTTP on 127.0.0.1**, behind a bearer credential, launched by
+`launch.sh` with one engine, store and queue per instance, a SQLite graph
+store and the SDK-managed identity lock. The HTTP API door, MCP over stdio,
+A2A, and the other graph backends were exercised by the test suite and the
+hosted database legs, **not** under this configuration. Nothing here claims
+more than that.
+
 **Fixed in this delivery** (each has a regression test and one deliberate
-break that turns it red):
+break that turns it red), with where each was tested:
 
 - Approval queue and approval store can no longer be shared across engines.
+  *In-process SDK refusal at engine wiring; transport-independent.*
 - The SQLite writer requires its identity lock, and the paved road creates
-  the lock directory.
+  the lock directory. *SQLite graph store only, which is the store this
+  configuration uses.*
 - A typed registration over an existing untyped one is refused
-  (D-IMPL-381).
+  (D-IMPL-381). *Control Plane registry, in-process.*
 - An entitled caller asking for an undeclared product class gets the same
   reply as an unentitled one, so the reply does not reveal whether the class
-  exists (R5-CP17-F01).
+  exists (R5-CP17-F01). *The standard MCP door only. The HTTP door still
+  distinguishes the case (listed under "still open").*
 
 **Constrained by this deployment, not fixed in the SDK:**
 
