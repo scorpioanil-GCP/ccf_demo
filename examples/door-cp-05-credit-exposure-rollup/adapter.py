@@ -17,8 +17,9 @@ frozen tree already holds.
 
 **What is reused, and what is written.** The door, the producer assertion, the
 bearer verification, the entitlement policy and source, the perspective
-resolver, the refusal recorder's contract and the replay machinery are the
-SDK's. What this module writes is: the nine attributes, one ``resolve`` that
+resolver, the refusal recorder and the replay machinery are the SDK's — and
+since round 5 so is the nine-member conformer the door reads
+(``compose_for_door``; AMENDED 2026-10-11). What this module writes is: one ``resolve`` that
 translates a ``ProductRequest`` into the call the specimen's own door made, the
 two pre-assembly refusals that door recorded, and ONE guard the frozen tree
 needs and cannot express itself — the instant.
@@ -48,17 +49,13 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any
 
-from ccf.controlplane.artifacts import PRODUCT_CLASS, EgressDoorBinding, ProductClassDeclaration, parse_artifact
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import EnvironmentDocument, load_environment_document
+from ccf.controlplane.artifacts import EgressDoorBinding
 from ccf.products.refusal import GovernedRefusalRaised, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation, refuse_request
-from ccf.controlplane.registry import namespaced_key
-from ccf.products.resolver import ProductNotResolvable, ReplayRefusalRecorder, ResolverOutcome, declared_refusal_recorder
-from ccf.replay.record import PolicyBinding
+from ccf.products.resolver import ProductNotResolvable, ResolverOutcome
 from ccf.projection.plan import Perspective
 from ccf.replay.record import ResolutionNotApplicable
-from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
+from ccf_runtime.mcp.composed_product import ComposedProduct, compose_for_door
 
 HERE = Path(__file__).resolve().parent
 #: The FROZEN specimen this door serves. Imported, never copied, never edited.
@@ -143,112 +140,81 @@ def _text(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
-def _policy_bundle_pin() -> PolicyBinding:
-    """The specimen's `policy` pin, read off one throwaway boot of its own config.
+def compose_producer(*, root: Path) -> ComposedProduct:
+    """Frozen cp-05's governed path, composed for the SDK's standard door.
 
-    AMENDED 2026-10-11: what `declared_refusal_recorder` prepends to every
-    record it writes. The version is the content address the boot mints, so it
-    is the pin every question's own boot mints too.
+    AMENDED 2026-10-11 (round 5, examples/AMENDMENTS-2026-10-11.md). This
+    module's ``ExposureProducer`` class also held the nine members
+    ``ServesProducts`` names, a throwaway boot of the specimen's config for its
+    ``policy`` pin and the SDK's ``declared_refusal_recorder`` over the
+    specimen's replay store — and cp-07 and cp-04 wrote the same conformer. That conformer is
+    now the SDK's own, :func:`~ccf_runtime.mcp.composed_product.compose_for_door`
+    (one SDK boot of the specimen's ``ccf_config.yaml`` into the door's ONE
+    Control Plane, the pin read off it, the SDK's recorder over the specimen's
+    own store). What is left here is this door's values — the specimen's
+    config, ``artifacts/door.yaml``, the replay root — and
+    :class:`ExposureProducer`, now only the translation into ``produce_governed``
+    (its ``resolve``, unchanged).
     """
-    with tempfile.TemporaryDirectory(prefix="cp05-door-pin-") as scratch:
-        fabric, _registry = dep.boot(Path(scratch))
-        try:
-            key = namespaced_key(tenant=fabric.tenant_id, key="policy")
-            return PolicyBinding(key=key, version=fabric.pins.version_for(key))
-        finally:
-            fabric.handle.close()
+    config = dep.load(dep.CONFIG)
+    door_document = dep.load(DOOR)
+    replay_root = root / "replay"
+    store, record_class, _query_pin_class = dep.replay_writers(replay_root)
+    question = dep.load(dep.QUESTION)[dep.DECLARATION]
+    return compose_for_door(
+        dep.CONFIG,
+        boot_connection=dep.connection(dep.load(dep.BACKENDS), root / "door-boot"),
+        environment_root=HERE,
+        door=EgressDoorBinding.model_validate(
+            {"semver": door_document["semver"], **door_document[dep.DECLARATION]}
+        ),
+        # ONE store, ONE recorder — the specimen's own replay binding names the
+        # class and the directory; every question's resolver files its records
+        # under the same root, and the two pre-assembly refusals below are
+        # appended through the recorder `compose_for_door` builds over it.
+        replay_store=store,
+        replay_record_class=record_class,
+        build_resolver=lambda recorder: ExposureProducer(
+            config=config,
+            recorder=recorder,
+            replay_root=replay_root,
+            pinned_instant=_dt.datetime.fromisoformat(question["asked_at"]),
+        ),
+    )
 
 
 class ExposureProducer:
-    """The nine members `ServesProducts` names, held from what frozen cp-05 already holds."""
+    """The specimen's one call, presented as a ``ProductResolverProtocol``.
 
-    def __init__(self, *, root: Path) -> None:
-        self._config = dep.load(dep.CONFIG)
-        self._contract = dep.request_contract(self._config)
-        declaration = parse_artifact(
-            {"semver": self._config["semver"], **self._config["product_class"]}, PRODUCT_CLASS
-        )
-        assert isinstance(declaration, ProductClassDeclaration)
-        self._declaration = declaration
-        perspective = self._config["default_perspective"]
-        self._perspective = Perspective(principal_id=str(perspective["principal_id"]), role=str(perspective["role"]))
-        # THE ONE CONTROL PLANE THE DOOR REGISTERS ITS ENTITLEMENT INTO. The
-        # frozen tree boots its own registry per question and accepts none,
-        # so this one governs the door's admission and the disclosure posture
-        # of the refusals recorded HERE; in-resolver refusals keep the
-        # specimen's minimal posture (`CP05D-F-03`).
-        self._control_plane = ControlPlaneRegistry()
-        self._entitlement_source = ControlPlaneProductEntitlementSource(
-            control_plane=self._control_plane, clock=lambda: datetime.now(UTC)
-        )
-        door_document = dep.load(DOOR)
-        door = EgressDoorBinding.model_validate({"semver": door_document["semver"], **door_document[dep.DECLARATION]})
-        self._door = door
-        self._environment = load_environment_document(HERE)
-        # ONE store, ONE recorder — the specimen's own replay binding names
-        # the class and the directory; every question's resolver files its
-        # records under the same root (`replay_root`), and the two
-        # pre-assembly refusals below are appended through this recorder.
-        self._replay_root = root / "replay"
-        # AMENDED 2026-10-11 (compatibility repair; examples/AMENDMENTS-2026-10-11.md).
-        # `ReplayRefusalRecorder` now writes under an `Authorized[ReplayMint]`
-        # only an SDK composition root mints (`D-IMPL-353`/`D-IMPL-354`), so the
-        # recorder is built by the SDK's own `declared_refusal_recorder` — over
-        # the SAME store and class as before, and over THIS door's Control Plane,
-        # whose disclosure reader is the one the entitlement source above reads.
-        # It requires the bundle pin every record carries; that is the specimen's
-        # own `policy` pin, read off one boot of the specimen's config.
-        store, record_class, _query_pin_class = dep.replay_writers(self._replay_root)
-        self._recorder = declared_refusal_recorder(
-            control_plane=self._control_plane,
-            artifact_store=store,
-            replay_record_class=record_class,
-            tenant_id=str(self._config["tenant_id"]),
-            assembly_mode=self._config["product_class"]["assembly_mode"],
-            policy_bundle_pin=_policy_bundle_pin(),
-        )
-        question = dep.load(dep.QUESTION)[dep.DECLARATION]
-        self._pinned_instant = _dt.datetime.fromisoformat(question["asked_at"])
+    AMENDED 2026-10-11 (round 5): the nine door members moved to the SDK's
+    ``ComposedProduct`` (:func:`compose_producer`); what this class keeps is
+    ``resolve`` and its helpers, unchanged, over the recorder handed in.
+    """
 
-    # -- the nine members --------------------------------------------------
+    def __init__(
+        self, *, config: Mapping[str, Any], recorder: Any, replay_root: Path, pinned_instant: datetime
+    ) -> None:
+        self._config = config
+        self._contract = dep.request_contract(dict(config))
+        self._recorder = recorder
+        self._replay_root = replay_root
+        self._pinned_instant = pinned_instant
 
     @property
     def tenant_id(self) -> str:
         return str(self._config["tenant_id"])
 
     @property
-    def declaration(self) -> ProductClassDeclaration:
-        return self._declaration
-
-    @property
-    def default_perspective(self) -> Perspective:
-        return self._perspective
-
-    @property
-    def control_plane(self) -> ControlPlaneRegistry:
-        return self._control_plane
-
-    @property
-    def refusal_recorder(self) -> ReplayRefusalRecorder:
-        return self._recorder
-
-    @property
-    def door(self) -> EgressDoorBinding | None:
-        return self._door
-
-    @property
-    def environment(self) -> EnvironmentDocument:
-        return self._environment
-
-    @property
-    def entitlement_source(self) -> ControlPlaneProductEntitlementSource:
-        """The source the door is opened with, so the recorder and the door read one posture."""
-        return self._entitlement_source
-
-    @property
     def pinned_instant(self) -> datetime:
         """The one instant the frozen tree answers at."""
         return self._pinned_instant
+
+    def __call__(
+        self, *, tenant: str, product_class: str, version: str, perspective: Perspective,
+        request: ProductRequest | None,
+    ) -> ResolverOutcome:
+        return self.resolve(tenant=tenant, product_class=product_class, version=version,
+                            perspective=perspective, request=request)
 
     def resolve(
         self, *, tenant: str, product_class: str, version: str, perspective: Perspective,

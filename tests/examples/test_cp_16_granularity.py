@@ -90,6 +90,17 @@ def test_the_bound_travels_with_the_refusal_into_the_determination(
 ) -> None:
     """*Refused `not-in-allowed-set` carrying the bound* — where the bound lands.
 
+    AMENDED 2026-10-11 (round 5 SDK lane A; examples/AMENDMENTS-2026-10-11.md).
+    The refusal is decided by this deployment's acquisition from the caller's
+    ROLE and a PARAMETER, and this class may withhold its subject with no early
+    policy, so SEC-020's unheld-subject probe meets it first: the record holds
+    the SDK's ONE constant `UNHELD_SUBJECT_PROBE_REFUSAL` at the `acquisition`
+    seam and, by the documented redaction (`D-IMPL-378` repair 2.3 (b); Dave
+    2026-10-11 20:19 MST: *"Where SEC-020 intentionally requires redaction,
+    retain it and make the test assert that documented behavior"*), neither the
+    source's `not-in-allowed-set` nor its `ceiling` prose. PERMITTED and
+    asserted: the refusal, its record, and the granularity the caller asked for.
+
     The caller-facing envelope is redacted by this deployment's `minimal`
     disclosure posture, so the bound reaches the EXAMINER rather than the
     caller. That is the standing posture of the ladder (the `CP17-F` family,
@@ -112,8 +123,20 @@ def test_the_bound_travels_with_the_refusal_into_the_determination(
         assert not isinstance(outcome, ServedProduct)
         address = str(outcome.replay_reference).rsplit("@", 1)[-1]
         record = opened.artifact_store.get(content_address=address).decode()
-    assert "not-in-allowed-set" in record, "the refusal is named in the determination"
-    assert "ceiling" in record and "loan" in record, "and the bound that caused it travels with it"
+    import json  # noqa: PLC0415
+
+    from ccf.products.resolver import UNHELD_SUBJECT_PROBE_REFUSAL  # noqa: PLC0415
+
+    assert outcome.kind == "subject-unavailable", outcome.kind
+    path = json.loads(record)["content_generation_path"]
+    recorded = json.loads(path["assembly_refusal"])
+    assert path["refusal_seam"] == "acquisition", path["refusal_seam"]
+    assert recorded["detail"] == UNHELD_SUBJECT_PROBE_REFUSAL.detail, recorded["detail"]
+    assert recorded["fields"]["cause"] == '"undisclosed"' and recorded["fields"]["error_code"] == "null"
+    # Redacted, by the documented design: the source's code and its bound prose.
+    assert "not-in-allowed-set" not in record and "ceiling" not in record
+    # Permitted: the question that asked above the ceiling, in the caller's own words.
+    assert path["request"]["parameters"][deployment.GRANULARITY] == "loan", path["request"]
 
 
 def _instant():  # noqa: ANN202

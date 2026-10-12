@@ -83,7 +83,9 @@ class MemoPlanFactory:
         return True
 
 
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
     """Bind this deployment's verbs and its question mapping to its two documents.
 
     `ccf_config.yaml` declares the product, what it requires, who may provide
@@ -91,6 +93,11 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     `ccf_environment.yaml` names where the roster store and the five producers'
     endpoints and credentials are read from. The SDK refuses, at open and by
     name, anything the documents disagree on, and registers every producer.
+
+    ``config_root`` is the DEPLOYMENT — this tree, unless a deployer (a test)
+    opens a copy of its two documents declaring a different demonstration serve
+    instant, or none (`tests/examples/demonstration_deployment.py`; amended
+    2026-10-11, round 5). Nothing on a question can move the serve clock.
     """
     # ONE mapping per opened product — never a shared module object, so two
     # opened products cannot see each other's sources (close review, 2026-09-17).
@@ -98,7 +105,7 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     opened = open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=MemoPlanFactory(),

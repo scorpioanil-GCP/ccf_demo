@@ -37,8 +37,7 @@ import adapter  # noqa: E402
 def serve() -> None:
     """Open the adapter, open its door, serve on stdio."""
     with tempfile.TemporaryDirectory(prefix="cp05-door-") as scratch:
-        producer = adapter.ExposureProducer(root=Path(scratch))
-        door = open_door(producer, entitlement_source=producer.entitlement_source)
+        door = open_door(adapter.compose_producer(root=Path(scratch)))
         door.serve_stdio(
             identity=AuthenticatedUser(
                 ambient_stdio_identity(
@@ -54,8 +53,7 @@ def serve() -> None:
 def loopback(*, announce: Callable[[int], None]) -> None:
     """Open the adapter, open its door on an ephemeral loopback port, announce, serve."""
     with tempfile.TemporaryDirectory(prefix="cp05-door-") as scratch:
-        producer = adapter.ExposureProducer(root=Path(scratch))
-        open_door(producer, entitlement_source=producer.entitlement_source).serve_loopback(announce=announce)
+        open_door(adapter.compose_producer(root=Path(scratch))).serve_loopback(announce=announce)
 
 
 def main(argv: list[str] | None = None) -> None:

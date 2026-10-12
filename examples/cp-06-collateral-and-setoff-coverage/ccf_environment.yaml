@@ -1,0 +1,19 @@
+# THE DOOR'S ENVIRONMENT — NAMES, never values (D-IMPL-343). Added 2026-10-11
+# (round 5, examples/AMENDMENTS-2026-10-11.md) when `server/serve.py` moved onto
+# the SDK's standard door (`open_door_with_verifier` over `compose_for_door`),
+# which reads the boot credential by the name this document declares. cp-06's
+# in-process run reads no part of this document; its source stores stay
+# `backends.yaml`'s.
+config: ccf_config.yaml
+substrate:
+  # Required by the document's shape. The door boots nothing through it: cp-06
+  # composes its fabric per question itself (`produce.assemble_and_serve`).
+  setting: database_path
+  prefix: cp_06_door_inert
+  suffix: .sqlite3
+door:
+  credential:
+    from_env: CCF_CP_06_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_06_DOOR_TOKEN with the bearer credential this door is to be
+      reached with, or leave it unset to have one minted per boot.

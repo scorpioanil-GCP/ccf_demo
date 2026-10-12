@@ -27,7 +27,7 @@ import pytest
 import yaml
 from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.hitl.review_queue import HumanPrincipalBinding, ReviewResolution, ReviewResolutionRefused
+from ccf.hitl.review_queue import ReviewResolution, ReviewResolutionRefused
 from ccf.products.product import OpenedProduct
 from ccf.projection.plan import Perspective
 from ccf.replay.record import NO_HITL_ACTIONS
@@ -152,16 +152,68 @@ def _hitl_imports(module: pathlib.Path) -> list[str]:
     return found
 
 
-def _binding(product_content_hash: str) -> HumanPrincipalBinding:
-    approver = HumanPrincipalBinding.model_fields["approver"].annotation
-    authentication = HumanPrincipalBinding.model_fields["authentication"].annotation
-    return HumanPrincipalBinding(
-        verdict="approve",
-        approver=approver(subject_id=REVIEWER, identity_provider_ref="cp-15-demo-idp"),
-        authentication=authentication(method="password", assurance_level="aal2",
-                                      session_ref="cp-15-demo-session"),
-        action_time=datetime.now(UTC), product_content_hash=product_content_hash,
+#: AMENDED 2026-10-11 (round 5, SDK round item 3 — Dave, 20:19 MST: *"Review
+#: release must use the authorized, target-bound approval path."*). Since
+#: D-IMPL-353 `ReviewQueue.release` takes an `Authorized[HitlSubmit]` minted by a
+#: door's gate for exactly the event released, and the binding is minted by that
+#: door from the verified credential — so this module no longer describes the
+#: reviewer's binding itself (it used to construct a `HumanPrincipalBinding`
+#: and call `release(tenant=...)`, which raised `TypeError`). It releases through
+#: the SDK's review door, `ccf_runtime.mcp.review_door.open_review_door`, over the
+#: deployment's own queue, as a reviewer credential whose scope reaches the
+#: product's referral members (`review.REFERRABLE`, read rather than restated).
+#: The credential and its claims stand in for the bank's identity provider.
+REVIEW_SCOPE = "cp-15:kyc-review"
+REVIEWER_TOKEN = "cp-15-demo-reviewer-token"
+BASE_URL = "http://127.0.0.1:8145"
+
+
+def _release(modules: dict[str, Any], queue: Any, *, tenant_id: str, event: Any,
+             product_content_hash: str, annotation: str | None = None) -> Any:
+    """One human release through the authorized, target-bound path; the queue's typed answer."""
+    import asyncio  # noqa: PLC0415
+
+    import httpx  # noqa: PLC0415
+    from mcp.types import TextContent  # noqa: PLC0415
+
+    from ccf.hitl.principal import AuthenticationClaims  # noqa: PLC0415
+    from ccf.mcp.client import run_with_session  # noqa: PLC0415
+    from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant  # noqa: PLC0415
+    from ccf_runtime.mcp.hitl_server import SUBMIT_HITL_ACTION_TOOL  # noqa: PLC0415
+    from ccf_runtime.mcp.review_door import open_review_door  # noqa: PLC0415
+
+    claims = AuthenticationClaims(identity_provider_ref="cp-15-demo-idp", method="password",
+                                  assurance_level="aal2", session_ref="cp-15-demo-session")
+    door = open_review_door(
+        queue, tenant_id=tenant_id,
+        token_verifier=SourceBackedTokenVerifier(source=StaticTokenSource(grants={REVIEWER_TOKEN: TokenGrant(
+            client_id=REVIEWER, scopes=(REVIEW_SCOPE,), tenants=frozenset({tenant_id}), authentication=claims)})),
+        reviewer_scopes={REVIEW_SCOPE: tuple(f"{member}/*" for member in modules["review"].REFERRABLE)},
+        clock=lambda: datetime.now(UTC),
     )
+    app = door.server(issuer_url="https://issuer.invalid", resource_server_url=f"{BASE_URL}/mcp").streamable_http_app()
+    arguments = {"tenant": tenant_id, "event_key": event.event_key, "action": "approve",
+                 "product_content_hash": product_content_hash, "annotation": annotation}
+
+    async def operation(session: Any) -> Any:
+        result = await session.call_tool(SUBMIT_HITL_ACTION_TOOL, arguments)
+        text = " | ".join(c.text for c in result.content if isinstance(c, TextContent))
+        assert not result.isError, text
+        return text
+
+    async def go() -> str:
+        async with app.router.lifespan_context(app):
+            return await run_with_session(
+                url=f"{BASE_URL}/mcp", operation=operation,
+                http_client_factory=lambda: httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=app), base_url=BASE_URL,
+                    headers={"Authorization": f"Bearer {REVIEWER_TOKEN}"}))
+
+    text = asyncio.run(go())
+    try:
+        return ReviewResolution.model_validate_json(text)
+    except ValueError:
+        return ReviewResolutionRefused.model_validate_json(text)
 
 
 # =========================================================================
@@ -237,7 +289,7 @@ def test_the_products_own_record_carries_no_hitl_actions(served: Served) -> None
 
 
 def test_the_human_verdict_lands_on_a_second_record_and_changes_nothing(
-    served: Served, submitted: Any
+    modules: dict[str, Any], served: Served, submitted: Any
 ) -> None:
     """The product and its record are immutable; the verdict is its own record.
 
@@ -252,9 +304,9 @@ def test_the_human_verdict_lands_on_a_second_record_and_changes_nothing(
     before_record = canonical_bytes(served.record)
 
     event = result.events[0]
-    resolution = queue.release(
-        tenant=served.tenant_id, event_key=event.event_key,
-        principal=_binding(event.product_content_hash), annotation="cleared at review",
+    resolution = _release(
+        modules, queue, tenant_id=served.tenant_id, event=event,
+        product_content_hash=event.product_content_hash, annotation="cleared at review",
     )
     assert isinstance(resolution, ReviewResolution), resolution
 
@@ -292,12 +344,12 @@ def test_a_reviewer_binding_with_the_wrong_hash_is_refused(
     )
     event = result.events[0]
 
-    refused = queue.release(tenant=served.tenant_id, event_key=event.event_key,
-                            principal=_binding("d" * 64))
+    refused = _release(modules, queue, tenant_id=served.tenant_id, event=event,
+                       product_content_hash="d" * 64)
     assert isinstance(refused, ReviewResolutionRefused), refused
 
-    allowed = queue.release(tenant=served.tenant_id, event_key=event.event_key,
-                            principal=_binding(event.product_content_hash))
+    allowed = _release(modules, queue, tenant_id=served.tenant_id, event=event,
+                       product_content_hash=event.product_content_hash)
     assert isinstance(allowed, ReviewResolution), allowed
 
 

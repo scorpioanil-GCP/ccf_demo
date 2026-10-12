@@ -159,8 +159,8 @@ def assemble_and_serve(
             erasure_index=erasure_index_at(store.root),
             replay_record_class="ccf.replay-record",
             query_pin_class="ccf.graph-query",
-            max_ttl_seconds=scenario.max_ttl_seconds,
-            product_ttl_seconds=scenario.product_ttl_seconds,
+            # The two TTL figures are the deployment's declared `ttl:` binding
+            # (ccf_config.yaml; D-IMPL-343 R-3a) — not stated here a second time.
         )
         outcome = resolve(
             tenant=booted.tenant_id,

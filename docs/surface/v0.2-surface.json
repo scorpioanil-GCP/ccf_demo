@@ -1310,7 +1310,8 @@
       "READ_ONLY_LEASE_MECHANISM",
       "READ_ONLY_LEASE_SCOPE",
       "ReadOnlyFabricRefused",
-      "boot"
+      "boot",
+      "compose_invalidation_sink"
     ],
     "exports": {
       "FabricHandle": {
@@ -1332,6 +1333,10 @@
       "boot": {
         "kind": "function",
         "shape": "(*, backend: 'str', connection: 'Mapping[str, object] | None' = None, secrets: 'Mapping[str, ResolvedSecret] | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str', tenant_ids: 'Sequence[str]', read_only: 'bool' = False) -> 'FabricHandle'"
+      },
+      "compose_invalidation_sink": {
+        "kind": "function",
+        "shape": "(registry: 'ControlPlaneProtocol', *, tenant_ids: 'Sequence[str]') -> 'ControlPlaneInvalidationSink'"
       }
     }
   },
@@ -8221,6 +8226,7 @@
       "DEBT_TOLERANCE_PARAMETER",
       "DeclaredObligationRefusal",
       "EmptyOperatorRefusal",
+      "EvidenceAfterDecisionRefusal",
       "GATE_DECLARED_OBLIGATIONS",
       "GATE_EMPTY_OPERATOR",
       "GATE_LINEAGE_ATTRIBUTABILITY",
@@ -8276,6 +8282,14 @@
         "shape": {
           "detail": "<class 'str'>",
           "gate": "<class 'str'>"
+        }
+      },
+      "EvidenceAfterDecisionRefusal": {
+        "kind": "contract",
+        "shape": {
+          "decided_at": "<class 'datetime.datetime'>",
+          "detail": "<class 'str'>",
+          "reason": "typing.Literal['evidence-after-decision']"
         }
       },
       "GATE_DECLARED_OBLIGATIONS": {
@@ -8515,7 +8529,7 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False, invalidation_sink: 'ControlPlaneInvalidationSink | None' = None) -> 'None'"
       },
       "PopulationAcquireProtocol": {
         "kind": "class",
@@ -10599,6 +10613,7 @@
       "ProducerRegistration",
       "ProductQuestion",
       "SkillInvocation",
+      "TENANT_NOT_GRANTED_CODE",
       "ToolInvocation",
       "dispatch_skill",
       "question_identity",
@@ -10704,6 +10719,10 @@
           "skill_name": "<class 'str'>",
           "skill_type": "<class 'str'>"
         }
+      },
+      "TENANT_NOT_GRANTED_CODE": {
+        "kind": "constant",
+        "shape": "str"
       },
       "ToolInvocation": {
         "kind": "contract",
@@ -11643,6 +11662,7 @@
       "govern_dereference",
       "govern_entitlement",
       "govern_erasure",
+      "govern_scope_denial",
       "recorded_boundary"
     ],
     "exports": {
@@ -11725,6 +11745,10 @@
       "govern_erasure": {
         "kind": "function",
         "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', perspective: 'Perspective', erased: 'ErasedContentRefused', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
+      },
+      "govern_scope_denial": {
+        "kind": "function",
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', denial: 'str', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
       },
       "recorded_boundary": {
         "kind": "function",
@@ -13214,6 +13238,22 @@
       }
     }
   },
+  "ccf_runtime.mcp.composed_product": {
+    "__all__": [
+      "ComposedProduct",
+      "compose_for_door"
+    ],
+    "exports": {
+      "ComposedProduct": {
+        "kind": "class",
+        "shape": "(tenant_id: 'str', declaration: 'ProductClassDeclaration', default_perspective: 'Perspective', control_plane: 'ControlPlaneRegistry', refusal_recorder: 'RefusalRecorderProtocol', door: 'EgressDoorBinding', environment: 'EnvironmentDocument', policy_bundle_pin: 'PolicyBinding', replay_store: 'ArtifactStoreProtocol', resolve: 'ProductResolverProtocol') -> None"
+      },
+      "compose_for_door": {
+        "kind": "function",
+        "shape": "(config_path: 'Path', *, boot_connection: 'Mapping[str, object]', environment_root: 'Path', door: 'EgressDoorBinding | None', replay_store: 'ArtifactStoreProtocol', replay_record_class: 'str', resolver: 'ProductResolverProtocol | None' = None, build_resolver: 'ResolverFactory | None' = None, default_perspective: 'Perspective | None' = None) -> 'ComposedProduct'"
+      }
+    }
+  },
   "ccf_runtime.mcp.egress": {
     "__all__": [
       "AddressedQuestion",
@@ -13521,7 +13561,7 @@
     "exports": {
       "ProductDoor": {
         "kind": "class",
-        "shape": "(product: 'ServesProducts', credential: 'str', principal_id: 'str', role: 'str', scope: 'str', tenant_id: 'str', producer_id: 'str', _token_verifier: 'TokenVerifier', _authorizer: 'TenantAuthorizerProtocol', _entitlement_source: 'ProductEntitlementSourceProtocol', _perspective_resolver: 'PerspectiveResolverProtocol', _environ: 'Mapping[str, str]') -> None"
+        "shape": "(product: 'ServesProducts', credential: 'str', principal_id: 'str', role: 'str', scope: 'str', tenant_id: 'str', producer_id: 'str', _token_verifier: 'TokenVerifier', _authorizer: 'TenantAuthorizerProtocol', _entitlement_source: 'ProductEntitlementSourceProtocol', _perspective_resolver: 'PerspectiveResolverProtocol', _environ: 'Mapping[str, str]', _expose_product_resource: 'bool' = False) -> None"
       },
       "ServesProducts": {
         "kind": "class",
@@ -13533,15 +13573,36 @@
       },
       "open_door": {
         "kind": "function",
-        "shape": "(product: 'ServesProducts', *, environ: 'Mapping[str, str] | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None) -> 'ProductDoor'"
+        "shape": "(product: 'ServesProducts', *, environ: 'Mapping[str, str] | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, expose_product_resource: 'bool' = False) -> 'ProductDoor'"
       },
       "open_door_with_verifier": {
         "kind": "function",
-        "shape": "(product: 'ServesProducts', *, token_verifier: 'TokenVerifier', environ: 'Mapping[str, str] | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None) -> 'ProductDoor'"
+        "shape": "(product: 'ServesProducts', *, token_verifier: 'TokenVerifier', environ: 'Mapping[str, str] | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, expose_product_resource: 'bool' = False) -> 'ProductDoor'"
       },
       "scope_mapping_key": {
         "kind": "function",
         "shape": "(*, tenant_id: 'str') -> 'str'"
+      }
+    }
+  },
+  "ccf_runtime.mcp.review_door": {
+    "__all__": [
+      "ReviewActionRefused",
+      "ReviewDoor",
+      "open_review_door"
+    ],
+    "exports": {
+      "ReviewActionRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ReviewDoor": {
+        "kind": "class",
+        "shape": "(queue: 'ReviewQueue', tenant_id: 'str', control_plane: 'ControlPlaneRegistry', scope_mapping_version: 'str', required_scopes: 'tuple[str, ...]', _token_verifier: 'TokenVerifier', _authorizer: 'ControlPlaneTenantAuthorizer', _clock: 'Callable[[], datetime]') -> None"
+      },
+      "open_review_door": {
+        "kind": "function",
+        "shape": "(queue: 'ReviewQueue', *, tenant_id: 'str', token_verifier: 'TokenVerifier', reviewer_scopes: 'Mapping[str, Sequence[str]]', clock: 'Callable[[], datetime]') -> 'ReviewDoor'"
       }
     }
   },

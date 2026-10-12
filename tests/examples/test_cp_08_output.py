@@ -27,7 +27,6 @@ from typing import Any, Iterator
 
 import pytest
 
-from ccf.halflife.decay import TemporalOrderError
 
 from tests.examples.demonstration_deployment import (
     anchored_after,
@@ -757,23 +756,22 @@ def test_the_default_question_on_the_real_clock_is_refused_as_expired(
 #       instant and this deployment's acquisition does not bound it by `asked_at`.
 # The example is NOT changed to avoid the raise: that would erase the only
 # reproduction of the SDK half (D-IMPL-261). Strict, so the fix is noticed.
+#
+# SDK HALF CLOSED, round 5 SDK lane A (Dave 2026-10-11 20:19 MST, ruling 1): the
+# resolver now records `evidence-after-decision-refusal` with a replay reference
+# where it raised. The strict xfail is removed (ruling 6) and the assertion names
+# the refusal. The §B.4 half (acquisition not bounded by `asked_at`) stands.
 DRAWDOWN_DAY_ASKED_AT = datetime(2025, 9, 9, 12, 0, tzinfo=UTC)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=TemporalOrderError,
-    reason=(
-        "CP08-R3-F-01 (NEEDS-SDK, §B.2 candidate): TemporalOrderError escapes the governed"
-        " resolver for evidence booked after the asked instant; a governed outcome is owed"
-    ),
-)
 def test_a_question_asked_on_the_drawdown_day_gets_a_governed_outcome_not_a_raise(
     example: tuple[Any, Any, Any]
 ) -> None:
-    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+    from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope  # noqa: PLC0415
 
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
     outcome = _serve(example, asked_at=DRAWDOWN_DAY_ASKED_AT, as_of=drawdown, known_as_of=drawdown)
-    assert isinstance(outcome, RefusalEnvelope) or hasattr(outcome, "product"), outcome
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "evidence-after-decision-refusal", (outcome.kind, outcome.reason)
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE

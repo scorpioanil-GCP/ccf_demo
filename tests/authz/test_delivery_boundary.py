@@ -701,13 +701,16 @@ def test_a_boundary_with_no_recorder_is_refused_at_construction(
 #: ``D-IMPL-345`` added a second minting call to this module
 #: (``govern_dereference``'s), and a control that sabotaged whichever one it
 #: happened to find first would measure a different function on a later edit.
+#: Dedented by one level 2026-10-11 (round 5 SDK lane A, R5-CP17-F01): the mint
+#: moved into `_record_unauthorized`, the ONE recording every boundary denial —
+#: `govern_entitlement`'s and `govern_scope_denial`'s — reaches.
 MINTING_RETURN = (
-    "        # The mint AND the disclosure, both inside the seam and in that order.\n"
-    "        # Nothing is disclosed before it is recorded, and a failed append\n"
-    "        # propagates rather than releasing an unrecorded response.\n"
-    "        return refusal_recorder.record(\n"
+    "    # The mint AND the disclosure, both inside the seam and in that order.\n"
+    "    # Nothing is disclosed before it is recorded, and a failed append\n"
+    "    # propagates rather than releasing an unrecorded response.\n"
+    "    return refusal_recorder.record(\n"
 )
-SKIPPING_RETURN = "        return envelope  # SABOTAGE\n"
+SKIPPING_RETURN = "    return envelope  # SABOTAGE\n"
 
 
 def _scratch_boundary(tmp_path: pathlib.Path) -> types.ModuleType:

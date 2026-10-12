@@ -227,12 +227,26 @@ class ProductDoor:
     _entitlement_source: ProductEntitlementSourceProtocol
     _perspective_resolver: PerspectiveResolverProtocol
     _environ: Mapping[str, str]
+    #: Whether :meth:`server` registers the product RESOURCE beside the tool
+    #: (round 5, item 2; Dave, 2026-10-11 20:19 MST: *"Registering a product
+    #: resource must not create an unguarded retrieval path."*). ``False`` —
+    #: tool-only — unless the deployment opened the door with
+    #: ``expose_product_resource=True``. The resource is registered by
+    #: :func:`~ccf_runtime.mcp.egress.build_egress_server` on the SAME
+    #: :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer`, under the same
+    #: pinned authorizer, retrieve action and product-class resource, and its
+    #: body entitles through the same ``govern_entitlement`` step, recorder and
+    #: perspective resolver as the tool — so this flag adds a surface and no
+    #: second, weaker path.
+    _expose_product_resource: bool = False
 
     def server(self, *, issuer_url: str, resource_server_url: str) -> FastMCP:
         """The configured, UNSTARTED ``FastMCP`` — mount it under your own host.
 
         The one :func:`build_egress_server` call every door used to spell:
-        tool-only (a parameterized class has no standing answer), the
+        tool-only by default (a parameterized class has no standing answer;
+        ``expose_product_resource=True`` at open registers the guarded
+        resource too), the
         product's own recorder, the declared identity asserted on every
         outcome (`D-IMPL-340` ruling 2 — supplied together or not at all).
         Hosting is the deployment's decision; a library that picked an
@@ -260,7 +274,7 @@ class ProductDoor:
             entitlement_source=self._entitlement_source,
             perspective_resolver=self._perspective_resolver,
             refusal_recorder=self.product.refusal_recorder,
-            expose_product_resource=False,
+            expose_product_resource=self._expose_product_resource,
             expose_product_tool=True,
             product_tool_description=door.tool_description,
             producer_id=door.producer_id,
@@ -389,6 +403,7 @@ def open_door(
     environ: Mapping[str, str] | None = None,
     perspective_resolver: PerspectiveResolverProtocol | None = None,
     entitlement_source: ProductEntitlementSourceProtocol | None = None,
+    expose_product_resource: bool = False,
 ) -> ProductDoor:
     """Compose the standard door over ``product``; choose the transport afterwards.
 
@@ -424,6 +439,13 @@ def open_door(
             ``os.environ`` when omitted.
         perspective_resolver: Replaces the declared-role resolver.
         entitlement_source: Replaces the Control Plane source.
+        expose_product_resource: Also register the product RESOURCE
+            (``ccf-product://{tenant}/{product_class}/{version}``) beside the
+            tool. Off by default. The resource is decided by the same pinned
+            authorizer and entitled by the same governed step as the tool, so
+            an unentitled caller is refused on it exactly as on the tool; a
+            parameterized product's resolver answers its parameter-free read
+            with a governed refusal of its own (round 5, item 2).
 
     Raises:
         ValueError: the product declares no ``door:`` section, its door
@@ -452,6 +474,7 @@ def open_door(
         ),
         perspective_resolver=perspective_resolver,
         entitlement_source=entitlement_source,
+        expose_product_resource=expose_product_resource,
     )
 
 
@@ -462,6 +485,7 @@ def open_door_with_verifier(
     environ: Mapping[str, str] | None = None,
     perspective_resolver: PerspectiveResolverProtocol | None = None,
     entitlement_source: ProductEntitlementSourceProtocol | None = None,
+    expose_product_resource: bool = False,
 ) -> ProductDoor:
     """The same door, verifying credentials through the deployment's own identity provider.
 
@@ -485,6 +509,7 @@ def open_door_with_verifier(
         environ: Where the environment's names are resolved from.
         perspective_resolver: Replaces the declared-role resolver.
         entitlement_source: Replaces the Control Plane source.
+        expose_product_resource: As on :func:`open_door`.
     """
     resolved_environ, credential = _boot_credential(product, environ)
     return _compose(
@@ -494,6 +519,7 @@ def open_door_with_verifier(
         token_verifier=token_verifier,
         perspective_resolver=perspective_resolver,
         entitlement_source=entitlement_source,
+        expose_product_resource=expose_product_resource,
     )
 
 
@@ -578,6 +604,7 @@ def _compose(
     token_verifier: TokenVerifier,
     perspective_resolver: PerspectiveResolverProtocol | None,
     entitlement_source: ProductEntitlementSourceProtocol | None,
+    expose_product_resource: bool = False,
 ) -> ProductDoor:
     """The composition both constructors share, over a verifier already chosen."""
     door = product.door
@@ -678,4 +705,5 @@ def _compose(
             perspective_resolver if perspective_resolver is not None else declared_role
         ),
         _environ=environ,
+        _expose_product_resource=expose_product_resource,
     )

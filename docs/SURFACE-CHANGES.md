@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2638 entries**, of which **2359** name a public Python surface.
+**2659 entries**, of which **2377** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1382 entries — 1336 public Python surface, 46 not public Python API.
+1392 entries — 1345 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20108,6 +20108,114 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
 
+#### ccf.skills.dispatch.TENANT_NOT_GRANTED_CODE
+
+- Surface: ccf.skills.dispatch.TENANT_NOT_GRANTED_CODE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf-tenant-not-granted"`, the code the SDK door's SEC-018 tenancy denial leads with
+- Why: Dave 2026-10-11 20:19 MST ruling 1
+- Migration: none
+
+*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
+
+#### ccf.products.gates.EvidenceAfterDecisionRefusal
+
+- Surface: ccf.products.gates.EvidenceAfterDecisionRefusal
+- Public surface: true
+- Change type: added
+- Before: absent; the resolver raised `ccf.halflife.decay.TemporalOrderError`
+- After: a refusal (not a `GateRefusal`, on the `ToleranceExceededRefusal` precedent) carrying `reason`, `detail` and `decided_at`, kind `evidence-after-decision-refusal` in `REFUSAL_KINDS`
+- Why: CP08-R3-F-01; Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/products/test_evidence_after_decision_refusal.py::test_evidence_dated_after_the_decision_instant_is_refused_by_name_with_a_record`
+- Migration: a consumer switching on refusal kinds handles the new kind
+
+*Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_scope_denial
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_scope_denial
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: records a scope-mapping deny on a product read as the boundary's governed `subject-unavailable` refusal and returns the disclosed shell
+- Why: R5-CP17-F01; Dave 2026-10-11 21:19 MST "Do (a)". Red test: `tests/mcp/test_undeclared_class_reads_as_unentitled.py::test_an_undeclared_class_and_an_unentitled_caller_get_one_reply`
+- Migration: none
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
+
+#### ccf_runtime.mcp.composed_product.compose_for_door
+
+- Surface: ccf_runtime.mcp.composed_product.compose_for_door
+- Public surface: true
+- Change type: added
+- Before: absent — each hand-composed door wrote its own `ServesProducts` conformer
+- After: `compose_for_door(config_path, *, boot_connection, environment_root, door, replay_store, replay_record_class, resolver=None, build_resolver=None, default_perspective=None) -> ComposedProduct`; exactly one of `resolver=` / `build_resolver=` (a factory handed the one recorder)
+- Why: round 5 item 1; Dave 2026-10-11 20:19 MST. Red test: `tests/mcp/test_composed_product_door.py::test_each_declared_principal_is_served_under_its_own_permissions`
+- Migration: a hand-composed door replaces its conformer class with this call and opens the standard door over the result
+
+*Recorded by `20261011-22-the-shared-door-adapter-for-a-hand-composed-product.md`.*
+
+#### ccf_runtime.mcp.composed_product.ComposedProduct
+
+- Surface: ccf_runtime.mcp.composed_product.ComposedProduct
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass conforming to `ServesProducts` (`tenant_id`, `declaration`, `default_perspective`, `control_plane`, `refusal_recorder`, `door`, `environment`, `resolve`) plus `policy_bundle_pin` and `replay_store`; `resolve` is a field holding the deployment's governed path, which the standard door calls after its authorizer and entitlement step; built only by `compose_for_door`
+- Why: round 5 item 1
+- Migration: none
+
+*Recorded by `20261011-22-the-shared-door-adapter-for-a-hand-composed-product.md`.*
+
+#### ccf_runtime.mcp.review_door.open_review_door
+
+- Surface: ccf_runtime.mcp.review_door.open_review_door
+- Public surface: true
+- Change type: added
+- Before: absent — no supported way to release a held review item after D-IMPL-353
+- After: `open_review_door(queue, *, tenant_id, token_verifier, reviewer_scopes, clock) -> ReviewDoor`; `reviewer_scopes` maps scope → review event-key patterns (D-01 grammar); an empty mapping or a scope with no pattern is refused
+- Why: round 5 item 3; Dave 2026-10-11 20:19 MST. Red tests: `tests/mcp/test_review_door.py::test_an_authorized_reviewer_bound_to_the_item_releases_it`, `::test_a_reviewer_whose_scope_does_not_reach_the_item_is_refused`
+- Migration: a deployment that called `ReviewQueue.release(tenant=..., principal=...)` releases through this door instead; the reviewer's binding is minted by the door from the verified credential's authentication claims
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf_runtime.mcp.review_door.ReviewDoor
+
+- Surface: ccf_runtime.mcp.review_door.ReviewDoor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the opened review door; `server(issuer_url=..., resource_server_url=...)` returns the unstarted standard HITL `FastMCP`; `control_plane` holds the scope mapping and every authorization decision's audit event
+- Why: round 5 item 3
+- Migration: none
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf_runtime.mcp.review_door.ReviewActionRefused
+
+- Surface: ccf_runtime.mcp.review_door.ReviewActionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a review action's verdict is neither `approve` nor `reject`, before the queue is touched
+- Why: round 5 item 3
+- Migration: none
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf.boot.compose_invalidation_sink
+
+- Surface: ccf.boot.compose_invalidation_sink
+- Public surface: true
+- Change type: added
+- Before: absent (the recipe was inline in `boot`)
+- After: `compose_invalidation_sink(registry, *, tenant_ids) -> ControlPlaneInvalidationSink`, minting one `InvalidationRecordRegister` per validated tenant from a recorded composition event; `boot` uses it unchanged in behavior
+- Why: round 5 item 4; Dave 2026-10-11 20:19 MST
+- Migration: none
+
+*Recorded by `20261011-24-an-opened-product-records-an-invalidation-boundary.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20839,11 +20947,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
 
+#### ccf.products.request.decode_declared_number
+
+- Surface: ccf.products.request.decode_declared_number
+- Public surface: false
+- Change type: added
+- Before: the decoding lived inline in `decode_declared_request`
+- After: `decode_declared_number(value, *, declared_type)` is the one decoding, used by `decode_declared_request` (callers) and by `ProductRequestContract` (declared defaults); `decode_declared_request`'s behavior is unchanged
+- Why: one rule for a caller's value and a declared default, so the two cannot drift. Red test: `tests/products/test_declared_decimal_default.py::test_the_default_and_a_caller_stating_the_same_text_are_one_value`
+- Migration: none
+
+*Recorded by `20261011-11-a-number-argument-declares-a-decimal-default.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-637 entries — 443 public Python surface, 194 not public Python API.
+642 entries — 446 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28231,6 +28351,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
 
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: reshaped
+- Before: no way to register the product resource; the door was always tool-only
+- After: takes `expose_product_resource: bool = False`; `True` also registers the guarded product resource
+- Why: round 5 item 2; Dave 2026-10-11 20:19 MST. Red test: `tests/mcp/test_door_product_resource.py::test_an_unentitled_principal_is_refused_on_the_resource_exactly_as_on_the_tool`
+- Migration: none; a door that must keep the resource (cp-04 `CFT-G13`) passes `expose_product_resource=True`
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door_with_verifier
+
+- Surface: ccf_runtime.mcp.product_door.open_door_with_verifier
+- Public surface: true
+- Change type: reshaped
+- Before: no way to register the product resource
+- After: takes `expose_product_resource: bool = False`, as `open_door`
+- Why: round 5 item 2; Dave 2026-10-11 20:19 MST
+- Migration: none
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no way for a paved deployment to record an invalidation boundary
+- After: the constructor takes `invalidation_sink: ControlPlaneInvalidationSink | None = None` (set by `open_product`), and the `invalidation_sink` property returns it — the scoped writer for this product's tenant only
+- Why: round 5 item 4. Red test: `tests/products/test_opened_product_invalidation.py::test_the_authorized_write_lands_as_an_audited_version`; refusal: `::test_an_out_of_scope_write_is_refused_and_nothing_lands`
+- Migration: a deployment that built `ControlPlaneInvalidationSink(registry=opened.control_plane)` records through `opened.invalidation_sink`
+
+*Recorded by `20261011-24-an-opened-product-records-an-invalidation-boundary.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -30631,6 +30787,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
 
+#### ccf.skills.dispatch.McpProductFailureKind
+
+- Surface: ccf.skills.dispatch.McpProductFailureKind
+- Public surface: false
+- Change type: reshaped
+- Before: `Literal["timeout", "unreachable", "tool-error"]`
+- After: `Literal["timeout", "unreachable", "tool-error", "tenant-not-granted"]`; a tool error whose text carries `TENANT_NOT_GRANTED_CODE` is `"tenant-not-granted"`
+- Why: Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/skills/test_mcp_product_dispatch.py::test_a_producer_that_cannot_answer_is_a_minted_value[tenancy-denial]`
+- Migration: code that switches on `McpProductFailure.failure` handles the fourth kind
+
+*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+- Public surface: false
+- Change type: reshaped
+- Before: an authorizer deny always raised `ActionUnauthorizedRefused` (a `tenant-unauthorized` tool error)
+- After: takes `on_denied: Callable[..., Any] | None = None`; when given, an authorizer deny is answered by `on_denied(grant=, tenant=, arguments=, denial=)` with no capability minted; `None` keeps the tool error
+- Why: R5-CP17-F01; the product door answers its deny the governed way
+- Migration: none
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -31283,7 +31463,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-571 entries — 532 public Python surface, 39 not public Python API.
+577 entries — 538 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39266,6 +39446,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: a `defaults` entry for a declared `number` argument given as canonical decimal text (`"0.05"`) was refused at construction ("declares defaults it cannot honor ... do not satisfy the declared argument's own type")
+- After: the same entry is read as the exact `Decimal("0.05")`; every other default is judged exactly as before
+- Why: CP05-R2-F-01; Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/products/test_declared_decimal_default.py::test_a_quoted_decimal_default_for_a_number_argument_is_the_exact_decimal`; refusals kept: `::test_text_that_is_not_a_canonical_decimal_for_a_number_is_still_refused`, `::test_a_python_float_default_is_still_refused`
+- Migration: a deployment that converted a quoted decimal default to `Decimal` by hand may hand the document's value over unchanged; a deployment that kept decimal defaults under an unread key moves them to `defaults:`
+
+*Recorded by `20261011-11-a-number-argument-declares-a-decimal-default.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: every `McpProductFailure` became a `producer-unavailable` row
+- After: a `tenant-not-granted` failure becomes a `producer-tenant-mismatch` row (`outcome_status` `unauthorized`) naming the registered producer; every other failure is unchanged
+- Why: Dave 2026-10-11 20:19 MST ruling 1. Red test: `tests/products/test_d_impl_340_producer_admission.py::test_a_tenancy_refusal_by_the_producers_door_is_recorded_as_a_producer_tenant_mismatch`; control kept: `::test_any_other_tool_error_from_the_producer_stays_producer_unavailable`
+- Migration: a reader that treated a wrong-tenant registration as `producer-unavailable` reads `producer-tenant-mismatch`
+
+*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
+
+#### ccf_runtime.mcp.tenancy.CrossTenantRefused
+
+- Surface: ccf_runtime.mcp.tenancy.CrossTenantRefused
+- Public surface: true
+- Change type: behavior
+- Before: the message began "the verified caller's grant does not carry tenant ..."
+- After: the message begins "ccf-tenant-not-granted: the verified caller's grant does not carry tenant ..."; the rest is unchanged
+- Why: Dave 2026-10-11 20:19 MST ruling 1; the code lets a consumer name the refusal without parsing prose
+- Migration: none
+
+*Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a debt scorer raising `TemporalOrderError` propagated the exception out of `__call__`
+- After: that error is recorded and returned as `evidence-after-decision-refusal` with a replay reference; every other scorer exception still propagates
+- Why: CP08-R3-F-01; Dave 2026-10-11 20:19 MST ruling 1. Red test as above; control kept: `tests/products/test_evidence_after_decision_refusal.py::test_any_other_scorer_failure_is_not_converted`; end to end: `tests/examples/test_cp_08_output.py::test_a_question_asked_on_the_drawdown_day_gets_a_governed_outcome_not_a_raise` (strict xfail removed)
+- Migration: none
+
+*Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: `request_context_product` for a class outside the scope mapping returned a tool error naming the class
+- After: it returns the governed refusal outcome (`isError` false), recorded, indistinguishable from an unentitled caller's
+- Why: R5-CP17-F01; Dave 2026-10-11 21:19 MST "Do (a)". Red test as above; `tests/mcp/test_stdio_door_addresses.py` amended to the ruled behavior
+- Migration: a client that read the `tenant-unauthorized` tool error for an unknown class reads a `subject-unavailable` refusal
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `server()` built a tool-only door
+- After: `server()` registers the product resource beside the tool when the door was opened with `expose_product_resource=True` (a new private field, defaulted, so construction through `open_door` is unchanged)
+- Why: round 5 item 2
+- Migration: none; construct through `open_door` / `open_door_with_verifier`
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
 
 ### Not public Python API
 

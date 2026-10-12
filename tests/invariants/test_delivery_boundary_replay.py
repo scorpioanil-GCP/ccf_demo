@@ -358,8 +358,13 @@ def test_moving_the_mint_into_a_transport_is_red_sabotage(
     therefore RED against it.
     """
     source = _door_source("runtime/ccf_runtime/mcp/egress.py")
+    # Re-pointed 2026-10-11 (round 5, R5-CP17-F01): the governed step became
+    # one expression choosing `govern_entitlement` or `govern_scope_denial`, so
+    # the plant goes after that whole expression — the same place, "immediately
+    # after the governed step returns".
     anchor = (
-        "            refusal_recorder=recorder,\n"
+        "                refusal_recorder=recorder,\n"
+        "            )\n"
         "        )\n"
     )
     planted = _plant(

@@ -233,10 +233,11 @@ def test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal(tmp_
     tenant the caller's grant does not carry. The door does not serve and does
     not refuse in its governed vocabulary: it ERRORS at the tenancy floor
     (`SEC-018`, D-IMPL-353 §1.1), which the wire reports as a completed call
-    that failed (`tool-error`) — never as unreachability (`SEC353-J-02`). No
+    that failed (`tenant-not-granted`) — never as unreachability (`SEC353-J-02`). No
     producer answer means no producer refusal is carried; the row reads the
     consumer's verdict alone. Measured, not assumed: the oracle shows the door
-    erroring."""
+    erroring. (Ruled 2026-10-11 20:19: the error is the coded tenancy denial,
+    `tenant-not-granted`, and the row reads `producer-tenant-mismatch`.)"""
     config = fixture.consumer_config(
         producers={"child": fixture.producer_section(producer_tenant="another-tenant")},
         subject_withholding=SUBJECT_WITHHOLDING_NEVER,
@@ -247,12 +248,14 @@ def test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal(tmp_
         assert isinstance(refused, RefusalEnvelope), refused
         row = _the_row(opened, refused)
         oracle = _second_dispatch(opened, parameters={THRESHOLD_PARAMETER: 1000})
-    assert isinstance(oracle, McpProductFailure) and oracle.failure == "tool-error", oracle
-    # The slot reads `producer-unavailable`: the row vocabulary has no reason
-    # for a producer that REFUSED by error rather than answered, which is the
-    # half of `SEC353-J-02` reported for ruling — this assertion goes red when
-    # the vocabulary gains one.
-    assert (row.outcome_status, row.refusal_ref) == ("producer-unavailable", "producer-unavailable")
+    # RULED 2026-10-11 20:19 MST (Dave, ruling 1, "wrong-tenant refusal
+    # attribution"; round 5 SDK lane A): the half of `SEC353-J-02` this
+    # assertion was written to go red on. The door's SEC-018 denial carries
+    # `TENANT_NOT_GRANTED_CODE`; the dispatch names it `tenant-not-granted` —
+    # still a completed call that failed, never unreachability — and the slot
+    # reads `producer-tenant-mismatch` (`unauthorized`), not an outage.
+    assert isinstance(oracle, McpProductFailure) and oracle.failure == "tenant-not-granted", oracle
+    assert (row.outcome_status, row.refusal_ref) == ("unauthorized", "producer-tenant-mismatch")
     assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key, row.child_replay_ref) == (None, None, None, None)
 
 

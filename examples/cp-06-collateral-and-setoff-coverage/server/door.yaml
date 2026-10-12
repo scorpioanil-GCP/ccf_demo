@@ -32,6 +32,12 @@ declaration:
     haircut value is REFUSED by the product's own declared gate.
 
   required_scope: ccf:egress
+
+  # THE IDENTITY THIS DOOR ASSERTS on every outcome (`D-IMPL-340`), which a
+  # consumer holds to its own registration. AMENDED 2026-10-11 (round 5,
+  # examples/AMENDMENTS-2026-10-11.md): the SDK's standard door, which this
+  # door now opens, asserts a declared identity and holds no default for it.
+  producer_id: cp-06-collateral-and-setoff-coverage-egress
   issuer_url: https://issuer.cp-06.invalid
   resource_server_url: https://egress.cp-06.invalid/mcp
 

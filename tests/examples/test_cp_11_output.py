@@ -147,7 +147,7 @@ class _Frozen:
 
 def serve(
     example: Any, *, anchor_lei: str = ANCHOR, asked_at: datetime = AS_OF,
-    **kwargs: Any,
+    config_edit: Any = None, **kwargs: Any,
 ) -> Any:
     """One question, end to end. Returns the `Assembled` or the refusal."""
     deployment, produce = example["deployment"], example["produce"]
@@ -162,10 +162,70 @@ def serve(
             serve_instant=anchored_after(asked.asked_at),
             directory=pathlib.Path(scratch) / "deployment",
         )
+        if config_edit is not None:
+            config.write_text(config_edit(config.read_text(encoding="utf-8")), encoding="utf-8")
         outcome = produce.assemble_and_serve(
             asked=asked, root=pathlib.Path(scratch), config=config
         )
         return _Frozen(outcome, scratch=pathlib.Path(scratch))
+
+
+# --- The illustrative calibration and the original values (Dave, 2026-10-11) --
+#
+# 20:19 MST ruling 3, option (a): "Widen the illustrative answer expiry as well as
+# the temporal window sufficiently to demonstrate the month-long scenario ... For
+# each changed calibration, show both outcomes." The shipped ccf_config.yaml
+# declares a 31-day window and a 31-day `ttl:` binding, labelled illustrative. The
+# ORIGINAL stricter values are restated here once, as text edits of a test-owned
+# copy, so each test can ask the same question under both.
+
+ORIGINAL_MAX_PAST_SECONDS = 3600
+ORIGINAL_MAX_TTL_SECONDS = 86400
+ORIGINAL_PRODUCT_TTL_SECONDS = 21600
+
+
+def _declared_ttl() -> dict[str, int]:
+    import yaml  # noqa: PLC0415
+
+    document = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    return {key: int(value) for key, value in document["ttl"].items()}
+
+
+def _declared_max_past_seconds() -> int:
+    import yaml  # noqa: PLC0415
+
+    document = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    return int(document["temporal_boundary"]["max_past_seconds"])
+
+
+def _replace_once(text: str, old: str, new: str) -> str:
+    assert text.count(old) == 1, f"the shipped config no longer declares {old!r} exactly once"
+    return text.replace(old, new)
+
+
+def _ORIGINAL_TTL(text: str) -> str:
+    """The declared `ttl:` binding put back to the original six hours under one day."""
+    declared = _declared_ttl()
+    text = _replace_once(
+        text, f"max_ttl_seconds: {declared['max_ttl_seconds']}",
+        f"max_ttl_seconds: {ORIGINAL_MAX_TTL_SECONDS}",
+    )
+    return _replace_once(
+        text, f"product_ttl_seconds: {declared['product_ttl_seconds']}",
+        f"product_ttl_seconds: {ORIGINAL_PRODUCT_TTL_SECONDS}",
+    )
+
+
+def _ORIGINAL_WINDOW(text: str) -> str:
+    """The declared temporal boundary put back to the original one hour."""
+    return _replace_once(
+        text, f"max_past_seconds: {_declared_max_past_seconds()}",
+        f"max_past_seconds: {ORIGINAL_MAX_PAST_SECONDS}",
+    )
+
+
+def _ALL_ORIGINAL(text: str) -> str:
+    return _ORIGINAL_WINDOW(_ORIGINAL_TTL(text))
 
 
 @pytest.fixture(scope="module")
@@ -208,20 +268,39 @@ def test_ews_g02_lineage_is_exactly_the_declared_operator_set(
     }
 
 
-def test_ews_g03_expiry_derives_from_the_decision_instant(served: Any) -> None:
+def test_ews_g03_expiry_derives_from_the_decision_instant(example: Any, served: Any) -> None:
     """`EWS-G03` — `expires_at` derives from the decision instant, under the ceiling.
 
     §G.1. `ttl_anchor: from_decision`, so the expiry is `asked_at` plus the
     product TTL and never a clock read at serve time — which is what makes a
     request pinned to a past `as_of` a forensic reconstruction.
+
+    Amended 2026-10-11 (Dave, 20:19 MST ruling 3, option (a)): the shipped
+    demonstration declares an ILLUSTRATIVE 31-day `ttl:` binding (spec §E.0) so
+    `EWS-G25`'s month-long timeline can be served. Both outcomes are asserted:
+    under the declared illustrative binding the expiry is exactly its product
+    TTL, under its ceiling; under the ORIGINAL values (six hours under a one-day
+    ceiling, §E.3) the same question still serves and expires six hours after
+    the decision instant.
     """
     product = served.product
     assert product.ttl_anchor == "from_decision"
+    declared = _declared_ttl()
     elapsed = (product.expires_at - AS_OF).total_seconds()
-    assert 0 < elapsed <= 86400, (
-        f"expiry is {elapsed}s after the decision instant; §E.3's ceiling is"
-        " one day"
+    assert elapsed == declared["product_ttl_seconds"], (
+        f"expiry is {elapsed}s after the decision instant; the declared"
+        f" product TTL is {declared['product_ttl_seconds']}s"
     )
+    assert 0 < elapsed <= declared["max_ttl_seconds"]
+
+    original = serve(example, config_edit=_ORIGINAL_TTL)
+    assert hasattr(original, "product"), getattr(original.outcome, "reason", original.outcome)
+    elapsed = (original.product.expires_at - AS_OF).total_seconds()
+    assert 0 < elapsed <= 86400, (
+        f"under the original values the expiry is {elapsed}s after the decision"
+        " instant; §E.3's ceiling is one day"
+    )
+    assert elapsed == 21600
 
 
 def test_ews_g04_debt_above_tolerance_refuses_with_the_debt_block(
@@ -1102,8 +1181,8 @@ def test_the_pinned_question_on_the_real_clock_is_refused_as_expired(
 
     The same demonstration question, asked of the same deployment with its
     declared demonstration serve instant REMOVED, is served on the real clock.
-    Long after its instant it is outside the tenant's declared one-hour
-    `temporal_boundary`, so the SDK refuses it by name, as data, with a replay
+    Long after its instant it is outside the tenant's declared (31-day,
+    illustrative) `temporal_boundary`, so the SDK refuses it by name, as data, with a replay
     reference — it is never served stale, and never raises.
     """
     acquisition, deployment, produce = (
@@ -1125,3 +1204,97 @@ def test_the_pinned_question_on_the_real_clock_is_refused_as_expired(
     assert outcome.reason == "asked-at-outside-temporal-bound"
     assert outcome.replay_reference, "the refusal carries no replay reference"
 
+
+def _ask_on_the_shipped_clock(
+    example: Any, tmp_path: pathlib.Path, *, asked_at: datetime, config_edit: Any = None,
+) -> Any:
+    """Ask at ``asked_at`` on the SHIPPED deployment's own declared serve instant.
+
+    The config is the example's own (copied byte for byte into ``tmp_path``),
+    optionally edited back to an original value; the serve instant is NOT moved,
+    which is what makes a month-old question a question about the window and
+    the expiry rather than about the clock.
+    """
+    deployment, produce = example["deployment"], example["produce"]
+    directory = tmp_path / "deployment"
+    directory.mkdir(parents=True, exist_ok=True)
+    config = directory / "ccf_config.yaml"
+    text = (EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8")
+    config.write_text(config_edit(text) if config_edit else text, encoding="utf-8")
+    return produce.assemble_and_serve(
+        asked=deployment.request(anchor_lei=ANCHOR, asked_at=asked_at),
+        root=tmp_path / "run", config=config,
+    )
+
+
+def test_the_illustrative_window_and_expiry_serve_the_month_old_question(
+    example: Any, tmp_path: pathlib.Path
+) -> None:
+    """Illustrative values → SERVED (Dave, 2026-10-11 20:19 MST ruling 3 (a)).
+
+    On the shipped deployment — its declared 2026-08-19T00:05Z serve instant,
+    its 31-day illustrative window and its 31-day illustrative `ttl:` binding —
+    `EWS-G25`'s 2026-07-20 question serves, and its expiry is after the serve
+    instant.
+    """
+    assert _declared_max_past_seconds() > ORIGINAL_MAX_PAST_SECONDS
+    assert _declared_ttl()["product_ttl_seconds"] > ORIGINAL_PRODUCT_TTL_SECONDS
+    outcome = _ask_on_the_shipped_clock(example, tmp_path, asked_at=G25_T1)
+    assert hasattr(outcome, "product"), getattr(outcome, "reason", outcome)
+    assert outcome.product.expires_at > G25_T2
+
+
+def test_the_original_one_hour_window_refuses_the_month_old_question(
+    example: Any, tmp_path: pathlib.Path
+) -> None:
+    """Original values → REFUSED by the window (ruling 3: show both outcomes).
+
+    The same 2026-07-20 question on the same declared serve instant, with the
+    deployment's ORIGINAL values (one-hour window, six-hour TTL, one-day
+    ceiling): refused `asked-at-outside-temporal-bound`, by name, as data, with a
+    replay reference.
+    """
+    outcome = _ask_on_the_shipped_clock(
+        example, tmp_path, asked_at=G25_T1, config_edit=_ALL_ORIGINAL
+    )
+    assert not hasattr(outcome, "product"), "the original one-hour window served a month-old question"
+    assert (outcome.kind, outcome.reason) == (
+        "temporal-bound-refusal", "asked-at-outside-temporal-bound"
+    )
+    assert outcome.replay_reference
+
+
+def test_the_original_expiry_refuses_the_month_old_question_inside_the_widened_window(
+    example: Any, tmp_path: pathlib.Path
+) -> None:
+    """Original EXPIRY → REFUSED `ttl-bounds`, even with the window widened.
+
+    Widening the window alone does not serve `EWS-G25` (the round-3 trial): the
+    class's decision-anchored six-hour lifetime expired a month before the serve
+    instant. This is why ruling 3 (a) widened the expiry too.
+    """
+    outcome = _ask_on_the_shipped_clock(
+        example, tmp_path, asked_at=G25_T1, config_edit=_ORIGINAL_TTL
+    )
+    assert not hasattr(outcome, "product"), "a product expired a month ago was served"
+    assert outcome.reason == "ttl-bounds", (outcome.kind, outcome.reason)
+    assert outcome.replay_reference
+
+
+def test_a_question_outside_the_widened_window_is_refused(
+    example: Any, tmp_path: pathlib.Path
+) -> None:
+    """The 31-day boundary is a bound, not an opening.
+
+    A question 40 days before the shipped serve instant — outside even the
+    widened, illustrative window — is refused `asked-at-outside-temporal-bound`,
+    by name, as data, with a replay reference.
+    """
+    outcome = _ask_on_the_shipped_clock(
+        example, tmp_path, asked_at=G25_T1 - timedelta(days=10)
+    )
+    assert not hasattr(outcome, "product"), "a question outside the widened window was served"
+    assert (outcome.kind, outcome.reason) == (
+        "temporal-bound-refusal", "asked-at-outside-temporal-bound"
+    )
+    assert outcome.replay_reference

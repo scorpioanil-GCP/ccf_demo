@@ -413,7 +413,10 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
     # Eleven since `D-IMPL-358` step 5: the temporal-bound refusal and section
     # C1's naive-instant refusal joined the three before-exits (`D-IMPL-357` C2's
     # mechanism floor was the third).
-    assert len(calls) == 11, f"the exit census moved: {len(calls)} exits"
+    # Twelve since round 5 SDK lane A (CP08-R3-F-01): the evidence-after-decision
+    # refusal at scoring, AFTER acquisition and before composition, carrying the
+    # walk's child rows (`walk_child_rows`) — the seventh after-exit.
+    assert len(calls) == 12, f"the exit census moved: {len(calls)} exits"
 
     def call_text(start: int) -> str:
         """The full text of the call beginning at ``start``, parens balanced."""
@@ -430,7 +433,7 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
     after = [c for c in calls if c > acquisition]
     # `D-IMPL-358` step 5: five before — the temporal bound and the naive-instant
     # refusal joined the three.
-    assert len(before) == 5 and len(after) == 6, (len(before), len(after))
+    assert len(before) == 5 and len(after) == 7, (len(before), len(after))
     for start in before:
         assert "child_resolutions" not in call_text(start), "a row invented before acquisition"
     for start in after:

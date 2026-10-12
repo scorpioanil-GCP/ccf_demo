@@ -27,7 +27,6 @@ write path to either (CLAUDE.md §9).
 from __future__ import annotations
 
 import json
-import secrets
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -39,25 +38,16 @@ from typing import Any, Iterator
 import yaml
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken
-from mcp.server.auth.settings import AuthSettings
-from pydantic import AnyHttpUrl
 
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.products.entitlement import (
-    PRODUCT_ENTITLEMENT_POLICY,
-    ProductEntitlementGrant,
-    ProductEntitlementPolicy,
-    product_entitlement_key,
-)
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.controlplane.artifacts import EgressDoorBinding
 from ccf.projection.plan import Perspective
-from ccf_runtime.authz.product_entitlement import (
-    ControlPlaneProductEntitlementSource,
-)
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
-from ccf_runtime.mcp.egress import build_egress_server
+from ccf_runtime.mcp.composed_product import compose_for_door
+from ccf_runtime.mcp.product_door import open_door_with_verifier
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 HERE = Path(__file__).parent
 EXAMPLE = HERE.parent
@@ -73,7 +63,7 @@ TOKEN_FILE = "tokens.json"
 
 #: Every value `door.yaml` must state. Named here so an absent one is reported
 #: by name rather than surfacing as an empty string three frames later.
-REQUIRED = ("tool_description", "required_scope", "issuer_url",
+REQUIRED = ("producer_id", "tool_description", "required_scope", "issuer_url",
             "resource_server_url", "principal_id", "role", "serve_entrypoint")
 
 
@@ -151,34 +141,37 @@ class Door:
 
 @contextmanager
 def door(*, root: Path) -> Iterator[Door]:
-    """Register the entitlement, mint this boot's credential, build the door."""
+    """Compose the producer, open the SDK's standard door over it, write this boot's credential.
+
+    AMENDED 2026-10-11 (round 5, examples/AMENDMENTS-2026-10-11.md). This door
+    registered its entitlement policy itself and called ``build_egress_server``
+    directly. Since ``D-IMPL-353`` neither is available to a deployment: the
+    registry takes a registration only under a capability SDK composition
+    mints (``CapabilityBypassError``), and the builder requires an
+    ``authorizer`` decided over a scope mapping only SDK composition can
+    register. The supported path is the SDK's shared adapter,
+    :func:`~ccf_runtime.mcp.composed_product.compose_for_door`, under the
+    standard door, :func:`~ccf_runtime.mcp.product_door.open_door_with_verifier`,
+    which derives the scope mapping and the pinned authorizer itself and
+    registers the one-principal entitlement this door always served — the
+    declared perspective's principal under its declared role — because this
+    deployment declares no ``product_entitlement:``. ``door.yaml`` gained the
+    producer identity the standard door asserts on every outcome, and the tree
+    gained ``ccf_environment.yaml``, which names the credential variable.
+    Nothing below decides anything: ``resolve`` is :func:`build_resolver`,
+    unchanged.
+    """
     values = door_values()
     config = deployment.config()
     tenant = str(config["tenant_id"])
     scope, principal = str(values["required_scope"]), str(values["principal_id"])
     role = str(values["role"])
 
-    control_plane = ControlPlaneRegistry()
-    control_plane.register_typed(
-        product_entitlement_key(tenant_id=tenant),
-        ProductEntitlementPolicy(
-            tenant_id=tenant,
-            policy_version=str(config["product_class"]["schema_version"]),
-            principals={principal: ProductEntitlementGrant(
-                permitted_schema_names=frozenset(
-                    {str(config["product_class"]["schema_name"])}),
-                permitted_roles=frozenset({role}))},
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
-    )
-    # A DOOR DECISION HAPPENS WHEN IT HAPPENS. Binding the audit plane to the
-    # demonstration instant would stamp every decision this door ever made with
-    # one date.
-    entitlement_source = ControlPlaneProductEntitlementSource(
-        control_plane=control_plane, clock=lambda: datetime.now(UTC))
-
+    boot_root = root / "door-boot"
+    boot_root.mkdir(parents=True, exist_ok=True)
     replay_root = root / "replay"
-    replay_root.mkdir(parents=True, exist_ok=True)
+    # Owner-only (SEC-014, D-IMPL-369): the store refuses a wider root it did not create.
+    replay_root.mkdir(mode=0o700, parents=True, exist_ok=True)
 
     # THE ASSEMBLY ROOT HAS TO EXIST BEFORE THE FIRST CALL, not after it.
     # `deployment.connection` hands SQLite a path INSIDE this directory and
@@ -191,11 +184,30 @@ def door(*, root: Path) -> Iterator[Door]:
     assembly_root = root / "assembly"
     assembly_root.mkdir(parents=True, exist_ok=True)
 
-    tokens = root / TOKEN_FILE
-    credential = secrets.token_urlsafe(32)
-    tokens.write_text(
-        json.dumps({credential: {"client_id": principal, "scopes": [scope]}}),
-        encoding="utf-8")
+    producer = compose_for_door(
+        EXAMPLE / "ccf_config.yaml",
+        boot_connection=deployment.connection(root=boot_root),
+        environment_root=EXAMPLE,
+        door=EgressDoorBinding.model_validate({
+            "semver": "1.0.0",
+            "producer_id": str(values["producer_id"]),
+            "producer_tenant": tenant,
+            "tool_description": str(values["tool_description"]),
+            "required_scope": scope,
+        }),
+        # A DOOR THAT CANNOT RECORD A REFUSAL IS NOT A GOVERNED DOOR
+        # (`D-IMPL-256` (2)), and the SDK refuses to build one. A determination
+        # the fabric declined is still a determination: it is recorded,
+        # disclosed at the caller's level, and addressed, exactly as a fulfilled
+        # one is.
+        replay_store=FileArtifactStore(
+            root=replay_root,
+            write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,)}),
+        ),
+        replay_record_class="ccf.replay-record",
+        resolver=build_resolver(root=assembly_root),
+        default_perspective=Perspective(principal_id=principal, role=role),
+    )
 
     def resolve_perspective(*, grant: Any, tenant: str,
                             requested_role: str | None) -> Perspective:
@@ -207,35 +219,26 @@ def door(*, root: Path) -> Iterator[Door]:
         """
         return Perspective(principal_id=grant.client_id, role=role)
 
-    server = build_egress_server(
-        server_name=tenant,
-        resolver=build_resolver(root=assembly_root),
+    tokens = root / TOKEN_FILE
+    opened = open_door_with_verifier(
+        producer,
         token_verifier=SourceBackedTokenVerifier(source=FileTokenSource(path=tokens)),
-        auth_settings=AuthSettings(
-            issuer_url=AnyHttpUrl(str(values["issuer_url"])),
-            resource_server_url=AnyHttpUrl(str(values["resource_server_url"])),
-            required_scopes=[scope],
-        ),
-        entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
-        # A DOOR THAT CANNOT RECORD A REFUSAL IS NOT A GOVERNED DOOR
-        # (`D-IMPL-256` (2)), and the SDK refuses to build one. A determination
-        # the fabric declined is still a determination: it is recorded,
-        # disclosed at the caller's level, and addressed, exactly as a fulfilled
-        # one is.
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=replay_root),
-            replay_record_class="ccf.replay-record",
-            tenant_id=tenant,
-            assembly_mode=str(config["product_class"]["assembly_mode"]),
-            disclosure_level_for=entitlement_source.disclosure_level_for,
-        ),
-        expose_product_tool=True,
-        product_tool_description=str(values["tool_description"]),
     )
+    # This boot's ONE credential (read from the variable `ccf_environment.yaml`
+    # names, or minted per boot), recognized for the declared principal on this
+    # tenant only (SEC-018) — written after the door is composed; the file is
+    # read on every lookup.
+    tokens.write_text(
+        json.dumps({opened.credential: {
+            "client_id": principal, "scopes": [scope], "tenants": [tenant]}}),
+        encoding="utf-8")
     try:
-        yield Door(server=server, credential=credential, principal_id=principal,
-                   scope=scope, tenant_id=tenant)
+        yield Door(
+            server=opened.server(issuer_url=str(values["issuer_url"]),
+                                 resource_server_url=str(values["resource_server_url"])),
+            credential=opened.credential, principal_id=principal,
+            scope=scope, tenant_id=tenant)
     finally:
         tokens.unlink(missing_ok=True)
 
@@ -251,9 +254,9 @@ def serve() -> None:
     """
     with tempfile.TemporaryDirectory(prefix="cp06-door-") as scratch:
         with door(root=Path(scratch)) as opened:
-            auth_context_var.set(AuthenticatedUser(AccessToken(
-                token=opened.credential, client_id=opened.principal_id,
-                scopes=[opened.scope])))
+            auth_context_var.set(AuthenticatedUser(ambient_stdio_identity(
+                credential=opened.credential, principal_id=opened.principal_id,
+                scope=opened.scope, tenant=opened.tenant_id)))
             opened.server.run(transport="stdio")
 
 

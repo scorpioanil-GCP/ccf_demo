@@ -214,6 +214,7 @@ from ccf.products.composite import (
     resolve_child_outcomes,
 )
 from ccf.halflife.debt import DebtAssessment, DebtSignal, assess_debt, context_debt
+from ccf.halflife.decay import TemporalOrderError
 from ccf.products.contract import (
     AssemblyMode,
     ComputedEmptyFinding,
@@ -262,6 +263,7 @@ from ccf.products.entitlement import (
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     GATE_LINEAGE_EQUALITY,
+    EvidenceAfterDecisionRefusal,
     GateRefusal,
     TTLAnchorRefusal,
     LineageMismatchRefusal,
@@ -4541,6 +4543,12 @@ class GovernedResolver:
         # `assessed`, `decided_at` and the composition laws.
         composed: CompositionOutcome | None = None
         outcomes: Mapping[str, object] | None = None
+        # Round 5 SDK lane A (CP08-R3-F-01): the rows the per-requirement walk
+        # produced, bound for the ONE exit between that walk and the composition
+        # — the evidence-after-decision refusal at scoring — so it keeps the
+        # child evidence `D-GATE-338` requires of every exit after acquisition.
+        # `()` for a non-composite: no child was asked anything.
+        walk_child_rows: tuple[ChildResolution, ...] = ()
         children: ChildContractView | None = None
         invocation = ""
         if registered.requires:
@@ -4663,6 +4671,7 @@ class GovernedResolver:
                 self._retain_child_contracts(
                     child.contract for child in resolved.admitted
                 )
+                walk_child_rows = tuple(resolved.rows)
                 if resolved.blocking:
                     composed = CompositionOutcome(
                         factors=None,
@@ -4952,22 +4961,66 @@ class GovernedResolver:
         # through it. `D-IMPL-339`: a child-aware scorer receives the same view
         # the plan did, so the parent's own child-dependent `C` / `S` reach its
         # assessment per request; every other scorer is asked as before.
-        if isinstance(self.debt_scorer, InstantAwareDebtScorerProtocol):
-            assessed = self.debt_scorer.score_at(
-                view=rendered.view,
-                evidence=ExecutionEvidence.of(rendered),
-                decided_at=decided_at,
-                children=children,
-            )
-        elif children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
-            assessed = self.debt_scorer.score_with_children(
-                view=rendered.view,
-                evidence=ExecutionEvidence.of(rendered),
-                children=children,
-            )
-        else:
-            assessed = self.debt_scorer(
-                view=rendered.view, evidence=ExecutionEvidence.of(rendered)
+        #
+        # ROUND 5 SDK LANE A (Dave 2026-10-11 20:19 MST ruling 1; CP08-R3-F-01):
+        # evidence dated after the decision instant is a GOVERNED REFUSAL, never
+        # an escaped exception. The decay module raises `TemporalOrderError`
+        # rather than score the future as fresh, and that verdict stands — it is
+        # recorded here, post-projection, with this execution's evidence and no
+        # debt (none could be assessed). Exactly that error and nothing broader:
+        # any other scorer failure is a wiring fault and still raises.
+        try:
+            if isinstance(self.debt_scorer, InstantAwareDebtScorerProtocol):
+                assessed = self.debt_scorer.score_at(
+                    view=rendered.view,
+                    evidence=ExecutionEvidence.of(rendered),
+                    decided_at=decided_at,
+                    children=children,
+                )
+            elif children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
+                assessed = self.debt_scorer.score_with_children(
+                    view=rendered.view,
+                    evidence=ExecutionEvidence.of(rendered),
+                    children=children,
+                )
+            else:
+                assessed = self.debt_scorer(
+                    view=rendered.view, evidence=ExecutionEvidence.of(rendered)
+                )
+        except TemporalOrderError as future_dated:
+            return self._record_refusal(
+                envelope=envelope_for(
+                    EvidenceAfterDecisionRefusal(
+                        reason="evidence-after-decision",
+                        detail=(
+                            "the Context Debt cannot be assessed at the decision"
+                            f" instant {decided_at.isoformat()}: {future_dated}"
+                            " (CP08-R3-F-01; the evidence is neither excluded nor"
+                            " scored as fresh)"
+                        ),
+                        decided_at=decided_at,
+                    ),
+                    request=identity,
+                    pre_assembly_lineage=own_lineage,
+                    policy_bindings=effective.applied,
+                    evidence=RefusalEvidence(
+                        operators_invoked=execution.operators_invoked,
+                        plan_id=execution.plan_id,
+                        debt=None,
+                        computed_empty=ComputedEmptyFinding.of(
+                            rendered,
+                            emptiness=emptiness_of(ExecutionEvidence.of(rendered)),
+                        ),
+                    ),
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=self._applied_bindings(effective),
+                resolution=effective,
+                child_resolutions=walk_child_rows,
+                served_at=served_at,
             )
 
         # --- composite assembly (`D-IMPL-336` Amendment 3, F0) -------------

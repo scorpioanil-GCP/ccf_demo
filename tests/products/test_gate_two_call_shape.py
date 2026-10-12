@@ -677,6 +677,16 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # roster's rule is that a human rules on each addition; ruling 3 is the
         # authority cited, and these five lines are where he confirms or
         # withdraws it.
+        #
+        # CONFIRMED (Dave, 2026-10-11 20:19 MST, ruling 4): *"Approve cp-00
+        # through cp-04's code-shape exemptions where the SDK now performs the
+        # delegated step. Name that step and its replacement behavioral
+        # coverage. Exemption from an obsolete source-layout requirement is
+        # permitted; exemption from the actual security or business requirement
+        # is not."* The step and its coverage are named, per specimen, in
+        # :data:`DELEGATED_STEP_COVERAGE` below, and
+        # :func:`test_each_ruled_frozen_specimen_names_its_delegated_step_and_coverage`
+        # asserts the coverage exists.
         "examples/cp-00-institutional-holders",
         "examples/cp-01-counterparty-reference-snapshot",
         "examples/cp-02-facility-terms-snapshot",
@@ -3456,6 +3466,147 @@ def test_the_sdk_supplied_exemption_has_not_spread() -> None:
     """
     problems = _sdk_supplied_problems(_sdk_supplied_deployments())
     assert not problems, "; ".join(problems)
+
+
+#: Ruling 4 (Dave, 2026-10-11 20:19 MST) — for each frozen specimen exempted from the
+#: binder-naming demand (tripwire (2)) on the SDK-supplied route, THE STEP THE SDK NOW
+#: PERFORMS for it and THE BEHAVIORAL TESTS THAT PROVE IT. The exemption is from an
+#: obsolete SOURCE-LAYOUT requirement (a body that builds a plan must name the
+#: binder); the business requirement it protected — *no product is assembled from an
+#: operator set its own class does not claim* — is not exempted, and is proven per
+#: specimen on the live estate by the first node id in each row.
+#:
+#: The step, identical for all five because all five hand a named ``plan_factory`` to
+#: the same SDK builder: :func:`ccf.products.resolver.build_governed_resolver`'s
+#: resolver calls :func:`ccf.deployment.refuse_operator_set_divergence` between
+#: ``plan_factory(required=…)`` and ``ProjectionEngine.execute`` (`D-IMPL-300`), then
+#: :func:`ccf.products.gates.run_gates` compares the declared lineage against the
+#: engine's own resolution (Gate 2).
+DELEGATED_STEP = (
+    "ccf.products.resolver.build_governed_resolver -> "
+    "ccf.deployment.refuse_operator_set_divergence (before ProjectionEngine.execute, D-IMPL-300) "
+    "-> ccf.products.gates.run_gates Gate 2 (declared lineage vs engine_resolved)"
+)
+_SDK_STEP_COVERAGE = (
+    "tests/products/test_resolver_seam.py::test_a_plan_contradicting_the_class_is_refused_before_it_is_executed",
+    "tests/products/test_gate_independence.py::test_perturbing_engine_resolved_is_refused_and_the_declared_set_is_not",
+)
+_PER_SPECIMEN = (
+    "tests/examples/test_frozen_specimens_delegated_operator_check.py"
+    "::test_the_sdk_refuses_a_plan_the_class_does_not_claim_for_each_frozen_specimen[{tree}]"
+)
+DELEGATED_STEP_COVERAGE: dict[str, tuple[str, tuple[str, ...]]] = {
+    "examples/cp-00-institutional-holders": (DELEGATED_STEP, (
+        _PER_SPECIMEN.format(tree="cp-00-institutional-holders"),
+        # Gate 2's refusal branch reached at example scale on cp-00's own product.
+        "tests/examples/test_cp_00_output.py::test_the_gate_result_is_recorded_not_assumed",
+        *_SDK_STEP_COVERAGE,
+    )),
+    "examples/cp-01-counterparty-reference-snapshot": (DELEGATED_STEP, (
+        _PER_SPECIMEN.format(tree="cp-01-counterparty-reference-snapshot"), *_SDK_STEP_COVERAGE,
+    )),
+    "examples/cp-02-facility-terms-snapshot": (DELEGATED_STEP, (
+        _PER_SPECIMEN.format(tree="cp-02-facility-terms-snapshot"), *_SDK_STEP_COVERAGE,
+    )),
+    "examples/cp-03-obligor-financial-spread": (DELEGATED_STEP, (
+        _PER_SPECIMEN.format(tree="cp-03-obligor-financial-spread"), *_SDK_STEP_COVERAGE,
+    )),
+    "examples/cp-04-corporate-family-tree": (DELEGATED_STEP, (
+        _PER_SPECIMEN.format(tree="cp-04-corporate-family-tree"), *_SDK_STEP_COVERAGE,
+    )),
+}
+
+#: The five ruled under ruling 4 — the frozen specimens repaired on 2026-10-11.
+_RULING_4_SPECIMENS = frozenset(
+    {
+        "examples/cp-00-institutional-holders",
+        "examples/cp-01-counterparty-reference-snapshot",
+        "examples/cp-02-facility-terms-snapshot",
+        "examples/cp-03-obligor-financial-spread",
+        "examples/cp-04-corporate-family-tree",
+    }
+)
+
+
+def _test_function(node_id: str) -> tuple[ast.Module, ast.FunctionDef]:
+    """The module and the module-level test function a ``path::name[param]`` node id names."""
+    path, _, name = node_id.partition("::")
+    name = name.split("[", 1)[0]
+    source = REPO_ROOT / path
+    assert source.is_file(), f"{node_id}: {path} does not exist"
+    module = ast.parse(source.read_text(encoding="utf-8"))
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return module, node
+    raise AssertionError(f"{node_id}: no module-level test function {name!r} in {path}")
+
+
+def _marks(nodes: list[ast.expr]) -> set[str]:
+    """The ``pytest.mark.<name>`` names among decorator / ``pytestmark`` expressions."""
+    names: set[str] = set()
+    for expression in nodes:
+        for node in ast.walk(expression):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute):
+                if isinstance(node.value.value, ast.Name) and node.value.value.id == "pytest" and node.value.attr == "mark":
+                    names.add(node.attr)
+    return names
+
+
+def _module_marks(module: ast.Module) -> set[str]:
+    for node in module.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets
+        ):
+            return _marks([node.value])
+    return set()
+
+
+def test_each_ruled_frozen_specimen_names_its_delegated_step_and_coverage() -> None:
+    """Ruling 4: the exemption names the step and its replacement behavioral coverage — and that coverage EXISTS.
+
+    For each of cp-00 … cp-04: it is on the SDK-supplied roster; its code reaches
+    the named SDK builder; the builder's resolver really calls the binder; and every
+    named node id resolves to a module-level test function carrying no ``xfail`` or
+    unconditional ``skip`` (an estate-gated skip inside the test is how every
+    live-estate test in this suite reads ``.76``). A parametrized id must be one the
+    module actually parametrizes. A name that no longer resolves is red — coverage
+    that has quietly gone is the failure this exists to catch.
+    """
+    assert set(DELEGATED_STEP_COVERAGE) == _RULING_4_SPECIMENS
+    assert _RULING_4_SPECIMENS <= RULED_SDK_SUPPLIED_DEPLOYMENTS
+    assert _RULING_4_SPECIMENS <= set(_sdk_supplied_deployments()), (
+        "a ruled specimen no longer takes the SDK-supplied route, so the delegated"
+        " step is no longer the SDK's"
+    )
+
+    resolver = (REPO_ROOT / "src" / "ccf" / "products" / "resolver.py").read_text(encoding="utf-8")
+    assert "refuse_operator_set_divergence(declared=declaration, plan=plan)" in resolver, (
+        "the governed resolver no longer calls the binder; the delegated step is gone"
+    )
+    assert "run_gates(" in resolver
+
+    for specimen, (step, coverage) in DELEGATED_STEP_COVERAGE.items():
+        assert step == DELEGATED_STEP and coverage, specimen
+        sources = "".join(
+            path.read_text(encoding="utf-8") for path in (REPO_ROOT / specimen).glob("*.py")
+        )
+        assert "build_governed_resolver(" in sources, f"{specimen} does not reach the SDK builder"
+        assert "refuse_operator_set_divergence(" not in sources, (
+            f"{specimen} calls the binder itself; the exemption describes a body that delegates it"
+        )
+        tree = specimen.removeprefix("examples/")
+        assert any(f"[{tree}]" in node_id for node_id in coverage), f"{specimen} has no per-specimen behavioral test"
+        for node_id in coverage:
+            module, function = _test_function(node_id)
+            marks = _marks(function.decorator_list) | _module_marks(module)
+            assert not marks & {"xfail", "skip"}, f"{node_id} is marked {sorted(marks & {'xfail', 'skip'})}"
+            if "[" in node_id:
+                parameter = node_id.split("[", 1)[1].rstrip("]")
+                assert any(
+                    isinstance(node, ast.Constant) and node.value == parameter for node in ast.walk(module)
+                ), (
+                    f"{node_id}: the module does not parametrize {parameter!r}"
+                )
 
 
 def test_the_two_exemptions_are_disjoint() -> None:

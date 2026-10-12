@@ -506,11 +506,11 @@ def test_a_producer_asserting_another_identity_or_tenant_refuses_by_name(tmp_pat
     for label, section, reason in (
         ("id", fixture.producer_section(producer_id="someone-else"), "producer-mismatch"),
         # A registration naming a tenant the caller's grant does not carry is
-        # refused at the door's tenancy floor (SEC-018) before any product logic:
-        # a completed call that failed, so the slot reads `producer-unavailable`
-        # (the row vocabulary's only reason for a producer that gave no governed
-        # answer — `SEC353-J-02`, reported for ruling).
-        ("tenant", fixture.producer_section(producer_tenant="another-tenant"), "producer-unavailable"),
+        # refused at the door's tenancy floor (SEC-018) before any product logic.
+        # RULED 2026-10-11 20:19 MST (Dave, ruling 1; `SEC353-J-02`): the door's
+        # coded denial is named, so the slot reads `producer-tenant-mismatch`,
+        # not the outage reason `producer-unavailable`.
+        ("tenant", fixture.producer_section(producer_tenant="another-tenant"), "producer-tenant-mismatch"),
     ):
         root = _tree(
             tmp_path / label,

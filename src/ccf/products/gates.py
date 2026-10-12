@@ -197,6 +197,7 @@ __all__ = [
     "AttestationRefusal",
     "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
+    "EvidenceAfterDecisionRefusal",
     "refuse_dependency_invalidation",
     "GateBypassError",
     "GateRefusal",
@@ -383,6 +384,43 @@ class TTLAnchorRefusal(GateRefusal):
     now: datetime
     valid_from_rows: tuple[str, ...]
     observation_types: tuple[str, ...]
+
+
+class EvidenceAfterDecisionRefusal(CCFContract):
+    """Evidence dated after the decision instant: no Context Debt can be assessed at it.
+
+    SDK-defined (CLAUDE.md §11); round 5 SDK lane A, Dave 2026-10-11 20:19 MST
+    ruling 1 (CP08-R3-F-01). The freshness factor refuses to score an
+    observation dated after the instant it is evaluated at
+    (:class:`~ccf.halflife.decay.TemporalOrderError`: *"an observation from the
+    future means a clock, a source, or an as-of boundary is wrong"*), and the
+    resolver used to let that escape as an exception. A governed refusal is
+    owed instead (``docs/EXAMPLE-EVALUATION-CRITERIA.md`` §D: *"never a raise
+    where a governed refusal is owed"*): recorded with the execution's
+    operators and plan, a replay reference, and **no debt** — none could be
+    assessed, and a substituted figure would be the clamp the decay module
+    refuses.
+
+    **Nothing is excluded or clamped.** Dropping the future-dated evidence
+    would answer a different question than the one asked; scoring it as fresh
+    would convert a data-integrity fault into a confident decision.
+
+    **Not a gate.** Like :class:`ToleranceExceededRefusal`, it is not a
+    :class:`GateRefusal` and adds no ``GATE_*`` token (the roster is ruled
+    exact, ``D-IMPL-364`` C2): it is met at the scoring step, before a
+    candidate exists, and is no member of :func:`run_gates`.
+
+    Attributes:
+        reason: ``evidence-after-decision``, the one reason — the promoted
+            ``reason`` of the envelope.
+        detail: The statement an operator reads, including the decay
+            module's own sentence.
+        decided_at: The decision instant the evidence post-dates.
+    """
+
+    reason: Literal["evidence-after-decision"]
+    detail: str
+    decided_at: datetime
 
 
 class DependencyInvalidationRefusal(GateRefusal):

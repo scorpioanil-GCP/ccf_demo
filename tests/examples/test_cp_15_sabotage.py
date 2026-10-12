@@ -140,6 +140,42 @@ def _answer(
         return _Answer(outcome=outcome, record=opened.record_of(outcome))
 
 
+def _is_the_documented_sec020_probe_refusal(answer: _Answer, *, source_code: str) -> dict[str, Any]:
+    """The refusal's record, held to SEC-020's DOCUMENTED redaction (round 5 SDK lane A).
+
+    Dave, 2026-10-11 20:19 MST: *"preserve useful reasons where permitted. Where
+    SEC-020 intentionally requires redaction, retain it and make the test assert
+    that documented behavior; do not restore a disclosure channel to satisfy an
+    old assertion."* This class may withhold its subject and declares no early
+    policy, so the SDK first asks its subject-keyed acquisition about
+    `UNHELD_SUBJECT_PROBE`; a role or parameter refusal decided there answers the
+    question as the ONE constant `UNHELD_SUBJECT_PROBE_REFUSAL`, recorded once at
+    the `acquisition` seam, and "the source's own text, code and cause reach no
+    served byte and no record byte" (`D-IMPL-378` repair 2.3 (b), Dave
+    2026-10-09 10:54 MST: *"Otherwise implement (b) with a recorded constant SDK
+    cause. Role and parameter refusals must retain their decision records."*;
+    `tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py` R5).
+
+    PERMITTED and asserted: the refusal by kind, its replay reference, the one
+    decision record, and the caller's own question in it. REDACTED and asserted
+    absent: the source's code (`source_code`) and its prose.
+    """
+    from ccf.products.resolver import UNHELD_SUBJECT_PROBE_REFUSAL  # noqa: PLC0415
+
+    refusal = answer.refusal
+    assert refusal.kind == "subject-unavailable", refusal.kind
+    assert refusal.replay_reference, "the refusal carries no replay reference"
+    path = answer.record.content_generation_path
+    recorded = __import__("json").loads(path.assembly_refusal)
+    assert path.refusal_seam == "acquisition", path.refusal_seam
+    assert recorded["kind"] == "subject-unavailable"
+    assert recorded["detail"] == UNHELD_SUBJECT_PROBE_REFUSAL.detail, recorded["detail"]
+    assert recorded["fields"]["cause"] == '"undisclosed"' and recorded["fields"]["error_code"] == "null"
+    record_bytes = canonical_bytes(answer.record)
+    assert source_code.encode() not in record_bytes, f"the source's {source_code!r} survives in the record"
+    return path.request.parameters
+
+
 def _vessel(answer: _Answer) -> dict[str, Any]:
     return answer.product.model_dump(mode="json")
 
@@ -195,16 +231,21 @@ def test_a_request_below_the_declared_floor_is_refused_by_name(
     assert isinstance(raised.outcome, ServedProduct), getattr(raised.outcome, "detail", raised.outcome)
     assert Decimal(raised.product.payload["min_confidence"]) == Decimal("0.95")
 
+    # AMENDED 2026-10-11 (round 5 SDK lane A; examples/AMENDMENTS-2026-10-11.md):
+    # the record no longer names `floor-breached` — SEC-020's documented redaction
+    # of a parameter refusal decided at the unheld-subject probe. What an examiner
+    # still reads is the refusal, its record, and the question that asked below
+    # the floor.
     lowered = _answer(modules, tmp_path / "lowered", **{deployment.MIN_CONFIDENCE: "0.10"})
-    refusal = lowered.refusal
-    assert refusal.kind == "subject-unavailable", refusal.kind
-    assert refusal.replay_reference, "the refusal carries no replay reference"
-    breach = lowered.record.content_generation_path.assembly_refusal
-    assert "floor-breached" in breach, breach
-    assert "min_confidence" in breach, breach
+    asked = _is_the_documented_sec020_probe_refusal(lowered, source_code="floor-breached")
+    assert asked[deployment.MIN_CONFIDENCE] == "0.10", asked
 
-    # And the same rule holds for the reporting threshold.
+    # And the same rule holds for the reporting threshold — and HERE the reason is
+    # PERMITTED and kept (measured, round 5): the source refuses the threshold
+    # only once it holds the subject, so the unheld-subject probe is not refused
+    # and the subject's own refusal is recorded as its source stated it.
     under = _answer(modules, tmp_path / "under", **{deployment.THRESHOLD: "1"})
+    assert under.refusal.kind == "subject-unavailable", under.refusal.kind
     assert "floor-breached" in under.record.content_generation_path.assembly_refusal
 
 
@@ -238,11 +279,10 @@ def test_a_principal_with_no_jurisdiction_grant_is_refused_by_name(
     answer = _answer(modules, tmp_path / "ungranted")
     monkeypatch.undo()
 
-    refusal = answer.refusal
-    assert refusal.kind == "subject-unavailable", refusal.kind
-    assert refusal.replay_reference, "the refusal carries no replay reference"
-    breach = answer.record.content_generation_path.assembly_refusal
-    assert "no-jurisdiction-grant" in breach, breach
+    # AMENDED 2026-10-11 (round 5 SDK lane A): the record no longer names
+    # `no-jurisdiction-grant` — SEC-020's documented redaction of a role refusal
+    # decided at the unheld-subject probe. The principal it was decided for stays.
+    _is_the_documented_sec020_probe_refusal(answer, source_code="no-jurisdiction-grant")
     assert answer.record.perspective_conditioning.principal_id == PRINCIPAL
 
 

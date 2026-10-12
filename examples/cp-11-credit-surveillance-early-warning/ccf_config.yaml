@@ -189,9 +189,48 @@ default_perspective:
 # > governed behavior observable in that snapshot. They demonstrate how the SDK
 # > applies these controls and should not be interpreted as recommended
 # > production coverage-policy thresholds.
+#
+# WIDENED 2026-10-11 (Dave, 18:09 MST: "for cp-11 widen as it's just an
+# illustration"; 20:19 MST ruling 3, option (a): "Widen the illustrative answer
+# expiry as well as the temporal window sufficiently to demonstrate the
+# month-long scenario"). `EWS-G25`'s argument is a timeline on ONE Control
+# Plane: a product served for 2026-07-20 is made ineligible by evidence the
+# writer records for 2026-08-19. One hour could not hold both questions under
+# this deployment's one declared serve instant (2026-08-19T00:05Z), so the window
+# is 31 days — as far as that month-long timeline needs, and no further. A
+# question more than 31 days before the serve instant is still refused
+# `asked-at-outside-temporal-bound`. THE ORIGINAL STRICTER VALUE was 3600 s (one
+# hour); under it the same 2026-07-20 question is refused
+# `asked-at-outside-temporal-bound` (both outcomes are ordinary passing tests in
+# `tests/examples/test_cp_11_output.py`). This value is ILLUSTRATIVE, per the
+# disclosure above: it is not a recommended or bank-approved production
+# look-back.
 temporal_boundary:
-  max_past_seconds: 3600
+  max_past_seconds: 2678400          # 31 days — illustrative (EWS-G25's timeline); original 3600
   permitted_clock_skew_seconds: 0
+
+# THE ANSWER'S EXPIRY (`ccf.ttl-binding`, `D-IMPL-343` R-3a — the one authority
+# for both figures; `produce.py` no longer states them on the builder call).
+# Added 2026-10-11 (Dave, 20:19 MST ruling 3, option (a)). The class anchors
+# expiry on the decision instant (`ttl_anchor: from_decision`), so a product
+# answered for 2026-07-20 and still being SERVED at the 2026-08-19T00:05Z
+# demonstration instant needs a lifetime of at least 30 days and five minutes.
+# Both figures are therefore 31 days — ILLUSTRATIVE, matched to the widened
+# window above and no wider. THE ORIGINAL STRICTER VALUES were a 6-hour product
+# lifetime under a one-day class ceiling (spec §E.3); under them the 2026-07-20
+# question, even inside a widened window, is refused `ttl-bounds` (an ordinary
+# passing test asserts it). These are demonstration values, not a recommended
+# or bank-approved production expiry policy.
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+ttl:
+  max_ttl_seconds: 2678400           # 31 days — illustrative; original 86400 (one day)
+  product_ttl_seconds: 2678400       # 31 days — illustrative; original 21600 (six hours)
 
 # THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
 # 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
@@ -200,7 +239,7 @@ temporal_boundary:
 # The demonstration question in `artifacts/question.yaml` is asked as of
 # 2026-08-19T00:00Z; this deployment declares, in its own Control Plane, that
 # it is a DEMONSTRATION serving at 2026-08-19T00:05:00+00:00 — five minutes later,
-# inside the one-hour `temporal_boundary` above and inside the answer's
+# inside the (31-day, illustrative) `temporal_boundary` above and inside the answer's
 # lifetime. It is the run's one time anchor: nothing a question carries can move
 # it, and the SDK refuses it unless the fabric runs on its development substrates
 # (this deployment's per-run SQLite graph and file-backed store). Every replay

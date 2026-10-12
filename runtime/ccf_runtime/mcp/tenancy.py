@@ -114,6 +114,7 @@ from ccf.authz.capability import (
     mint,
 )
 from ccf.skills._wire_arguments import refuse_undeclared_arguments
+from ccf.skills.dispatch import TENANT_NOT_GRANTED_CODE
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
     ERROR_DECISION_UNMINTABLE,
@@ -812,6 +813,7 @@ class TenantGuardedServer:
         resource: ResourceSubject,
         mutating: bool,
         products: ProductReach,
+        on_denied: Callable[..., Any] | None = None,
         **kwargs: Any,
     ) -> Callable[[_F], _F]:
         """Register a tool whose body runs only under a capability minted for it.
@@ -842,6 +844,17 @@ class TenantGuardedServer:
                 :data:`READ_KINDS`.
             products: Which product classes a call reaches (``SEC-017``); a
                 grant's declared roster is held to it before the authorizer.
+            on_denied: What the tool answers when the AUTHORIZER denies the
+                call, in place of the ``tenant-unauthorized`` tool error —
+                called as ``on_denied(grant=, tenant=, arguments=, denial=)``
+                with the verified grant, the selected tenant, the wire
+                arguments (tenant argument removed) and the deny's statement,
+                and never with a capability (none is minted). ``None`` (the
+                default) keeps the tool error. The SDK's product door passes
+                one so an undeclared class reads as an unentitled caller does
+                (R5-CP17-F01; Dave 2026-10-11 21:19 MST, "Do (a)"). The tenant
+                floor, the roster and the opaque directory refusal all still
+                run first and are unchanged.
             **kwargs: Passed to ``FastMCP.tool`` untouched.
         """
 
@@ -854,6 +867,7 @@ class TenantGuardedServer:
                 resource=resource,
                 mutating=mutating,
                 products=products,
+                on_denied=on_denied,
             )
             self._server.tool(name=name, **kwargs)(guarded)
             _close_wire_arguments(self._server, name)
@@ -926,6 +940,7 @@ class TenantGuardedServer:
         resource: ResourceSubject,
         mutating: bool,
         products: ProductReach,
+        on_denied: Callable[..., Any] | None = None,
     ) -> tuple[_F, GuardedSurface]:
         """Wrap ``handler`` so decision and mint precede its first statement.
 
@@ -1089,6 +1104,15 @@ class TenantGuardedServer:
                     raise _opaque_directory_refusal(
                         surface_name, f"the authorizer denied the call: {denial}"
                     ) from None
+                if on_denied is not None:
+                    # R5-CP17-F01: the surface answers a deny its own governed
+                    # way. No capability is minted and the body never runs.
+                    wire_arguments = dict(arguments)
+                    if subject.argument is not None:
+                        wire_arguments.pop(subject.argument, None)
+                    return on_denied(
+                        grant=grant, tenant=tenant, arguments=wire_arguments, denial=denial
+                    )
                 raise ActionUnauthorizedRefused(denial)
             # §1.5(a): the mint binds the authorizer's WHOLE decision, and the
             # decision must be the answer to the question this wrapper asked.
@@ -1170,8 +1194,12 @@ def _select_tenant(
             " compared is refused rather than admitted (SEC-018)"
         )
     if acting_on not in held:
+        # `TENANT_NOT_GRANTED_CODE` leads the text so a consumer's dispatch can
+        # name this refusal (`producer-tenant-mismatch`) rather than file it as
+        # an outage; it discloses only the tenant the caller itself sent
+        # (round 5 SDK lane A, Dave 2026-10-11 20:19 MST ruling 1).
         raise CrossTenantRefused(
-            f"the verified caller's grant does not carry tenant"
+            f"{TENANT_NOT_GRANTED_CODE}: the verified caller's grant does not carry tenant"
             f" {acting_on!r}; the tenant a call acts on is decided against"
             " the grant, never supplied by the call (SEC-018)"
         )

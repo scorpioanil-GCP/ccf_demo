@@ -246,22 +246,6 @@ def boot(root: Path):
     return fabric, registry
 
 
-def _as_declared_type(rc: dict[str, Any], name: str, value: Any) -> Any:
-    """Coerce a declared default to the Python type its argument declares.
-
-    `integer` -> `int`, `number` -> `Decimal`, everything else unchanged. The
-    two numeric cases are NOT interchangeable: an `integer` argument given a
-    `Decimal` is refused just as a `number` argument given a `str` is, and both
-    refusals name the offending parameter.
-    """
-    declared = rc["arguments"]["properties"].get(name, {}).get("type")
-    if declared == "integer":
-        return int(value)
-    if declared == "number":
-        return Decimal(str(value))
-    return value
-
-
 def request_contract(config: dict[str, Any]):
     """`ccf_config.yaml::request_contract` as the SDK's typed declaration.
 
@@ -298,26 +282,15 @@ def request_contract(config: dict[str, Any]):
         # might have said. `ccf_config.yaml` now authors the reason and this
         # line hands it over verbatim: the SDK reads what the document says.
         unsupported_arguments=dict(rc.get("unsupported_arguments", {})),
-        # DECLARED AS TEXT, HANDED OVER AS A DECIMAL, and both halves are
-        # required by different SDK rules that only look like a conflict.
-        #
-        # The Control Plane REFUSES a bare float in an artifact — *"not
-        # bit-stable across platforms; quote the value so it parses as text and
-        # is validated as a decimal."* So the YAML holds `"0.05"`.
-        #
-        # The request contract then judges a default against its declared
-        # argument TYPE, and reads a number by VALUE rather than by Python type:
-        # *"`Decimal("2")` IS `2` ... `"1"` is not `1`"*. So a string default
-        # for a `number` argument is refused — correctly, because a caller
-        # comparing `"0.05"` against a numeric domain would be comparing text.
-        #
-        # The interpreter is where the two meet. Text in the document, Decimal
-        # on the wire. An earlier draft passed the strings through and was
-        # refused at construction with every offender named in one pass.
-        defaults={
-            name: _as_declared_type(rc, name, value)
-            for name, value in rc.get("argument_defaults", {}).items()
-        },
+        # HANDED OVER AS DECLARED. AMENDED 2026-10-11 (SDK round 5, CP05-R2-F-01;
+        # examples/AMENDMENTS-2026-10-11.md): the document quotes `"0.05"`
+        # because the Control Plane refuses a bare float, and the SDK's request
+        # contract now decodes canonical decimal text for a declared `number`
+        # to the exact Decimal — the step this deployment used to perform by
+        # hand (`_as_declared_type`, removed). The key is `defaults`, the one
+        # the SDK's own `from_declared` reads, so this transcription and the
+        # governing resolution read one declaration.
+        defaults=dict(rc.get("defaults", {})),
         argument_domains=domains,
         # `depth` is bounded by the BACKEND as well as by the product. The
         # binding names which technical capability bounds which parameter, so a

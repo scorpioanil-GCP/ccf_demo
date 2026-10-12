@@ -92,7 +92,9 @@ def _withholds_no_subject() -> bool:
 plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
 
 
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
     """Bind this deployment's three verbs to its two documents.
 
     `ccf_config.yaml` declares the product and every binding; `ccf_environment
@@ -100,11 +102,17 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     read from. The graph leg's technical ceiling is the one number the
     operator declaration carries, handed to the road as a capability so a
     depth above it is refused by name with authority `technical`.
+
+    ``config_root`` is the DEPLOYMENT — this tree, unless a deployer opens a
+    copy of its two documents declaring a demonstration serve instant (CP-14's
+    call, `examples/cp-14-credit-memo-context/producer-demonstration/`; amended
+    2026-10-11, Dave 20:19 MST ruling 2). Nothing on a question can move the
+    serve clock.
     """
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=plan_factory,
