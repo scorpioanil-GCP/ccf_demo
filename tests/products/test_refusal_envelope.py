@@ -511,6 +511,29 @@ def test_envelope_for_ttl_anchor_refusal(request_identity: RequestIdentity) -> N
     assert envelope.fields["valid_from_rows"] == '["filing"]'
 
 
+def test_envelope_for_evidence_after_decision_refusal(request_identity: RequestIdentity) -> None:
+    """Round 5 SDK lane A (CP08-R3-F-01): evidence dated after the decision
+    instant, met at the scoring step. Its own kind, distinct from the window
+    kinds, so a caller does not retry by moving an instant the fabric derived;
+    the gate is the promoted reason and the decision instant crosses intact."""
+    from ccf.products.gates import (  # noqa: PLC0415
+        GATE_EVIDENCE_AFTER_DECISION,
+        EvidenceAfterDecisionRefusal,
+    )
+
+    refusal = EvidenceAfterDecisionRefusal(
+        gate=GATE_EVIDENCE_AFTER_DECISION,
+        detail="an observation is dated after the instant it is evaluated at",
+        decided_at=_INSTANT,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.kind == REFUSAL_KINDS[EvidenceAfterDecisionRefusal] == "evidence-after-decision-refusal"
+    assert envelope.kind not in (REFUSAL_KINDS[TTLRefusal], REFUSAL_KINDS[TTLAnchorRefusal])
+    assert envelope.reason == GATE_EVIDENCE_AFTER_DECISION == "evidence-after-decision"
+    assert set(envelope.fields) == {"decided_at"}
+    assert envelope.fields["decided_at"] == '"2026-08-15T12:00:00.000000Z"'
+
+
 def test_envelope_for_declared_obligation_refusal(
     request_identity: RequestIdentity,
 ) -> None:

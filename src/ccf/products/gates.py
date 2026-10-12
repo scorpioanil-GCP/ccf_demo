@@ -188,6 +188,7 @@ __all__ = [
     "DEBT_TOLERANCE_PARAMETER",
     "GATE_DECLARED_OBLIGATIONS",
     "GATE_EMPTY_OPERATOR",
+    "GATE_EVIDENCE_AFTER_DECISION",
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
     "GATE_SOURCE_ATTESTATION",
@@ -197,6 +198,7 @@ __all__ = [
     "AttestationRefusal",
     "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
+    "EvidenceAfterDecisionRefusal",
     "refuse_dependency_invalidation",
     "GateBypassError",
     "GateRefusal",
@@ -243,6 +245,13 @@ GATE_TTL_BOUNDS = "ttl-bounds"
 #: re-specified at 341's validation pass rather than left claiming it.
 GATE_TTL_ANCHOR = "ttl-anchor-unresolvable"
 GATE_SOURCE_ATTESTATION = "source-attestation"
+#: Round 5 SDK lane A (Dave, 2026-10-11 20:19 MST, ruling 1: *"cp-08's
+#: error-versus-refusal behavior"*; CP08-R3-F-01). Named for the fact it
+#: refuses on: the evidence the Context Debt would be measured over is dated
+#: after the instant the question is decided at, so no debt can be assessed AT
+#: that instant. Not one of the whitepaper's three gates and not a member of
+#: `run_gates`: it is reached at the scoring step, before a candidate exists.
+GATE_EVIDENCE_AFTER_DECISION = "evidence-after-decision"
 #: ``D-IMPL-334``. Named for the question it asks — may this be served —
 #: rather than for the write that moved the boundary. NOT a cascade and
 #: NOT an event: a graph supersession records an invalidation boundary, and
@@ -383,6 +392,32 @@ class TTLAnchorRefusal(GateRefusal):
     now: datetime
     valid_from_rows: tuple[str, ...]
     observation_types: tuple[str, ...]
+
+
+class EvidenceAfterDecisionRefusal(GateRefusal):
+    """Evidence dated after the decision instant: no Context Debt can be assessed at it.
+
+    SDK-defined (CLAUDE.md §11); round 5 SDK lane A, Dave 2026-10-11 20:19 MST
+    ruling 1 (CP08-R3-F-01). The freshness factor refuses to score an
+    observation dated after the instant it is evaluated at
+    (:class:`~ccf.halflife.decay.TemporalOrderError`: *"an observation from the
+    future means a clock, a source, or an as-of boundary is wrong"*), and the
+    resolver used to let that escape as an exception. A governed refusal is
+    owed instead (``docs/EXAMPLE-EVALUATION-CRITERIA.md`` §D: *"never a raise
+    where a governed refusal is owed"*): recorded with the execution's
+    operators and plan, a replay reference, and **no debt** — none could be
+    assessed, and a substituted figure would be the clamp the decay module
+    refuses.
+
+    **Nothing is excluded or clamped.** Dropping the future-dated evidence
+    would answer a different question than the one asked; scoring it as fresh
+    would convert a data-integrity fault into a confident decision.
+
+    Attributes:
+        decided_at: The decision instant the evidence post-dates.
+    """
+
+    decided_at: datetime
 
 
 class DependencyInvalidationRefusal(GateRefusal):
