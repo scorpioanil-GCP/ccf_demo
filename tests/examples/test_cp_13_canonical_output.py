@@ -42,7 +42,6 @@ import pytest
 import yaml
 
 from ccf.erasure import ErasureTrust
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract, ProductLineage
@@ -55,6 +54,11 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
 from tests.examples.specimen_content import frozen_by_content_violations
+from tests.examples.demonstration_deployment import (
+    anchored_after,
+    paved_root_on_the_real_clock,
+    paved_root_serving_at,
+)
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -213,14 +217,31 @@ def _perspective(opened: OpenedProduct, role: str | None) -> Perspective | None:
     return Perspective(principal_id=opened.default_perspective.principal_id, role=role)
 
 
+def _opened(modules: dict[str, Any], scratch: pathlib.Path, question: dict[str, Any]) -> Any:
+    """The product a question is asked of, on the run's ONE time anchor (ruling 1).
+
+    The tree's own `ccf_config.yaml` declares a labelled demonstration serve
+    instant five minutes after `AS_OF`. A question at any OTHER instant is
+    served by a test-owned copy of the two documents declaring five minutes
+    after that question (`tests/examples/demonstration_deployment.py`).
+    """
+    asked_at = question.get("asked_at", AS_OF)
+    if asked_at == AS_OF:
+        return modules["produce"].product(scratch)
+    root = paved_root_serving_at(
+        EXAMPLE, serve_instant=anchored_after(asked_at), directory=scratch / "deployment"
+    )
+    return modules["produce"].product(scratch, config_root=root)
+
+
 def _ask(modules: dict[str, Any], scratch: pathlib.Path, *, role: str | None = None, **question: Any) -> Any:
     """One question on the paved road, in its own scratch: the outcome as data."""
-    with modules["produce"].product(scratch) as opened:
+    with _opened(modules, scratch, question) as opened:
         return opened.answer(_question(opened, modules["deployment"], **question), perspective=_perspective(opened, role))
 
 
 def _answer(modules: dict[str, Any], scratch: pathlib.Path, *, role: str | None = None, **question: Any) -> _Answer:
-    with modules["produce"].product(scratch) as opened:
+    with _opened(modules, scratch, question) as opened:
         outcome = opened.answer(_question(opened, modules["deployment"], **question), perspective=_perspective(opened, role))
         assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
         return _Answer(product=outcome.product, record=opened.record_of(outcome), served=outcome)
@@ -481,7 +502,8 @@ def test_replay_dimension_two_is_a_superset_of_product_lineage(served: _Answer) 
     """
     bindings = {b.key for b in served.record.policy_bindings.bindings}
     versions = {b.version for b in served.record.policy_bindings.bindings}
-    assert "request_contract" in bindings
+    # Tenant-placed since D-IMPL-354; the claim is unchanged (amended 2026-10-11).
+    assert f"{PRODUCER_TENANT}/request_contract" in bindings, bindings
     assert set(served.product.lineage.policy_bundle_versions) <= versions
     assert set(served.product.lineage.operators_invoked) == set(CONFIG["product_class"]["required_operator_keys"])
 
@@ -746,7 +768,7 @@ def consumer_row(opened: OpenedProduct, outcome: Any) -> Any:
 
 def _retained_child(opened: OpenedProduct, row: Any) -> ContextProductContract:
     return ContextProductContract.model_validate_json(
-        FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=row.child_content_address)
+        opened.artifact_store.get(content_address=row.child_content_address)
     )
 
 
@@ -979,7 +1001,7 @@ def test_replay_reproduces_the_served_product_and_a_refusal_reconstructs(
             environment = _FreshEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)
             replayed = replay(
                 record_address=outcome.replay_ref.content_address,
-                store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname),
+                store=opened.artifact_store,
                 reader=fabric.handle.reader, control_plane=opened.control_plane, environment=environment,
             )
             view = fabric.handle.reader.as_of(tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary)
@@ -993,7 +1015,7 @@ def test_replay_reproduces_the_served_product_and_a_refusal_reconstructs(
         refused = opened.answer(_question(opened, deployment, sources=sources, debt_tolerance="0.10"))
         assert isinstance(refused, RefusalEnvelope), refused
         record = opened.record_of(refused)
-        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        store = opened.artifact_store
         address = store.resolve_uri(uri=refused.replay_reference)
         with _reopened_fabric(opened) as fabric:
             environment = _FreshEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)
@@ -1004,3 +1026,22 @@ def test_replay_reproduces_the_served_product_and_a_refusal_reconstructs(
     assert reconstructed.child_contract_addresses == () and environment.rehydrated == 0
     assert reconstructed.graph_snapshot_id == record.context_fabric_snapshot.graph_snapshot_id
     assert "product" not in type(reconstructed).model_fields
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], sources: list[str], tmp_path: pathlib.Path
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question at `AS_OF`, asked of this tree's own two
+    documents with the declared demonstration serve instant REMOVED, is served on
+    the real clock — outside the one-hour `temporal_boundary`, so the SDK refuses
+    it by name, as data, with a replay reference.
+    """
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        refused = opened.answer(_question(opened, modules["deployment"], sources=sources))
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+
