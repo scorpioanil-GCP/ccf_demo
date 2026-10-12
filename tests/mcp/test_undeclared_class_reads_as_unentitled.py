@@ -78,6 +78,11 @@ def _ask(door: _Door, token: str, product_class: str) -> dict[str, Any]:
         return {
             "is_error": bool(result.isError),
             "text": " | ".join(c.text for c in result.content if isinstance(c, TextContent)),
+            # THE COMPLETE PUBLIC REPLY (Dave, 2026-10-11 21:44 MST: "Compare the
+            # complete public refusal response, including status and structured
+            # fields — not just its message"): isError, every content item, any
+            # structured content and meta, exactly as the client received them.
+            "whole": result.model_dump(mode="json"),
         }
 
     async def go() -> Any:
@@ -106,6 +111,37 @@ def _shell(refusal: Mapping[str, Any]) -> tuple[Any, ...]:
     return tuple(sorted((k, json.dumps(v, sort_keys=True)) for k, v in refusal.items() if k not in _PER_QUESTION))
 
 
+def _public(reply: Mapping[str, Any], *, asked_class: str) -> Any:
+    """The complete public reply with exactly the per-question members normalized.
+
+    Every content item is parsed and compared whole. Normalized, and nothing else:
+    the record reference (issued per answer, Q11) wherever it appears, and the echo
+    of the caller's OWN question — its product id and instant, what the caller sent.
+    The class name is replaced only where it is that echo; anywhere else it stays,
+    so a door statement naming it would differ.
+    """
+
+    def scrub(value: Any, key: str | None = None) -> Any:
+        if isinstance(value, dict):
+            return {k: scrub(v, k) for k, v in value.items()}
+        if isinstance(value, list):
+            return [scrub(v) for v in value]
+        if key in ("replay_reference", "replay_ref"):
+            return "<per-answer record>"
+        if key in ("temporal_boundary", "asked_at"):
+            return "<the caller's instant>"
+        if key == "product_id" and value == asked_class:
+            return "<the caller's class>"
+        if isinstance(value, str) and value.startswith(("{", "[")):
+            try:
+                return {"<json>": scrub(json.loads(value))}
+            except ValueError:
+                return value
+        return value
+
+    return scrub(reply["whole"])
+
+
 def test_an_undeclared_class_and_an_unentitled_caller_get_one_reply(tmp_path: Path) -> None:
     with _open(tmp_path, policy=_policy()) as opened:
         door = _Door(opened)
@@ -129,6 +165,23 @@ def test_an_undeclared_class_and_an_unentitled_caller_get_one_reply(tmp_path: Pa
         assert NOWHERE not in json.dumps(stated), "the door's statement names the undeclared class"
         assert "tenant-unauthorized" not in nowhere["text"]
         assert a["refusal"]["replay_reference"] != b["refusal"]["replay_reference"]
+        # The WHOLE public reply, every member, equal once the per-question members
+        # are normalized: no status, structured field, code or content item tells
+        # the undeclared class from the unentitled caller.
+        assert _public(nowhere, asked_class=NOWHERE) == _public(unentitled, asked_class=fixture.CHILD_CLASS), (
+            json.dumps(_public(nowhere, asked_class=NOWHERE), indent=1)[:2000],
+            json.dumps(_public(unentitled, asked_class=fixture.CHILD_CLASS), indent=1)[:2000],
+        )
+
+        # TRUTHFUL AUDIT (Dave, 21:44: "Keep truthful audit events"): the
+        # authorizer's deny for the undeclared class is on the log, as a deny, with
+        # the resource axis failing — answered differently, decided the same.
+        from ccf.controlplane.audit import AuthzDecisionAuditEvent
+
+        decisions = [e for e in opened.control_plane.audit_events() if isinstance(e, AuthzDecisionAuditEvent)]
+        nowhere_decisions = [e for e in decisions if e.actor == FULL and getattr(e, "authz_resource", None) == NOWHERE]
+        assert nowhere_decisions, [(e.actor, getattr(e, "authz_resource", None)) for e in decisions]
+        assert all(not e.resolved and e.authz_failing_axis == "resource" for e in nowhere_decisions)
 
         # The internal truth is on the record behind the reply, never on the wire.
         from ccf.replay.record import DecisionReplayRecord

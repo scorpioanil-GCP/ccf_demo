@@ -8,11 +8,9 @@ governed minimal `subject-unavailable` shell. The difference answered "does this
 What changed: the authorizer's deny on the SDK product door's request tool is recorded by
 `govern_scope_denial` through the same recorder and the same emission site as an entitlement denial — internal truth
 `SubjectUnavailableRefusal(cause="unauthorized", error_code="tenant-unauthorized", detail=<the guard's statement>)`
-on the record only — so the reply is the shell Disclosure decides for that principal, byte-identical in every member
-but the per-answer record reference and the echo of the caller's own question. The deny is still decided and audited
+on the record only — so the reply is the shell Disclosure decides for that principal, identical in every member of the complete public reply — `isError`, every content item, `structuredContent`, `meta` — but the per-answer record reference and the echo of the caller's own question (its class, its instant). The authorizer's deny event stays on the audit log unchanged (resource axis). The deny is still decided and audited
 by the authorizer; no capability is minted and nothing is read. The tenant floor (SEC-018), the roster (SEC-017) and
-the opaque directory refusal run first and are unchanged. Not changed here: the HTTP door and the standing product
-resource, which still answer a resource-axis deny as before (carried).
+the opaque directory refusal run first and are unchanged. Measured and NOT changed here (carried, for a decision): the HTTP door answers the same deny `403 request-unauthorized` (constant text, no class name) where an unentitled caller gets `404` and the `subject-unavailable` shell — a status-level oracle; the gate is ASGI middleware holding no recorder, so closing it means a governed deny renderer at the gate. The standing product resource (not exposed by the standard door) keeps its tool error.
 
 ## ccf_runtime.authz.delivery_boundary.govern_scope_denial
 
