@@ -8221,8 +8221,10 @@
       "DEBT_TOLERANCE_PARAMETER",
       "DeclaredObligationRefusal",
       "EmptyOperatorRefusal",
+      "EvidenceAfterDecisionRefusal",
       "GATE_DECLARED_OBLIGATIONS",
       "GATE_EMPTY_OPERATOR",
+      "GATE_EVIDENCE_AFTER_DECISION",
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
       "GATE_SOURCE_ATTESTATION",
@@ -8278,11 +8280,23 @@
           "gate": "<class 'str'>"
         }
       },
+      "EvidenceAfterDecisionRefusal": {
+        "kind": "contract",
+        "shape": {
+          "decided_at": "<class 'datetime.datetime'>",
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>"
+        }
+      },
       "GATE_DECLARED_OBLIGATIONS": {
         "kind": "constant",
         "shape": "str"
       },
       "GATE_EMPTY_OPERATOR": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "GATE_EVIDENCE_AFTER_DECISION": {
         "kind": "constant",
         "shape": "str"
       },
@@ -10599,6 +10613,7 @@
       "ProducerRegistration",
       "ProductQuestion",
       "SkillInvocation",
+      "TENANT_NOT_GRANTED_CODE",
       "ToolInvocation",
       "dispatch_skill",
       "question_identity",
@@ -10704,6 +10719,10 @@
           "skill_name": "<class 'str'>",
           "skill_type": "<class 'str'>"
         }
+      },
+      "TENANT_NOT_GRANTED_CODE": {
+        "kind": "constant",
+        "shape": "str"
       },
       "ToolInvocation": {
         "kind": "contract",
