@@ -591,24 +591,73 @@ def test_a_no_lei_entity_reports_the_lower_freshness_ceiling(seeded: str) -> Non
 
 
 def test_a_no_lei_entity_is_refused_by_the_ttl_lower_bound(seeded: str) -> None:
-    """`CPR-G09` — and this test is written to FAIL when the defect is fixed.
+    """`CPR-G09` — on the committed fixture the Policy step now refuses first.
 
-    §B.1 element 3 declares a 24-hour TTL anchored `from_entity_freshness`. For
-    an entity resolved through the internal client master the anchor is
-    `kyc_last_refresh`, which is MONTHS old by design, so `expires_at` lands in
-    the past and `src/ccf/products/gates.py::_refuse_ttl` refuses on the first
-    call — the whole population §C.4 trap 2 exists to stop being excluded.
+    **AMENDED 2026-10-11 (integration of the ruling-3 compatibility repair;
+    finding CP01-R3-F01, `examples/AMENDMENTS-2026-10-11.md`).** The name is
+    kept because `artifacts/gates.yaml` binds `CPR-G09` to it.
 
-    **This is the evidence, not the ratification.** `spec_generation.md` §2:
-    *"a Gate-2 value that contradicts an approved Gate-1 decision is a deviation
-    — take it back, do not absorb it."* The refusal is asserted here so the
-    deviation is carried by a run rather than by an argument, and §F.4 finding 8
-    is what it is carried back to. When the TTL declaration is corrected this
-    test goes RED, and that redness is the signal to close the finding — not a
-    regression to route around.
+    What this asserted before: §B.1 element 3 declares a 24-hour TTL anchored
+    `from_entity_freshness`; for a no-LEI entity the anchor is the client
+    master's months-old `kyc_last_refresh`, so `expires_at` lands in the past
+    and the spine refused `ttl-bounds` — the deviation §F.4 finding 8 carries.
+    The old spine judged that TTL from the resolved row, BEFORE the Policy step.
+
+    What is true now: the repaired specimen serves through the SDK's governed
+    resolver, which applies the Policy step before any gate, so nothing the
+    asking principal may not see is materialized and then judged. On this
+    module's committed fixture `PRIN-COV-001`'s `US` grant expands (against
+    `legal_entity`, `deployment.py::_permitted_jurisdictions`) to jurisdictions
+    that do not include the no-LEI entity's `US-TX`, so the Policy step removes
+    it, the admitted view holds no counterparty, the evidence-anchored TTL has
+    no instant (`ttl-anchor-unresolvable`), and the assembler maps that to the
+    one not-available text a nonexistent anchor gets (`D-IMPL-245` (4)). This
+    test asserts THAT mechanism by name. The `ttl-bounds` refusal itself is
+    still observed against the live estate, whose `legal_entity` does hold
+    `US-TX` (`run.py --anchor CLI-000101` on `.76`, 2026-10-11: *"refused:
+    ttl-refusal · ttl-bounds"*); this module cannot reach it without changing
+    the fixture or the grant expansion, and neither is a test's to change.
     """
-    with pytest.raises(RuntimeError, match="ttl-bounds"):
+    deployment = _load("deployment")
+    produce = _load("produce")
+
+    # The precondition, so the refusal below is the Policy step and nothing else:
+    # the entity resolves, in a jurisdiction the asking principal's grant misses.
+    read = deployment.source_read(
+        deployment.tenant_id(),
+        at=deployment.request(parameters={}).asked_at,
+        subject="CLI-000101",
+        principal_id="PRIN-COV-001",
+    )
+    assert read.resolved is not None, "CPR-G09: the no-LEI entity no longer resolves"
+    assert read.resolved.authority == "internal-client-master"
+    jurisdiction = read.resolved.attributes.get(deployment.ATTR_JURISDICTION)
+    assert jurisdiction == "US-TX", jurisdiction
+    assert jurisdiction not in read.permitted_jurisdictions, (
+        "CPR-G09: the asking principal's grant now reaches the no-LEI entity, so"
+        " the Policy step no longer pre-empts the TTL lower bound — restore the"
+        " `ttl-bounds` assertion this test carried before 2026-10-11"
+    )
+
+    with pytest.raises(AssemblyRefused) as refused:
         _serve(seeded, anchor="CLI-000101")
+    governed = refused.value.__context__
+    assert isinstance(governed, produce.GovernedRefusal), repr(governed)
+    assert governed.envelope.reason == "ttl-anchor-unresolvable", governed.envelope.reason
+    assert governed.view is not None
+    assert not any(
+        record.claim.entity_class == deployment.ENTITY_CLASS for record in governed.view.entities
+    ), "CPR-G09: the Policy step admitted the no-LEI counterparty"
+
+    with pytest.raises(AssemblyRefused) as missing:
+        _serve(seeded, anchor=MISSING_ANCHOR)
+    violations = refusal_sameness_violations(
+        str(refused.value),
+        str(missing.value),
+        excluded_subject="CLI-000101",
+        missing_subject=MISSING_ANCHOR,
+    )
+    assert not violations, "CPR-G09: " + "; ".join(violations)
 
 
 # --------------------------------------------------------------------------
