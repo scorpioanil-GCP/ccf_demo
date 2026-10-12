@@ -74,9 +74,13 @@ declaration:
   # λ_c table does not use.
   freshness: acquisition-disposal-restructuring
 
+  # Selects the policy envelope — the question's top-level `ProductRequest.intent`.
+  # AMENDED 2026-10-11 (compatibility repair): moved here from `parameters:`,
+  # where it was ALSO sent as a request argument; the SDK refuses that argument
+  # as a shadow of the top-level field (`D-IMPL-264` D-01). Same value, one home.
+  intent: concentration-review
+
   parameters:
-    # Selects the policy envelope.
-    intent: concentration-review
 
     # THE PARAMETER THIS RUNG EXISTS FOR, and it is DEMONSTRATED AT ITS DECLARED
     # DEFAULT rather than at an interesting-looking number. Three properties

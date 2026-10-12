@@ -97,7 +97,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Protocol, runtime_checkable
 
-from ccf.agents.definitions import AgentDefinition
+from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
@@ -111,6 +111,8 @@ from ccf.erasure.trust import ErasureTrust
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
+    CompositionRegister,
+    DeclaredSkillGrant,
     ReplayMint,
     SkillGrant as SkillGrantKind,
     mint_at_composition,
@@ -183,6 +185,12 @@ from ccf.products.resolver import (
     build_governed_resolver,
     declared_refusal_recorder,
 )
+# G1-SDK-01 (Dave, 2026-10-11 16:23 MST, ruling 4): the resolver's own default
+# clock, so "the caller composed no clock" is the identity test
+# `compose_serve_clock` makes, rather than two different function objects.
+from ccf.products.resolver import _utc_now as _sdk_serve_clock
+from ccf.products.demonstration_clock import compose_serve_clock
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitlement_key
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
@@ -201,7 +209,9 @@ from ccf.skills.dispatch import McpSkillRegistry
 from ccf.skills.grants import (
     ApprovalSink,
     GrantLedger,
+    GrantRefusal,
     RefusingApprovalSink,
+    SkillGrant,
 )
 from ccf.skills.producers import register_declared_producer
 
@@ -216,6 +226,7 @@ __all__ = [
     "AssessmentContext",
     "ChildResolverFactory",
     "ConsumerContext",
+    "DeclaredGrantRefused",
     "GrantNotInForce",
     "OpenedProduct",
     "open_product",
@@ -241,11 +252,31 @@ class GrantNotInForce(PermissionError):
     puts it in force; a deployment that could grant itself skills at open was
     the ambient authority the capability removes.
 
-    **Standing limitation, recorded rather than worked around.** Whether the
-    deployment's declared grants are a third composition-time write the
-    composition root may make is a question for D-IMPL-354's ruling; this
-    refusal is the faithful reading of the clause as it stands.
+    **Ruled 2026-10-11 (Dave, 16:23 MST, ruling 4).** A deployment's DECLARED
+    grants (``grants:`` in ``ccf_config.yaml``) are requested at composition,
+    under the composition kind
+    :class:`~ccf.authz.capability.DeclaredSkillGrant`, through the ledger's own
+    tier 1 and tier 2 (:func:`open_product`; :class:`DeclaredGrantRefused` when
+    the ledger refuses). This refusal now means the skill was declared under
+    ``skills:`` and neither declared under ``grants:`` nor granted at a door.
     """
+
+
+class DeclaredGrantRefused(GrantNotInForce):
+    """A grant the deployment DECLARED (``grants:``) was refused by the grant ledger's own governance.
+
+    Ruling 4 (Dave, 2026-10-11 16:23 MST; SDK-defined). The declared grant ran
+    through :meth:`~ccf.skills.grants.GrantLedger.request` — tier 1, the
+    policy-regime compatibility check, and tier 2, the regime's approval sink —
+    and was not put in force. Raised at open, by name, before anything is
+    composed; the refusal the ledger returned is :attr:`refusal` (``None`` when
+    the grant was requested and left pending an approval the sink did not give).
+    """
+
+    def __init__(self, message: str, *, skill: str, refusal: object | None) -> None:
+        super().__init__(message)
+        self.skill = skill
+        self.refusal = refusal
 
 
 def _utc_now() -> datetime:
@@ -363,6 +394,17 @@ class ConsumerContext:
         mcp_skills: The registry the declared producers were registered on,
             or ``None`` when the deployment declares none.
         clock: The one clock.
+        derived_children: The chain the SDK DERIVED from the deployment's own
+            ``producers:``, ``skills:``, ``agent:`` and ``grants:`` declarations,
+            registered and granted by composition — present when the deployment
+            declares that chain beside ``build_children=`` (G4-F-08; Dave,
+            2026-10-11 16:23 MST, ruling 4), ``None`` otherwise. A factory that
+            only decides WHETHER to ask an optional child for this request (a
+            request-scoped switch) wraps it and writes nothing to the Control
+            Plane; whether a missing child refuses stays the requirement's own
+            declaration (``required`` / ``absence_treatment``), judged by the
+            composite, never by the factory.
+        agent: The declared agent that chain's grants bind to, or ``None``.
     """
 
     tenant_id: str
@@ -370,6 +412,8 @@ class ConsumerContext:
     artifact_store: ArtifactStoreProtocol
     mcp_skills: McpSkillRegistry | None
     clock: Callable[[], datetime]
+    derived_children: QuestionBoundChildResolver | None = None
+    agent: AgentDefinition | None = None
 
 
 #: The factory form of the composite hatch: given the facade's own objects,
@@ -568,6 +612,7 @@ class OpenedProduct:
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
         population: PopulationAcquireProtocol | None = None,
+        honors_demonstration_serve_instant: bool = False,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -609,6 +654,12 @@ class OpenedProduct:
         self._assess = assess
         self._gate = gate
         self._clock = clock
+        #: G1-SDK-01: the startup snapshot (C1-late, ruled (a)). True only when
+        #: the deployment's ``ccf_config.yaml`` declared
+        #: ``demonstration_serve_instant:`` at open AND the caller composed no
+        #: clock of its own. A declaration registered after open is not this
+        #: snapshot, so it still meets the composed clock and is refused by name.
+        self._honors_demonstration_serve_instant = honors_demonstration_serve_instant
         self._constraint_resolver = constraint_resolver
         self._capabilities = capabilities
         self._children = children
@@ -739,6 +790,41 @@ class OpenedProduct:
         )
         return record
 
+    # --- the serve clock (G1-SDK-01) ---------------------------------------------
+
+    def _admission_clock(self) -> Callable[[], datetime]:
+        """The clock handed to the builder as ``admission_clock``.
+
+        Where the deployment declared a demonstration serve instant at open and
+        the caller composed no clock, it is the SDK's own default clock, so
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock` reads "no
+        composed clock" and serves at the declaration, with every one of its
+        checks (several declarations, the SDK's own development backends).
+        Otherwise it is the clock this product was opened with — a declaration
+        beside it is two authorities, refused by name.
+        """
+        return _sdk_serve_clock if self._honors_demonstration_serve_instant else self._clock
+
+    def _ingress_clock(self, fabric: BootedFabric) -> Callable[[], datetime]:
+        """The fabric's instant the ingress temporal guard judges envelopes at.
+
+        On a declared demonstration instant it is the declared serve clock, so
+        the write guard and the serve judge one question against one instant;
+        it is composed through the same
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock`, so every
+        refusal the resolver would raise is raised here first, before anything
+        is acquired. Otherwise it is the opened clock, as before.
+        """
+        if not self._honors_demonstration_serve_instant:
+            return self._clock
+        return compose_serve_clock(
+            control_plane=self.control_plane,
+            fabric=fabric,
+            artifact_store=self.artifact_store,
+            admission_clock=_sdk_serve_clock,
+            sdk_clock=_sdk_serve_clock,
+        )
+
     # --- the low road, reachable from the paved surface --------------------------
 
     def build_arguments(self, fabric: BootedFabric) -> dict[str, Any]:
@@ -796,7 +882,7 @@ class OpenedProduct:
             # and dimension 3's no-packaging sentinel is then the true claim.
             "packaging_trace": self._packaging_trace,
             "composite_children": self._children,
-            "admission_clock": self._clock,
+            "admission_clock": self._admission_clock(),
         }
         if self._constraint_resolver is not None:
             arguments["constraint_resolver"] = self._constraint_resolver
@@ -1046,7 +1132,7 @@ class OpenedProduct:
         temporal_bound = IngressTemporalBound.at_composition(
             registry=self.control_plane, tenant_ids=(tenant_id,)
         )
-        clock = self._clock
+        clock = self._ingress_clock(fabric)
 
         def ingest(envelopes: Iterable[SignalEnvelope], *, asked_at: datetime) -> None:
             # THE FABRIC'S instant, read ONCE per acquisition and handed to the
@@ -1487,6 +1573,15 @@ def open_product(
         ),
     )
 
+    # G4-F-04 (Dave, 2026-10-11 16:23 MST, ruling 4): the deployment's DECLARED
+    # entitlement policy (`product_entitlement:`), registered HERE, at open, by
+    # this composition root under a `Register` minted for exactly its key —
+    # because a door composed over this product decides entitlement before any
+    # question boots. Every boot re-registers the same content (idempotent).
+    _register_declared_entitlement(
+        registry, documents=documents, config=config, declaration=declaration, clock=clock
+    )
+
     # --- the consumer half: producers, then the derived chain ---------------------
     bridge: SyncMcpBridge | None = None
     mcp_skills: McpSkillRegistry | None = None
@@ -1498,6 +1593,27 @@ def open_product(
                 derived, registry=registry, environment=environment, environ=resolved_environ, clock=clock
             )
         if build_children is not None:
+            # G4-F-08 (Dave, 2026-10-11 16:23 MST, ruling 4): a deployment that
+            # DECLARES its chain beside `build_children=` has it derived here —
+            # registered and granted by composition, exactly as the derived
+            # road does — and the factory is handed it. The factory composes
+            # over it (a request-scoped switch for an optional child); it
+            # registers nothing.
+            derived_children: QuestionBoundChildResolver | None = None
+            if keys.agent is not None:
+                assert questions is not None  # `_refuse_half_wired_composite` held it
+                agent, derived_children = _derive_consumer_chain(
+                    derived,
+                    tenant=config.tenant_id,
+                    declaration=declaration,
+                    registry=registry,
+                    store=store,
+                    mcp_skills=mcp_skills,
+                    questions=questions,
+                    clock=clock,
+                    approval_sink=approval_sink,
+                    declared_grants=config.grants,
+                )
             child_resolver = build_children(
                 ConsumerContext(
                     tenant_id=config.tenant_id,
@@ -1505,6 +1621,8 @@ def open_product(
                     artifact_store=store,
                     mcp_skills=mcp_skills,
                     clock=clock,
+                    derived_children=derived_children,
+                    agent=agent,
                 )
             )
         elif declaration.requires and children is None:
@@ -1519,6 +1637,7 @@ def open_product(
                 questions=questions,
                 clock=clock,
                 approval_sink=approval_sink,
+                declared_grants=config.grants,
             )
     except BaseException:
         if bridge is not None:
@@ -1557,6 +1676,11 @@ def open_product(
         bridge=bridge,
         agent=agent,
         population=population,
+        # G1-SDK-01: the snapshot taken at open — the deployment's document
+        # declares an instant and the caller composed no clock of its own.
+        honors_demonstration_serve_instant=(
+            clock is _utc_now and config.demonstration_serve_instant is not None
+        ),
     )
 
 
@@ -1608,7 +1732,20 @@ def _refuse_half_wired_composite(
             "this call supplies both `children=` and `build_children=`; the hatch"
             " is a resolver OR a factory for one, never both (D-IMPL-343)"
         )
-    if handed:
+    if handed == ["build_children="] and (keys.agent is not None or keys.skills):
+        # G4-F-08 (Dave, 2026-10-11 16:23 MST, ruling 4): a factory beside a
+        # COMPLETE declared chain is handed that chain (`ConsumerContext
+        # .derived_children`) — the declared chain governs, registered and
+        # granted by composition, and the factory only composes over it. Every
+        # half-declared chain is still refused below, by name.
+        if questions is None:
+            raise ValueError(
+                "this call supplies `build_children=` beside a declared"
+                " `agent:`/`skills:` chain and no `questions=`; the SDK derives the"
+                " declared chain for the factory and needs the question mapping"
+                " to do so (G4-F-08; D-IMPL-343)"
+            )
+    elif handed:
         (name,) = handed
         if questions is not None:
             raise ValueError(
@@ -1706,6 +1843,134 @@ def _register_declared_producers(
     return bridge, mcp_skills
 
 
+def _register_declared_entitlement(
+    registry: ControlPlaneRegistry,
+    *,
+    documents: Mapping[str, Mapping[str, Any]],
+    config: DeploymentConfig,
+    declaration: ProductClassDeclaration,
+    clock: Callable[[], datetime],
+) -> None:
+    """Register the declared ``product_entitlement:`` policy under the composition recipe (G4-F-04).
+
+    Nothing when the deployment declares none — the door then registers its
+    own one-principal policy, as before. A declared policy is held to THIS
+    product: every grant may name only the class this deployment serves, so a
+    deployment cannot entitle a principal to a class its fabric does not serve
+    (the rule the door's own derivation states). Refused by name at open.
+    """
+    if config.product_entitlement is None:
+        return
+    key = product_entitlement_key(tenant_id=config.tenant_id)
+    policy = parse_artifact(documents[key], PRODUCT_ENTITLEMENT_POLICY)
+    for principal_id, grant in policy.principals.items():
+        foreign = sorted(set(grant.permitted_schema_names) - {declaration.schema_name})
+        if foreign:
+            raise ValueError(
+                f"the `product_entitlement:` section grants {principal_id!r}"
+                f" {foreign!r}, and this deployment serves only"
+                f" {declaration.schema_name!r}; a deployment entitles principals to"
+                " the class it serves and no other (G4-F-04)"
+            )
+    event = registry.audit_log.append(
+        action="composition",
+        key=key,
+        version=CompositionRegister.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    registry.register_typed(
+        mint_at_composition(
+            CompositionRegister,
+            tenant=config.tenant_id,
+            principal=COMPOSITION_PRINCIPAL,
+            resource=key,
+            decision_id=content_hash(event),
+        ),
+        policy,
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+
+
+def _request_declared_grants(
+    ledger: GrantLedger,
+    *,
+    registry: ControlPlaneRegistry,
+    agent: AgentDefinition,
+    entries: list[Any],
+    declared: tuple[str, ...] | None,
+    clock: Callable[[], datetime],
+) -> None:
+    """Request each DECLARED grant through the ledger, at composition (ruling 4).
+
+    One ``DeclaredSkillGrant`` per declared skill, minted for exactly the agent
+    definition's key from a recorded ``composition`` decision on the Control
+    Plane's own audit log. A skill already bound to the agent is left alone (the
+    caller's version check then holds it to the declaration). A refusal — or a
+    grant left pending an approval the sink did not give — raises
+    :class:`DeclaredGrantRefused` by name; nothing is granted around it.
+    """
+    if not declared:
+        return
+    by_name = {entry.name: entry for entry in entries if isinstance(entry, SkillCatalogEntry)}
+    unknown = sorted(set(declared) - set(by_name))
+    if unknown:
+        raise ValueError(
+            f"`grants:` names {unknown!r}, which no `skills:` entry declares; a"
+            " deployment grants its agent only skills it declares (ruling 4,"
+            " 2026-10-11) — declare the skill under `skills:`, or remove the grant"
+        )
+    agent_key = f"{agent.tenant}/{AGENT_DEFINITION.class_id}/{agent.name}"
+    agent_hash = content_hash(agent)
+    for name in declared:
+        if name in ledger.bound_view(agent_hash):
+            continue
+        entry = by_name[name]
+        event = registry.audit_log.append(
+            action="composition",
+            key=agent_key,
+            version=DeclaredSkillGrant.action_id,
+            resolved=True,
+            occurred_at=clock(),
+            actor=COMPOSITION_PRINCIPAL,
+        )
+        outcome = ledger.request(
+            mint_at_composition(
+                DeclaredSkillGrant,
+                tenant=agent.tenant,
+                principal=COMPOSITION_PRINCIPAL,
+                resource=agent_key,
+                decision_id=content_hash(event),
+            ),
+            SkillGrant(
+                schema_version=entry.schema_version,
+                artifact_version=entry.artifact_version,
+                name=entry.name,
+                tenant=entry.tenant,
+                agent_definition_hash=agent_hash,
+                skill_name=entry.name,
+                skill_version=entry.artifact_version,
+            ),
+            definition=agent,
+        )
+        if isinstance(outcome, str) and name in ledger.bound_view(agent_hash):
+            continue
+        refusal = outcome if isinstance(outcome, GrantRefusal) else None
+        detail = refusal.detail if refusal is not None else (
+            "the grant was requested and is not in force (pending an approval"
+            " the deployment's approval sink did not give, or refused at"
+            f" registration: {outcome!r})"
+        )
+        raise DeclaredGrantRefused(
+            f"the declared grant of skill {name!r} to agent {agent.name!r}"
+            f" (tenant {agent.tenant!r}) was refused by the grant ledger's own"
+            f" governance: {detail} (ruling 4, 2026-10-11)",
+            skill=name,
+            refusal=refusal,
+        )
+
+
 def _mint_child_question_authority(
     registry: ControlPlaneRegistry, *, tenant: str, clock: Callable[[], datetime]
 ) -> Authorized[ReplayMint]:
@@ -1746,6 +2011,7 @@ def _derive_consumer_chain(
     questions: ChildQuestions,
     clock: Callable[[], datetime],
     approval_sink: ApprovalSink | None,
+    declared_grants: tuple[str, ...] | None = None,
 ) -> tuple[AgentDefinition, QuestionBoundChildResolver]:
     """The declared chain: agent → catalog → grant → question-bound resolver → gate.
 
@@ -1797,6 +2063,22 @@ def _derive_consumer_chain(
         sink=approval_sink if approval_sink is not None else RefusingApprovalSink(),
         clock=clock,
     )
+    # Ruling 4 (Dave, 2026-10-11 16:23 MST): the grants the deployment DECLARED
+    # (`grants:`) are requested HERE, at composition, through the ledger's own
+    # governance — tier 1 (the regime's compatibility check), tier 2 (the
+    # regime's approval sink), the audit and state records a door grant gets —
+    # under a `DeclaredSkillGrant` minted for exactly this agent definition. A
+    # declared label that names no declared skill is refused by name; a skill
+    # declared under `skills:` and NOT listed under `grants:` is not requested,
+    # so it meets the not-in-force refusal below exactly as before.
+    _request_declared_grants(
+        ledger,
+        registry=registry,
+        agent=agent,
+        entries=[parsed[key] for key in keys.skills],
+        declared=declared_grants,
+        clock=clock,
+    )
     bound = ledger.bound_view(agent_hash)
     produced: set[str] = set()
     not_in_force: list[str] = []
@@ -1830,8 +2112,10 @@ def _derive_consumer_chain(
             " Plane, and the paved road cannot grant them: a grant is the"
             f" {SkillGrantKind.action_id!r} door action, requiring"
             " Authorized[SkillGrant], which a composition root may not mint"
-            " (D-IMPL-353 §1.6; D-IMPL-354). Grant them through a governed door"
-            " as an authorized principal, then open the product"
+            " (D-IMPL-353 §1.6; D-IMPL-354). Declare them under `grants:` in the"
+            " deployment's config (ruling 4, 2026-10-11: requested at composition"
+            " through the ledger's own governance), or grant them through a"
+            " governed door as an authorized principal, then open the product"
         )
     for requirement in declaration.requires:
         if requirement.required and requirement.product_class not in produced:

@@ -445,3 +445,30 @@ def test_the_cycle_member_reports_a_cycle_when_one_exists(
     # difference is the cycle and not the instrument.
     clean = answer(modules, tmp_path / "clean")
     assert clean.payload["cycle_findings"] == []
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path,
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question, asked of this tree's own two documents with the
+    declared demonstration serve instant REMOVED, is served on the real clock —
+    outside the one-hour `temporal_boundary` — so the SDK refuses it by name, as
+    data, with a replay reference. The same question on the declared clock
+    serves (the positive control). Added 2026-10-11 (round 3).
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    from tests.examples.demonstration_deployment import paved_root_on_the_real_clock  # noqa: PLC0415
+
+    deployment = modules["deployment"]
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        asked = opened.question(subject=SUBJECT, asked_at=ASKED_AT, intent=INTENT, freshness=FRESHNESS,
+                                parameters={deployment.AS_OF: AS_OF})
+        refused = opened.answer(asked, perspective=Perspective(principal_id=ENTITLED[0], role=ENTITLED[1]))
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    assert answer(modules, tmp_path / "declared").product is not None, "the declared clock serves it"

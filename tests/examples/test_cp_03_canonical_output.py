@@ -27,7 +27,6 @@ import ast
 import importlib.util
 import os
 import pathlib
-import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -39,7 +38,7 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_base import frozen_digest
 from tests.support.sqlite_lease import lock_dir_beside
 
 pytestmark = [pytest.mark.postgres]
@@ -47,6 +46,14 @@ pytestmark = [pytest.mark.postgres]
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-03-canonical-obligor-financial-spread"
 SPECIMEN = REPO_ROOT / "examples" / "cp-03-obligor-financial-spread"
+#: The specimen files the 2026-10-11 amendments changed (OFC-G15 names them),
+#: and the content digest of every OTHER tracked file of the specimen
+#: (`tests/examples/specimen_base.py::frozen_digest`; verified byte-identical to
+#: the branch point fd902e27 when pinned).
+SPECIMEN_AMENDED = frozenset(
+    {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py", "run.py"}
+)
+SPECIMEN_FROZEN_DIGEST = "0a0ff2fbf8421fda75ff3510436688e0906174caaddf4b7966e0f5224566c5ab"
 
 #: The instant `CP-SPEC-014` asks its children at — held, not tuned (`CP14-F-19`).
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
@@ -628,13 +635,21 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: Any) -> Non
     its debt figure, and no snippet include from its tree.
 
     Declared product gate `OFC-G15` (`CP-SPEC-003C` §G.1).
+
+    AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11; `examples/AMENDMENTS-2026-10-11.md`):
+    the specimen is no longer untouched. The SQLite identity-lock migration
+    changed `backends.yaml` and `deployment.py`; the compatibility repair moved
+    the spine onto the governed resolver (`produce.py`, `deployment.py`,
+    `ccf_config.yaml`, `run.py`) and added a dated note to `README.md`. The pin
+    therefore NAMES those six files and asserts that every other tracked file
+    of the specimen is byte-for-byte its frozen self, by content digest — the
+    same verdict on any branch, before and after a merge, rather than a diff
+    against whatever commit the branch happened to leave main at.
     """
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    assert frozen_digest(REPO_ROOT, SPECIMEN, amended=SPECIMEN_AMENDED) == SPECIMEN_FROZEN_DIGEST, (
+        "a file of the frozen specimen outside the 2026-10-11 amendment"
+        f" {sorted(SPECIMEN_AMENDED)} was changed, added or removed"
+    )
     assert served.product.debt.debt != Decimal("0.8782"), "the specimen's published debt figure"
     specimen_identities = {
         "e2a0224fa5c9",  # the specimen's published content address

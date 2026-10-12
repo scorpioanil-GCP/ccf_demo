@@ -115,6 +115,7 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.artifact_base import _RESERVED_CLASS_ID_PREFIX, ReservedArtifactClassId
 from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
@@ -221,6 +222,15 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # it does not by itself move any clock: the composition admits it only on the
     # SDK's own approved development backends (`ccf.products.demonstration_clock`).
     DEMONSTRATION_SERVE_INSTANT.class_id: DEMONSTRATION_SERVE_INSTANT,
+    # G4-F-04 (Dave, 2026-10-11 16:23 MST, ruling 4; SDK-defined, CLAUDE.md
+    # §11). Since `D-IMPL-353` a deployment can no longer register its
+    # entitlement policy programmatically (`register_typed` takes a capability
+    # only SDK composition code mints), so the "entitles a principal registers
+    # that policy programmatically" status above left a door serving several
+    # principals no supported path. Manifest-addressable — the
+    # `product_entitlement:` section — so the deployment DECLARES the policy as
+    # Control Plane data and composition registers it. TYPED, no author lanes.
+    PRODUCT_ENTITLEMENT_POLICY.class_id: PRODUCT_ENTITLEMENT_POLICY,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

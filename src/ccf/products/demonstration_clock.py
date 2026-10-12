@@ -39,11 +39,17 @@ The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
    effect only in a resolver built after it is registered: a composition root's
    next :func:`~ccf.products.resolver.build_governed_resolver` call over the same
    Control Plane; for the in-process adapter, which boots each deployment once per
-   process from its ``ccf_config.yaml``, the deployment's next boot. The paved
-   road builds a resolver for every question but composes its own clock, so it
-   never honors a declaration: one registered after
-   :func:`~ccf.products.product.open_product` is refused by name at the next
-   question (:class:`DemonstrationServeInstantConflict`). Measured in
+   process from its ``ccf_config.yaml``, the deployment's next boot. On the
+   paved road the snapshot is taken at :func:`~ccf.products.product.open_product`
+   (G1-SDK-01, Dave 2026-10-11 16:23 MST, ruling 4): a declaration in the
+   deployment's ``ccf_config.yaml`` at open, with no clock composed by the
+   caller, is honored on every question; one registered after open is refused
+   by name at the next question (:class:`DemonstrationServeInstantConflict`), as
+   is one beside a caller-composed clock. The paved road hands the resolver its
+   store already wrapped in the SDK's own erasure consult; rule 4's exact-type
+   test looks through that wrapper (matched by exact type) to the store it
+   decorates. Measured in ``tests/products/test_paved_road_demonstration_instant.py``
+   and in
    ``tests/client/test_demonstration_serve_instant.py``:
    ``test_a_declaration_registered_after_composition_does_not_reach_the_resolver``,
    ``test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it``
@@ -207,6 +213,16 @@ def _refuse_outside_development_substrates(
     # Decision 4 (a): the store's exact class, never `isinstance`. A subclass
     # passes an `isinstance` test whatever it overrides, so it would admit a
     # store class the deployment declares by inheriting the SDK's.
+    #
+    # G1-SDK-01 (Dave, 2026-10-11 16:23 MST, ruling 4): the paved road hands the
+    # resolver its store already wrapped in the SDK's own erasure consult. That
+    # wrapper — matched by EXACT type too, so a subclass of it is not unwrapped —
+    # is looked through to the store it decorates, and the exact-type test is
+    # made on that store. Nothing else is unwrapped.
+    from ccf.erasure.store import ErasureConsultingStore  # deferred: import order
+
+    while type(artifact_store) is ErasureConsultingStore:
+        artifact_store = artifact_store.inner
     if type(artifact_store) is not FileArtifactStore:
         raise DemonstrationServeInstantRefused(
             f"{pinned.key!r} declares a demonstration serve instant"

@@ -74,7 +74,9 @@ HASH_PINNED_SITES: list[tuple[str, int, str]] = [
     (FRAGMENT, 28, "runtime/ccf_runtime/mcp/experience.py::get_context"),
     (FRAGMENT, 162, "tests/crossproc/servers/mcp_experience_child.py::read_replay_record"),
     (FRAGMENT, 164, "examples/external/00-hello-context/serve.py::replay_record_reader"),
-    (FROZEN_TEST, 818, "runtime/ccf_runtime/http_api/routes/product.py::retrieve"),
+    # AMENDED 2026-10-11: moved from 818 by the authorized cp-04 repair (see
+    # citations.py `_FROZEN_TEST_SHA`); same citation text.
+    (FROZEN_TEST, 802, "runtime/ccf_runtime/http_api/routes/product.py::retrieve"),
 ]
 
 #: The two citations pinned on the citing line's text. Both stand on one line of

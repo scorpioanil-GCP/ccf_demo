@@ -37,6 +37,11 @@ from typing import Any
 
 import pytest
 
+from tests.examples.demonstration_deployment import (
+    anchored_after,
+    deployment_serving_at,
+)
+
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -108,6 +113,15 @@ def _serve(example: tuple[Any, Any], *, lei: str | None = None,
     decision instant is part of the determination — it sets the product's
     expiry — so two serves a millisecond apart are two different questions and
     correctly reach two different content addresses.
+
+    **A pinned ``asked_at`` is served by a deployment whose ONE time anchor is
+    that question's** (Dave, 2026-10-11, ruling 1): a test-owned copy of this
+    example's own `ccf_config.yaml` declaring a labelled demonstration serve
+    instant five minutes after it. Since `D-IMPL-358` a question dated after
+    the serve clock is refused as impossible and one more than an hour before
+    it as outside the tenant's boundary, so a pinned instant on the wall clock
+    is no longer a question this deployment answers. Unpinned, the shipped
+    document serves on the wall clock, exactly as `run.py` does.
     """
     deployment, produce = example
     anchor = lei or _anchor("DEMONSTRATION_LEI")
@@ -116,7 +130,14 @@ def _serve(example: tuple[Any, Any], *, lei: str | None = None,
         lei=anchor, principal_scope=scope,
         asked_at=asked_at or datetime.now(UTC), **kwargs)
     with tempfile.TemporaryDirectory() as scratch:
-        return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+        config = None if asked_at is None else deployment_serving_at(
+            EXAMPLE / "ccf_config.yaml",
+            serve_instant=anchored_after(asked_at),
+            directory=pathlib.Path(scratch) / "deployment",
+        )
+        return produce.assemble_and_serve(
+            asked=asked, root=pathlib.Path(scratch), config=config
+        )
 
 
 def _boundary(outcome: Any) -> dict[str, Any]:
@@ -127,21 +148,31 @@ def _findings(outcome: Any) -> dict[str, Any]:
     return outcome.product.payload["findings"]
 
 
+#: The decision instant the README's `D_c` table and window counts were
+#: measured at (`README.md` "Illustrative calibration"; `FINDINGS.md`). The
+#: estate is a static snapshot and `run.py` asks at the wall clock by design, so
+#: every reading there keeps ageing; the three anchors the governance-threshold
+#: comparison is ABOUT are served at this one dated instant instead, on a
+#: labelled demonstration clock (ruling 1), so the comparison measures the
+#: anchors rather than the calendar. Amended 2026-10-11.
+MEASURED_AT = datetime(2026, 9, 11, 12, 0, tzinfo=UTC)
+
+
 @pytest.fixture(scope="module")
 def default(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
-    return _serve(example)
+    return _serve(example, asked_at=MEASURED_AT)
 
 
 @pytest.fixture(scope="module")
 def control(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
     """The negative control — a client with fewer interactions than the bound."""
-    return _serve(example, lei=_anchor("CONTROL_LEI"))
+    return _serve(example, lei=_anchor("CONTROL_LEI"), asked_at=MEASURED_AT)
 
 
 @pytest.fixture(scope="module")
 def stale(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
     """The FRESHNESS control — the stalest relationship that still has a graph."""
-    return _serve(example, lei=_anchor("FRESHNESS_CONTROL_LEI"))
+    return _serve(example, lei=_anchor("FRESHNESS_CONTROL_LEI"), asked_at=MEASURED_AT)
 
 
 # --- truncation as a first-class product fact --------------------------------
@@ -543,7 +574,9 @@ def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None
     bindings = {b.key for b in default.record.policy_bindings.bindings}
     lineage = set(default.product.lineage.policy_bundle_versions)
     versions = {b.version for b in default.record.policy_bindings.bindings}
-    assert "request_contract" in bindings
+    # Tenant-placed since `D-IMPL-354` (`{tenant}/request_contract`); the
+    # claim — the request contract is recorded in dimension 2 — is unchanged.
+    assert any(key.endswith("/request_contract") for key in bindings), bindings
     assert lineage <= versions
 
 

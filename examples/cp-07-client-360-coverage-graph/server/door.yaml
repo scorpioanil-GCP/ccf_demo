@@ -35,6 +35,11 @@ declaration:
     can manufacture a coverage gap that does not exist, which is why the
     disclosure is a gate and not a footnote.
 
+  # THE IDENTITY EVERY OUTCOME OF THIS DOOR ASSERTS (`D-IMPL-340`). Added
+  # 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md) when the door moved
+  # onto the SDK's standard door, which asserts a producer identity and holds no
+  # default for it. The producer's tenant is `ccf_config.yaml::tenant_id`.
+  producer_id: cp-07-client-360-coverage-egress
   required_scope: ccf:egress
   issuer_url: https://issuer.cp-07.invalid
   resource_server_url: https://egress.cp-07.invalid/mcp

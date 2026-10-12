@@ -110,13 +110,15 @@ operators:
     # `PRIN-COV-001`'s grant — `US` — expanded against the estate as measured
     # 2026-08-29. Overridden per request; declared here so the document is
     # complete on its own and a reader can see the shape of an expansion.
+    # AMENDED 2026-10-11 (compatibility repair; D-IMPL-295): this was a literal
+    # allowlist (US, US-DE, US-FL, US-MD, US-MN, US-OH) that `deployment.py::read` overwrote
+    # at runtime with the asking principal's expanded grant — the literal was
+    # never the set in force. The SDK retired that runtime write; the grant now
+    # travels on the request as `jurisdictions` and reaches the operator
+    # through this declared binding, so the effective request records it.
     permitted_classifications:
-      - US
-      - US-DE
-      - US-FL
-      - US-MD
-      - US-MN
-      - US-OH
+      source: effective_request
+      parameter: jurisdictions
 
 # --------------------------------------------------------------------------
 # WHICH QUESTIONS THIS CLASS ANSWERS — spec §B.4.
@@ -129,13 +131,20 @@ request_contract:
   schema_version: "1.0.0"
   arguments:
     properties:
-      intent:
-        type: string
-        description: >-
-          The decision this product is assembled FOR, and the value that selects
-          the policy envelope. The intent REGISTRY of Standard §11.1 does not
-          exist in this deployment, so the accepted values are not enumerable
-          here — §B.4.
+      # AMENDED 2026-10-11 (compatibility repair): the `intent` ARGUMENT below
+      # is withdrawn. Since D-IMPL-264 D-01 the SDK refuses, at contract
+      # construction, an argument shadowing the top-level `ProductRequest.intent`
+      # — the intent travels on the request itself (`artifacts/question.yaml`'s
+      # `intent:`), which is how this specimen's question always carried it; no
+      # caller ever sent it as a parameter, and nothing judged it. Kept here,
+      # commented, as the record of what was declared:
+      # intent:
+      #   type: string
+      #   description: >-
+      #     The decision this product is assembled FOR, and the value that selects
+      #     the policy envelope. The intent REGISTRY of Standard §11.1 does not
+      #     exist in this deployment, so the accepted values are not enumerable
+      #     here — §B.4.
       debt_tolerance:
         type: number
         description: >-
@@ -148,6 +157,17 @@ request_contract:
           THAT CHANGES THE PAYLOAD'S SHAPE, which is why §D.4 puts it inside the
           content address — two genuinely different payloads sharing a hash is a
           worse failure than two identical ones differing. Gate `FTS-G07`.
+      jurisdictions:
+        # AMENDED 2026-10-11: see `operators:` above. Stated by the deployment
+        # from the asking principal's grant; a caller-stated value must equal
+        # it (`deployment.py::_stating_the_grant`).
+        type: array
+        items:
+          type: string
+          description: one jurisdiction the asking principal is entitled to read.
+        description: >-
+          The asking principal's expanded jurisdiction grant — the set the
+          policy operator admits on.
       as_of:
         # DECLARED BUT INERT — §B.4 and Standard §2.4.
         #
@@ -274,7 +294,24 @@ half_life:
 #
 # `forced_llm_threshold` for a MODE 1 product is a DISCLOSURE band, not a
 # routing instruction: there is no model in the path to route to.
-# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------  # AMENDED 2026-10-11 (compatibility repair): the EVIDENCE CLOCK the
+  # `from_entity_freshness` expiry runs from. The governed resolver this
+  # specimen now serves through computes that expiry itself, from the freshest
+  # `valid_from` of the entity class it reads (`ccf.products.expiry`, D-IMPL-341),
+  # and refuses a class that declares the anchor with no `valid-from` row. It is
+  # keyed by the ENTITY CLASS because that is how the SDK types an observation
+  # for the clock; it is `supersede-only`, so it carries NO rate and changes no
+  # freshness figure — the rows above still drive `D_c` exactly as before. The
+  # anchor it yields is the instant `deployment.py::expires_at` always used.
+  facility:
+    decay: supersede-only
+    decay_basis: valid-from
+    decay_driver: >-
+      the expiry anchor only — the facility's own source instant, which
+      `deployment.py::expires_at` adds the declared TTL to
+    supersession_event: >-
+      a later source observation of the same facility
+
 debt_profile:
   risk_sensitivity: "1.0"
   forced_llm_threshold: "0.60"
@@ -304,3 +341,37 @@ policy:
 default_perspective:
   principal_id: PRIN-COV-001
   role: analyst
+
+# --------------------------------------------------------------------------
+# AMENDED 2026-10-11 — compatibility repair (Dave, ruling 3 of 2026-10-11 16:23
+# MST; examples/AMENDMENTS-2026-10-11.md). Two declarations the SDK now
+# requires of every governed serve, and neither changes the question, the
+# TTL, the debt bands or the expected answer.
+#
+# `temporal_boundary:` — D-IMPL-358 ruling 11: a tenant that declares no
+# boundary refuses every question. hw1-companies-over-revenue's values.
+#
+# `demonstration_serve_instant:` — D-IMPL-378 C1, ruled option (b): this
+# specimen's question is DATED (asked as of 2026-08-29T12:00Z), and before the repair the spine
+# judged its gates — the TTL gate this product's headline finding lives in —
+# at that same instant. The governed resolver judges them at its serve clock,
+# so the dated scenario keeps its meaning only if the serve clock is declared
+# to be the question's own instant. Honored only on the SDK's own development
+# backends (the per-run SQLite graph and the file-backed store this specimen
+# uses) and pinned into dimension 2 of every record made under it. It moves
+# `served_at` and nothing else: no observation is relabeled, no expiry check
+# is disabled and no limit is widened.
+#
+# **Illustrative calibration:** This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+# --------------------------------------------------------------------------
+temporal_boundary:
+  max_past_seconds: 3600
+  permitted_clock_skew_seconds: 0
+
+demonstration_serve_instant:
+  serve_instant: "2026-08-29T12:00:00+00:00"

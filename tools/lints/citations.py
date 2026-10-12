@@ -373,20 +373,38 @@ _FROZEN_TEST_REASON = (
     " D-IMPL-378 decision 14 (b)"
 )
 _LANDED_FRAGMENT_SHA = "66700aeb90aff07ee76e9c3d57c5b6f4727c543eb3d53298d6ac0994d10da9c1"
-_FROZEN_TEST_SHA = "c2b03b947b9b8cbb744cbae343e0cff5dee24eed0d46742705124641033f8869"
+# AMENDED 2026-10-11 (ruling 3 of 2026-10-11, the authorized compatibility
+# repair of frozen cp-04): the repair removed four obsolete strict-xfail
+# quarantines from this test module, which changed its bytes and moved the
+# pinned citation from line 818 to 802 — the citation text is unedited (was
+# c2b03b94…).
+_FROZEN_TEST_SHA = "d7f7fa2088268794f5adeac8a3d273421795db4ac06452bcef0900b0b56d662f"
 PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=259,
+        # AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11: compatibility
+        # repairs to the frozen specimens authorized; examples/AMENDMENTS-2026-10-11.md):
+        # the repair added lines above both citations and changed the file's
+        # bytes, so the two deployment.py pins move to the repaired file — the
+        # same two citation texts, unedited, at their new lines (was 259 and
+        # 2841, sha fab1612b…). projection.py is untouched and keeps its pin.
+        # AMENDED again 2026-10-11 (integration of int2 at cebfb1d5): the
+        # repaired file imported `resolve_artifact_class` through the submodule
+        # `ccf.deployment.classes`, which `tools/docs_tests/test_advisory_discharge.py::
+        # test_a1_no_submodule_import_is_taught_or_demonstrated` refuses (A-1); it
+        # now imports it from the package root, one line fewer above both
+        # citations — same texts, unedited, 272 -> 271 and 2972 -> 2971
+        # (was sha e3db51a4…).
+        line=271,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="fab1612b866b006644772f74e3cd349ea67028beffc32192435ea6972862ff52",
+        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=2841,
+        line=2971,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="fab1612b866b006644772f74e3cd349ea67028beffc32192435ea6972862ff52",
+        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
@@ -419,7 +437,7 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     ),
     PinnedCitation(
         path="tests/examples/test_cp_04_debt.py",
-        line=818,
+        line=802,
         citation="runtime/ccf_runtime/http_api/routes/product.py::retrieve",
         sha256=_FROZEN_TEST_SHA,
         reason=_FROZEN_TEST_REASON,

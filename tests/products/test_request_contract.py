@@ -38,6 +38,7 @@ Requirements CPS-07, CPS-12.
 from __future__ import annotations
 
 import ast
+import copy
 import importlib.util
 import pathlib
 import shutil
@@ -3024,14 +3025,53 @@ def test_a_permissive_declared_pattern_cannot_widen_past_the_mechanism_floor() -
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-#: The frozen declarations that carry `intent` under `arguments.properties`
-#: (RESEARCH F-2, YAML-parsed). Read only; `D-IMPL-261` / `D-IMPL-263`.
+#: The frozen declarations that carried `intent` under `arguments.properties`
+#: (RESEARCH F-2, YAML-parsed) until the 2026-10-11 compatibility repairs.
+#: Read only; `D-IMPL-261` / `D-IMPL-263`.
+#:
+#: AMENDED 2026-10-11 (Dave's ruling 3, 16:23 MST; `examples/AMENDMENTS-2026-10-11.md`
+#: G2-F-01, R2-CP03-F01, R2-CP04). The repairs WITHDREW the shadowing argument
+#: from all four (cp-01/cp-02 keep it as a comment; cp-04 moved `intent` to the
+#: question's top level). The shadow each one declared is preserved below
+#: VERBATIM from `fd902e27` (main before the repair), so the positive control
+#: still runs the real rung's declaration — the repaired document with its
+#: former property put back — through the real entry.
 _SHADOWING_RUNGS = (
     "examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml",
     "examples/cp-02-facility-terms-snapshot/ccf_config.yaml",
     "examples/cp-03-obligor-financial-spread/ccf_config.yaml",
     "examples/cp-04-corporate-family-tree/ccf_config.yaml",
 )
+
+#: The `intent` property each rung declared at `fd902e27`, verbatim.
+_WITHDRAWN_SHADOW: dict[str, dict[str, str]] = {
+    "examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml": {
+        "type": "string",
+        "description": (
+            "The decision this product is assembled FOR, and the value that selects"
+            " the policy envelope. The intent REGISTRY of Standard \u00a711.1 does"
+            " not exist in this deployment, so the accepted values are not"
+            " enumerable here \u2014 \u00a7B.4, marker at \u00a7F.2 row 5."
+        ),
+    },
+    "examples/cp-02-facility-terms-snapshot/ccf_config.yaml": {
+        "type": "string",
+        "description": (
+            "The decision this product is assembled FOR, and the value that selects"
+            " the policy envelope. The intent REGISTRY of Standard \u00a711.1 does"
+            " not exist in this deployment, so the accepted values are not"
+            " enumerable here \u2014 \u00a7B.4."
+        ),
+    },
+    "examples/cp-03-obligor-financial-spread/ccf_config.yaml": {
+        "type": "string",
+        "description": "selects the policy envelope and the intent-bound ratio definitions",
+    },
+    "examples/cp-04-corporate-family-tree/ccf_config.yaml": {
+        "type": "string",
+        "description": "selects the policy envelope; an unknown intent is a 400",
+    },
+}
 
 #: The frozen configs that do NOT (the negative control), plus s1-01, whose
 #: contract is a standalone `DeclaredArtifact` document.
@@ -3095,20 +3135,34 @@ def test_an_intent_property_is_refused_as_a_shadow_of_the_top_level_field() -> N
 def test_the_frozen_cp_rung_declarations_are_the_positive_controls(
     config_path: str,
 ) -> None:
-    """cp-01..cp-04 declare `intent` as an argument; each fails construction.
+    """cp-01..cp-04 declared `intent` as an argument; that declaration fails construction.
 
     `D-IMPL-264` amendment 1 F-2 (Dave): *"cp-01 through cp-04 may go red
     for this reason and those tests are quarantined under D-IMPL-261 with
     their assertions unchanged. Do not rewrite those contracts during 24.7."*
     The declarations are READ from the frozen tree and never written.
+
+    AMENDED 2026-10-11 (ruling 3): the compatibility repairs withdrew the
+    shadow, so this control now states that change and still proves the
+    refusal — (1) the repaired declaration carries NO `intent` argument and
+    constructs; (2) the same derived declaration with its former property
+    (verbatim from `fd902e27`) put back is refused, naming the shadow. A
+    repair that re-introduced the shadow turns (1) red; an SDK that stopped
+    refusing it turns (2) red.
     """
     artifact = _rung_request_contract(config_path)
-    assert "intent" in artifact.declaration["arguments"]["properties"], (
-        "the frozen declaration no longer carries the shadow — the control"
-        " would be measuring nothing"
+    properties = artifact.declaration["arguments"]["properties"]
+    assert "intent" not in properties, (
+        "the repaired declaration carries the shadowing `intent` argument again"
     )
+    repaired = ProductRequestContract.from_declared(artifact)
+    assert "intent" not in repaired.arguments.properties
+
+    declaration = copy.deepcopy(dict(artifact.declaration))
+    declaration["arguments"]["properties"]["intent"] = dict(_WITHDRAWN_SHADOW[config_path])
+    original = artifact.model_copy(update={"declaration": declaration})
     with pytest.raises(ValueError) as caught:
-        ProductRequestContract.from_declared(artifact)
+        ProductRequestContract.from_declared(original)
     assert "intent" in str(caught.value)
     assert "shadow" in str(caught.value)
 

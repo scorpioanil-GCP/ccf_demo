@@ -36,7 +36,21 @@ product_class:
   # pass — the anchored value has to be an OBSERVATION TIMESTAMP THAT MOVES —
   # and this one passes: GLEIF RR-CDF publishes daily, so a new relationship
   # record advances it and re-derivation clears the expiry.
-  ttl_anchor: from_entity_freshness
+  #
+  # AMENDED 2026-10-11 (compatibility repair, examples/AMENDMENTS-2026-10-11.md):
+  # `from_decision`. The paragraph above is the design; what this rung SERVED was
+  # different, and `deployment.py::FamilyScenario.expires_at` already said so —
+  # no family edge or node in the estate carries an assertion date, every
+  # envelope reads `observed_time=None`, and the served expiry was the request
+  # instant plus the declared window. Since `D-IMPL-341` the SDK's governed
+  # resolver computes the expiry itself and refuses a `from_entity_freshness`
+  # class whose observations carry no source instant (`ttl-anchor-unresolvable`)
+  # rather than substituting the decision instant. Declaring `from_decision`
+  # serves the SAME expiry the specimen served (asked_at + the declared
+  # 86,400 s of `artifacts/ttl.yaml`) under the
+  # label that describes it; relabeling the read instant as a source observation
+  # to keep the old label is what the ruling forbids.
+  ttl_anchor: from_decision
 
   # §B.1 element 9. No LLM is reachable from any §D step; `CFT-G12` asserts it.
   # The whole product is a walk, a normalization, a batched join and a circuit
@@ -131,7 +145,19 @@ operators:
     # parameter set's content hash and therefore into the replay record, so an
     # audit can read WHICH family this decision admitted rather than inferring
     # it from the payload.
-    permitted_classifications: []
+    #
+    # AMENDED 2026-10-11 (compatibility repair): the runtime substitution
+    # described above wrote a value over a resolved Control Plane declaration —
+    # since `D-IMPL-295` the governed alternative is a DECLARED request binding,
+    # and the governed resolver this specimen now serves through reads only
+    # declared operator parameters. So the bound family arrives on the request's
+    # `families` argument (below), which `deployment.py::read` fills with the one
+    # family the subject names — the same value `policy_parameters` substituted
+    # — and refuses a caller-stated value that disagrees. The family still
+    # travels into the replay record, now as part of the recorded question.
+    permitted_classifications:
+      source: effective_request
+      parameter: families
 
   # --- Step 5. The walk. ----------------------------------------------------
   traversal.typed-neighborhood:
@@ -225,9 +251,21 @@ request_contract:
         description: >-
           the anchor. Unresolvable is a 404 and never an empty payload — an
           empty family is a claim about the world, not about the request.
-      intent:
-        type: string
-        description: selects the policy envelope; an unknown intent is a 400
+      # AMENDED 2026-10-11 (compatibility repair): `intent` was declared here
+      # too. The SDK refuses that at contract construction as a shadow of the
+      # top-level `ProductRequest.intent` (`D-IMPL-264` D-01, am. 1 F-2); the
+      # question still names its intent there (`artifacts/question.yaml`), and
+      # `product_class.discovery.intents` would be where a class judges it.
+      families:
+        type: array
+        items:
+          type: string
+          description: one family identifier this request walks.
+        description: >-
+          AMENDED 2026-10-11 — the family this request walks, as the value that
+          reaches the policy operator's admitted set through a declared binding
+          (`D-IMPL-295`). Supplied by this deployment from the subject (the
+          anchor's LEI); a caller-stated value that disagrees is refused.
       max_depth:
         type: integer
         description: >-
@@ -258,7 +296,6 @@ request_contract:
         description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
     required:
       - lei
-      - intent
 
   # THE DECLARED DEFAULT — `CFT-G04`'s whole subject. It lives here, in Control
   # Plane state, because the gate is sabotaged by DEFAULTING AT SERVE TIME
@@ -494,3 +531,56 @@ policy:
 default_perspective:
   principal_id: PRIN-COV-001
   role: credit-officer
+
+# ---------------------------------------------------------------------------
+# AMENDED 2026-10-11 — compatibility repair (Dave, ruling 3 of 2026-10-11 16:23
+# MST; examples/AMENDMENTS-2026-10-11.md). Two declarations the SDK now
+# requires, and neither changes the question, the depth, the TTL window or the
+# served family.
+#
+# `temporal_boundary:` — D-IMPL-358 ruling 11: a tenant that declares no
+# boundary refuses every question. hw1-companies-over-revenue's precedent values.
+#
+# `demonstration_serve_instant:` — D-IMPL-378 C1, ruled option (b). This
+# specimen's question is DATED (asked as of 2026-08-31T12:00Z; see
+# `artifacts/question.yaml`), and before the repair the spine judged its gates
+# at that same instant. The governed resolver judges them at its serve clock,
+# so the dated scenario keeps its meaning only if the serve clock is declared to
+# be the question's own instant. Honored only on the SDK's own development
+# backends (this specimen's per-run SQLite graph and file-backed store) and
+# pinned into dimension 2 of every record made under it. It moves `served_at`
+# and nothing else: no observation is relabeled, no expiry check is disabled,
+# no limit is widened.
+#
+# **Illustrative calibration:** This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+# ---------------------------------------------------------------------------
+temporal_boundary:
+  max_past_seconds: 3600
+  permitted_clock_skew_seconds: 0
+
+demonstration_serve_instant:
+  serve_instant: "2026-08-31T12:00:00+00:00"
+
+# WHO THE MCP DOOR SERVES, AND UNDER WHICH ROLE (G4-F-04; Dave, 2026-10-11 16:23
+# MST, ruling 4). AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md):
+# the tenant's `ccf.product-entitlement-policy`, declared as Control Plane DATA.
+# `server/compose.py` used to register this one-principal policy by hand, which
+# D-IMPL-353 refuses (`CapabilityBypassError`); the SDK's own boot now registers
+# this section into the door's Control Plane. The principal and role are
+# `default_perspective:`'s — and only the declared default role, for the reason
+# `server/compose.py::compose` gives (the product tool carries no `role`
+# argument, so a second role would be a permission with no path to it). A
+# principal NOT named here is refused `principal-not-entitled` at the door,
+# recorded, before either system of record is read.
+product_entitlement:
+  tenant_id: cp-04-demo
+  policy_version: "1.0.0"
+  principals:
+    PRIN-COV-001:
+      permitted_schema_names: [reference.corporate-family]
+      permitted_roles: [credit-officer]

@@ -51,6 +51,8 @@ import yaml
 
 from ccf.erasure import ErasureTrust
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.composition import compose_expiry, compose_lineage
@@ -106,6 +108,21 @@ ESTATE_VARIABLES = (
 )
 CONFIG: dict[str, Any] = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
 ENVIRONMENT: dict[str, Any] = yaml.safe_load((EXAMPLE / "ccf_environment.yaml").read_text(encoding="utf-8"))
+
+def _reader(opened: Any) -> FileArtifactStore:
+    """The consumer's replay store, opened to READ (AMENDED 2026-10-11, round 3).
+
+    `FileArtifactStore` now requires `write_kinds` (D-IMPL-353 §1.2); this
+    instance declares the road's own replay classes under `ReplayMint` and only
+    reads (examples/AMENDMENTS-2026-10-11.md).
+    """
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=WriteKinds.declare(
+            {opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}
+        ),
+    )
+
 
 
 @pytest.fixture(scope="module")
@@ -176,7 +193,7 @@ def _question(opened: Any, deployment: Any, *, tolerance: str) -> ProductRequest
 
 
 def _record_of(opened: Any, outcome: Any) -> DecisionReplayRecord:
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    fresh = _reader(opened)
     if isinstance(outcome, ServedProduct):
         address = outcome.replay_ref.content_address
     else:
@@ -259,7 +276,7 @@ def _ask(modules: tuple[Any, Any], scratch: pathlib.Path, *, environ: dict[str, 
 
 
 def _retained(opened: Any, address: str) -> ContextProductContract:
-    store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    store = _reader(opened)
     contract = ContextProductContract.model_validate_json(store.get(content_address=address))
     assert content_hash(contract) == address
     return contract
@@ -325,7 +342,7 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
     # withheld — references the exact question retained on the consumer's own
     # store, read back from a fresh store instance and held to the row's
     # address, calling neither the mapping nor any producer.
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    fresh = _reader(opened)
     for product_class, row in rows.items():
         assert row.child_question_ref is not None, product_class
         assert content_hash(retained_child_question(store=fresh, row=row)) == row.child_question_address, product_class
@@ -723,7 +740,7 @@ def test_served_reconstruction_uses_retained_inputs_without_calling_any_provider
     with _reopened_fabric(opened) as fabric:
         environment = _MemoReplayEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)
         replayed = replay(
-            record_address=outcome.replay_ref.content_address, store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname),
+            record_address=outcome.replay_ref.content_address, store=_reader(opened),
             reader=fabric.handle.reader, control_plane=opened.control_plane, environment=environment,
         )
     assert environment.composite_plans == 1
@@ -746,7 +763,7 @@ def test_refused_reconstruction_preserves_the_admitted_child_evidence_and_the_re
     rows = _rows(record)
     admitted = sorted(row.child_content_address for row in rows.values() if row.outcome_status == "admitted")
     assert admitted
-    store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    store = _reader(opened)
     address = store.resolve_uri(uri=outcome.replay_reference)
     with _reopened_fabric(opened) as fabric:
         environment = _MemoReplayEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)

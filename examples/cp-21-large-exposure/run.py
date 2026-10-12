@@ -90,7 +90,12 @@ def main(argv: list[str]) -> int:
     if arguments.door:
         from server import serve as door  # noqa: PLC0415
 
-        return door.main([])
+        # AMENDED 2026-10-11 (round 3): this called `door.main([])`, which
+        # `server/serve.py` never defined (AttributeError on every `--door`);
+        # it now serves the standard MCP door on a loopback port, as every
+        # sibling rung's launcher does.
+        door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
+        return 0
 
     case: dict[str, Any] = {}
     if arguments.case == "breaching":

@@ -192,3 +192,22 @@ default_perspective:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
+# 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
+# the dated scenario and use the existing, explicitly labelled development-clock
+# mechanism"). Added 2026-10-11 (examples/AMENDMENTS-2026-10-11.md, round 2).
+# The demonstration question in `artifacts/question.yaml` is asked as of
+# 2026-08-19T00:00Z; this deployment declares, in its own Control Plane, that
+# it is a DEMONSTRATION serving at 2026-08-19T00:05:00+00:00 — five minutes later,
+# inside the one-hour `temporal_boundary` above and inside the answer's
+# lifetime. It is the run's one time anchor: nothing a question carries can move
+# it, and the SDK refuses it unless the fabric runs on its development substrates
+# (this deployment's per-run SQLite graph and file-backed store). Every replay
+# record written under it names this declaration in its Policy Bindings
+# dimension, so a reader can tell a demonstration record from a real one. Remove
+# this section and the deployment serves on the real clock again — and the
+# pinned question is then refused `asked-at-outside-temporal-bound`, the correct
+# answer for a question that old (`tests/examples/test_cp_11_output.py` asserts it).
+demonstration_serve_instant:
+  serve_instant: "2026-08-19T00:05:00+00:00"

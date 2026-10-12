@@ -62,6 +62,19 @@ ledger, intent `compliance-test`, `as_of` 2026-09-13, the class defaults for
 `corpus_scope` and `resolve_depth`. The v2 namespaces are not in `ccf_dataprep/.env`,
 which names v1.
 
+**The demonstration clock (amended 2026-10-11).** `ccf_config.yaml` declares a labelled
+**demonstration serve instant**, 2026-09-13T00:05Z (`demonstration_serve_instant:`,
+`D-IMPL-378` C1, honored on the paved road since the SDK round of 2026-10-11): the product,
+in-process and through its door, serves as if it were five minutes after the demonstration
+question, inside its one-hour `temporal_boundary`. It is the run's one time anchor; nothing
+on a question can move it; the SDK refuses it outside its own development substrates; every
+replay record written under it names the declaration. With the declaration removed, the
+demonstration question is refused `asked-at-outside-temporal-bound` on the real clock
+(`tests/examples/test_cp_13_canonical_output.py::test_the_demonstration_question_on_the_real_clock_is_refused_as_expired`).
+An `AS_OF` at a different dated instant needs a deployment declaring its own anchor: set
+`serve_instant` five minutes after it first. (`cp-14` asks its children at 2026-09-07T12:00Z,
+a different anchor from this tree's own 2026-09-13 scenario: recorded, not reconciled here.)
+
 ## The story
 
 ### 0. Two regions, and the SDK owns the rest

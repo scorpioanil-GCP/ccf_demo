@@ -630,34 +630,24 @@ PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE = "required_operator_keys"
 #: :func:`test_the_one_document_exemption_has_not_spread` by number.
 RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
     {
-        "examples/cp-00-institutional-holders",
-        # `examples/s1-00-companies-over-revenue` was HERE and was REMOVED on
-        # 2026-09-09 at its canonical adoption (`D-IMPL-311`), on the cp-05
-        # precedent below. The reason is architectural, not administrative:
-        # s1-00's hand-composed producer built its plan with
-        # `required=tuple(scenario.product_class.required_operator_keys)` — one
-        # document where two were possible, which is exactly what the exemption
-        # permitted — and its `plan_factory` now consumes the resolver's
-        # `required` and authors no operator set at all. Dave: *"s1-00 no longer
-        # authors an operator set; the SDK supplies it."* It moved to
-        # `RULED_SDK_SUPPLIED_DEPLOYMENTS` in the same commit, and no new
-        # exemption class was created and no ceiling raised.
-        # D-IMPL-234 (Dave, 2026-09-01) — the gate-two closure for cp-04.
-        "examples/cp-04-corporate-family-tree",
-        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
-        "examples/cp-01-counterparty-reference-snapshot",
-        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
-        "examples/cp-02-facility-terms-snapshot",
-        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
-        "examples/cp-03-obligor-financial-spread",
-        # `examples/cp-05-credit-exposure-rollup` was HERE and was REMOVED at
-        # cp-05's canonical adoption (`D-IMPL-298`, `D-IMPL-300`). It was ruled
-        # in on 2026-09-08 as a one-document deployment; the migration deleted
-        # the hand-composed spine whose `plan_factory` authored the second
-        # operator-set site the exemption existed to permit. Dave: *"cp-05 no
-        # longer authors the second operator-set site that required the
-        # exemption ... do not replace it with a different exemption."* The
-        # roster count goes DOWN, which is the whole point of the migration.
+        # EMPTY since 2026-10-11. `cp-00`, `cp-04` (`D-IMPL-234`) and `cp-01`,
+        # `cp-02`, `cp-03` (`D-IMPL-239`) were HERE and were REMOVED at their
+        # compatibility repairs (Dave's ruling 3, 16:23 MST: *"Make their
+        # runnable code work with the current SDK ... Update affected specimen
+        # checks explicitly"*), on the cp-05 (`D-IMPL-298`/`D-IMPL-301`) and
+        # s1-00 (`D-IMPL-311`) precedent: each hand-composed spine built its
+        # plan from `scenario.product_class.required_operator_keys` — one
+        # document where two were possible — and its `plan_factory` now consumes
+        # the resolver's `required` and authors no operator set at all. All five
+        # moved to `RULED_SDK_SUPPLIED_DEPLOYMENTS` in the same commit; no new
+        # exemption class was created and no ceiling raised. The shapes they
+        # had are preserved VERBATIM from `fd902e27` as
+        # `tests/examples/fixtures/cp_00_hand_composed_spine.py.txt` and
+        # `cp_04_hand_composed_produce.py.txt`, and the row-B controls below
+        # read those, behind the real deployment roots
+        # (:data:`_FROZEN_ROW_B_SPECIMENS`). `examples/s1-00-companies-over-revenue`
+        # (`D-IMPL-311`) and `examples/cp-05-credit-exposure-rollup`
+        # (`D-IMPL-298`) left earlier by the same route.
     }
 )
 
@@ -675,6 +665,23 @@ RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
 RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
     {
         "examples/hw1-companies-over-revenue/deployment",
+        # Ruling 3 (Dave, 2026-10-11 16:23 MST) — the five frozen specimens'
+        # compatibility repairs, moved from `RULED_ONE_DOCUMENT_DEPLOYMENTS` in
+        # this commit: *"a classification update, not an exemption swap"* (the
+        # cp-05 precedent, `D-IMPL-301`). THE RULING AUTHORIZED THE REPAIR; THE
+        # TREE PROVED THE CATEGORY. Measured before these lines were written, on
+        # `cebfb1d5`: `_one_document_deployments()` returns none of the five and
+        # `_sdk_supplied_deployments()` returns all five — each `plan_factory`
+        # takes its operator set from the resolver's `required`, and no
+        # `ccf.projection-requirements` is registered. FLAGGED for Dave: the
+        # roster's rule is that a human rules on each addition; ruling 3 is the
+        # authority cited, and these five lines are where he confirms or
+        # withdraws it.
+        "examples/cp-00-institutional-holders",
+        "examples/cp-01-counterparty-reference-snapshot",
+        "examples/cp-02-facility-terms-snapshot",
+        "examples/cp-03-obligor-financial-spread",
+        "examples/cp-04-corporate-family-tree",
         # `D-IMPL-301` — and it is EVIDENCE THE MIGRATION SUCCEEDED, not
         # bookkeeping. cp-05 changed architectural category: it authored its own
         # operator set and needed `D-IMPL-137`'s exemption — *one document where
@@ -1058,7 +1065,23 @@ CALL_MARKER = "()"
 #: The lesson the two misses share: **a floor is only a floor while it equals
 #: the count.** Adding a witness without raising it converts an assertion into
 #: a formality, and nothing goes red to say so.
-MINIMUM_GATE_CALL_SITES = 12
+#:
+#: **LOWERED 12 -> 10 on 2026-10-11 (Dave's ruling 3, 16:23 MST; the frozen-
+#: specimen compatibility repairs, `examples/AMENDMENTS-2026-10-11.md`).** The
+#: roster above had already stopped describing the tree (s1-00 and s1-01 left
+#: at their canonical adoptions), and on the tree before the repairs the scan
+#: counted FIFTEEN — headroom of three. The repairs moved five hand-composed
+#: spines onto ``build_governed_resolver``, whose own call is the SDK's site,
+#: and REMOVED these five sites:
+#: ``examples/cp-00-institutional-holders/produce.py``,
+#: ``examples/cp-01-counterparty-reference-snapshot/produce.py``,
+#: ``examples/cp-02-facility-terms-snapshot/produce.py``,
+#: ``examples/cp-03-obligor-financial-spread/produce.py`` and
+#: ``examples/cp-04-corporate-family-tree/produce.py``. The ten counted now,
+#: by name: ``src/ccf/products/resolver.py::GovernedResolver.__call__`` and
+#: ``archive/examples/`` 00, 01, 02, 03, ``04-cross-process/producer_child.py``,
+#: 06, 07, 08 and ``external/00-hello-context/serve.py``.
+MINIMUM_GATE_CALL_SITES = 10
 
 #: Bodies that construct a plan and execute it — **fourteen**, counted from the
 #: tree by executing :func:`_projecting_scopes`, including the two replay
@@ -1110,6 +1133,10 @@ MINIMUM_PROJECTING_BODIES = 14
 #: on an unruled one. This floor is therefore redundant defence there
 #: rather than the primary control — but the adjacency is new, and is stated
 #: rather than left to be rediscovered by whoever next lowers this number.
+#:
+#: (2026-10-11, ruling 3: cp-00 and the other four frozen specimens are
+#: SDK-supplied now — no row-B claimant remains — and this floor was not moved
+#: by that repair; the test that reads it stayed green on the repaired tree.)
 MINIMUM_RESOLVED_BINDER_SITES = 11
 
 #: The SDK module whose own binder call is the canonical path's evidence.
@@ -3246,6 +3273,46 @@ def _projecting_scopes() -> list[tuple[pathlib.Path, ast.AST]]:
     return found
 
 
+#: The row-B specimens as they shipped before the 2026-10-11 compatibility
+#: repairs (Dave's ruling 3), each kept VERBATIM from `fd902e27` — main before
+#: the repair — and read behind its REAL deployment path, so
+#: :func:`_deployment_root` resolves the specimen's real artifact tree (one that
+#: registers no `ccf.projection-requirements`) while the AST is the shape the
+#: exemption was ruled for. The repaired files are SDK-supplied now
+#: (:data:`RULED_SDK_SUPPLIED_DEPLOYMENTS`), so no shipped body exercises row B
+#: any more; without these, every row-B control below would have no subject.
+_FROZEN_ROW_B_SPECIMENS: dict[str, tuple[str, str]] = {
+    "cp-00": (
+        "examples/cp-00-institutional-holders/produce.py",
+        "tests/examples/fixtures/cp_00_hand_composed_spine.py.txt",
+    ),
+    "cp-04": (
+        "examples/cp-04-corporate-family-tree/produce.py",
+        "tests/examples/fixtures/cp_04_hand_composed_produce.py.txt",
+    ),
+}
+
+
+def _frozen_row_b(name: str) -> tuple[pathlib.Path, str]:
+    """``(real deployment path, preserved source text)`` for one frozen specimen."""
+    real, preserved = _FROZEN_ROW_B_SPECIMENS[name]
+    path = REPO_ROOT / real
+    assert path.is_file(), f"{real} is gone; the frozen row-B control has no real root"
+    return path, (REPO_ROOT / preserved).read_text(encoding="utf-8")
+
+
+def _projecting_scopes_of(text: str) -> list[ast.AST]:
+    """:func:`_projecting_scopes`' predicate, applied to one source text."""
+    return [
+        scope
+        for scope in _scopes(ast.parse(text))
+        if any(
+            _is_plan_construction(node) or _is_plan_execution(node)
+            for node in _scope_nodes(scope)
+        )
+    ]
+
+
 def test_the_binder_scan_is_not_vacuous() -> None:
     """The floor is counted from the tree, and asserted rather than assumed.
 
@@ -3606,35 +3673,23 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     # three by that number. This assertion describes the tree; that one
     # describes what was ruled. They disagree on purpose.
     assert row_b == [
-        "examples/cp-00-institutional-holders",
-        "examples/cp-01-counterparty-reference-snapshot",
-        "examples/cp-02-facility-terms-snapshot",
-        "examples/cp-03-obligor-financial-spread",
-        "examples/cp-04-corporate-family-tree",
-        # `examples/cp-05-credit-exposure-rollup` JOINED row B on 2026-09-08
-        # and LEFT it at its canonical adoption (`D-IMPL-298`, `D-IMPL-301`).
-        # It is not a one-document deployment any more because it authors no
-        # document at all: `GovernedResolver` supplies the operator set, so it
-        # reads on the SDK-supplied list below instead. This list DESCRIBES THE
-        # TREE, so it moves when the tree does — which is what just happened.
-        #
-        # And `examples/s1-00-companies-over-revenue` LEFT row B on 2026-09-09
-        # by the same route (`D-IMPL-311`). Its hand-composed producer built its
-        # plan from `scenario.product_class.required_operator_keys` — one
-        # document where two were possible — and its named `plan_factory` now
-        # authors nothing, taking the operator set from the `required` the SDK
-        # hands it. Two examples have now crossed this boundary in the same
-        # direction, which is what the modernization pass is for.
+        # EMPTY since 2026-10-11 (Dave's ruling 3). `cp-00`, `cp-01`, `cp-02`,
+        # `cp-03` and `cp-04` were here and LEFT row B at their compatibility
+        # repairs by the route cp-05 (`D-IMPL-298`, `D-IMPL-301`) and s1-00
+        # (`D-IMPL-311`) took before them: each `plan_factory` now takes the
+        # resolver's `required` and authors nothing, so each reads on the
+        # SDK-supplied list below. This list DESCRIBES THE TREE, so it moves
+        # when the tree does. The pinned routes are kept on the preserved
+        # specimens instead (the cp-04 assertion that follows).
     ], row_b
-    assert _supplied_by_the_product_class(
-        *next(
-            (scope, path, _deployment_root(path))
-            for path, scope in _projecting_scopes()
-            if str(path.relative_to(REPO_ROOT)).startswith(
-                "examples/cp-04-corporate-family-tree/"
-            )
-        )
-    ), "cp-04 must reach row B by the D-IMPL-234 route, not by the older reading"
+    cp_04_path, cp_04_frozen = _frozen_row_b("cp-04")
+    assert all(
+        _supplied_by_the_product_class(scope, cp_04_path, _deployment_root(cp_04_path))
+        for scope in _projecting_scopes_of(cp_04_frozen)
+    ) and _projecting_scopes_of(cp_04_frozen), (
+        "cp-04 (as at fd902e27) must reach row B by the D-IMPL-234 route, not by"
+        " the older reading"
+    )
     # cp-05 arrives here from row B above, by `D-IMPL-301`'s second shape: it
     # reaches `build_governed_resolver` directly rather than through a
     # `binding.yaml`, and the ownership condition is architectural rather than
@@ -3642,11 +3697,19 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     # the migration's own evidence — *one document where two were possible* ->
     # *no second document, because the SDK supplies the canonical set*.
     assert sdk_supplied == [
+        # Ruling 3, 2026-10-11 — the five frozen specimens, crossed from row B
+        # at their compatibility repairs by the cp-05 / s1-00 route. The
+        # detector reaches them from the repaired tree alone; this assertion and
+        # the roster both record that answer and neither causes it.
+        "examples/cp-00-institutional-holders",
+        "examples/cp-01-counterparty-reference-snapshot",
+        "examples/cp-02-facility-terms-snapshot",
         # `CP14-F-22`, 2026-09-14 — the canonical rung-3 successor, authored on
         # this side of the boundary on the rung-4 sibling's pattern. The
         # detector reaches it from the tree alone; this assertion and the
         # roster both record that answer and neither causes it.
         "examples/cp-03-canonical-obligor-financial-spread",
+        "examples/cp-03-obligor-financial-spread",  # ruling 3, 2026-10-11
         # `D-IMPL-315`, 2026-09-10 — the canonical rung-4 successor, and the
         # first entry here that arrived from NEITHER list. cp-05 and s1-00
         # crossed the boundary by migration; this tree was AUTHORED on this
@@ -3655,6 +3718,7 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # tree alone — this assertion and the roster both record that, and
         # neither causes it.
         "examples/cp-04-canonical-corporate-family-tree",
+        "examples/cp-04-corporate-family-tree",  # ruling 3, 2026-10-11
         "examples/cp-05-credit-exposure-rollup",
         # `D-IMPL-315`, 2026-09-10 — rung 6. The detector reaches it from the
         # tree alone; this assertion and the roster both record that answer and
@@ -4015,6 +4079,21 @@ def test_each_roster_refuses_an_unruled_claimant() -> None:
         (_exemption_problems, RULED_ONE_DOCUMENT_DEPLOYMENTS, "D-IMPL-137 one-document"),
         (_sdk_supplied_problems, RULED_SDK_SUPPLIED_DEPLOYMENTS, "D-IMPL-141 SDK-supplied"),
     ):
+        arrived = problems_of([*sorted(ruled), intruder])
+        assert arrived and label in arrived[0], (label, arrived)
+        assert intruder in arrived[0], (label, arrived)
+
+        # AMENDED 2026-10-11 (ruling 3): the one-document roster is EMPTY, so a
+        # departure, a swap and an empty claim set cannot be staged on it. They
+        # are staged on a two-name roster through the same comparison and
+        # label instead, so the instrument stays watched failing on all three.
+        if len(ruled) < 2:
+            sample = frozenset({"examples/frozen-sample-a", "examples/frozen-sample-b"})
+
+            def problems_of(claimed: list[str], *, _sample=sample, _label=label) -> list[str]:
+                return _roster_problems(claimed, ruled=_sample, label=_label)
+
+            ruled = sample
         ruled_list = sorted(ruled)
 
         arrived = problems_of([*ruled_list, intruder])
@@ -4099,19 +4178,29 @@ def test_a_row_b_deployment_claims_the_exemption_for_the_stated_reason() -> None
     reading and constructs its plan from the identical expression, so this
     control keeps exactly the property it had. The name no longer says `hw1`,
     which it had not been pointed at for some time.
+
+    **AMENDED 2026-10-11 (ruling 3).** cp-00's repaired `produce.py` authors no
+    operator set (it is SDK-supplied now), so the control reads cp-00's
+    hand-composed spine as preserved from `fd902e27`, behind the real
+    deployment path (:data:`_FROZEN_ROW_B_SPECIMENS`). The third assertion
+    states what changed: the shipped body no longer claims row B.
     """
-    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
+    produce, frozen = _frozen_row_b("cp-00")
     root = _deployment_root(produce)
     assert root is not None and not _registers_requirements(root)
 
-    tree = _parse(produce)
-    assert tree is not None
     exempt = [
         scope
-        for scope in _scopes(tree)
+        for scope in _scopes(ast.parse(frozen))
         if _one_document(scope, produce, _bindings(scope))
     ]
     assert exempt, "the row-B specimen's projecting body no longer reads one document"
+
+    shipped = _parse(produce)
+    assert shipped is not None
+    assert not [
+        scope for scope in _scopes(shipped) if _one_document(scope, produce, _bindings(scope))
+    ], "the repaired cp-00 claims row B again; it was reclassified SDK-supplied"
 
 
 def test_an_exempt_body_that_calls_the_binder_is_still_refused() -> None:
@@ -4200,13 +4289,17 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     left with its migration, and the mutation had nothing left to rewrite.
     `cp-00` constructs its plan from the identical expression, so the mutation
     string below is unchanged.
+
+    **AMENDED 2026-10-11 (ruling 3).** The repaired cp-00 builds no plan from
+    an operator set of its own, so the mutated text is cp-00's hand-composed
+    spine as preserved from `fd902e27` — still parsed against the REAL
+    deployment path, which is the load-bearing half described above.
     """
-    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
+    produce, text = _frozen_row_b("cp-00")
     root = _deployment_root(produce)
     assert root is not None, "row C needs a REAL artifact tree, not a copy"
     assert not _registers_requirements(root), "the specimen registers no requirements"
 
-    text = produce.read_text(encoding="utf-8")
     baseline = ast.parse(text)
     assert not [
         problem
@@ -4291,16 +4384,18 @@ def test_the_product_class_route_recognises_the_shipped_cp_04_shape() -> None:
     which reads as the gate tightening and would leave every refusal control
     below passing over a dead function. Asserted against the SHIPPED example,
     which is the subject the ruling names.
+
+    **AMENDED 2026-10-11 (ruling 3).** The repaired cp-04 serves through the
+    governed resolver and authors no operator set, so "the shipped example" is
+    now cp-04's hand-composed `produce.py` as it shipped until the repair,
+    preserved verbatim from `fd902e27` and read behind the real deployment
+    root (:data:`_FROZEN_ROW_B_SPECIMENS`). The name is kept: the route's
+    subject is that shipped shape.
     """
-    shipped = [
-        (path, scope)
-        for path, scope in _projecting_scopes()
-        if str(path.relative_to(REPO_ROOT)).startswith(
-            "examples/cp-04-corporate-family-tree/"
-        )
-    ]
+    path, frozen = _frozen_row_b("cp-04")
+    shipped = _projecting_scopes_of(frozen)
     assert shipped, "cp-04 has no projecting body; the ruling's subject moved"
-    for path, scope in shipped:
+    for scope in shipped:
         root = _deployment_root(path)
         assert not _registers_requirements(root), (
             "cp-04 registers a `ccf.projection-requirements` — it now has the"
@@ -4308,9 +4403,12 @@ def test_the_product_class_route_recognises_the_shipped_cp_04_shape() -> None:
             " exemption no longer describes it"
         )
         assert _supplied_by_the_product_class(scope, path, root), (
-            f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}"
+            f"{path.relative_to(REPO_ROOT)} (as at fd902e27):{_scope_line(scope)}"
         )
         assert _one_document(scope, path, _bindings(scope))
+    # What changed, stated: the repaired cp-04 is SDK-supplied, not row B.
+    assert "examples/cp-04-corporate-family-tree" in _sdk_supplied_deployments()
+    assert "examples/cp-04-corporate-family-tree" not in _one_document_deployments()
 
 
 @pytest.mark.parametrize(

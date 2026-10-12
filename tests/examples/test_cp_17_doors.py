@@ -416,8 +416,17 @@ def test_two_door_calls_and_the_in_process_run_hash_to_one_address(
     assert first.is_error is False and again.is_error is False, first.text[:300]
     assert first.outcome["content_address"] and first.outcome["content_address"] == again.outcome["content_address"]
     assert first.outcome["product_json"] == again.outcome["product_json"]
-    # content-addressed: two identical decisions reproduce ONE record
-    assert first.outcome["replay_ref"] == again.outcome["replay_ref"]
+    # AMENDED 2026-10-11 (round 3). This asserted ONE record for two identical
+    # decisions. Since Dave's Q11 (2026-10-07) and `D-IMPL-378` E1 (a) ("Random
+    # references must have indistinguishable distributions; equality is no longer
+    # the criterion"), every answer's record carries a fresh issuance and is named
+    # by its own address. So: two references, and two records identical in every
+    # member but the per-answer issuance.
+    assert first.outcome["replay_ref"] != again.outcome["replay_ref"], "two answers share one issuance"
+    one, two = (json.loads(canonical_bytes(_record(opened, wire.outcome["replay_ref"])))
+                for wire in (first, again))
+    assert one["content_generation_path"].pop("issuance") != two["content_generation_path"].pop("issuance")
+    assert one == two, "two identical decisions recorded different determinations"
 
     outcome = opened.answer(_question(opened), perspective=Perspective(principal_id=COVERAGE, role=roles[COVERAGE]))
     assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)

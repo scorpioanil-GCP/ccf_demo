@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **361** across **115** files
+- Coupling rows: **362** across **115** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **255**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 12 |
-| 17-08 | 122 |
+| 17-08 | 123 |
 | 23-04 | 208 |
 | 23-10 | 19 |
 
@@ -38,7 +38,7 @@ Rows by coupling shape:
 | `path-construction` | 12 |
 | `prose` | 120 |
 | `snippet-include` | 56 |
-| `string-literal` | 22 |
+| `string-literal` | 23 |
 | `tmp_path-synthetic` | 13 |
 
 ## Reading the columns
@@ -314,7 +314,8 @@ Rows by coupling shape:
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/00-quickstart` | `indirect-execution` | live | - | `tools/docs_tests/test_snippet_gate.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_snippet_gate.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
-| `tests/examples/test_frozen_family_quarantine.py` | 77 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/examples/test_frozen_family_quarantine.py` | 84 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/examples/test_frozen_family_quarantine.py` | 97 | `tests/examples/test_s1_00_output.py` | `string-literal` | live | - | - | 17-08 |  |
 | `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -345,25 +346,25 @@ Rows by coupling shape:
 | `tests/products/test_gate_two_call_shape.py` | 207 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 425 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 426 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 699 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 1061 | `archive/examples/00-quickstart` | `count-constant` | live | 9 | - | 23-04 | `MINIMUM_GATE_CALL_SITES` — floor 12, 15 witnesses, headroom 3; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 11 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 1081 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 1113 | `archive/examples/00-quickstart` | `count-constant` | live | 11 | - | 23-04 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 1152 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 11 witnesses, headroom 9; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 1882 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 2417 | `archive/examples/00-quickstart` | `count-scan-function` | live | 9 | - | 23-04 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 12, 15 witnesses, headroom 3; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 11 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 3234 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 3748 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 4095 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 4146 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
-| `tests/products/test_gate_two_call_shape.py` | 4595 | `archive/examples/00-quickstart` | `count-scan-function` | live | 11 | - | 23-04 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 4620 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_delegated_binder_sites()` feeds `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 11 witnesses, headroom 9; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 5756 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 5763 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 716 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
-| `tests/products/test_request_contract.py` | 757 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 3040 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 3042 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 706 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 1084 | `archive/examples/00-quickstart` | `count-constant` | live | 9 | - | 23-04 | `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 1104 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 1140 | `archive/examples/00-quickstart` | `count-constant` | live | 11 | - | 23-04 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 1179 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 1909 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 2444 | `archive/examples/00-quickstart` | `count-scan-function` | live | 9 | - | 23-04 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 3261 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 3812 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 4174 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 4235 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
+| `tests/products/test_gate_two_call_shape.py` | 4693 | `archive/examples/00-quickstart` | `count-scan-function` | live | 11 | - | 23-04 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 4718 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_delegated_binder_sites()` feeds `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 5854 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 5861 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 717 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
+| `tests/products/test_request_contract.py` | 758 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3080 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3082 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
 | `tests/products/test_required_operators_guard.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
 | `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
@@ -388,16 +389,16 @@ Rows by coupling shape:
 | `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tools/lints/citations.py` | 416 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 461 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 461 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 485 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 491 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 434 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 479 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 479 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 503 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 509 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_citations.py` | 887 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
 | `tools/lints/tests/test_pinned_record_citations.py` | 76 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 84 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 85 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 263 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 86 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 87 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 265 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |

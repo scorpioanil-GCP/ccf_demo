@@ -156,7 +156,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -184,13 +184,25 @@ from ccf.controlplane.artifacts import (
     load_artifact,
 )
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric, derive_deployment
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from ccf.products.provenance import EffectiveRequest
+from ccf.replay.record import PolicyBinding, ResolutionNotApplicable
+from ccf.deployment import BootedFabric, derive_deployment, resolve_artifact_class
 from ccf.graph.backends.fluree import DEFAULT_BRANCH, MAX_DEPTH_CEILING
+from ccf.products.constraints import CAPABILITY_TRAVERSAL_DEPTH, TechnicalCapability
 from ccf.products.provenance import ProvenanceSource
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
-from ccf.products.request import ProductRequest, ProductRequestContract
-from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.products.request import (
+    ProductRequest,
+    ProductRequestContract,
+    ProductRequestViolation,
+)
+from ccf.products.resolver import ReplayRefusalRecorder, declared_refusal_recorder
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -256,7 +268,7 @@ ARTIFACT_STORE_DIRNAME = "artifacts-store"
 
 #: The payload key carrying a node's SOURCE identity, and the one
 #: `ccf_config.yaml`'s two entity rules both name under `identity_keys`. The
-#: MINTED `entity_uri` is not this value — `worker.py::SpecDrivenEntityResolution.identity` hashes the identity
+#: MINTED `entity_uri` is not this value — `worker.py::SpecDrivenEntityResolution.resolve` hashes the identity
 #: map and mints `<entity-class>://<hash>` — which is exactly why
 #: :func:`relationship_claims` takes the minted URIs from the ingest results
 #: rather than recomputing them here.
@@ -360,6 +372,10 @@ FINDING_COMPUTED_EMPTY_WALK = "computed_empty_walk"
 FINDING_IDLE_JURISDICTIONS = "idle_jurisdictions"
 
 PARAM_INTENT = "intent"
+
+#: AMENDED 2026-10-11 — the request argument the family reaches the policy
+#: operator through (`ccf_config.yaml`'s declared binding, D-IMPL-295).
+PARAM_FAMILIES = "families"
 PARAM_MAX_DEPTH = "max_depth"
 
 #: The debt ceiling, quoted as TEXT in `question.yaml` and presented to the
@@ -664,6 +680,7 @@ def refusal_recorder(
     *,
     root: Path,
     disclosure_level_for: Callable[..., Any] | None = None,
+    control_plane: ControlPlaneRegistry | None = None,
 ) -> ReplayRefusalRecorder:
     """The ONE recorder every governed refusal this deployment returns is minted through.
 
@@ -696,21 +713,108 @@ def refusal_recorder(
         The recorder, constructed exactly as
         ``ccf.products.resolver::build_governed_resolver`` builds its own.
     """
-    declared = config()[KEY_PRODUCT_CLASS]
-    if disclosure_level_for is None:
-        return ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
-            replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=tenant_id(),
-            # Off `ccf_config.yaml`, never a literal (CLAUDE.md §6.4).
-            assembly_mode=str(declared["assembly_mode"]),
+    # AMENDED 2026-10-11 (compatibility repair, examples/AMENDMENTS-2026-10-11.md):
+    # a `ReplayRefusalRecorder` now writes under a composition-minted
+    # `ReplayMint` (D-IMPL-354), which example code may not mint. The SDK's own
+    # `declared_refusal_recorder` is the supported composition — the same one
+    # `open_product` uses — so this function hands it the same store, record
+    # class, tenant and assembly mode as before, plus the bundle pin the boot
+    # will mint, computed the way `open_product` computes it. A disclosure
+    # reader is read off the Control Plane it is handed; a door that wants its
+    # entitlement policy's reading passes that Control Plane.
+    if disclosure_level_for is not None:
+        raise NotImplementedError(
+            "a caller-supplied disclosure reader has no supported path since"
+            " D-IMPL-354: `declared_refusal_recorder` reads the disclosure posture"
+            " off the Control Plane it is handed (see NEEDS-SDK, cp-04 door)"
         )
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+    declared = config()[KEY_PRODUCT_CLASS]
+    return declared_refusal_recorder(
+        control_plane=control_plane if control_plane is not None else ControlPlaneRegistry(),
+        artifact_store=artifact_store(root=root),
         replay_record_class=REPLAY_RECORD_CLASS,
         tenant_id=tenant_id(),
-        assembly_mode=str(declared["assembly_mode"]),
-        disclosure_level_for=disclosure_level_for,
+        # Off `ccf_config.yaml`, never a literal (CLAUDE.md §6.4).
+        assembly_mode=cast(Any, str(declared["assembly_mode"])),
+        policy_bundle_pin=policy_bundle_pin(),
+    )
+
+
+def artifact_store(*, root: Path) -> FileArtifactStore:
+    """The ONE file-backed store this deployment's records land in.
+
+    AMENDED 2026-10-11 (compatibility repair): `FileArtifactStore` now takes a
+    required `write_kinds` — the deployment's declaration of which classes its
+    own mechanism files and under which kind (D-IMPL-353 §1.2). The replay
+    record and the query pins this deployment names, and the SDK's
+    admitted-child class, all under `ReplayMint` (the s1-01 shape). Everything
+    undeclared stays the client lane.
+    """
+    return FileArtifactStore(
+        root=root / ARTIFACT_STORE_DIRNAME,
+        write_kinds=WriteKinds.declare(
+            {
+                REPLAY_RECORD_CLASS: (ReplayMint,),
+                QUERY_PIN_CLASS: (ReplayMint,),
+                ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+            }
+        ),
+    )
+
+
+def technical_capabilities() -> tuple[TechnicalCapability, ...]:
+    """The substrate's traversal capability, as the governed resolver needs it.
+
+    AMENDED 2026-10-11 (compatibility repair). The request contract binds
+    ``max_depth`` to ``traversal-depth`` (``capability_bindings``), and the
+    governed resolver resolves the effective request itself, so it must be
+    handed the capability the assembler has always handed its own
+    resolution — the same value, off :func:`traversal_depth_capability`.
+    """
+    store = traversal_depth_capability()
+    return (
+        TechnicalCapability(
+            capability=CAPABILITY_TRAVERSAL_DEPTH,
+            maximum=Decimal(store.max_traversal_depth),
+            identity=store.capability_identity,
+        ),
+    )
+
+
+def serve_instant() -> datetime:
+    """The instant this deployment serves at — ONE anchor per run.
+
+    AMENDED 2026-10-11 (compatibility repair). The declared
+    ``demonstration_serve_instant:`` when ``ccf_config.yaml`` declares one —
+    the same instant the governed resolver composes its serve clock from — and
+    the live UTC clock otherwise. Read from the document, never from a request,
+    so no caller input can move it (D-IMPL-378 C1 rule 1).
+    """
+    declared = config().get("demonstration_serve_instant")
+    if declared:
+        return datetime.fromisoformat(str(declared["serve_instant"]))
+    return datetime.now(UTC)
+
+
+def policy_bundle_pin() -> PolicyBinding:
+    """The policy bundle pin the boot WILL mint, before any fabric exists.
+
+    AMENDED 2026-10-11: the content address of the parsed `policy` section,
+    under its tenant-placed key — exactly how `ccf.products.product.open_product`
+    computes the pin for its own recorder (D-IMPL-26).
+    """
+    parsed = cast(
+        DeploymentConfig,
+        load_artifact(CONFIG.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG),
+    )
+    derived = derive_deployment(parsed, config_filename=CONFIG.name)
+    entry = next(e for e in derived.manifest.artifacts if e.key == KEY_POLICY_BUNDLE)
+    artifact = parse_artifact(
+        derived.documents[KEY_POLICY_BUNDLE], resolve_artifact_class(entry.class_id)
+    )
+    return PolicyBinding(
+        key=namespaced_key(tenant=tenant_id(), key=KEY_POLICY_BUNDLE),
+        version=content_hash(artifact),
     )
 
 
@@ -722,8 +826,18 @@ def record_refusal(
     perspective: Perspective,
     assembler_id: str,
     assembler_version: str,
+    resolution: EffectiveRequest | ResolutionNotApplicable | None = None,
 ) -> RefusalEnvelope:
     """Envelope one returned refusal, mint its record, hand back the shell.
+
+    AMENDED 2026-10-11 (compatibility repair): `ReplayRefusalRecorder.record`
+    now REQUIRES `served_at` and `resolution`. `served_at` is
+    :func:`serve_instant` (one anchor per run); `resolution` is what the
+    caller's resolution established — the assembler's evidence when it ran,
+    and otherwise the SDK's positive `refused-before-resolution` claim. The
+    recorder also now pins the policy bundle itself (`declared_refusal_recorder`,
+    computed as `open_product` computes it), which supersedes the "no policy
+    bundle pin travels" paragraph below.
 
     **THE DEPLOYMENT ENCODES; IT DOES NOT DECIDE** (criterion 36). Everything
     substantive here is the SDK's: ``ccf.products.refusal::envelope_for``
@@ -773,9 +887,15 @@ def record_refusal(
         envelope,
         perspective=perspective,
         recorded_at=request.asked_at,
+        served_at=serve_instant(),
         request=request,
         assembler_id=assembler_id,
         assembler_version=assembler_version,
+        resolution=(
+            resolution
+            if resolution is not None
+            else ResolutionNotApplicable(reason="refused-before-resolution")
+        ),
     )
 
 
@@ -2091,7 +2211,14 @@ def declared_membership_scope() -> tuple[str, ...]:
     empty payload rather than a permissive one.
     """
     declared = config()[KEY_OPERATORS][KEY_POLICY_OPERATOR]
-    return tuple(str(value) for value in declared[KEY_PERMITTED_CLASSIFICATIONS])
+    scope = declared[KEY_PERMITTED_CLASSIFICATIONS]
+    # AMENDED 2026-10-11: the declaration is now the request BINDING
+    # (`{source: effective_request, parameter: families}`, D-IMPL-295), which
+    # names no family — so it reads as empty here, as the literal `[]` did. A
+    # literal list naming a family is still returned, and still refused.
+    if isinstance(scope, Mapping):
+        return ()
+    return tuple(str(value) for value in scope)
 
 
 def membership_attribute() -> str:
@@ -2669,7 +2796,10 @@ def request(
         schema_name=declared["schema_name"],
         schema_version=declared["schema_version"],
         subject=declaration["subject"],
-        intent=declaration["parameters"][PARAM_INTENT],
+        # AMENDED 2026-10-11: the intent is read from the question's top-level
+        # `intent:` (it was also sent as a request argument, which the SDK now
+        # refuses as a shadow — `D-IMPL-264` D-01).
+        intent=declaration[PARAM_INTENT],
         freshness=declaration["freshness"],
         asked_at=asked_at or datetime.fromisoformat(declaration["asked_at"]),
         parameters=parameters,
@@ -2838,7 +2968,7 @@ def build_envelopes(
 
     Returns the envelopes and a map from ``envelope_id`` back to the SOURCE
     node IRI. The spine needs that map because the graph mints its own
-    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py::SpecDrivenEntityResolution.identity`) —
+    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py::SpecDrivenEntityResolution.resolve`) —
     so the URI an edge must be built from is knowable only after ingest, from
     each ``IngestResult``'s own ``node_key``. Recomputing the hash here would
     be this module reimplementing L2's identity rule, which is exactly the
@@ -3167,8 +3297,12 @@ class FamilyScenario:
     #: the spine names no domain word.
     duplicate_finding_type: str = FINDING_DUPLICATE_ENTITY
 
+    # AMENDED 2026-10-11 (compatibility repair): the loader places every key
+    # under the tenant (D-IMPL-354) and the governed resolver resolves by the
+    # placed key, so `read` supplies them; the bare names stay the vocabulary.
     request_contract_key: str = KEY_REQUEST_CONTRACT
     policy_bundle_key: str = KEY_POLICY_BUNDLE
+    product_class_key: str = KEY_PRODUCT_CLASS
     replay_record_class: str = REPLAY_RECORD_CLASS
     query_pin_class: str = QUERY_PIN_CLASS
     artifact_store_dirname: str = ARTIFACT_STORE_DIRNAME
@@ -3176,6 +3310,16 @@ class FamilyScenario:
     @property
     def plan_id(self) -> str:
         return self.product_class.schema_name
+
+    @property
+    def capabilities(self) -> tuple[TechnicalCapability, ...]:
+        """AMENDED 2026-10-11 — see :func:`technical_capabilities`."""
+        return technical_capabilities()
+
+    def artifact_store(self, *, root: Path) -> FileArtifactStore:
+        """AMENDED 2026-10-11 — the deployment's declared store (see
+        :func:`artifact_store`)."""
+        return artifact_store(root=root)
 
     @property
     def temporal_boundary(self) -> datetime:
@@ -3277,6 +3421,31 @@ class FamilyScenario:
         return self.request.asked_at + timedelta(seconds=self.ttl_seconds)
 
 
+def undirected_reach(
+    edges: FamilyEdges, anchor: str, *, depth_limit: int
+) -> frozenset[str]:
+    """Every node within ``depth_limit`` UNDIRECTED hops of ``anchor``.
+
+    AMENDED 2026-10-11 (compatibility repair). The set the declared L4
+    traversal operator served when its ``depth_limit`` was the caller's depth:
+    ``src/ccf/operators/categories.py::TraversalNeighborhood`` walks an
+    undirected typed neighborhood (``D-36``), so this is the same walk over the
+    same pairs, read here so the ingest can be bounded by it. See ``read``.
+    """
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    for parent, child in edges.by_pair:
+        adjacency[parent].add(child)
+        adjacency[child].add(parent)
+    reached = {anchor}
+    frontier = {anchor}
+    for _hop in range(depth_limit):
+        frontier = {n for node in frontier for n in adjacency[node]} - reached
+        if not frontier:
+            break
+        reached |= frontier
+    return frozenset(reached)
+
+
 def read(
     booted: BootedFabric,
     asked: ProductRequest,
@@ -3338,49 +3507,97 @@ def read(
     # the axis here is family membership and not entitlement. Inventing a
     # per-principal expansion would be asserting a discrimination nobody
     # measured.
-    declared_policy = cast(OperatorParametersArtifact, artifacts[KEY_POLICY_OPERATOR])
+    #
+    # AMENDED 2026-10-11 (compatibility repair, examples/AMENDMENTS-2026-10-11.md):
+    # the governed resolver reads only DECLARED operator parameters, so the two
+    # per-request bindings above travel the governed way instead of being
+    # written over a resolved declaration:
+    #
+    # * the FAMILY reaches the policy operator through the declared request
+    #   binding `permitted_classifications: {source: effective_request,
+    #   parameter: families}` (D-IMPL-295). This function fills `families` with
+    #   the one family the subject names — the value `policy_parameters` bound —
+    #   and refuses a caller-stated value that disagrees, so the request carries
+    #   (and the replay record records) the same family the old substitution did;
+    # * the DEPTH bounds what is INGESTED rather than the operator's
+    #   `depth_limit`, which no binding can reach (D-IMPL-295 binds
+    #   `permitted_classifications` only). Ingesting exactly the nodes within the
+    #   caller's depth of the anchor over the walk's own undirected adjacency
+    #   (`undirected_reach`) leaves the declared walk the same member set it
+    #   served when its `depth_limit` was the caller's depth: every node on a
+    #   shortest path to an admitted node is itself admitted, and nothing beyond
+    #   the depth exists to be reached. Findings and generations still read the
+    #   whole source read, as before.
+    p = lambda key: namespaced_key(tenant=booted.tenant_id, key=key)  # noqa: E731
+    declared_policy = cast(OperatorParametersArtifact, artifacts[p(KEY_POLICY_OPERATOR)])
     refuse_declared_family_scope()
-    bound_policy = policy_parameters(
-        declared_policy, family=family_id(asked.subject)
-    )
+    family = family_id(asked.subject)
+    bound_policy = policy_parameters(declared_policy, family=family)
     refuse_unbound_family_scope(
         tuple(sorted(cast(Any, bound_policy).permitted_classifications)),
-        expected=family_id(asked.subject),
+        expected=family,
+    )
+    stated = asked.parameters.get(PARAM_FAMILIES)
+    if stated is not None and list(stated) != [family]:
+        return cast(
+            Any,
+            ProductRequestViolation(
+                reason="not-in-domain",
+                key=PARAM_FAMILIES,
+                detail=(
+                    f"this request walks the family its subject names"
+                    f" ({family!r}); `families` = {list(stated)!r} disagrees with"
+                    " it, and a family is never admitted on a caller's word"
+                ),
+            ),
+        )
+    asked = asked.model_copy(
+        update={"parameters": {**asked.parameters, PARAM_FAMILIES: [family]}}
     )
     declared_traversal = cast(
-        OperatorParametersArtifact, artifacts[KEY_TRAVERSAL_OPERATOR]
+        OperatorParametersArtifact, artifacts[p(KEY_TRAVERSAL_OPERATOR)]
     )
+    within = undirected_reach(
+        read_source.edges, read_source.anchor_uri, depth_limit=max_depth
+    )
+    envelopes_by_node = {
+        uri: envelope_id
+        for uri, envelope_id in read_source.envelopes_by_node.items()
+        if uri in within
+    }
+    kept = set(envelopes_by_node.values())
     return FamilyScenario(
-        envelopes=read_source.envelopes,
-        envelopes_by_node=read_source.envelopes_by_node,
+        envelopes=tuple(e for e in read_source.envelopes if e.envelope_id in kept),
+        envelopes_by_node=envelopes_by_node,
         request=asked,
         request_contract=ProductRequestContract.from_declared(
-            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+            cast(Any, artifacts[p(KEY_REQUEST_CONTRACT)])
         ),
-        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
+        product_class=cast(ProductClassDeclaration, artifacts[p(KEY_PRODUCT_CLASS)]),
         # The DECLARED artifact carries the version lane; the ROLE this
         # request asked is substituted onto it, so §D.2.1 role 3's two roles
         # travel through one versioned document rather than two.
         perspective=cast(
             PerspectiveArtifact,
-            cast(Any, artifacts[KEY_PERSPECTIVE]).model_copy(
+            cast(Any, artifacts[p(KEY_PERSPECTIVE)]).model_copy(
                 update={"role": conditioned.role}
             ),
         ),
         # TWO entries, so a two-operator registry — this is the rung where the
         # count moves off one. The traversal set carries the CALLER's depth;
         # the policy set carries the declared closed jurisdiction world.
+        #
+        # AMENDED 2026-10-11: the DECLARED sets, under their placed keys — the
+        # resolver binds the family from the request; see above.
         operator_parameters={
-            KEY_POLICY_OPERATOR: bound_policy,
-            KEY_TRAVERSAL_OPERATOR: traversal_parameters(
-                declared_traversal, max_depth=max_depth
-            ),
+            p(KEY_POLICY_OPERATOR): declared_policy,
+            p(KEY_TRAVERSAL_OPERATOR): declared_traversal,
         },
-        resolution=cast(EntityResolutionSpec, artifacts[KEY_RESOLUTION]),
-        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        resolution=cast(EntityResolutionSpec, artifacts[p(KEY_RESOLUTION)]),
+        half_life_table=cast(HalfLifeTable, artifacts[p(KEY_HALF_LIFE_TABLE)]),
+        debt_profile=cast(DebtProfile, artifacts[p(KEY_DEBT_PROFILE)]),
         anchor_uri=read_source.anchor_uri,
-        family=family_id(asked.subject),
+        family=family,
         max_depth=max_depth,
         facts=read_source.facts,
         edges=read_source.edges,
@@ -3401,8 +3618,11 @@ def read(
         # identities.
         halflife_debt_profile=(
             f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
-            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
+            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(p(KEY_DEBT_PROFILE))}"
         ),
+        request_contract_key=p(KEY_REQUEST_CONTRACT),
+        policy_bundle_key=p(KEY_POLICY_BUNDLE),
+        product_class_key=p(KEY_PRODUCT_CLASS),
         # `debt_tolerance` is NOT carried on the scenario. It was a write-once,
         # read-nowhere field pinned to the ARTIFACT's copy rather than the
         # caller's — a live-looking value that fed no comparison (CR-02,

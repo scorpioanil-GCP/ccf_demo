@@ -45,6 +45,8 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.products.contract import ContextProductContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
@@ -81,6 +83,21 @@ CHILD_CLASSES = (
     "credit-risk.collateral-coverage",
     "credit-risk.covenant-cross-reference",
 )
+
+def _reader(opened: Any) -> FileArtifactStore:
+    """The consumer's replay store, opened to READ (AMENDED 2026-10-11, round 3).
+
+    `FileArtifactStore` now requires `write_kinds` (D-IMPL-353 §1.2); this
+    instance declares the road's own replay classes under `ReplayMint` and only
+    reads (examples/AMENDMENTS-2026-10-11.md).
+    """
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=WriteKinds.declare(
+            {opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}
+        ),
+    )
+
 
 
 @pytest.fixture(scope="module")
@@ -139,7 +156,7 @@ def _ask(modules: tuple[Any, Any], scratch: pathlib.Path, *, spread_url: str, to
             },
         )
         outcome = opened.answer(asked)
-        fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        fresh = _reader(opened)
         if isinstance(outcome, ServedProduct):
             address = outcome.replay_ref.content_address
         else:
@@ -188,7 +205,7 @@ def test_the_governed_question_refuses_on_the_withheld_spread_with_five_rows_per
     # on the CONSUMER's store at its own address and referenced from the row;
     # read back from a fresh store instance, calling neither the mapping nor a
     # producer, and held to the address the row records.
-    fresh = FileArtifactStore(root=_opened.scratch / _opened.replay.store_dirname)
+    fresh = _reader(_opened)
     for product_class, row in rows.items():
         assert row.child_question_ref is not None, product_class
         question = retained_child_question(store=fresh, row=row)
@@ -218,7 +235,7 @@ def test_the_diagnostic_tolerance_shows_the_spread_served_and_admitted_at_its_on
     # admission, not composition success). Until 2026-09-16 this assertion
     # held the opposite — the shipped defect `CP14-F-32` measured, stated
     # rather than worked around — and it inverted with the SDK, never before.
-    retained = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=spread.child_content_address)
+    retained = _reader(opened).get(content_address=spread.child_content_address)
     assert content_hash(ContextProductContract.model_validate_json(retained)) == spread.child_content_address
 
 

@@ -64,6 +64,7 @@ from ccf.authz.capability import (
     Authorized,
     Register,
     SkillCatalogRegister,
+    DeclaredSkillGrant,
     SkillGrant,
     verify,
 )
@@ -195,7 +196,7 @@ REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (
 #: artifact's own ``name``; a caller supplies none of it. Admitted by
 #: :meth:`ControlPlaneRegistry.register_versioned` alone, the author-versioned
 #: path the grant ledger uses.
-DERIVED_REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (SkillGrant,)
+DERIVED_REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (SkillGrant, DeclaredSkillGrant)
 
 #: The static type of the door registration handles' first parameter.
 RegisterAuthority: TypeAlias = (
@@ -206,7 +207,9 @@ RegisterAuthority: TypeAlias = (
 )
 
 #: What ``register_versioned`` accepts: the door kinds, or the derived kind.
-DerivedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[SkillGrant]
+DerivedRegisterAuthority: TypeAlias = (
+    RegisterAuthority | Authorized[SkillGrant] | Authorized[DeclaredSkillGrant]
+)
 
 #: What ``register_typed`` accepts: the door kinds, or the invalidation-record kind (``D-IMPL-382``).
 TypedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[InvalidationRecordRegister]
@@ -360,7 +363,9 @@ def _invalidation_record_key(
 
 
 def _derived_key(
-    authorized: Authorized[SkillGrant], artifact_class: ArtifactClass, validated: object
+    authorized: Authorized[SkillGrant] | Authorized[DeclaredSkillGrant],
+    artifact_class: ArtifactClass,
+    validated: object,
 ) -> str:
     """The key a derived registration lands under: ``{authorized.tenant}/{class}/{artifact.name}``.
 
@@ -1149,8 +1154,10 @@ class ControlPlaneRegistry:
                 kinds=DERIVED_REGISTER_KINDS,
                 resource=getattr(authorized, "resource", ""),
             )
-            assert derived_kind is SkillGrant  # the only member, proven by verify_any
-            derived = cast(Authorized[SkillGrant], authorized)
+            # The door's grant kind, or the composition root's declared-grant
+            # kind (ruling 4, Dave 2026-10-11) — proven one of the two by verify_any.
+            assert derived_kind is SkillGrant or derived_kind is DeclaredSkillGrant
+            derived = cast(Authorized[SkillGrant] | Authorized[DeclaredSkillGrant], authorized)
             validated = artifact_class.validate(artifact)
             key = _derived_key(derived, artifact_class, validated)
         else:

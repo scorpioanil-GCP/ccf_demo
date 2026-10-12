@@ -27,6 +27,14 @@ from typing import Any, Iterator
 
 import pytest
 
+from ccf.halflife.decay import TemporalOrderError
+
+from tests.examples.demonstration_deployment import (
+    anchored_after,
+    deployment_on_the_real_clock,
+    deployment_serving_at,
+)
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-08-covenant-in-force-as-of"
 
@@ -95,15 +103,33 @@ KNOWING_NOW = INSTANT.date().isoformat()
 
 
 def _serve(example: tuple[Any, Any, Any], *, facility: str | None = None,
-           **kwargs: Any) -> Any:
+           real_clock: bool = False, **kwargs: Any) -> Any:
+    """One question. Served by a deployment whose ONE time anchor is ...
+
+    ... a labelled demonstration serve instant five minutes after the question
+    (Dave, 2026-10-11, ruling 1), declared in a test-owned copy of this
+    example's own `ccf_config.yaml`; or, with ``real_clock``, the same document
+    with no declaration — the deployment then serves on the wall clock.
+    """
     deployment, produce, run = example
     anchor = facility or run.DEMONSTRATION_FACILITY
+    asked_at = kwargs.pop("asked_at", INSTANT)
     asked = deployment.request(
         facility_id=anchor, principal_scope=[anchor],
-        asked_at=kwargs.pop("asked_at", INSTANT), **kwargs,
+        asked_at=asked_at, **kwargs,
     )
     with tempfile.TemporaryDirectory(prefix="cp-08-test-") as scratch:
-        return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+        directory = pathlib.Path(scratch) / "deployment"
+        config = (
+            deployment_on_the_real_clock(EXAMPLE / "ccf_config.yaml", directory=directory)
+            if real_clock else deployment_serving_at(
+                EXAMPLE / "ccf_config.yaml",
+                serve_instant=anchored_after(asked_at), directory=directory,
+            )
+        )
+        return produce.assemble_and_serve(
+            asked=asked, root=pathlib.Path(scratch), config=config
+        )
 
 
 def _ids(outcome: Any, key: str) -> list[str]:
@@ -483,7 +509,7 @@ def test_the_wall_clock_question_is_refused_because_its_evidence_has_expired(
     assert edge == served.product.ttl_anchor_at + window
     assert edge < datetime.now(UTC), "the demonstration's window has not closed yet; this control is vacuous today"
 
-    refused = _serve(example, asked_at=datetime.now(UTC))
+    refused = _serve(example, asked_at=datetime.now(UTC), real_clock=True)
     assert isinstance(refused, RefusalEnvelope), getattr(refused, "product", refused)
     assert (refused.kind, refused.reason) == ("ttl-refusal", "ttl-bounds")
 
@@ -682,3 +708,72 @@ def test_the_product_policy_lineage_is_carried_by_the_decision_record(
     assert not carried(set(), recorded), (
         "a product citing no policy bundle at all satisfied the predicate"
     )
+
+
+def test_the_default_question_on_the_real_clock_is_refused_as_expired(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    `run.py`'s default question — the dispute question asked at
+    `DEMONSTRATION_ASKED_AT` — asked of this deployment with its declared
+    demonstration serve instant REMOVED is served on the real clock, a year
+    after its instant: outside the tenant's one-hour `temporal_boundary`, so it
+    is refused by name, as data, with a replay reference. And the run's own
+    default, on the shipped deployment, SERVES the two-clocks answer.
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    _, _, run = example
+    asked_at = datetime.fromisoformat(run.DEMONSTRATION_ASKED_AT)
+    drawdown = run.DEMONSTRATION_DRAWDOWN
+    refused = _serve(example, asked_at=asked_at, as_of=drawdown,
+                     known_as_of=drawdown, real_clock=True)
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == (
+        "temporal-bound-refusal", "asked-at-outside-temporal-bound"
+    )
+    assert refused.replay_reference
+
+    served = _serve(example, asked_at=asked_at, as_of=drawdown, known_as_of=drawdown)
+    assert not isinstance(served, RefusalEnvelope), served
+    assert _ids(served, "amendments_in_force_and_known") == ["AMD-01BB3F-1"]
+    assert _excluded_by(served, "AMD-01BB3F-2") is not None
+
+
+
+# --- CP08-R3-F-01: the drawdown-day question (round 3, 2026-10-11) -------------------
+#
+# Executable evidence, not a repair. Asked AT the drawdown day (the decision instant
+# 2025-09-09, on a deployment whose one time anchor is five minutes later), the
+# deployment ingests the estate as it stands — including AMD-01BB3F-2, booked
+# 2025-10-05, AFTER that decision instant — and the SDK's debt scorer RAISES
+# `TemporalOrderError` (`halflife/debt.py`, reached from the resolver's scoring)
+# where a governed outcome is owed (EXAMPLE-EVALUATION-CRITERIA §D: "never a raise
+# where a governed refusal is owed"). Two findings, classified apart (§B rule):
+#   §B.2 candidate (SDK) — the resolver lets `TemporalOrderError` escape instead of
+#       refusing (or excluding) evidence dated after the instant it evaluates at;
+#   §B.4 (example/estate) — the snapshot holds evidence booked after the asked
+#       instant and this deployment's acquisition does not bound it by `asked_at`.
+# The example is NOT changed to avoid the raise: that would erase the only
+# reproduction of the SDK half (D-IMPL-261). Strict, so the fix is noticed.
+DRAWDOWN_DAY_ASKED_AT = datetime(2025, 9, 9, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=TemporalOrderError,
+    reason=(
+        "CP08-R3-F-01 (NEEDS-SDK, §B.2 candidate): TemporalOrderError escapes the governed"
+        " resolver for evidence booked after the asked instant; a governed outcome is owed"
+    ),
+)
+def test_a_question_asked_on_the_drawdown_day_gets_a_governed_outcome_not_a_raise(
+    example: tuple[Any, Any, Any]
+) -> None:
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    _, _, run = example
+    drawdown = run.DEMONSTRATION_DRAWDOWN
+    outcome = _serve(example, asked_at=DRAWDOWN_DAY_ASKED_AT, as_of=drawdown, known_as_of=drawdown)
+    assert isinstance(outcome, RefusalEnvelope) or hasattr(outcome, "product"), outcome

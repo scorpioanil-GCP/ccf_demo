@@ -311,6 +311,17 @@ agent:
   name: credit-memo-composer
   archetypes: [context_assembly]
 
+# THE FIVE GRANTS THE DEPLOYMENT DECLARES (2026-10-11 compatibility repair; SDK
+# round 2, ruling 4). Since D-IMPL-353 the paved road cannot grant a skill on its
+# own authority, and no example-reachable door could put these five in force, so
+# every open refused `GrantNotInForce`. The deployment now DECLARES the grants its
+# agent needs; `open_product` requests each through the grant ledger at
+# composition — the regime's tier-1 compatibility check against
+# `skill_governance` above, its tier-2 approval rule, the audit and grant-state
+# records — exactly as a door grant. These are the five `skills:` above, no more:
+# the agent's actual requirement, one child class each.
+grants: [spread-ask, family-ask, exposure-ask, collateral-ask, covenant-ask]
+
 # HOW FAR INTO THE PAST THIS TENANT ANSWERS FOR (`D-IMPL-358` ruling 11). Added
 # 2026-10-11 as a compatibility repair (examples/AMENDMENTS-2026-10-11.md): every
 # governed serve now consults this declaration and an undeclared boundary refuses
@@ -328,3 +339,21 @@ agent:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
+# 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
+# the dated scenario and use the existing, explicitly labelled development-clock
+# mechanism"). Added 2026-10-11 (examples/AMENDMENTS-2026-10-11.md, round 3). The
+# demonstration question — `run.py`'s default, the CP-14 instant — is asked at
+# 2026-09-07T12:00Z; this deployment declares, in its own Control Plane, that it
+# is a DEMONSTRATION serving at 2026-09-07T12:05Z — five minutes later, inside the
+# one-hour `temporal_boundary` above, and the same declared instant
+# cp-06-canonical (a producer of this composite) serves on. Nothing a question
+# carries can move it, and the SDK refuses it unless the fabric runs on its
+# development substrates (this tree's SQLite graph and the default file-backed
+# store). Every replay record written under it names this declaration in its
+# Policy Bindings dimension. Remove this section and the deployment serves on the
+# real clock again — and the demonstration question is then refused
+# `asked-at-outside-temporal-bound`, the correct answer for a question that old.
+demonstration_serve_instant:
+  serve_instant: "2026-09-07T12:05:00+00:00"

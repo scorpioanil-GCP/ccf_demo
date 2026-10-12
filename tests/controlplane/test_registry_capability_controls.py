@@ -90,7 +90,11 @@ def _nothing_registered(registry: ControlPlaneRegistry, *keys: str) -> None:
 class TestPositive:
     def test_the_registering_kinds_are_the_three_doors_the_composition_root_and_the_one_derived_writer(self) -> None:
         assert REGISTER_KINDS == (Register, CompositionRegister, AgentDeclare, SkillCatalogRegister)
-        assert DERIVED_REGISTER_KINDS == (SkillGrant,)
+        # Ruling 4 (Dave, 2026-10-11 16:23): the ledger's derived write under the
+        # door's grant kind, or the composition root's declared-grant kind.
+        from ccf.authz.capability import DeclaredSkillGrant
+
+        assert DERIVED_REGISTER_KINDS == (SkillGrant, DeclaredSkillGrant)
 
     @pytest.mark.parametrize("kind", REGISTER_KINDS)
     def test_each_door_kind_registers_under_the_capabilitys_resource(

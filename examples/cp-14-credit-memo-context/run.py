@@ -37,6 +37,8 @@ from pathlib import Path
 import deployment
 import produce
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -85,7 +87,12 @@ def main(argv: list[str]) -> int:
         outcome = opened.answer(asked)
         store_root = opened.scratch / opened.replay.store_dirname
         # The record, from a FRESH store instance: what an examiner finds.
-        fresh = FileArtifactStore(root=store_root)
+        # AMENDED 2026-10-11 (round 3; examples/AMENDMENTS-2026-10-11.md): a
+        # `FileArtifactStore` now requires `write_kinds` (D-IMPL-353 §1.2) — the
+        # same declaration the road's own store makes for this deployment's
+        # replay classes. This instance only reads.
+        fresh = FileArtifactStore(root=store_root, write_kinds=WriteKinds.declare(
+            {opened.replay.record_class: (ReplayMint,), opened.replay.query_pin_class: (ReplayMint,)}))
         if isinstance(outcome, ServedProduct):
             address = outcome.replay_ref.content_address
         else:

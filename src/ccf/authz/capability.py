@@ -99,6 +99,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "CompositionRegister",
+    "DeclaredSkillGrant",
     "InvalidationRecordRegister",
     "COMPOSITION_PRINCIPAL",
     "verify_any",
@@ -296,6 +297,32 @@ class InvalidationRecordRegister(ActionKind, action_id="composition.invalidation
     """
 
 
+class DeclaredSkillGrant(ActionKind, action_id="composition.skill-grant"):
+    """The kind a composition root requests a DEPLOYMENT-DECLARED skill grant under (G3 / cp-14).
+
+    Dave, 2026-10-11 16:23 MST, ruling 4: *"Provide the supported way for a deployment to
+    declare the grants its agent needs, registered at composition through the existing grant
+    governance (policy-regime compatibility check, audit, replay capture) ... Do not obtain
+    success by bypassing a gate or inventing a grant."* SDK-defined (CLAUDE.md §11). It answers
+    the question :class:`~ccf.products.product.GrantNotInForce` recorded for D-IMPL-354: a
+    deployment's DECLARED grants are a composition-time act the composition root may make.
+
+    Narrow by construction, on :class:`InvalidationRecordRegister`'s pattern:
+
+    * **No door declares it** and :func:`kind_for_action` refuses its id by name, so no served
+      surface can obtain one; only :func:`mint_at_composition` mints it, and the §4 lint holds
+      that to the composition modules.
+    * It is DISTINCT from the door's ``SkillGrant``: a capability of either kind is not the other
+      to ``verify``, and the door's kind stays unmintable at composition.
+    * It authorizes nothing the ledger does not then decide: the grant ledger accepts it on
+      :meth:`~ccf.skills.grants.GrantLedger.request` alone, bound to the ONE agent definition its
+      resource names, and runs the same tier 1 (policy-regime compatibility) and tier 2
+      (the regime's approval sink) a door grant runs, with the same audit and state records.
+      A regime that refuses the skill refuses it here; a regime that requires approval suspends
+      on the deployment's sink.
+    """
+
+
 class ArtifactErase(ActionKind, action_id=ACTION_ARTIFACT_ERASE):
     """The erasure door's kind (SEC-009; `D-IMPL-374` (4), ruling 3; design `D-IMPL-367` §4.1).
 
@@ -351,6 +378,12 @@ def kind_for_action(action_id: str) -> type[ActionKind]:
             f"{action_id!r} is the composition root's invalidation-record kind and"
             " no door declares it: a served surface cannot obtain"
             " Authorized[InvalidationRecordRegister] (D-IMPL-382, ruled 2026-10-11)"
+        )
+    if action_id == DeclaredSkillGrant.action_id:
+        raise CapabilityBypassError(
+            f"{action_id!r} is the composition root's declared-grant kind and no"
+            " door declares it: a served surface cannot obtain"
+            " Authorized[DeclaredSkillGrant] (ruling 4, Dave 2026-10-11)"
         )
     if action_id == CompositionRegister.action_id:
         raise CapabilityBypassError(
@@ -503,6 +536,7 @@ COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (
     ReplayMint,
     CompositionRegister,
     InvalidationRecordRegister,
+    DeclaredSkillGrant,
 )
 
 #: The principal a composition root mints under — the SDK's own name for a
@@ -525,6 +559,10 @@ def mint_at_composition(
 def mint_at_composition(
     kind: type[InvalidationRecordRegister], *, tenant: str, principal: str, resource: str, decision_id: str
 ) -> Authorized[InvalidationRecordRegister]: ...
+@overload
+def mint_at_composition(
+    kind: type[DeclaredSkillGrant], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[DeclaredSkillGrant]: ...
 
 
 def mint_at_composition(

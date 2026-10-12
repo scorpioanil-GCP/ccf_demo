@@ -112,6 +112,21 @@ is nothing in-tree to fall back *onto*.
 
 ### The one command
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). This specimen's spine now serves through
+> the SDK's governed resolver (`ccf.products.resolver.build_governed_resolver`):
+> since `D-IMPL-353`/`D-IMPL-354` a deployment can no longer register its own
+> Control Plane entries or construct its own replay writers, which is what the
+> frozen `produce.py` did. The question, the threshold, the operators, the TTL
+> and the debt arithmetic are unchanged. Because the question is dated (asked as
+> of 2026-08-26 about the quarter ending 2026-03-31) and the resolver judges its
+> gates at a serve clock, `ccf_config.yaml` declares that instant as a labeled
+> `demonstration_serve_instant:` (honored only on the SDK's own development
+> backends, pinned on every record) beside the now-mandatory
+> `temporal_boundary:`. The default command below serves the demonstration
+> answer — measured 2026-10-11: 21 holders at or above $1,000,000,000,
+> `D_c = 0.5582`. The text of this README before the amendment is in git.
+
 ```sh
 make example-cp-00
 ```

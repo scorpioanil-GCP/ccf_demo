@@ -59,6 +59,11 @@ tool_description: >-
 # The scope this door requires of a presented token. FastMCP intersects it with
 # the scopes the token grant carries, so both halves of the coarse
 # authorization decision stay with the deployment.
+# THE IDENTITY EVERY OUTCOME OF THIS DOOR ASSERTS (`D-IMPL-340`). AMENDED
+# 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md) when `serve.py` moved
+# onto the SDK's standard door, which asserts a producer identity and holds no
+# default for it. The tenant it asserts is `../ccf_config.yaml::tenant_id`.
+producer_id: cp-04-corporate-family-tree-egress
 required_scope: ccf:egress
 
 # The resource-server identity this door advertises, and the issuer it names as

@@ -54,11 +54,9 @@ import pytest
 import yaml
 
 from ccf.erasure import ErasureTrust
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract, ProductLineage
-from ccf.products.expiry import TTLAnchorUndeclared
 from ccf.products.product import OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
@@ -66,7 +64,13 @@ from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_content import frozen_by_content_violations
+from tests.examples.demonstration_deployment import (
+    anchored_after,
+    deployment_serving_at,
+    paved_root_on_the_real_clock,
+    paved_root_serving_at,
+)
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -208,14 +212,31 @@ def _question(
     return opened.question(subject=facility, asked_at=asked_at, intent=intent, freshness=FRESHNESS, parameters=parameters)
 
 
+def _opened(modules: dict[str, Any], scratch: pathlib.Path, question: dict[str, Any]) -> Any:
+    """The product a question is asked of, on the run's ONE time anchor (ruling 1).
+
+    The tree's own `ccf_config.yaml` declares a labelled demonstration serve
+    instant five minutes after `CP14_INSTANT`. A question at any OTHER instant
+    is served by a test-owned copy of the two documents declaring five minutes
+    after that question (`tests/examples/demonstration_deployment.py`).
+    """
+    asked_at = question.get("asked_at", CP14_INSTANT)
+    if asked_at == CP14_INSTANT:
+        return modules["produce"].product(scratch)
+    root = paved_root_serving_at(
+        EXAMPLE, serve_instant=anchored_after(asked_at), directory=scratch / "deployment"
+    )
+    return modules["produce"].product(scratch, config_root=root)
+
+
 def _ask(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> Any:
     """One question on the paved road, in its own scratch: the outcome as data."""
-    with modules["produce"].product(scratch) as opened:
+    with _opened(modules, scratch, question) as opened:
         return opened.answer(_question(opened, modules["deployment"], **question))
 
 
 def _answer(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> _Answer:
-    with modules["produce"].product(scratch) as opened:
+    with _opened(modules, scratch, question) as opened:
         outcome = opened.answer(_question(opened, modules["deployment"], **question))
         assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
         return _Answer(product=outcome.product, record=opened.record_of(outcome), served=outcome)
@@ -247,7 +268,15 @@ def _specimen(facility: str, scope: str, *, intent: str = INTENT, asked_at: date
         with _tree_modules(SPECIMEN) as specimen, tempfile.TemporaryDirectory() as scratch:
             asked = specimen["deployment"].request(facility_id=facility, borrower_scope=[scope], asked_at=asked_at)
             asked = asked.model_copy(update={"intent": intent})
-            outcome = specimen["produce"].assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+            # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the specimen
+            # serves again, on the wall clock; a question at a pinned instant is
+            # served by a test-owned copy of ITS config declaring that instant's
+            # labelled demonstration serve instant — one anchor for both trees.
+            config = deployment_serving_at(
+                SPECIMEN / "ccf_config.yaml", serve_instant=anchored_after(asked_at),
+                directory=pathlib.Path(scratch) / "deployment",
+            )
+            outcome = specimen["produce"].assemble_and_serve(asked=asked, root=pathlib.Path(scratch), config=config)
             # The specimen's spine returns its own `Assembled` record; the
             # successor's road returns the `ServedProduct`. Normalized here.
             return outcome if isinstance(outcome, RefusalEnvelope) else outcome.served
@@ -448,10 +477,11 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     **Re-measured at the CP-14 instant on 2026-09-18**, after the window was
     calibrated to the appraisal cycle: the successor's payload still hashes to the baseline, and
     its `expires_at` runs from the valuation rather than the question. The
-    frozen specimen no longer answers at all — it declares the same anchor over
-    a resolver wired with no λ_c table, which is a configuration failure the
-    builder refuses (`TTLAnchorUndeclared`) before a question proceeds
-    (`D-IMPL-261`: evidence of the SDK's evolution, the specimen untouched).
+    frozen specimen no longer answered at all — it declared the same anchor over
+    a resolver wired with no λ_c table, a configuration failure the builder
+    refused (`TTLAnchorUndeclared`) before a question proceeded. **Repaired
+    2026-10-11** (Dave, 18:09 MST: "repair cp-06"): the specimen now declares
+    the same evidence clock and window, and the lane is measured live again.
     Its `F` was, while it served, an asset aged by `now - valuation_age_days` —
     a STORED count that equals the valuation's real age only on the day the
     estate was loaded (two load dates, `2026-08-17` and `2026-08-22`).
@@ -469,8 +499,19 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     assert successor.product.temporal_boundary == instant
     assert successor.product.expires_at == successor.product.ttl_anchor_at + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
     assert successor.product.expires_at < instant + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"])), "the successor's expiry is running from the question"
-    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
-        _specimen(facility, scope, asked_at=instant)
+    # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the frozen specimen
+    # was repaired onto the same `D-IMPL-341` anchor (decay basis, entity clock
+    # row, appraisal-cycle window), so the lane is measured LIVE again: same
+    # payload address, same debt, same expiry, at one instant.
+    specimen = _specimen(facility, scope, asked_at=instant)
+    assert not isinstance(specimen, RefusalEnvelope), specimen
+    assert content_hash(specimen.product.payload) == content_hash(successor.product.payload), (
+        "the repaired specimen and the successor no longer serve one payload")
+    assert specimen.product.debt == successor.product.debt
+    assert (specimen.product.ttl_anchor_at, specimen.product.expires_at) == (
+        successor.product.ttl_anchor_at, successor.product.expires_at)
+    assert specimen.product.tenant_id != successor.product.tenant_id
+    assert not specimen.product.plan_id.startswith("cp-06-canonical.")
     assert (successor.product.schema_name, successor.product.schema_version) == (PRODUCT_CLASS, "1.0.0")
     assert CONFIG["product_class"]["schema_version"] == CONFIG["request_contract"]["schema_version"] == "1.0.0"
     # the contract is NOT the same, by construction
@@ -555,20 +596,52 @@ def test_the_structural_classifier_reads_this_tree_as_paved() -> None:
         assert not (forbidden & (bound | called)) or path.name == "serve.py" and (forbidden & (bound | called)) == {"serve"}, (path, forbidden & (bound | called))
 
 
+#: `CSCC-G16`'s freeze, BY CONTENT (Dave, 2026-10-11, ruling 3: "Update affected
+#: specimen checks explicitly"). Every file of the cp-06 specimen not named in
+#: `SPECIMEN_AMENDED` must hold these bytes — recorded from `a280082e`, the
+#: Tuesday baseline, where the specimen was byte-identical to its freeze.
+SPECIMEN_FROZEN = {
+    "FINDINGS.md": "d203ebc0cf0a1e9a10faa676669f6c8f0a4b8c8cd0a57f9bcd0eca21c25b912c",
+    "acquisition.py": "b3888fccab6ee072714196bd6544e8b5e56971d6949aa02f3bd6d5d4af105c41",
+    "artifacts/gates.yaml": "642b32198f818f4a2343e04fe99f0d0a79774a3aae364050dac152e0833e9ce8",
+    "artifacts/projection.yaml": "9a237fd39e6ea71030c43702f41aeb338fa1de60ce497170275950cf86a4fef8",
+    "artifacts/source-vocabulary.yaml": "f6ebc278c0aae65bef32f854605d11470dcddd947c4965b36187cc5d049aacce",
+    "projection.py": "13427c110ba3470e4a6770743dcbea65cb16fc9e22cd6111d8545a71688afb71",
+    "run.py": "d481ef508593dd36b8860fbe910df45612c06c317637f44282ad28d24dc9272d",
+    "server/door.yaml": "c3965c543218d6fa43600edeb97a933605cc6494fd7da2ac095abb6b1bca7ea4",
+    "server/serve.py": "ad41d5f6f0715a00d14f84f9b2a6f6f51c173a1a889b43420baccdae5ac6f8a7",
+    "spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md": "8c12fab9bf57a351f7cba34f70b7d0704a0ca80b9436f926d7008b8b7293331a",
+}
+
+#: The specimen's files amended by authorized compatibility repairs, and why
+#: (`examples/AMENDMENTS-2026-10-11.md`). Nothing else may differ.
+SPECIMEN_AMENDED = {
+    "backends.yaml": "2026-10-11: the SQLite identity-lock directory (P1 (a))",
+    "deployment.py": "2026-10-11: the SQLite identity-lock directory (P1 (a)); then (Dave, 18:09 MST, \"repair cp-06\") tenant-placed request contract, served_at, the valuation date as each asset claim's valid_from, debt aged from valid_from, the appraisal-cycle window (D-IMPL-341 ported from cp-06-canonical)",
+    "ccf_config.yaml": "2026-10-11 (\"repair cp-06\"): decay_basis: valid-from on every λ_c row, the clock-only collateral_node row, temporal_boundary (D-IMPL-358)",
+    "produce.py": "2026-10-11 (\"repair cp-06\"): write_kinds, tenant-placed keys, evidence_clock_key, the deployment `config` parameter",
+    "README.md": "2026-10-11 (\"repair cp-06\"): the changed expiry and debt behavior disclosed",
+}
+
+
 def test_the_specimen_is_untouched_and_no_identity_is_reused(served: _Answer) -> None:
-    """cp-06 is frozen under `D-IMPL-261`: ZERO files changed by this work,
-    measured against the branch point; and this tree reuses none of the
-    specimen's identities — tenant, producer id, plan-id prefix, gate id,
-    class ids.
+    """cp-06 is a frozen specimen (`D-IMPL-261`), amended ONLY where named; and
+    this tree reuses none of the specimen's identities — tenant, producer id,
+    plan-id prefix, gate id, class ids.
+
+    **Rewritten 2026-10-11 (ruling 3).** The gate used to assert ZERO files
+    changed against the branch point, which reads red on a branch carrying an
+    authorized compatibility repair and green once that repair reaches `main`
+    — evidence of where a commit is, not of what the specimen holds. It now
+    names the amended files and asserts every other file frozen by its bytes,
+    with no file added or removed (`tests/examples/specimen_content.py`).
 
     Declared product gate `CSCC-G16` (`CP-SPEC-006C` §G.1).
     """
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    problems = frozen_by_content_violations(
+        REPO_ROOT, SPECIMEN, frozen=SPECIMEN_FROZEN, amended=SPECIMEN_AMENDED
+    )
+    assert problems == [], f"the frozen specimen moved outside its named amendments: {problems}"
     specimen_config = yaml.safe_load((SPECIMEN / "ccf_config.yaml").read_text(encoding="utf-8"))
     assert CONFIG["tenant_id"] != specimen_config["tenant_id"]
     assert CONFIG["product_class"]["declared_product_gate"]["gate_id"] != specimen_config["product_class"]["declared_product_gate"]["gate_id"]
@@ -673,7 +746,7 @@ def test_the_cp14_question_is_answered_in_another_process_and_admitted_under_pro
         assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
         row = consumer_row(opened, outcome)
         child = ContextProductContract.model_validate_json(
-            FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=row.child_content_address)
+            opened.artifact_store.get(content_address=row.child_content_address)
         )
     assert row.outcome_status == "admitted" and row.eligibility_basis == "provider-controls"
     assert (row.producer_id, row.producer_tenant, row.child_schema_name, row.child_schema_version) == (PRODUCER_ID, PRODUCER_TENANT, PRODUCT_CLASS, "1.0.0")
@@ -757,8 +830,12 @@ def test_an_unknown_intent_is_refused_on_the_declared_discovery_set(estate: None
     # question; since Dave's registration ruling its wiring is refused at the
     # builder — for the table it does not name, never for the intent
     # (`D-IMPL-261` evidence; the specimen is untouched).
-    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
-        _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
+    # AMENDED 2026-10-11 (Dave, 18:09 MST: "repair cp-06"): the repaired
+    # specimen serves again, and it still judges no intent — it SERVES the
+    # question the successor refuses (`CP-SPEC-006C` §G.3, the deliberate
+    # difference this gate reports).
+    specimen = _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
+    assert not isinstance(specimen, RefusalEnvelope), specimen
 
 
 def test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal(
@@ -838,11 +915,16 @@ def test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question(serve
 
 
 def _refused(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> tuple[RefusalEnvelope, DecisionReplayRecord]:
-    """One refused question with its persisted record, read from a fresh store instance."""
-    with modules["produce"].product(scratch) as opened:
+    """One refused question with its persisted record, read through the opened product's own store.
+
+    Amended 2026-10-11: a second `FileArtifactStore` over the same directory now
+    needs `write_kinds` (D-IMPL-353 §1.2); the product already holds the ONE
+    declared store, as `dr-01` reads it.
+    """
+    with _opened(modules, scratch, question) as opened:
         outcome = opened.answer(_question(opened, modules["deployment"], **question))
         assert isinstance(outcome, RefusalEnvelope), getattr(outcome, "product", outcome)
-        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        store = opened.artifact_store
         record = DecisionReplayRecord.model_validate_json(store.get(content_address=store.resolve_uri(uri=outcome.replay_reference)))
     return outcome, record
 
@@ -983,7 +1065,7 @@ def test_replay_reproduces_the_served_product_from_the_recorded_graph_inputs(
             environment = _FreshEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)
             replayed = replay(
                 record_address=outcome.replay_ref.content_address,
-                store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname),
+                store=opened.artifact_store,
                 reader=fabric.handle.reader, control_plane=opened.control_plane, environment=environment,
             )
     assert replayed.product_content_address == content_hash(outcome.product)
@@ -1005,7 +1087,7 @@ def test_a_refused_determination_reconstructs_through_the_344_path_without_a_pro
         denied = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS))
         assert isinstance(denied, RefusalEnvelope), denied
         record = opened.record_of(denied)
-        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        store = opened.artifact_store
         address = store.resolve_uri(uri=denied.replay_reference)
         with _reopened_fabric(opened) as fabric:
             environment = _FreshEnvironment(modules=modules, opened=opened, fabric=fabric, record=record)
@@ -1016,3 +1098,25 @@ def test_a_refused_determination_reconstructs_through_the_344_path_without_a_pro
     assert reconstructed.child_contract_addresses == () and environment.rehydrated == 0
     assert reconstructed.graph_snapshot_id == record.context_fabric_snapshot.graph_snapshot_id
     assert "product" not in type(reconstructed).model_fields
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question at `CP14_INSTANT`, asked of this tree's own two
+    documents with the declared demonstration serve instant REMOVED, is served on
+    the real clock — outside the one-hour `temporal_boundary`, so the SDK refuses
+    it by name, as data, with a replay reference. The same question on the
+    shipped tree serves.
+    """
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        refused = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=CP14_SCOPE))
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    served = _ask(modules, tmp_path / "shipped", facility=CP14_FACILITY, scope=CP14_SCOPE)
+    assert isinstance(served, ServedProduct), getattr(served, "detail", served)
+

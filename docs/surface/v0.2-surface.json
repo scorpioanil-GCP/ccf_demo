@@ -1074,6 +1074,7 @@
       "ConfigRegister",
       "ConfigResolve",
       "ConfigVersionsRead",
+      "DeclaredSkillGrant",
       "DocsRead",
       "Execute",
       "GrantMutate",
@@ -1174,6 +1175,10 @@
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "ConfigVersionsRead": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
+      },
+      "DeclaredSkillGrant": {
         "kind": "class",
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
@@ -1994,6 +1999,7 @@
           "default_perspective": "collections.abc.Mapping[str, typing.Any] | None",
           "demonstration_serve_instant": "collections.abc.Mapping[str, typing.Any] | None",
           "door": "collections.abc.Mapping[str, typing.Any] | None",
+          "grants": "tuple[str, ...] | None",
           "half_life": "collections.abc.Mapping[str, typing.Any] | None",
           "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "policy": "collections.abc.Mapping[str, typing.Any] | None",
@@ -2001,6 +2007,7 @@
           "policy_constraints": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "producers": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "product_class": "collections.abc.Mapping[str, typing.Any]",
+          "product_entitlement": "collections.abc.Mapping[str, typing.Any] | None",
           "replay": "collections.abc.Mapping[str, typing.Any] | None",
           "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution": "collections.abc.Mapping[str, typing.Any] | None",
@@ -2560,7 +2567,7 @@
       },
       "DerivedRegisterAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.DeclaredSkillGrant]]"
       },
       "INVALIDATION_RECORD_CLASS_ID": {
         "kind": "constant",
@@ -2701,7 +2708,7 @@
       },
       "StateWriteAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.SkillRevoke]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.SkillRevoke], ccf.authz.capability.Authorized[ccf.authz.capability.DeclaredSkillGrant]]"
       },
       "StateWriteBypassError": {
         "kind": "class",
@@ -8466,6 +8473,7 @@
       "AssessmentContext",
       "ChildResolverFactory",
       "ConsumerContext",
+      "DeclaredGrantRefused",
       "GrantNotInForce",
       "OpenedProduct",
       "PopulationAcquireProtocol",
@@ -8495,7 +8503,11 @@
       },
       "ConsumerContext": {
         "kind": "class",
-        "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]') -> None"
+        "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]', derived_children: 'QuestionBoundChildResolver | None' = None, agent: 'AgentDefinition | None' = None) -> None"
+      },
+      "DeclaredGrantRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, skill: 'str', refusal: 'object | None') -> 'None'"
       },
       "GrantNotInForce": {
         "kind": "class",
@@ -8503,7 +8515,7 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False) -> 'None'"
       },
       "PopulationAcquireProtocol": {
         "kind": "class",

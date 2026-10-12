@@ -529,6 +529,25 @@ def reconciliation_gate(
     return None
 
 
+def _declared_serve_instant() -> datetime:
+    """cp-05's declared demonstration serve instant, held equal to ``ASKED_AT``.
+
+    The canonical path serves on this declaration (D-IMPL-378 C1). If the
+    shipped config stopped declaring it, or declared another instant, the
+    fixture's acquisition clock and the serve clock would disagree and every
+    finding below would be measured at the wrong instant — so that is refused
+    here by name rather than discovered as a TTL refusal.
+    """
+    declared = shipped_config().get("demonstration_serve_instant")
+    assert declared is not None, (
+        "cp-05's config no longer declares a demonstration serve instant; the"
+        " canonical path would serve at the real clock"
+    )
+    instant = datetime.fromisoformat(str(declared["serve_instant"]))
+    assert instant == ASKED_AT, (instant, ASKED_AT)
+    return instant
+
+
 def _resolver(
     fabric: Fabric,
     *,
@@ -548,6 +567,7 @@ def _resolver(
         )
 
     ttl = _load(TTL_ARTIFACT)[DECLARATION]
+    _declared_serve_instant()
     return build_governed_resolver(
         fabric=fabric.booted,
         control_plane=fabric.control_plane,
@@ -560,14 +580,19 @@ def _resolver(
         operator_parameter_keys=tuple(_placed(fabric.booted, key) for key in OPERATOR_PARAMETER_KEYS),
         policy_bundle_key=_placed(fabric.booted, POLICY_BUNDLE_KEY),
         plan_factory=plan_factory,
-        # `D-IMPL-358` step 5 section H, class 1. The fabric clock, pinned to the
-        # instant this fixture's own acquisition source is pinned to (line above:
-        # `FileRecordAcquisitionSource(clock=lambda: ASKED_AT)`). Unpinned, cp-05's
-        # records are ingested as of March and served at the real clock, so the
-        # declared TTL has long expired by the time Gate 3 compares it against the
-        # moment of service — and this module's findings are about a WRONG answer,
-        # which a refusal cannot demonstrate.
-        admission_clock=lambda: ASKED_AT,
+        # `D-IMPL-358` step 5 section H, class 1 — AMENDED 2026-10-11 (ruling 3;
+        # `examples/AMENDMENTS-2026-10-11.md` CP05-R2-02). This call once pinned
+        # `admission_clock=lambda: ASKED_AT`, because unpinned, cp-05's records are
+        # ingested as of March and served at the real clock, the declared TTL has
+        # long expired by the time Gate 3 compares it against the moment of
+        # service — and this module's findings are about a WRONG answer, which a
+        # refusal cannot demonstrate. cp-05's shipped config now DECLARES that
+        # instant (`demonstration_serve_instant:`), and the SDK refuses a composed
+        # clock beside a declaration (`DemonstrationServeInstantConflict`, D-IMPL-378
+        # C1: one serve instant, one authority). The declaration is therefore the
+        # serve clock here, and `_declared_serve_instant` holds it equal to the
+        # fixture's `ASKED_AT`, so the module still serves at the instant its
+        # acquisition source is pinned to.
         debt_scorer=declared_debt_scorer(fabric.booted),
         product_gate=reconciliation_gate,
         artifact_store_root=fabric.root,

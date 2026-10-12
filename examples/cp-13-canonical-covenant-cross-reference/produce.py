@@ -84,17 +84,24 @@ def _withholds_no_subject() -> bool:
 plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
 
 
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
     """Bind this deployment's three verbs and its declared gate to its two documents.
 
     `ccf_config.yaml` declares the product and every binding; `ccf_environment
     .yaml` names where the three source stores and the door's credential are
     read from.
+
+    ``config_root`` is the DEPLOYMENT — this tree, unless a deployer (a test)
+    opens a copy of its two documents declaring a different demonstration serve
+    instant, or none (`tests/examples/demonstration_deployment.py`; amended
+    2026-10-11). Nothing on a question can move the serve clock.
     """
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=plan_factory,

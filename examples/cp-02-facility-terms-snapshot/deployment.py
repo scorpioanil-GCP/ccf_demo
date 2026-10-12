@@ -48,6 +48,7 @@ from ccf.controlplane.artifacts import (
     PerspectiveArtifact,
     ProductClassDeclaration,
 )
+from ccf.controlplane.registry import namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtAssessment, DebtFactors
@@ -98,6 +99,13 @@ NOT_EVALUABLE = "NOT_EVALUABLE"
 
 #: §B.4 — the caller's parameters.
 PARAM_DEBT_TOLERANCE = "debt_tolerance"
+#: AMENDED 2026-10-11 (compatibility repair): the request parameter that carries
+#: the calling principal's expanded jurisdiction grant to the policy operator,
+#: through the declared request binding in `ccf_config.yaml`
+#: (`permitted_classifications: {source: effective_request, parameter: ...}`,
+#: D-IMPL-295). Before the repair `read` wrote the grant over the resolved
+#: policy artifact at runtime — the ungoverned write that ruling retired.
+PARAM_JURISDICTIONS = "jurisdictions"
 PARAM_INCLUDE_PRICING_GRID = "include_pricing_grid"
 
 #: The `sources:` block `backends.yaml` declares for the system of record.
@@ -651,8 +659,14 @@ class FacilityScenario:
     max_ttl_seconds: int
     halflife_debt_profile: str
 
-    request_contract_key: str = KEY_REQUEST_CONTRACT
-    policy_bundle_key: str = KEY_POLICY_BUNDLE
+    # AMENDED 2026-10-11 (compatibility repair): the loader places every key
+    # under the tenant (D-IMPL-354), and the governed resolver resolves the
+    # artifacts by the placed key. `read` supplies them; the bare names stay
+    # the deployment's vocabulary.
+    request_contract_key: str
+    policy_bundle_key: str
+    product_class_key: str
+    half_life_key: str
     replay_record_class: str = REPLAY_RECORD_CLASS
     query_pin_class: str = QUERY_PIN_CLASS
     artifact_store_dirname: str = ARTIFACT_STORE_DIRNAME
@@ -777,6 +791,9 @@ class FacilityScenario:
             Observation(
                 observation_type=SIGNAL_STRUCTURAL,
                 observed_at=record.claim.valid_from,
+                # AMENDED 2026-10-11: the same instant, also on the field a
+                # `decay_basis: valid-from` row reads. The arithmetic is unchanged.
+                valid_from=record.claim.valid_from,
                 subject=record.claim.entity_uri,
             )
             for record in rows
@@ -829,6 +846,41 @@ class FacilityScenario:
         return Decimal("0.5")
 
 
+def _placed(booted: BootedFabric, key: str) -> str:
+    """``key`` as the loader placed it under this deployment's tenant.
+
+    AMENDED 2026-10-11 (compatibility repair): since D-IMPL-354 every manifest
+    key is placed under the tenant, and a bare read raises naming the placed
+    key. The bare names stay this deployment's vocabulary.
+    """
+    return namespaced_key(tenant=booted.tenant_id, key=key)
+
+
+def _stating_the_grant(
+    asked: ProductRequest, granted: tuple[str, ...]
+) -> ProductRequest:
+    """``asked``, with the calling principal's grant STATED as ``jurisdictions``.
+
+    AMENDED 2026-10-11 (compatibility repair; D-IMPL-295). The grant is what
+    the spine used to write over the resolved policy artifact; it now travels
+    on the request, so the effective request records it and replay re-asks it.
+    A caller that states its own ``jurisdictions`` must state exactly the grant
+    this deployment derives for the asking principal — a different value is
+    refused by name rather than silently replaced or silently honored.
+    """
+    stated = asked.parameters.get(PARAM_JURISDICTIONS)
+    if stated is not None and tuple(stated) != tuple(granted):
+        raise ValueError(
+            f"the request states {PARAM_JURISDICTIONS}={list(stated)!r}, and the"
+            f" asking principal's grant is {list(granted)!r}; this deployment"
+            " derives the grant from the principal and does not take it from"
+            " the caller"
+        )
+    return asked.model_copy(
+        update={"parameters": {**asked.parameters, PARAM_JURISDICTIONS: list(granted)}}
+    )
+
+
 def read(
     booted: BootedFabric,
     asked: ProductRequest,
@@ -850,7 +902,9 @@ def read(
     """
     artifacts = booted.artifacts
     ttl = _declaration(TTL)
-    declared_perspective = cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE])
+    declared_perspective = cast(
+        PerspectiveArtifact, artifacts[_placed(booted, KEY_PERSPECTIVE)]
+    )
     if principal_id is not None and principal_id != declared_perspective.principal_id:
         declared_perspective = declared_perspective.model_copy(
             update={"principal_id": principal_id}
@@ -876,34 +930,47 @@ def read(
         if (read_source.sees_need_to_know or ignore_need_to_know)
         else ()
     )
-    declared_policy = cast(
-        OperatorParametersArtifact, artifacts[KEY_POLICY_OPERATOR]
-    )
-    policy_parameters = declared_policy.model_copy(
-        update={"permitted_classifications": tuple(permitted)}
-    )
+    #
+    # AMENDED 2026-10-11: the composed allowlist now travels ON the request
+    # (`_stating_the_grant`) and reaches the operator through the declared
+    # binding; the resolved artifact is handed on unmodified.
+    granted = tuple(permitted)
 
     return FacilityScenario(
         envelopes=read_source.envelopes,
         resolved=read_source.resolved,
         permitted_jurisdictions=read_source.permitted_jurisdictions,
         sees_need_to_know=read_source.sees_need_to_know,
-        request=asked,
+        request=_stating_the_grant(asked, granted),
         request_contract=ProductRequestContract.from_declared(
-            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+            cast(Any, artifacts[_placed(booted, KEY_REQUEST_CONTRACT)])
         ),
-        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
+        product_class=cast(
+            ProductClassDeclaration, artifacts[_placed(booted, KEY_PRODUCT_CLASS)]
+        ),
         perspective=declared_perspective,
-        operator_parameters={KEY_POLICY_OPERATOR: policy_parameters},
-        resolution=cast(EntityResolutionSpec, artifacts[KEY_RESOLUTION]),
-        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        operator_parameters={
+            _placed(booted, KEY_POLICY_OPERATOR): cast(
+                OperatorParametersArtifact,
+                artifacts[_placed(booted, KEY_POLICY_OPERATOR)],
+            )
+        },
+        resolution=cast(EntityResolutionSpec, artifacts[_placed(booted, KEY_RESOLUTION)]),
+        half_life_table=cast(
+            HalfLifeTable, artifacts[_placed(booted, KEY_HALF_LIFE_TABLE)]
+        ),
+        debt_profile=cast(DebtProfile, artifacts[_placed(booted, KEY_DEBT_PROFILE)]),
         ttl_seconds=int(ttl["declared_ttl_seconds"]),
         max_ttl_seconds=int(ttl["max_ttl_seconds"]),
         halflife_debt_profile=(
             f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
-            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
+            f"{KEY_DEBT_PROFILE}@"
+            f"{booted.pins.version_for(_placed(booted, KEY_DEBT_PROFILE))}"
         ),
+        request_contract_key=_placed(booted, KEY_REQUEST_CONTRACT),
+        policy_bundle_key=_placed(booted, KEY_POLICY_BUNDLE),
+        product_class_key=_placed(booted, KEY_PRODUCT_CLASS),
+        half_life_key=_placed(booted, KEY_HALF_LIFE_TABLE),
     )
 
 

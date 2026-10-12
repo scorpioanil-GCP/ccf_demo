@@ -312,3 +312,21 @@ default_perspective:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# WHO THE MCP DOOR SERVES, AND UNDER WHICH ROLE (G4-F-04; Dave, 2026-10-11 16:23
+# MST, ruling 4). Added 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md):
+# the tenant's `ccf.product-entitlement-policy`, declared as Control Plane DATA.
+# `server/serve.py` used to register this policy by hand, which D-IMPL-353 now
+# refuses (`CapabilityBypassError`); the SDK's own boot registers this section
+# instead. The principal and role are `server/door.yaml`'s and
+# `default_perspective:`'s — one deployment, one identity, reached two ways — and
+# `tests/examples/test_cp_07_mcp_door.py` holds the three in agreement. A
+# principal NOT listed here holds no entitlement: its credential is refused
+# `principal-not-entitled` at the door, recorded, before any assembly.
+product_entitlement:
+  tenant_id: cp-07-demo
+  policy_version: "1.0.0"
+  principals:
+    PRIN-COV-002:
+      permitted_schema_names: [coverage.client-360]
+      permitted_roles: [coverage-banker]

@@ -488,6 +488,18 @@ _MARKED_IN_THE_TREE = frozenset(
         # `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_document_declaring_no_wait_hashes_as_it_did_before_the_field_existed`.
         "ccf.controlplane.artifacts.DeploymentManifest.store_creation_lock_wait_seconds",
         "ccf.controlplane.artifacts.DeploymentConfig.store_creation_lock_wait_seconds",
+        # Ruling 4 (Dave, 2026-10-11 16:23 MST; SDK round 2, G4-F-04 and cp-14
+        # G3) — two marks, ticked deliberately. The optional
+        # `product_entitlement:` section (several principals on the standard
+        # door) and `grants:` (the skills the deployment declares granted to its
+        # agent) are `None` on every config authored before they existed, so no
+        # committed config's content address or pin moves (the
+        # `demonstration_serve_instant` precedent above); measured by
+        # `test_a_config_naming_no_constraints_hashes_as_it_did`, which reads
+        # the exclusion set off the declarations. Fragments
+        # `docs/surface-changes/20261011-02-*` and `20261011-03-*`.
+        "ccf.controlplane.artifacts.DeploymentConfig.product_entitlement",
+        "ccf.controlplane.artifacts.DeploymentConfig.grants",
         "ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter",
         "ccf.deployment.environment.EnvironmentDocument.config",
         "ccf.deployment.environment.EnvironmentDocument.sources",

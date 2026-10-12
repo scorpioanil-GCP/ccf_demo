@@ -63,6 +63,23 @@ Both stores are read-only here; nothing this example runs writes to either. The
 namespaces are the **v2** ones and are **not** in `ccf_dataprep`'s `.env`, which
 names v1.
 
+**The demonstration clock (amended 2026-10-11).** The question is dated
+2026-08-14T00:00Z; the estate is a historical snapshot. `ccf_config.yaml` therefore
+declares a labelled **demonstration serve instant**, 2026-08-14T00:05Z
+(`demonstration_serve_instant:`, `D-IMPL-378` C1): the deployment serves as if it
+were five minutes after the question, inside its one-hour `temporal_boundary`. It
+is the run's one time anchor; nothing on a question can move it; the SDK refuses
+it outside its own development substrates; and every replay record written under
+it names the declaration in its Policy Bindings dimension. Delete that section and
+the deployment serves on the real clock, where the same question is refused
+`asked-at-outside-temporal-bound` — the correct answer for a question that old
+(`tests/examples/test_cp_12_output.py::test_the_pinned_question_on_the_real_clock_is_refused_as_expired`). A
+variation at a DIFFERENT dated instant needs a deployment declaring its own
+anchor: set `serve_instant` to five minutes after that instant first, or the
+question is refused `asked-at-outside-temporal-bound`. The tests run every dated
+scenario under a test-owned copy of this deployment declaring that scenario's
+anchor (`tests/examples/demonstration_deployment.py`).
+
 The demonstration question lives in `artifacts/question.yaml`. Every part of it
 is overridable, because each is a **request** parameter and a build tool is not a
 request channel:

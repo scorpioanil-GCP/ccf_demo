@@ -23,22 +23,11 @@ from pathlib import Path
 from typing import Any
 
 
-import yaml
 
 import acquisition
-from ccf.agents.definitions import AgentDefinition
-from ccf.artifacts.protocol import artifact_uri
-from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, load_artifact, parse_artifact
-from ccf.deployment import (
-    derive_deployment,
-    register_manifest_entries,
-    resolve_artifact_class,
-)
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
-from ccf.products.composite import CompositeAdmissionGate
 from ccf.products.contract import ChildRequirement
 from ccf.products.product import AcquisitionContext, AssessmentContext, ConsumerContext
 from ccf.products.refusal import (
@@ -48,9 +37,6 @@ from ccf.products.refusal import (
 )
 from ccf.products.request import ProductRequest
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
-from ccf.skills.callables import CallableRegistry
-from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
-from ccf.skills.grants import GrantLedger, RefusingApprovalSink, SkillGrant
 
 HERE = Path(__file__).parent
 
@@ -382,84 +368,22 @@ def assess(context: AssessmentContext) -> DebtAssessment:
 
 
 # ===========================================================================
-# BEGIN build_children GLUE — `CLD-F-04`
+# BEGIN build_children SEAM — `CLD-F-04`, AMENDED 2026-10-11 (SDK round 2, G4-F-08)
 #
-# Everything from here to END is the consumer chain `open_product` derives for
-# itself when a composite declares `agent:`, `skills:` and `questions=`. This
-# composite may declare none of them: `include_federated` is a request
-# parameter, the child-resolution seam is the only place it can be honored,
-# and `build_children=` is refused beside a declared chain. So the chain is
-# rebuilt here from `artifacts/consumer-chain.yaml`.
+# Until 2026-10-11 this block rebuilt the whole consumer chain by hand — parsed
+# an agent and a skill from `artifacts/consumer-chain.yaml`, registered them and
+# the two pins, and requested the grant through the ledger — because
+# `build_children=` was refused beside a declared chain. D-IMPL-353 then refused
+# those hand registrations (`CapabilityBypassError`), so the composite could not
+# open at all, even with federation off.
 #
-# The artifacts stay artifacts (CLAUDE.md §6.4). What is hand-written is the
-# WIRING, not the values.
+# Now the chain is DECLARED in `ccf_config.yaml` (`skills:`, `agent:`,
+# `grants:`), derived, registered and granted BY THE SDK's composition, and
+# handed to the factory as `ConsumerContext.derived_children`. What remains here
+# is only what is this deployment's own: whether THIS request asks the optional
+# child (`include_federated`) and the envelope containment check before any
+# dispatch. Nothing below writes the Control Plane.
 # ===========================================================================
-
-
-def _registered_chain(registry: Any) -> tuple[str, AgentDefinition, str, SkillCatalogEntry]:
-    """Register what the derived chain registers, then build the agent and skill.
-
-    `open_product` does NOT register the manifest's artifacts before it calls
-    a `build_children=` factory — that registration lives inside the derived
-    chain this deployment may not declare. Measured 2026-09-22: the Control
-    Plane has ZERO audit events at this point. So the policy bundle and the
-    debt profile the agent PINS are registered here, through the SDK's own
-    one register loop (`register_manifest_entries`) over the SDK's own
-    derivation (`derive_deployment`) — never a second parse of the config and
-    never a hand-written hash.
-    """
-    document: Mapping[str, Any] = yaml.safe_load(
-        (HERE / "artifacts" / "consumer-chain.yaml").read_text(encoding="utf-8")
-    )
-    declaration = document["declaration"]
-    pins, keys = declaration["pins"], declaration["keys"]
-
-    config = load_artifact(
-        (HERE / "ccf_config.yaml").read_text(encoding="utf-8"), DEPLOYMENT_CONFIG
-    )
-    derived = derive_deployment(config)  # type: ignore[arg-type]
-    wanted = frozenset({str(pins["policy_regime_key"]), str(pins["debt_profile_key"])})
-    parsed = {
-        entry.key: parse_artifact(
-            derived.documents[entry.key], resolve_artifact_class(entry.class_id)
-        )
-        for entry in derived.manifest.artifacts
-        if entry.key in wanted
-    }
-    # `tenant=`: the tenant this composition root composes for, which the SDK's
-    # one register loop now requires and mints each entry's capability under
-    # (D-IMPL-354). The two wanted keys are already authored under it.
-    register_manifest_entries(
-        derived.manifest, parsed, registry=registry, tenant=config.tenant_id, only=wanted
-    )
-
-    agent_document = {
-        **declaration["agent"],
-        "policy_regime": {"ref": _pinned_ref(registry, str(pins["policy_regime_key"]))},
-        "halflife_debt_profile": {
-            "ref": _pinned_ref(registry, str(pins["debt_profile_key"]))
-        },
-    }
-    agent = parse_artifact(agent_document, resolve_artifact_class("ccf.agent-definition"))
-    skill = parse_artifact(declaration["skill"], resolve_artifact_class("ccf.skill-catalog-entry"))
-    assert isinstance(agent, AgentDefinition)
-    assert isinstance(skill, SkillCatalogEntry)
-    return str(keys["agent"]), agent, str(keys["skill"]), skill
-
-
-def _pinned_ref(registry: Any, key: str) -> str:
-    """The `ccf-artifact://` ref for the version of ``key`` in force.
-
-    The version component is a CONTENT ADDRESS, so it is read off the Control
-    Plane rather than authored — a hash written by hand into an artifact is a
-    second statement of a value that moves.
-    """
-    tenant, artifact_class, name = key.split("/", 2)
-    version, _artifact = registry.resolve_latest(key)
-    return artifact_uri(
-        tenant_id=tenant, artifact_class=artifact_class, name=name,
-        artifact_version=version,
-    )
 
 
 class FederatedChildren:
@@ -490,50 +414,18 @@ class FederatedChildren:
 
     # -- the factory `open_product(build_children=)` calls at open ----------
     def factory(self, context: ConsumerContext) -> "FederatedChildren":
-        """Build the derived chain over the facade's own registrations."""
-        registry = context.control_plane
-        agent_key, agent, skill_key, skill = _registered_chain(registry)
-        registry.register(skill_key, skill)
-        registry.register(agent_key, agent)
-        agent_hash = content_hash(agent)
-        ledger = GrantLedger(
-            control_plane=registry, catalog=SkillCatalog(registry),
-            sink=RefusingApprovalSink(), clock=context.clock
-        )
-        if skill.name not in ledger.bound_view(agent_hash):
-            outcome = ledger.request(
-                SkillGrant(
-                    schema_version=skill.schema_version,
-                    artifact_version=skill.artifact_version,
-                    name=skill.name,
-                    tenant=skill.tenant,
-                    agent_definition_hash=agent_hash,
-                    skill_name=skill.name,
-                    skill_version=skill.artifact_version,
-                ),
-                definition=agent,
-                actor=agent.name,
+        """Compose over the chain the SDK derived from this deployment's declarations.
+
+        The agent, the skill, the regime pins and the grant are the SDK's
+        composition-time registrations (G4-F-08; ruling 4, Dave 2026-10-11);
+        this seam only wraps the derived resolver.
+        """
+        if context.derived_children is None:
+            raise ValueError(
+                "the SDK handed no derived chain: declare `skills:`, `agent:` and"
+                " `grants:` in ccf_config.yaml and open with `questions=`"
             )
-            if not isinstance(outcome, str):
-                raise ValueError(
-                    f"the grant for {skill.name!r} was refused by the Control"
-                    f" Plane ({type(outcome).__name__}); a composite whose agent"
-                    " may not bind the skill that produces its child class"
-                    " cannot compose it"
-                )
-        self._resolver = QuestionBoundChildResolver(
-            ledger=ledger,
-            agent_definition_hash=agent_hash,
-            gate=CompositeAdmissionGate(
-                tenant_id=agent.tenant,
-                consumer_scope=f"consumer://{agent.tenant}/{agent.name}",
-                registry=registry,
-            ),
-            child_questions=self._question,
-            callable_registry=CallableRegistry(),
-            artifact_store=context.artifact_store,
-            mcp_skills=context.mcp_skills,
-        )
+        self._resolver = context.derived_children
         return self
 
     def bind(self, sources: Mapping[str, Mapping[str, str]]) -> None:
@@ -552,7 +444,7 @@ class FederatedChildren:
         self._sources = sources
 
     # -- the question this deployment asks the peer ------------------------
-    def _question(
+    def question(
         self, requirement: ChildRequirement, request: ProductRequest
     ) -> ChildQuestion:
         effective = request.parameters
@@ -619,5 +511,5 @@ class FederatedChildren:
 
 
 # ===========================================================================
-# END build_children GLUE — `CLD-F-04`
+# END build_children SEAM — `CLD-F-04` (amended 2026-10-11)
 # ===========================================================================

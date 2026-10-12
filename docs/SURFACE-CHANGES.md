@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2624 entries**, of which **2345** name a public Python surface.
+**2638 entries**, of which **2359** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1380 entries — 1334 public Python surface, 46 not public Python API.
+1382 entries — 1336 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20084,6 +20084,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-01-tuesday-security-refusals.md`.*
 
+#### ccf.authz.capability.DeclaredSkillGrant
+
+- Surface: ccf.authz.capability.DeclaredSkillGrant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a composition kind (`composition.skill-grant`) in `COMPOSITION_KINDS`; no door declares it and `kind_for_action` refuses its id by name. Admitted by `GrantLedger.request` (bound to one agent definition), by the grant-state writer (`STATE_WRITE_KINDS`) and by the ledger's derived registration (`DERIVED_REGISTER_KINDS`)
+- Why: ruling 4 (Dave, 2026-10-11 16:23 MST). Red test: `tests/products/test_paved_declared_grants.py::test_a_declared_policy_compatible_grant_is_in_force_and_the_composite_serves`
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.products.product.DeclaredGrantRefused
+
+- Surface: ccf.products.product.DeclaredGrantRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `GrantNotInForce` subclass raised at open when the ledger refuses a DECLARED grant (`refusal` carries the ledger's `GrantRefusal`, e.g. `RequirementsExceedRegime`)
+- Why: ruling 4. Test: `tests/products/test_paved_declared_grants.py::test_a_declared_grant_the_regime_does_not_permit_is_refused_by_the_ledger`
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20819,7 +20843,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-633 entries — 439 public Python surface, 194 not public Python API.
+637 entries — 443 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28159,6 +28183,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
 
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: the constructor took no statement of the demonstration snapshot
+- After: the constructor takes `honors_demonstration_serve_instant: bool = False`, which `open_product` sets from its startup snapshot (the document declares an instant and no `clock=` was passed). It selects the admission clock handed to the resolver and the ingress guard's clock; it grants nothing — `compose_serve_clock` still makes every check
+- Why: G1-SDK-01; Dave 2026-10-11 16:23 MST ruling 4
+- Migration: none; construct through `open_product`
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `product_entitlement` section; a config naming one was refused as an unrecognized section
+- After: an optional, hash-transparent `product_entitlement: Mapping[str, Any] | None` section, derived as a bare typed `ccf.product-entitlement-policy` entry at `product_entitlement_key(tenant_id)`; a config that does not name it hashes and derives exactly as before
+- Why: G4-F-04; Dave 2026-10-11 16:23 MST ruling 4. Red test: `tests/mcp/test_door_declared_principals.py::test_each_declared_principal_is_served_under_its_own_role`
+- Migration: a deployment whose code registered a `ProductEntitlementPolicy` by hand moves the policy body into `product_entitlement:` and deletes the registration
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `grants` key
+- After: an optional, hash-transparent `grants: tuple[str, ...] | None` — `skills:` labels the deployment grants its agent; a label naming no declared skill is refused by name at open
+- Why: ruling 4. Test: `tests/products/test_paved_declared_grants.py::test_grants_naming_an_undeclared_skill_is_refused_by_name`
+- Migration: a composite whose agent's grants were made by hand (or could not be made) lists its `skills:` labels under `grants:`
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.products.product.ConsumerContext
+
+- Surface: ccf.products.product.ConsumerContext
+- Public surface: true
+- Change type: reshaped
+- Before: `tenant_id`, `control_plane`, `artifact_store`, `mcp_skills`, `clock`
+- After: adds `derived_children: QuestionBoundChildResolver | None = None` and `agent: AgentDefinition | None = None` — the chain the SDK derived from the deployment's declarations, present when a complete chain is declared beside `build_children=`
+- Why: G4-F-08; ruling 4. Red test: `tests/products/test_paved_optional_child_switch.py::test_the_default_request_serves_without_the_optional_child`
+- Migration: a factory that registered an agent/skill or requested a grant moves them to `skills:`, `agent:`, `grants:` and wraps `context.derived_children`
+
+*Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31211,7 +31283,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-563 entries — 524 public Python surface, 39 not public Python API.
+571 entries — 532 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39039,6 +39111,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A deployment whose `ccf_config.yaml` declared `demonstration_serve_instant:` was refused with `DemonstrationServeInstantConflict` at its first question, whether or not the caller passed `clock=`
+- After: same signature. With no `clock=`, the declaration present at open is honored: the resolver serves at the declared instant, the ingress guard judges at it, and every record pins it. With `clock=` beside a declaration, unchanged (refused by name)
+- Why: G1-SDK-01; Dave 2026-10-11 16:23 MST ruling 4. Red test: `tests/products/test_paved_road_demonstration_instant.py::test_a_paved_deployment_with_no_composed_clock_serves_at_its_declared_instant`
+- Migration: a paved deployment with a dated demonstration question adds `demonstration_serve_instant: {serve_instant: "<ISO instant>"}` and a `temporal_boundary:` to its `ccf_config.yaml`, passes no `clock=` to `open_product`, and runs on the SDK's SQLite or in-memory adapter with the default artifact store
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. The store check was `type(artifact_store) is FileArtifactStore` on the store as handed in, so the SDK's own file store wrapped in the SDK's own `ErasureConsultingStore` was refused `artifact-store-not-development`
+- After: same signature. The SDK's own `ErasureConsultingStore` (exact type, not a subclass) is looked through to the store it decorates, and the exact-type test is made there. A subclass of `FileArtifactStore` inside the wrapper is still refused
+- Why: G1-SDK-01; the paved road's store is always wrapped. Red test: `tests/products/test_paved_road_demonstration_instant.py::test_a_paved_deployment_with_no_composed_clock_serves_at_its_declared_instant`; the refusal kept: `::test_a_store_that_is_not_the_sdks_own_is_still_refused`
+- Migration: none
+
+*Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
+
 #### ccf.graph.backends.sqlite.SqliteGraphStore
 
 - Surface: ccf.graph.backends.sqlite.SqliteGraphStore
@@ -39098,6 +39194,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a binding document whose deployment boots SQLite declares `writer_lease_lock_dir`.
 
 *Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.deployment.classes.SDK_ARTIFACT_CLASSES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_CLASSES
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.product-entitlement-policy` was not manifest-addressable ("entitles a principal registers that policy programmatically")
+- After: it is manifest-addressable (typed registration), so the `product_entitlement:` section and a manifest entry can name it
+- Why: G4-F-04; programmatic registration is no longer available to a deployment (D-IMPL-353)
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: registered nothing about entitlement at open
+- After: registers the declared `product_entitlement:` policy at open, under an audited composition decision, after refusing a grant that names a class this deployment does not serve
+- Why: G4-F-04; the door decides entitlement before any question boots. Red test: `tests/mcp/test_door_declared_principals.py::test_a_declaration_granting_a_class_this_deployment_does_not_serve_is_refused_at_open`
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: behavior
+- Before: always registered its one-principal entitlement policy, replacing nothing but superseding any earlier version as latest
+- After: registers its one-principal default only when the tenant's entitlement key holds no version; a declared policy is composed over, never replaced. `open_door_with_verifier` shares the composition
+- Why: G4-F-04. Severing proof: forcing the default registration reddens `::test_each_declared_principal_is_served_under_its_own_role` and `::test_a_declared_principal_asking_under_a_role_it_was_not_granted_is_refused`
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: requested no grant; refused `GrantNotInForce` for every declared skill not already bound on the Control Plane handed in
+- After: requests each `grants:` skill through the ledger at composition before that check; refuses `DeclaredGrantRefused` when the ledger refuses one, and `GrantNotInForce` (unchanged) for a declared skill that is not under `grants:` and not bound
+- Why: ruling 4. Severing proof: granting every `skills:` entry regardless of `grants:` reddens `::test_a_declared_skill_not_listed_under_grants_is_not_in_force` (DID NOT RAISE)
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.skills.grants.GrantLedger.request
+
+- Surface: ccf.skills.grants.GrantLedger.request
+- Public surface: true
+- Change type: behavior
+- Before: required `Authorized[SkillGrant]`
+- After: requires `Authorized[SkillGrant]` or `Authorized[DeclaredSkillGrant]`, verified as minted, bound to the one definition; the two tiers, audit and state records are unchanged
+- Why: ruling 4
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: refused `build_children=` beside a declared `agent:`/`skills:` chain, and `build_children=` beside `questions=`
+- After: admits `build_children=` beside a COMPLETE declared chain plus `questions=`, derives the chain first and hands it to the factory; every half-declared chain is refused as before
+- Why: G4-F-08; ruling 4. Severing proof: not deriving the chain for the factory reddens four tests by assertion
+- Migration: none
+
+*Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
 
 ### Not public Python API
 

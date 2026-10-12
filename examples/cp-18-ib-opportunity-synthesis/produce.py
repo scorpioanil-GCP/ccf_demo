@@ -37,11 +37,16 @@ def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> Proje
     )
 
 
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
+    # `config_root` is the DEPLOYMENT: this tree, unless a deployer (a test) opens a
+    # copy of its two documents declaring another demonstration serve instant, or
+    # none (tests/examples/demonstration_deployment.py; amended 2026-10-11).
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=plan_factory,

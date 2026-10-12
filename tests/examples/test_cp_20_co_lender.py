@@ -32,7 +32,6 @@ from typing import Any
 
 import pytest
 
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.products.refusal import RefusalEnvelope
 from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord
@@ -160,7 +159,10 @@ def _ask(
         outcome = opened.answer(
             asked, perspective=Perspective(principal_id=f"PRIN-SYN-{role}", role=role)
         )
-        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        # AMENDED 2026-10-11 (round 3): the record is read through the opened
+        # product's own store; a bare `FileArtifactStore(root=...)` now requires
+        # its declared `write_kinds` (D-IMPL-353 §1.2) and a reader declares none.
+        store = opened.artifact_store
         reference = (
             outcome.replay_reference
             if isinstance(outcome, RefusalEnvelope)

@@ -143,6 +143,14 @@ def main(argv: list[str] | None = None) -> int:
         except AssemblyRefused as refused:
             print(f"assembly refused: {refused}")
             return 1
+        except produce.GovernedRefusal as refused:
+            # AMENDED 2026-10-11 (compatibility repair): the governed
+            # resolver's refusal, printed as the data it is — its reason and
+            # the replay record that holds it — rather than as a traceback.
+            envelope = refused.envelope
+            print(f"refused: {envelope.kind} · {envelope.reason} — {envelope.detail}")
+            print(f"   replay record      {envelope.replay_reference}")
+            return 1
         outcome = captured[0] if captured else governed
         if isinstance(governed, ProductRequestViolation):
             outcome = governed

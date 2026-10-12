@@ -86,6 +86,23 @@ demonstration question in `artifacts/question.yaml` — an anchor, a window and 
 divergence threshold are **request** parameters, and a build tool is not a
 request channel.
 
+**The demonstration clock (amended 2026-10-11).** The question is dated
+2026-08-20T00:00Z; the estate is a historical snapshot. `ccf_config.yaml` therefore
+declares a labelled **demonstration serve instant**, 2026-08-20T00:05Z
+(`demonstration_serve_instant:`, `D-IMPL-378` C1): the deployment serves as if it
+were five minutes after the question, inside its one-hour `temporal_boundary`. It
+is the run's one time anchor; nothing on a question can move it; the SDK refuses
+it outside its own development substrates; and every replay record written under
+it names the declaration in its Policy Bindings dimension. Delete that section and
+the deployment serves on the real clock, where the same question is refused
+`asked-at-outside-temporal-bound` — the correct answer for a question that old
+(`tests/examples/test_cp_10_output.py::test_the_pinned_question_on_the_real_clock_is_refused_as_expired`). A
+variation at a DIFFERENT dated instant needs a deployment declaring its own
+anchor: set `serve_instant` to five minutes after that instant first, or the
+question is refused `asked-at-outside-temporal-bound`. The tests run every dated
+scenario under a test-owned copy of this deployment declaring that scenario's
+anchor (`tests/examples/demonstration_deployment.py`).
+
 The three scenarios `CP-SPEC-010` §D.4 declares:
 
 ```bash
@@ -98,6 +115,7 @@ make -s example-cp-10 LEI=529900VKCYZW8GZ4WW58
 # 3 — the market move that is not a deterioration. No episode, and the reason.
 make -s example-cp-10 LEI=549300TRW1LZMDJZAQ78 \
     AS_OF=2025-04-07T00:00:00+00:00 WINDOW_DAYS=48 GRANULARITY=daily
+#   (a different dated instant: first set serve_instant: "2025-04-07T00:05:00+00:00")
 ```
 
 And the governed refusal, which is an answer rather than an error. `D_c` is

@@ -33,6 +33,7 @@ from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE
 from ccf.signal.envelope import SignalEnvelope
 from tests.products.test_policy_emptied_view_disclosure import _diff_paths
 
@@ -295,6 +296,13 @@ def test_an_edge_outside_the_principal_vocabulary_is_refused_by_the_declared_gat
 
     def inject(original: Callable[..., tuple[SignalEnvelope, ...]], context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
         emitted = original(context)
+        if context.request.subject == UNHELD_SUBJECT_PROBE:
+            # AMENDED 2026-10-11 (round 3): the SDK now also asks `acquire` about an
+            # identifier that names nothing (SEC-020's unheld-subject probe) and
+            # refuses a deployment whose subject-keyed phase acquires content for
+            # it. The sabotage is ONE edge in the analyst's question, so the
+            # probe's call passes through untouched.
+            return emitted
         dated = (context.request.asked_at - timedelta(days=1)).date()
         record = acquisition.Record(
             entity_class="position", edge_type=foreign_type, dated=dated,

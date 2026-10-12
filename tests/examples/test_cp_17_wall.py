@@ -38,6 +38,8 @@ from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 
+from tests.examples.demonstration_deployment import paved_root_on_the_real_clock, product_asked_at
+
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres, pytest.mark.mongo]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -156,8 +158,12 @@ def _plan_row(opened: OpenedProduct, modules: dict[str, Any], principal_id: str)
 
 
 def _answer(modules: dict[str, Any], scratch: pathlib.Path, *, perspective: Perspective, **question: Any) -> _Answer:
-    """One question on the paved road, in its own scratch, as the stated principal."""
-    with modules["produce"].product(scratch) as opened:
+    """One question on the paved road, in its own scratch, as the stated principal.
+
+    On the run's ONE time anchor for the question's instant (Dave, 2026-10-11
+    ruling 1; `tests/examples/demonstration_deployment.py`; amended 2026-10-11).
+    """
+    with product_asked_at(modules["produce"], EXAMPLE, scratch, question["asked_at"]) as opened:
         roles = modules["acquisition"].principal_roles(relational_settings=opened.sources[modules["deployment"].SOURCE_RELATIONAL])
         assert roles.get(perspective.principal_id) == perspective.role, f"`{perspective.principal_id}` register mismatch"
         outcome = opened.answer(_question(opened, modules["deployment"], **question), perspective=perspective)
@@ -472,3 +478,26 @@ def test_the_policy_blind_control_differs_from_the_served_analyst_vessel(
     assert analyst.product.payload["research"] and not blind["research"]
     assert blind["plan"]["plan_id"] != analyst.product.payload["plan"]["plan_id"]
     assert content_hash(blind) != content_hash(dict(analyst.product.payload))
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path,
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question at `T1`, asked of this tree's own two documents
+    with the declared demonstration serve instant REMOVED, is served on the real
+    clock — outside the one-hour `temporal_boundary` — so the SDK refuses it by
+    name, as data, with a replay reference. The same question on the declared
+    clock serves (the positive control). Added 2026-10-11 (round 3).
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        refused = opened.answer(_question(opened, modules["deployment"], asked_at=INSTANTS["T1"]), perspective=BANKER)
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    served = _answer(modules, tmp_path / "declared", perspective=BANKER, asked_at=INSTANTS["T1"])
+    assert served.product is not None

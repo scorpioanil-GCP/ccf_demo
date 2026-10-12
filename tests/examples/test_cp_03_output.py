@@ -120,6 +120,42 @@ def seeded(postgres_dsn: str) -> Any:
         os.environ[variable] = previous
 
 
+#: AMENDED 2026-10-11 (compatibility repair; examples/AMENDMENTS-2026-10-11.md).
+#: The caller's `debt_tolerance` these tests ask with on the SERVED path.
+#:
+#: These gates were written when the tolerance "is compared against nothing"
+#: (spec §F, measured 2026-08-30, and Dave's ruling that day: serve it and print
+#: the verdict). The SDK now honors a caller's `debt_tolerance` as requested
+#: (`D-IMPL-251` C1=A; a breach withholds fulfillment as `tolerance-exceeded`),
+#: so the demonstration question's `0.25` is withheld at its measured `D_c`
+#: — which is the spec's own §E.2 promise, and is asserted as such by
+#: `test_the_demonstration_tolerance_is_honored_and_withholds_the_spread`.
+#: The gates below are about the payload, the expiry, entitlement and replay,
+#: not about debt, so they ask as a caller who accepts any reading — exactly the
+#: posture they were written under. Nothing they assert is changed.
+ADMITTING_TOLERANCE = Decimal("1")
+
+
+def _config_serving_at(directory: pathlib.Path, instant: Any) -> pathlib.Path:
+    """A copy of ``ccf_config.yaml`` declaring ``instant`` as its serve instant.
+
+    AMENDED 2026-10-11 (compatibility repair). Before the repair the spine judged
+    its gates at the question's own ``asked_at``; the governed resolver judges
+    them at its serve clock, which this dated specimen declares in
+    ``ccf_config.yaml`` (``demonstration_serve_instant:``) as the demonstration
+    question's instant. A gate asking at ANOTHER instant therefore declares that
+    instant — one time anchor per run, never a caller-moved clock. Everything
+    else in the copy is the deployment's own document.
+    """
+    deployment = _load("deployment")
+    document = yaml.safe_load(deployment.CONFIG.read_text(encoding="utf-8"))
+    assert "demonstration_serve_instant" in document, "the config declares no serve instant"
+    document["demonstration_serve_instant"] = {"serve_instant": instant.isoformat()}
+    copy = directory / "ccf_config.yaml"
+    copy.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return copy
+
+
 def _serve(seeded: str, **kwargs: Any) -> Any:
     """Assemble one spread through the seam, exactly as ``run.py`` does.
 
@@ -157,16 +193,17 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
 
     declared = deployment.demonstration_parameters()
     parameters: dict[str, object] = {
-        deployment.PARAM_INTENT: declared[deployment.PARAM_INTENT],
+        # AMENDED 2026-10-11 (compatibility repair): `intent` is no longer a
+        # request argument; it travels on the request's top-level axis
+        # (`deployment.request`), which the SDK refuses to see shadowed.
         deployment.PARAM_PERIODS: int(declared[deployment.PARAM_PERIODS]),
         deployment.PARAM_BASIS: str(declared[deployment.PARAM_BASIS]),
         deployment.PARAM_INCLUDE_PEERS: bool(
             declared[deployment.PARAM_INCLUDE_PEERS]
         ),
         deployment.PARAM_PEER_BASIS: str(declared[deployment.PARAM_PEER_BASIS]),
-        deployment.PARAM_DEBT_TOLERANCE: Decimal(
-            str(declared[deployment.PARAM_DEBT_TOLERANCE])
-        ),
+        # AMENDED 2026-10-11: see `ADMITTING_TOLERANCE`.
+        deployment.PARAM_DEBT_TOLERANCE: ADMITTING_TOLERANCE,
     }
     parameters.update(kwargs)
 
@@ -183,7 +220,12 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
         root = pathlib.Path(tmp)
         captured: list[object] = [] if external is None else external
         seam = assembler.SpreadAssembler(
-            config=deployment.CONFIG,
+            # AMENDED 2026-10-11: one time anchor per run — see `_config_serving_at`.
+            config=(
+                deployment.CONFIG
+                if asked_at is None
+                else _config_serving_at(root, asked_at)
+            ),
             root=root,
             connection=deployment.connection(root=root),
             read=read,
@@ -275,10 +317,6 @@ def test_the_seed_carries_what_these_gates_need(seeded: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g01_the_payload_carries_both_fact_kinds(seeded: str) -> None:
     """`OFS-G01` — at least one instant AND at least one duration fact.
 
@@ -314,10 +352,6 @@ def test_ofs_g01_the_payload_carries_both_fact_kinds(seeded: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g09_the_expiry_is_anchored_on_the_filing_not_the_question(
     seeded: str,
 ) -> None:
@@ -514,10 +548,6 @@ def _outcome(seeded: str, lei: str, principal: str) -> str:
     return "served" if getattr(served, "product", None) is not None else "empty"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g15_suppression_is_indistinguishable_from_absence(
     seeded: str,
 ) -> None:
@@ -653,10 +683,6 @@ def _executable_strings(path: pathlib.Path) -> list[str]:
     return found
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g02_resolution_goes_through_the_crosswalk(seeded: str) -> None:
     """`OFS-G02` — identity comes from `crosswalk`, never from `financial_fact.cik`.
 
@@ -778,10 +804,6 @@ def test_ofs_g07_no_llm_client_is_reachable(seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
     """`OFS-G06` — a parameter this tier declares and always refuses.
 
@@ -874,10 +896,6 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g10_exactly_one_operator_and_no_enrich(seeded: str) -> None:
     """`OFS-G10` — one operator in the plan, and no `Enrich` registered.
 
@@ -967,10 +985,6 @@ def _restated_cells(seeded: str, key: list[str]) -> int:
         return int(row[0])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
     """`OFS-G03` — the key is declared in an artifact, and it is load-bearing.
 
@@ -1070,10 +1084,6 @@ def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
     """`OFS-G04` — a non-reliance filing is evidence, not the detector.
 
@@ -1134,10 +1144,6 @@ def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g08_absence_is_a_word_and_never_a_zero(seeded: str) -> None:
     """`OFS-G08` — the revenue-less obligor serves NOT_EVALUABLE, never `0`.
 
@@ -1196,10 +1202,6 @@ def test_ofs_g08_absence_is_a_word_and_never_a_zero(seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
     seeded: str,
 ) -> None:
@@ -1291,10 +1293,6 @@ def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g12_every_derived_line_names_what_it_consumed(seeded: str) -> None:
     """`OFS-G12` — a ratio names its inputs, and they are in the same payload.
 
@@ -1343,10 +1341,6 @@ def test_ofs_g12_every_derived_line_names_what_it_consumed(seeded: str) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
     seeded: str,
 ) -> None:
@@ -1407,10 +1401,6 @@ def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
     """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
 
@@ -1428,16 +1418,17 @@ def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> N
     assembler = _load("assembler")
     declared = deployment.demonstration_parameters()
     parameters: dict[str, object] = {
-        deployment.PARAM_INTENT: declared[deployment.PARAM_INTENT],
+        # AMENDED 2026-10-11 (compatibility repair): `intent` is no longer a
+        # request argument; it travels on the request's top-level axis
+        # (`deployment.request`), which the SDK refuses to see shadowed.
         deployment.PARAM_PERIODS: int(declared[deployment.PARAM_PERIODS]),
         deployment.PARAM_BASIS: str(declared[deployment.PARAM_BASIS]),
         deployment.PARAM_INCLUDE_PEERS: bool(
             declared[deployment.PARAM_INCLUDE_PEERS]
         ),
         deployment.PARAM_PEER_BASIS: str(declared[deployment.PARAM_PEER_BASIS]),
-        deployment.PARAM_DEBT_TOLERANCE: Decimal(
-            str(declared[deployment.PARAM_DEBT_TOLERANCE])
-        ),
+        # AMENDED 2026-10-11: see `ADMITTING_TOLERANCE`.
+        deployment.PARAM_DEBT_TOLERANCE: ADMITTING_TOLERANCE,
     }
     asked = deployment.request(parameters=parameters, asked_at=None)
     with tempfile.TemporaryDirectory(prefix="cp03-gate-") as tmp:
@@ -1465,3 +1456,67 @@ def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> N
         " implementation; 1.0.0 would make two implementations share one name,"
         " and am.3 rules never 1.0.2"
     )
+
+
+# ---------------------------------------------------------------------------
+# AMENDED 2026-10-11 — two governed refusals, asserted as ordinary passing tests
+# (Dave, ruling 1 of 2026-10-11: "Keep an expired-question case as a normal test
+# that asserts the correct refusal").
+# ---------------------------------------------------------------------------
+
+
+def test_a_strict_tolerance_is_honored_and_withholds_the_spread(
+    seeded: str,
+) -> None:
+    """A caller's strict `debt_tolerance` withholds the spread; the demonstration default serves it.
+
+    Spec §E.2: *"Breach → 409 with the debt block, not a 200 with a warning."*
+    The SDK honors the caller's tolerance as requested (`D-IMPL-251` C1=A). Until
+    2026-10-11 the demonstration question asked at `0.25`, which the dated
+    estate's reading exceeds, so it was withheld; Dave (2026-10-11 17:34, 17:51)
+    raised the demonstration default to an illustrative `0.90` so the example
+    serves. This test keeps the governance visible: the same question at the
+    former `0.25` is withheld, with the caller named as the authority that set
+    the tolerance and a replay reference, while the demonstration default
+    serves. The refusal is the tolerance's, not the spread's.
+    """
+    produce = _load("produce")
+    deployment = _load("deployment")
+    demonstration = Decimal(
+        str(deployment.demonstration_parameters()[deployment.PARAM_DEBT_TOLERANCE])
+    )
+    strict = Decimal("0.25")
+
+    served = _serve(seeded)
+    assert served.product.debt.debt <= demonstration, (
+        "the demonstration default no longer covers the reading it was calibrated to serve"
+    )
+    assert served.product.debt.debt > strict, (
+        "the reading does not exceed the strict tolerance, so the refusal below"
+        " would not be about the tolerance"
+    )
+
+    with pytest.raises(produce.GovernedRefusal) as refused:
+        _serve(seeded, **{deployment.PARAM_DEBT_TOLERANCE: strict})
+    envelope = refused.value.envelope
+    assert envelope.reason == "tolerance-exceeded", envelope.reason
+    assert envelope.fields["authority"] == '"caller"', envelope.fields
+    assert envelope.fields["tolerance"] == f'"{strict}"', envelope.fields
+    assert envelope.replay_reference, "a withheld spread must name its record"
+
+
+def test_an_expired_question_is_refused_on_ttl_bounds(seeded: str) -> None:
+    """A question asked after the spread expired is refused on gate 3.
+
+    The expiry is the latest filing in the payload plus the declared window
+    (`artifacts/ttl.yaml`), anchored on the evidence and never on the question.
+    Asked one day after it — with the serve clock declared at that same instant,
+    one time anchor per run — the SDK's TTL gate refuses `ttl-bounds`. The
+    expiry check is not disabled and the data is not relabeled fresh.
+    """
+    produce = _load("produce")
+    served = _serve(seeded)
+    expired = served.product.expires_at + timedelta(days=1)
+    with pytest.raises(produce.GovernedRefusal) as refused:
+        _serve(seeded, asked_at=expired)
+    assert refused.value.envelope.reason == "ttl-bounds", refused.value.envelope
