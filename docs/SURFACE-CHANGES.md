@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2638 entries**, of which **2359** name a public Python surface.
+**2648 entries**, of which **2369** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1382 entries — 1336 public Python surface, 46 not public Python API.
+1388 entries — 1342 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20108,6 +20108,78 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
 
+#### ccf_runtime.mcp.composed_product.compose_for_door
+
+- Surface: ccf_runtime.mcp.composed_product.compose_for_door
+- Public surface: true
+- Change type: added
+- Before: absent — each hand-composed door wrote its own `ServesProducts` conformer
+- After: `compose_for_door(config_path, *, boot_connection, environment_root, door, replay_store, replay_record_class, resolver=None, build_resolver=None, default_perspective=None) -> ComposedProduct`; exactly one of `resolver=` / `build_resolver=` (a factory handed the one recorder)
+- Why: round 5 item 1; Dave 2026-10-11 20:19 MST. Red test: `tests/mcp/test_composed_product_door.py::test_each_declared_principal_is_served_under_its_own_permissions`
+- Migration: a hand-composed door replaces its conformer class with this call and opens the standard door over the result
+
+*Recorded by `20261011-22-the-shared-door-adapter-for-a-hand-composed-product.md`.*
+
+#### ccf_runtime.mcp.composed_product.ComposedProduct
+
+- Surface: ccf_runtime.mcp.composed_product.ComposedProduct
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass conforming to `ServesProducts` (`tenant_id`, `declaration`, `default_perspective`, `control_plane`, `refusal_recorder`, `door`, `environment`, `resolve`) plus `policy_bundle_pin` and `replay_store`; `resolve` is a field holding the deployment's governed path, which the standard door calls after its authorizer and entitlement step; built only by `compose_for_door`
+- Why: round 5 item 1
+- Migration: none
+
+*Recorded by `20261011-22-the-shared-door-adapter-for-a-hand-composed-product.md`.*
+
+#### ccf_runtime.mcp.review_door.open_review_door
+
+- Surface: ccf_runtime.mcp.review_door.open_review_door
+- Public surface: true
+- Change type: added
+- Before: absent — no supported way to release a held review item after D-IMPL-353
+- After: `open_review_door(queue, *, tenant_id, token_verifier, reviewer_scopes, clock) -> ReviewDoor`; `reviewer_scopes` maps scope → review event-key patterns (D-01 grammar); an empty mapping or a scope with no pattern is refused
+- Why: round 5 item 3; Dave 2026-10-11 20:19 MST. Red tests: `tests/mcp/test_review_door.py::test_an_authorized_reviewer_bound_to_the_item_releases_it`, `::test_a_reviewer_whose_scope_does_not_reach_the_item_is_refused`
+- Migration: a deployment that called `ReviewQueue.release(tenant=..., principal=...)` releases through this door instead; the reviewer's binding is minted by the door from the verified credential's authentication claims
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf_runtime.mcp.review_door.ReviewDoor
+
+- Surface: ccf_runtime.mcp.review_door.ReviewDoor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the opened review door; `server(issuer_url=..., resource_server_url=...)` returns the unstarted standard HITL `FastMCP`; `control_plane` holds the scope mapping and every authorization decision's audit event
+- Why: round 5 item 3
+- Migration: none
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf_runtime.mcp.review_door.ReviewActionRefused
+
+- Surface: ccf_runtime.mcp.review_door.ReviewActionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a review action's verdict is neither `approve` nor `reject`, before the queue is touched
+- Why: round 5 item 3
+- Migration: none
+
+*Recorded by `20261011-23-a-held-review-item-is-released-through-the-review-door.md`.*
+
+#### ccf.boot.compose_invalidation_sink
+
+- Surface: ccf.boot.compose_invalidation_sink
+- Public surface: true
+- Change type: added
+- Before: absent (the recipe was inline in `boot`)
+- After: `compose_invalidation_sink(registry, *, tenant_ids) -> ControlPlaneInvalidationSink`, minting one `InvalidationRecordRegister` per validated tenant from a recorded composition event; `boot` uses it unchanged in behavior
+- Why: round 5 item 4; Dave 2026-10-11 20:19 MST
+- Migration: none
+
+*Recorded by `20261011-24-an-opened-product-records-an-invalidation-boundary.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20843,7 +20915,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-637 entries — 443 public Python surface, 194 not public Python API.
+640 entries — 446 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28231,6 +28303,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
 
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: reshaped
+- Before: no way to register the product resource; the door was always tool-only
+- After: takes `expose_product_resource: bool = False`; `True` also registers the guarded product resource
+- Why: round 5 item 2; Dave 2026-10-11 20:19 MST. Red test: `tests/mcp/test_door_product_resource.py::test_an_unentitled_principal_is_refused_on_the_resource_exactly_as_on_the_tool`
+- Migration: none; a door that must keep the resource (cp-04 `CFT-G13`) passes `expose_product_resource=True`
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door_with_verifier
+
+- Surface: ccf_runtime.mcp.product_door.open_door_with_verifier
+- Public surface: true
+- Change type: reshaped
+- Before: no way to register the product resource
+- After: takes `expose_product_resource: bool = False`, as `open_door`
+- Why: round 5 item 2; Dave 2026-10-11 20:19 MST
+- Migration: none
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no way for a paved deployment to record an invalidation boundary
+- After: the constructor takes `invalidation_sink: ControlPlaneInvalidationSink | None = None` (set by `open_product`), and the `invalidation_sink` property returns it — the scoped writer for this product's tenant only
+- Why: round 5 item 4. Red test: `tests/products/test_opened_product_invalidation.py::test_the_authorized_write_lands_as_an_audited_version`; refusal: `::test_an_out_of_scope_write_is_refused_and_nothing_lands`
+- Migration: a deployment that built `ControlPlaneInvalidationSink(registry=opened.control_plane)` records through `opened.invalidation_sink`
+
+*Recorded by `20261011-24-an-opened-product-records-an-invalidation-boundary.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31283,7 +31391,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-571 entries — 532 public Python surface, 39 not public Python API.
+572 entries — 533 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39266,6 +39374,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `20261011-04-build-children-composes-over-the-declared-chain.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `server()` built a tool-only door
+- After: `server()` registers the product resource beside the tool when the door was opened with `expose_product_resource=True` (a new private field, defaulted, so construction through `open_door` is unchanged)
+- Why: round 5 item 2
+- Migration: none; construct through `open_door` / `open_door_with_verifier`
+
+*Recorded by `20261011-21-the-standard-door-can-register-a-guarded-product-resource.md`.*
 
 ### Not public Python API
 

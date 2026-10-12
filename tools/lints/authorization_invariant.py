@@ -209,6 +209,13 @@ COMPOSITION_MINT_SITES: frozenset[str] = frozenset(
         "ccf.products.resolver",
         "ccf.products.product",
         "ccf_runtime.mcp.product_door",
+        # Round 5, item 3 (Dave, 2026-10-11 20:19 MST: "Review release must use
+        # the authorized, target-bound approval path"): the standard review
+        # door composes a HITL door over a deployment's ReviewQueue and, like
+        # `product_door`, registers ONE scope mapping into its own Control Plane
+        # under a `CompositionRegister` minted for exactly that key. It mints no
+        # other kind; the HITL capability is the gate's (`ccf_runtime.mcp.tenancy`).
+        "ccf_runtime.mcp.review_door",
     }
 )
 
