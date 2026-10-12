@@ -349,8 +349,8 @@ asks of a deployment's own state store and HITL transport. Each decision is a co
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
 first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
-the [HTTP API page](../reference/http-api.md): whether it authenticates at all,
-and the authorization posture it applies; the third is where signing-key
+the [HTTP API page](../reference/http-api.md): the auth hook and authorizer it
+requires, and the authorization posture it applies; the third is where signing-key
 custody lives, a decision about the key-source Protocol rather than about any
 one surface; the fourth concerns which
 transport the MCP product door serves on; the fifth concerns what the Claude
@@ -361,25 +361,17 @@ may reach; the ninth is how the erasure index is declared and protected; the
 tenth is the default for a parameter a policy constraint bounds; the eleventh,
 in §4.14, is how far into the past each tenant answers for.
 
-### 4.1 Acknowledge the insecure default, or bind an auth hook
+### 4.1 The HTTP application always authenticates and authorizes
 
-The application factory takes an optional auth hook. Called without one, the
-application performs no authentication and no authorization at all, and every
-request it serves carries the full authority of the fabric handles injected
-into it. That posture is legitimate for a local development loop and
-catastrophic anywhere else, so it is not silent: constructing without an auth
-hook emits a warning at construction *and* logs one on the first request, and
-the only way to quiet it is to pass the explicit acknowledgement argument.
-
-Decide which of the two you are doing, and make it visible at the call site.
-An acknowledgement that nobody can find in a code review is the same failure
-as no acknowledgement at all.
-
-There is a second, subtler shape to avoid: binding a tenant authorizer while
-leaving the auth hook unbound. The authorizer consumes the principal the auth
-hook produces, so without one it can never run — a bound-but-inert authorizer
-that reads like protection and provides none. The factory warns about this
-case separately, because the two mistakes need different fixes.
+`create_app` requires an auth hook and an authorizer, and no value of either
+builds an unauthenticated application (`SEC-001`;
+`runtime/ccf_runtime/http_api/app.py::create_app`). The insecure default of
+earlier releases is gone: there is no `auth=None` arm, no `authorizer=None`
+arm, no acknowledgement argument and no insecure-default warning, so a call
+that omits the hook fails at construction rather than warning. The product
+entitlement source, the perspective resolver and the refusal recorder are
+required for the same reason. What remains for a deployment to decide is
+which auth hook and which scope mapping it binds (§4.2).
 
 ### 4.2 Choose the authorization posture
 
@@ -400,6 +392,48 @@ designing around:
   action, the verdict, the matched pattern if any, the artifact version, and
   the timestamp. See [replay anatomy](../concepts/replay-anatomy.md) for how
   that material is read back.
+
+**On the product route, the authorizer's deny reads as "not available"
+(dated 2026-10-12; R5-CP17-F01).** This is how the HTTP gate answers a deny,
+not a property of the reference interpreter, so it holds for whichever
+authorizer you bind. Every HTTP route answers the authorizer's deny
+`403 request-unauthorized` except
+`GET /product/{tenant}/{product_class}/{version}`. There, every deny the
+scope mapping makes is answered `404 subject-unavailable`, whichever axis
+failed: for example a class no scope entry the credential holds names, a
+credential whose scopes lack the product action, or a path tenant the
+credential holds that no scope entry's tenant pattern admits. That is the
+reply an unentitled caller gets for a real class, in status, headers and
+body, apart from the per-answer replay reference and the echo of the class
+asked for. So at the minimal (default) and reasoned disclosure levels,
+neither the status nor the body says whether a class exists. At the full
+disclosure level the status is still `404`, but the body names the internal
+cause, and the two can be told apart.
+`tests/http_api/test_undeclared_class_reads_as_unentitled_http.py` holds the
+minimal level for a class no scope entry names; the reasoned and full
+levels, and the other two deny cases, were measured on 2026-10-12 and are
+not yet held by a test. The route checks the request's shape first, the same
+for every caller: a partial question, malformed `parameters`, or an
+`asked_at` with no UTC offset is still `400`, and an `asked_at` that does not
+parse as a date-time is `422`, the framework's validation error. The deny
+stays on the audit log with the axis that failed; the replay record carries
+the cause `unauthorized`, the error code `tenant-unauthorized` (the same code
+whichever axis failed) and the authorization decision id, never the axis.
+
+Unchanged on this route: no credential, or one the auth hook does not
+recognize, is `401 unauthenticated`; a credential with no tenant, a path
+tenant the credential does not hold at all (the gate checks this before the
+scope mapping), and a class outside the credential's product roster (§4.9)
+are `403`; an allow the gate cannot mint a capability from is `503`. None of
+these refusals writes a replay record, and the gate writes no audit event
+for them. The `401` and `403` refusals come before the authorizer is asked,
+so no authorization decision is recorded (a known gap,
+`tests/http_api/test_tenant_authz.py::test_a_denial_before_the_authorizer_is_reached_writes_no_decision`).
+The `503` comes after the authorizer has decided, so whatever your
+authorizer recorded for that allow stays on the audit log, with no answer
+served. A client that read `403` from the product route for an unknown
+class, for a credential lacking the product action, or for a tenant the
+scope mapping does not admit, now reads the `subject-unavailable` refusal.
 
 Authorization stays at the door. It does not sink below the trust boundary
 into the transport, which stays a plain queue — so do not plan a design that
@@ -954,6 +988,37 @@ Decide these things before an erasure is ever approved.
   `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in the
   store's `WriteKinds`, and grant `artifact.erase` only to the principals who
   may file an erasure request. Neither class can be declared erasable.
+- **Over an MCP-backed store: the door's credential, and the upgrade order
+  (dated 2026-10-12; design 1.3, `D-IMPL-378`).** The door names and judges
+  every address through the artifact server's two door tools,
+  `name_artifact_for_erasure` and `match_artifact_subject`. Grant the door's
+  MCP credential (the bearer token its `McpArtifactStore` presents, not the
+  requester's or the approver's) the action `artifact.subject.match` on the
+  resource `artifact.subject.match`, for exactly one tenant, as an
+  authenticated bearer; one grant covers both tools. The server's
+  `ErasureTrust` must also hold that tenant's `ErasureAuthority`, whose door
+  key signs each query. Without the grant, every address over MCP is refused
+  `class-unverifiable`, ordinary client filings included. Upgrade the
+  artifact server first, or with the door's client. Until the door's client
+  is upgraded too, submit no erasure request through it: an older door
+  client against an upgraded server admits a request that names a client
+  twin of governed evidence, meaning governed evidence whose exact bytes, and
+  so whose address, the tenant also filed under an ordinary client class
+  (measured). The new door refuses such a request. A new
+  door client against an older server refuses every address
+  `class-unverifiable` (measured against `633c4e53`, which has the same code
+  as `2cd96aef`, the previous wheel's source), so it fails closed. Upgrading
+  does not make an erasure over the MCP-backed store complete: under the
+  declaration above, the door files `ccf.erasure-approval` and
+  `ccf.erasure-record` with its `ArtifactErase` capability, but the artifact
+  server's only write tool, `put_artifact`, authorizes `artifact.write` and
+  hands the store an `ArtifactWrite` capability, which the store refuses for
+  a class declared under `ArtifactErase`. Measured: the completion is refused
+  at the approval's save, before any index entry is appended, so the address
+  stays served; the same before this release. Over the MCP-backed store an
+  erasure reaches approval and no further (follow-up 6 in
+  `packaging/bank-controlled/BANK-PACKET.md` section 5); complete erasures
+  through an in-process store.
 - **Which HITL policy signs the approvals.** An erasure approval is bound to
   a SIGNED HITL attestation (`D-IMPL-363`), so the HITL policy the erasure
   gate runs under must require signed bindings and pin each approver's public
@@ -1066,11 +1131,14 @@ Two behaviors follow from the design and are stated rather than changed:
   appended (an ES256 signature is not deterministic, and the index takes only
   an identical entry again), after verifying it.
 - Over the MCP-backed store, a names read that the server answers with its
-  refusal shell reaches the door as a typed refusal, never as an outage: the
+  refusal shell reaches the reader as a typed refusal, never as an outage: the
   client raises `ArtifactReadRefused`, carrying the shell
   (`src/ccf/artifacts/protocol.py::ArtifactReadRefused`; decision 1 (A),
-  D-IMPL-378). The server refuses it for a governed address the door may not
-  read and for an address the door's tenant never filed (F1-1, D-IMPL-378).
+  D-IMPL-378). The server refuses it for an address the reader's tenant filed
+  only as governed evidence the reader may not read, and for an address that
+  tenant never filed (F1-1, D-IMPL-378); where the tenant also filed the
+  address on its client lane, the reader gets the client-lane names instead
+  (rule A6, design 1.2).
   An address nobody filed and a governed address that holds no record, a
   query pin above all, get the same answer, the governed read's `nonexistent`
   shell
@@ -1228,7 +1296,15 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   (`tests/mcp/test_f1_1b_resolution_decides_governed_classes.py`). Another
   principal of the tenant no longer resolves a governed record it may not
   read, and no principal resolves a query pin, an admitted child contract or
-  a child question over MCP. So a tenant's blob, presence, names and
+  a child question over MCP. Upgrade every `McpArtifactStore` client with
+  the server: where an upgraded server refuses a governed versioned URI, a
+  client older than `01fc424d` raises `McpServerUnreachable`, which reads as
+  an outage, instead of `ArtifactResolutionRefused` (measured with a client
+  from `633c4e53`, for a present query pin and for a URI nobody filed; the two
+  still answer alike, so nothing leaks, but retry logic keyed on outages
+  treats the refusal as a transport fault). A principal the governed read
+  admits gets the same `found: true` answer as before, which an older client
+  reads normally. So a tenant's blob, presence, names and
   resolution answers,
   and its erasure door over the MCP-backed store, do not depend on whether
   any other tenant filed the same bytes, under any class. Two properties of
@@ -1356,9 +1432,18 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   codes what the in-process door would tell it about a writer-filed record;
   the door's MCP credential now needs `artifact.subject.match` for every
   address, so a door without it can no longer erase ordinary client filings
-  over MCP, and a new door client against an older artifact server is refused
-  for every address (by construction; not measured); and the erasure claim
-  this bullet qualifies (SEC-009) stays open until a panel verifies it.
+  over MCP; a new door client against an older artifact server is refused
+  for every address (measured against `633c4e53`), while an older door client
+  against an upgraded server admits a request naming a client twin of
+  governed evidence (measured), so the door's client is upgraded with the
+  server, or no erasure is submitted through it until it is (the checklist
+  at the top of §4.10); completing an erasure over the MCP-backed store is
+  covered by no test, and under the checklist at the top of §4.10 it does not
+  complete: the artifact server's only write tool refuses the door's approval
+  as the wrong kind (measured, before and after this release), so an erasure
+  over the MCP-backed store reaches approval and no further; and the erasure
+  claim this bullet qualifies (SEC-009) stays open until a panel verifies
+  it.
 - **Content-addressed deduplication shows in write timing (design 1.2, Q4 (a),
   D-IMPL-378; disclosed 2026-10-12, not closed).** `FileArtifactStore.put`
   writes the file only when the bytes are not already stored, by any filing:
@@ -1938,8 +2023,19 @@ A marker binds to its store by path, beside it rather than inside it, so it
 does not stand against an actor who can write into the store's directory
 (below).
 
-**SEC-020 is open.** Each of the following still tells a withheld subject from
-a nonexistent one. Each was measured on test fixtures.
+**SEC-020 is open.** Its closing test, the module
+`tests/products/test_sec020_combined_proof.py`, passes in full since
+2026-10-12. The 21 cases in it that failed before, all in
+`::test_a_pin_filed_in_one_deployment_reads_alike_in_both` (three at the MCP
+versioned-URI resolution, eighteen on write-then-read for the asker and for a
+second principal), pass after designs 1.1 and 1.2 (`D-IMPL-378`; hosted run
+`38287169568` on `01fc424d`). A green run is not closure. Every run of the
+closing test also reports three limitations outside its gate, in the blocks
+headed `SEC-020 D1 (a) LIMITATION`, `SEC-020 P6 PROBE LIMITATION` and
+`SEC-020 E2 (ii) FALSE-DECLARATION LIMITATION`, and their cells still tell the
+two apart. SEC-020 closes only on Dave's ruling. Each of the
+following still tells a withheld subject from a nonexistent one. Each was
+measured on test fixtures.
 
 - **The answer's replay reference (D-IMPL-378, Q11; Dave approved it as E1 (a)
   on 2026-10-08).** Every answer names its decision record: `ServedProduct.replay_ref`,
@@ -2364,18 +2460,29 @@ the same id is refused "already exists".
 
 - **Resume one execution from several processes only over a `shared` state
   store and a `shared` HITL transport.** The engine refuses, at construction
-  and by name, three things: a state store that is not a
-  `ConditionalStateStore` declaring scope `process` or `shared`; a transport
-  that does not offer the whole `HITLTransportProtocol` with such a scope; and
-  a `shared` store paired with a transport that is not `shared`
-  (`tests/workflow/test_engine_refuses_unsupported_seams.py`). The shipped
-  `InMemoryStateStore` and `InMemoryHitlTransport` are `process`. A deployment
-  that supplies its own store or transport implements the conditional write
-  or the gate's closure atomically with its other writes, keeps closures as
-  durable as submissions, and runs
+  and by name: a state store that is not a `ConditionalStateStore` declaring
+  scope `process` or `shared`; a transport that does not offer the whole
+  `HITLTransportProtocol` with such a scope; a `shared` store paired with a
+  transport that is not `shared`
+  (`tests/workflow/test_engine_refuses_unsupported_seams.py`); a `shared`
+  transport paired with a store that is not, and one `process` transport
+  already serving another state store
+  (`tests/workflow/test_engine_refuses_unsupported_sharing.py`); and, dated
+  2026-10-12, a transport that offers no `bind_approver_eligibility`
+  (`tests/workflow/test_conflict_population_eligibility.py::test_an_engine_refuses_a_transport_it_cannot_bind_for_eligibility`).
+  The shipped `InMemoryStateStore` and `InMemoryHitlTransport` are `process`.
+  A deployment that supplies its own store or transport implements the
+  conditional write or the gate's closure atomically with its other writes,
+  keeps closures as durable as submissions, and runs
   `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
-  The engine can refuse an implementation that lacks the members; it cannot
-  see whether one keeps the atomicity it declares.
+  Its own transport, if a `WorkflowEngine` is composed over it, also
+  implements `bind_approver_eligibility(control_plane)` and, at `submit`,
+  judges every `approve` or `reject` on an approval-gate event that names an
+  approval policy against each bound plane with
+  `ccf.hitl.transport.check_approver_eligibility`, before recording it; no
+  conformance test checks this. The engine can refuse an implementation that
+  lacks the members; it cannot see whether one keeps the atomicity it
+  declares, or judges what it is bound to judge.
 - **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
   committed. The execution stays `running`, and `GET /workflow/execution`
@@ -2433,7 +2540,11 @@ the same id is refused "already exists".
   request: the request the suspension would have filed, bound to the
   suspension's unchanged content hash. The recovery runs no step, records no
   verdict and closes no gate, a verdict recorded while the request was missing
-  still never opens the gate, and a second recovery files nothing more. The
+  still never opens the gate, and a second recovery files nothing more. Such a
+  verdict still counts as a disagreement, though: if it is the opposite of a
+  verdict recorded after the restore, it holds the restored gate as a
+  conflict, whoever submitted it (`D-IMPL-366` H2; follow-up 1 in
+  `packaging/bank-controlled/BANK-PACKET.md` section 5). The
   erasure door's retried request reaches this path
   (`tests/workflow/test_restore_missing_approval_request.py`,
   `tests/erasure/test_erasure_request_restored.py`). Three limits are
@@ -2481,16 +2592,55 @@ the same id is refused "already exists".
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
-  gate (code reading). Two kinds of principal can hold a gate this way:
+  gate (code reading). Three kinds of principal can hold a gate this way
+  (dated 2026-10-12; the second and third are follow-ups 1 and 2 in
+  `packaging/bank-controlled/BANK-PACKET.md` section 5, recorded and not
+  built):
   - any eligible approver;
-  - on any transport, a principal whose verdict is recorded after the gate
-    primitive claimed the gate's event and before the gate closed. No event
-    is left to judge it against, so it is recorded unjudged, and it still
+  - on any transport, any holder of `HitlSubmit` for the gate's event key
+    (on a transport constructed with a Control Plane whose HITL policy
+    requires signed bindings, only one whose attestation verifies under a key
+    that policy declares for it; a plane an engine binds does not set this)
+    whose `approve` or `reject`, bound to the suspension's content hash, is
+    recorded while no event is queued or claimed under that key and before
+    the gate closes: after a deployment-composed `ApprovalGate.resolve` has
+    consumed the event and before a resumption closes the gate; after
+    deployment code has drained the event with the transport's `dequeue`,
+    which records no claim (for example, a worker that forwards events to a
+    task system), and before the event is queued again or a resumption
+    restores the request; between the engine's suspension write and its
+    enqueue; or after an interrupted suspension, until the request is
+    restored. No event is left to judge it
+    against, so it is recorded unjudged (`event_state_at_submit` is
+    `missing`), it never becomes authority, and an opposite verdict still
     counts as a disagreement (`D-IMPL-366` H2;
-    `tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict`).
+    `tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict`);
+  - on any transport, any holder of `HitlSubmit` for the gate's event key
+    (with the same signed-binding condition) whose `approve` or `reject`,
+    bound to the suspension's content hash, is recorded against a non-gate
+    event (an `exception-escalation` event, or any other class that is not
+    `approval-gate`) that a deployment filed under the gate's own event key,
+    while that event is the one the transport selects under the key (its
+    claimed event, otherwise the oldest queued one). The transport judges eligibility on approval-gate events only
+    (`D-IMPL-366` G6 (a)), and the engine counts every recorded verdict that
+    names the gate's key and the suspension's hash, whatever event it
+    answered. The escalation can become the selected event without the
+    gate's event being consumed. While the gate's event is queued ahead of
+    the escalation, `ExceptionEscalation.resolve` claims the gate's event,
+    because the transport's `remove` takes the first event under the key,
+    whatever its class. If the transport then refuses the submission (for
+    example, a principal the gate's approval policy does not admit, refused
+    as a gate verdict), the rollback re-queues the gate's event behind the
+    escalation, and that principal's next `approve` or `reject` under the key
+    lands on the escalation unjudged (measured). A resolve refused before the
+    claim, such as one bound to a stale content hash, re-queues nothing. No module in
+    the SDK files an escalation under a gate's key; a deployment's own
+    composition does.
 
-  While the gate's event is still queued, a principal the gate's approval
-  policy does not admit can no longer hold the gate, on the transport a
+  While the event the transport selects under the gate's key (its claimed
+  event, otherwise the oldest queued one) is the gate's own approval-gate
+  event, a principal the gate's approval policy does not admit can no longer
+  hold the gate, on the transport a
   `WorkflowEngine` is composed over, even when that transport was
   constructed without a Control Plane (dated 2026-10-12). The engine binds
   its own Control Plane into the transport at construction
@@ -2498,8 +2648,9 @@ the same id is refused "already exists".
   refuses that principal's `approve` or `reject` at submit, before anything
   is recorded; the doors answer `approver-not-eligible`
   (`tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_is_refused_at_submit`).
-  The second kind above is unchanged: once the gate primitive's own verdict
-  has consumed the event, nothing is left to judge a later verdict against.
+  The second and third kinds above are unchanged: with no event under the
+  key, nothing is left to judge a later verdict against, and a verdict on a
+  non-gate event under the gate's key is not judged.
   The engine refuses at construction a transport that offers no
   `bind_approver_eligibility`. It cannot see whether a third-party transport
   that offers one judges what it is bound to judge.

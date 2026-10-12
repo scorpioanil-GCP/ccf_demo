@@ -114,6 +114,19 @@ strength:
   which is what makes replay determinism survive the swap. See
   [replay anatomy](../concepts/replay-anatomy.md).
 
+Since 2026-10-12 (design 1.1, `D-IMPL-378`), the MCP artifact server decides a
+versioned URI of a class its backing store's `WriteKinds` declares under
+`ReplayMint` through the governed read: only a principal that read admits gets
+the address, and no principal resolves a query pin, an admitted child contract
+or a child question over MCP. So, for such a class, the fresh-client check above
+holds only for a principal the governed read admits. Even a record's own
+principal is admitted only where its tenant lists the record's product class for
+owner read-back, and by default none is listed (Q12). An upgraded
+`McpArtifactStore` client raises `ccf.artifacts.protocol.ArtifactResolutionRefused`
+instead of returning an address; a client older than `01fc424d` raises
+`McpServerUnreachable`, which reads as an outage, so upgrade clients with the
+server. Classes the store does not declare under `ReplayMint` resolve as before.
+
 Two further tests read the example's own source and refuse a second per-run
 parameter or a store named in the manifest, so the "nothing else changes"
 property cannot be lost to a later edit without a red build.

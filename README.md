@@ -187,3 +187,7 @@ upstream-drift detector.
   `D-IMPL-NN` ruling and every `D-GATE` phase approval.
 - [`docs/SPEC_INVENTORY.md`](docs/SPEC_INVENTORY.md) — the whitepaper
   commitment catalog the implementation is verified against.
+- [`packaging/bank-controlled/BANK-PACKET.md`](packaging/bank-controlled/BANK-PACKET.md)
+  and [`RELEASE-NOTES.md`](packaging/bank-controlled/RELEASE-NOTES.md) — the
+  current controlled delivery: commit, wheel, checksum, verification, the
+  security statement, and what changed for adopters.

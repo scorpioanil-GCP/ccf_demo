@@ -1,5 +1,19 @@
 # packaging/
 
+## `bank-controlled/` — the controlled delivery
+
+[`BANK-PACKET.md`](bank-controlled/BANK-PACKET.md) is the handoff record for the
+current controlled delivery: the source commit, the wheel and its checksum,
+the one tested deployment configuration (`launch.sh`, `stop.sh`, `verify.py`),
+the verification results and the security statement.
+[`RELEASE-NOTES.md`](bank-controlled/RELEASE-NOTES.md) says what changed for
+adopters. `release-check/verify_wheel.sh <wheel> <commit-prefix> <work-dir>`
+installs the wheel file into a new throwaway venv at `<work-dir>/venv` and
+checks that the version names the commit, that imports come from the wheel,
+that adapter provenance matches, and that the CLI runs. It does not check an
+existing installation. It deletes `<work-dir>/venv` first, so never give it the
+parent folder of a deployed venv.
+
 ## `pypi-placeholder/` — the PyPI name reservation for `ccf-sdk`
 
 `SEC-027` (`D-IMPL-376` ruling 4). The SDK's distribution name is `ccf-sdk`,
