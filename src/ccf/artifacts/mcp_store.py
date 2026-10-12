@@ -116,7 +116,7 @@ import hashlib
 import json
 from collections.abc import Coroutine
 from http import HTTPStatus
-from typing import Any, TypeVar
+from typing import Any, Final, TypeVar
 
 import httpx
 from mcp import ClientSession
@@ -127,6 +127,7 @@ from ccf.artifacts.protocol import (
     ArtifactName, ArtifactNotFound,
     ArtifactReadRefused,
     ArtifactRef,
+    ArtifactResolutionRefused,
     ArtifactStoreError,
     ArtifactStoreUnauthenticated,
     ArtifactUriUnresolvable,
@@ -139,7 +140,13 @@ from ccf.artifacts.protocol import (
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
-from ccf.erasure.subject_match import SubjectMatchAnswer, SubjectMatchQuery, SubjectMatchVerdict
+from ccf.erasure.subject_match import (
+    DoorNamingAnswer,
+    DoorNamingQuery,
+    SubjectMatchAnswer,
+    SubjectMatchQuery,
+    SubjectMatchVerdict,
+)
 from ccf.products.refusal import RefusalEnvelope
 from ccf.mcp.client import (
     HttpClientFactory,
@@ -166,6 +173,14 @@ _NAMES_SCHEME = "ccf-artifact-names"
 _PUT_TOOL = "put_artifact"
 #: The erasure door's server-side subject match (SEC-009; `D-IMPL-378`, D3b).
 _SUBJECT_MATCH_TOOL = "match_artifact_subject"
+#: What :meth:`McpArtifactStore.names_for_erasure` raises when the server declines
+#: the door's naming query or answers something that is not a naming answer.
+_DOOR_NAMING_DECLINED: Final[str] = (
+    "the artifact server declined the erasure door's naming query, or did not answer one"
+    " (SEC-009; D-IMPL-378, design 1.3)"
+)
+#: The artifact server's door naming tool (`D-IMPL-378`, design 1.3), by its registered name.
+_DOOR_NAMING_TOOL = "name_artifact_for_erasure"
 
 
 class McpArtifactStore:
@@ -528,6 +543,49 @@ class McpArtifactStore:
                 "the artifact server's answer to the subject match is not a verdict"
             ) from malformed
 
+    def names_for_erasure(self, *, query: DoorNamingQuery, door_signature: str) -> DoorNamingAnswer:
+        """The server's door naming path for ``query``: its tenant's names at the address, never the bytes (``D-IMPL-378``, design 1.3).
+
+        For the erasure door, and only for a query it signed
+        (:func:`~ccf.erasure.sign_door_naming_query`): the server's
+        ``name_artifact_for_erasure`` tool answers, under the subject match's
+        three authorizations, every name the caller's verified tenant filed
+        the address under and whether its record writer filed it there. The
+        door names and judges an address over this store only through this
+        path and :meth:`match_subject`, never through the names, blob or
+        presence resources a requester reads (Dave, 2026-10-09 10:54 MST,
+        design 1.3: *"Q2 (a), two tools. Q3 (a), no fallback."*). Not one of
+        the Protocol's four verbs.
+
+        Raises:
+            ccf.artifacts.protocol.MalformedContentAddress: ``query`` names no
+                content address; raised before the call leaves this process.
+            ArtifactStoreError: the server declined the call — it refuses every
+                caller but the erasure door of the caller's tenant, and it
+                answers the door itself the same one refusal for an address it
+                cannot verify (design 1.3, Q1 (b)) — or answered something
+                that is not a naming answer.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401 (``D-IMPL-378``, repair 2.5 (a)).
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
+        """
+        address = held_content_address(query.content_address)
+
+        async def operation(session: ClientSession) -> CallToolResult:
+            return await session.call_tool(
+                _DOOR_NAMING_TOOL, {"content_address": address, "door_signature": door_signature}
+            )
+
+        # Judged after the session closed, as `match_subject` is: a decline is
+        # an answer, not an outage, and the guard's 401 is the typed refusal.
+        result = self._bridge.run(self._guarded_session(operation))
+        if result.isError or result.structuredContent is None:
+            raise ArtifactStoreError(_DOOR_NAMING_DECLINED)
+        try:
+            return DoorNamingAnswer.model_validate(result.structuredContent)
+        except ValueError as malformed:
+            raise ArtifactStoreError(_DOOR_NAMING_DECLINED) from malformed
+
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
 
@@ -541,6 +599,13 @@ class McpArtifactStore:
             ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential, so it said nothing about the name.
+            ccf.artifacts.protocol.ArtifactResolutionRefused: the server decided
+                the URI — a class its substrate declares under ``ReplayMint`` —
+                through the governed read and answered its refusal shell, carried
+                as ``envelope``: nothing that URI names is available to this
+                credential (``D-IMPL-378``, design 1.1). An
+                ``ArtifactUriUnresolvable`` and an ``ArtifactNotFound``, never an
+                outage.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
         """
         parsed = parse_artifact_uri(uri)
@@ -556,7 +621,7 @@ class McpArtifactStore:
                 artifact_version=parsed.artifact_version,
             )
         )
-        address = _resolution_of(answer)
+        address = _resolution_of(answer, uri=uri)
         if address is None:
             raise ArtifactUriUnresolvable(
                 f"{uri!r} names no version the artifact server registered"
@@ -628,12 +693,34 @@ def _presence_of(answer: str) -> bool:
     return found
 
 
-def _resolution_of(answer: str) -> str | None:
+def _resolution_of(answer: str, *, uri: str) -> str | None:
     """Read the resolved address, or ``None``, out of a resolution answer.
 
+    A governed refusal shell — recognized as :func:`_presence_of` recognizes
+    one, an answer that validates as a refusal envelope — is the server's
+    decision on a governed URI (``D-IMPL-378``, design 1.1), raised typed.
+
     Raises:
+        ccf.artifacts.protocol.ArtifactResolutionRefused: the answer is the
+            server's governed refusal shell.
         McpServerUnreachable: the answer is not the resolution contract.
     """
+    try:
+        shell = json.loads(answer)
+    except ValueError:
+        shell = None
+    if isinstance(shell, dict) and "found" not in shell and "kind" in shell:
+        try:
+            refused = RefusalEnvelope.model_validate(shell)
+        except ValueError as error:
+            raise McpServerUnreachable(
+                f"artifact server returned a non-resolution answer: {answer!r}"
+            ) from error
+        raise ArtifactResolutionRefused(
+            f"the artifact server refused to resolve {uri!r} to this credential"
+            f" ({refused.kind}): nothing it names is available through it",
+            envelope=refused,
+        )
     try:
         parsed = json.loads(answer)
         found = parsed["found"]

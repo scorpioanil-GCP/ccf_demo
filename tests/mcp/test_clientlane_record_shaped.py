@@ -538,7 +538,11 @@ def test_an_erasure_door_over_the_mcp_backed_store_judges_a_record_shaped_filing
         )
     assert over_mcp.value.reason_code == "subject-not-found", over_mcp.value.reason_code
     subject_match_tool = h.contract("ccf_runtime.mcp.artifact_server", "SUBJECT_MATCH_TOOL")
-    assert session.tool_calls == [(subject_match_tool, {"verdict": "subject-not-found"})], session.tool_calls
+    door_naming_tool = h.contract("ccf_runtime.mcp.artifact_server", "DOOR_NAMING_TOOL")
+    # Amended for design 1.3, Q3 (a) "no fallback" (Dave, 2026-10-09 10:54 MST): the door names through its own path, then matches.
+    assert [called for called, _ in session.tool_calls] == [door_naming_tool, subject_match_tool], session.tool_calls
+    assert session.tool_calls[0][1]["filed_by_record_writer"] is False, session.tool_calls
+    assert session.tool_calls[1] == (subject_match_tool, {"verdict": "subject-not-found"}), session.tool_calls
     with pytest.raises(refused) as in_process:
         h.run(
             h.door(plane).request(

@@ -99,6 +99,10 @@ SALT = "test-salt-not-a-secret"
 OTHER_SUBJECT = "customer-99"
 
 
+def _door_naming_tool() -> str:
+    return str(h.contract("ccf_runtime.mcp.artifact_server", "DOOR_NAMING_TOOL"))
+
+
 def _subject_match_tool() -> str:
     return str(h.contract("ccf_runtime.mcp.artifact_server", "SUBJECT_MATCH_TOOL"))
 
@@ -390,14 +394,18 @@ def test_the_door_verifies_a_record_shaped_filing_and_the_document_never_crosses
 
     assert isinstance(outcome, WorkflowSuspended), outcome
     calls = wire.requests("tools/call")
-    assert [call["params"]["name"] for call in calls] == [_subject_match_tool()], calls
-    assert set(calls[0]["params"]["arguments"]) == {
+    # Amended for design 1.3, Q3 (a) "no fallback" (Dave, 2026-10-09 10:54 MST): the naming path first, then the match.
+    assert [call["params"]["name"] for call in calls] == [_door_naming_tool(), _subject_match_tool()], calls
+    assert set(calls[0]["params"]["arguments"]) == {"content_address", "door_signature"}, (
+        "the tenant crosses no wire: the server takes the caller's verified tenant"
+    )
+    assert set(calls[1]["params"]["arguments"]) == {
         "content_address", "subject_ref", "key_paths", "subject_ref_salt", "door_signature"
     }, "the tenant crosses no wire: the server takes the caller's verified tenant"
-    (answer,) = wire.answers("tools/call")
+    _named, answer = wire.answers("tools/call")
     assert json.loads(answer)["result"]["structuredContent"] == {"verdict": "subject-in-replay-input"}, answer
     blob_reads = [r for r in wire.requests("resources/read") if r["params"]["uri"].startswith("ccf-artifact-blob://")]
-    assert [r["params"]["uri"] for r in blob_reads] == [f"ccf-artifact-blob://{filed.content_address}"], blob_reads
+    assert blob_reads == [], blob_reads  # Amended for design 1.3, Q3 (a): the door never reads the requester-facing blob
 
     control_canary = "d3b-transport-control-9a2e"
     plain = h.client_put(store, name="plain", document={"note": control_canary})
@@ -603,10 +611,14 @@ def test_every_answer_and_every_refusal_past_the_guard_is_audited(tmp_path: path
 
 
 def test_the_subject_match_never_judges_governed_evidence(tmp_path: pathlib.Path) -> None:
-    """A record the fabric's record writer filed under this tenant — governed evidence, read only through the
-    governed dereference — is never judged by the subject match: the door's genuine query for it answers
-    ``subject-unverifiable`` and its bytes are never read. Control: the same door's query for an ordinary client
-    filing carrying the subject is judged (``subject-found``) and its bytes are read once."""
+    """AMENDED by OWED-RULINGS-3 item 5 (B) (Dave, 2026-10-09 06:21 MST, "5(B)": *"Extend it under the same three
+    authorizations (full parity ..."*; design 1.3). Before it, a record the fabric's record writer filed under this
+    tenant was never judged by the subject match (``subject-unverifiable``, no byte read). Now the door's genuine query
+    for it is judged where the bytes are, as the in-process door judges it — ``subject-in-replay-input`` here — its
+    bytes read once and never crossing. Governed evidence that is not a record stays unjudged (design 1.3, Q1 (b),
+    10:54; ``test_governed_evidence_that_is_not_a_record_stays_unjudged_by_both_door_paths``). Control: the same door's
+    query for an ordinary client filing carrying the subject is judged (``subject-found``) and its bytes are read
+    once."""
     world = _world(tmp_path, filed=True)
     store = world.spy._inner
     record = _record_shaped("d3b-governed")
@@ -615,8 +627,9 @@ def test_the_subject_match_never_judges_governed_evidence(tmp_path: pathlib.Path
     ref = _ref(h.SUBJECT_ID)
 
     refused = _ask_tool(world, DOOR, _arguments(governed, ref, _door_signature(_query(TENANT, governed, ref))))
-    assert refused.result.structuredContent == {"verdict": "subject-unverifiable"}, refused.call
-    assert refused.reads["get"] == 0, dict(refused.reads)
+    # Amended for 5 (B) (06:21; design 1.3): a writer-filed record is judged, as in process.
+    assert refused.result.structuredContent == {"verdict": "subject-in-replay-input"}, refused.call
+    assert refused.reads["get"] == 1, dict(refused.reads)
 
     ordinary = content_hash(ORDINARY)
     judged = _ask_tool(world, DOOR, _arguments(ordinary, ref, _door_signature(_query(TENANT, ordinary, ref))))
@@ -730,11 +743,11 @@ def test_the_mcp_backed_door_reaches_the_in_process_doors_outcome(
 def test_a_record_the_record_writer_filed_is_refused_over_mcp_before_any_subject_match(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A row where the doors differ, unchanged by D3b and stated rather than hidden: a record the record writer
-    filed, the subject in a replay-input field. In process it is refused ``replay-input``. Over MCP the door's names
-    read of an own governed address goes through the governed dereference, which does not admit the door's principal,
-    so the door refuses ``class-unverifiable`` — before any read of the bytes and without asking the subject match.
-    The MCP-backed door learns LESS here, never more."""
+    """AMENDED by OWED-RULINGS-3 item 5 (B) (Dave, 2026-10-09 06:21 MST; design 1.3): this was the row where the
+    doors differed — a record the record writer filed, the subject in a replay-input field, refused ``replay-input``
+    in process and ``class-unverifiable`` over MCP (the panel's K37). 5 (B) asks for full parity, so the MCP-backed
+    door now names the address through its own naming path and judges it through the subject match (Q2 (a), Q3 (a),
+    10:54) and reaches the in-process outcome, ``replay-input``. The name is kept so the amendment is traceable."""
     plane, store = _deployment(tmp_path / "in-process")
     record = _record_shaped("d3b-parity-governed")
     replay_writer(store, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS).write_replay_record(record=record)
@@ -750,5 +763,200 @@ def test_a_record_the_record_writer_filed_is_refused_over_mcp_before_any_subject
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=names_world._Run(), write_kinds=store.write_kinds)  # type: ignore[arg-type]
     with pytest.raises(ErasureRefused) as over_mcp:
         _ask(h.door(plane, store=client), plane, _request(plane, content_hash(record), REPLAY_RECORD_CLASS))
-    assert over_mcp.value.reason_code == "class-unverifiable"
-    assert wire.requests("tools/call") == []
+    assert over_mcp.value.reason_code == "replay-input"  # Amended for 5 (B) (06:21; design 1.3): parity
+    # Amended for design 1.3, Q2 (a) / Q3 (a) (10:54): through the two door paths, in order.
+    assert [call["params"]["name"] for call in wire.requests("tools/call")] == [_door_naming_tool(), _subject_match_tool()]
+
+
+# --- design 1.3: governed evidence through the door's own paths (D-IMPL-378) -------------------------------------
+#
+# OWED-RULINGS-3 item 5 (B) (Dave, 2026-10-09 06:21 MST, "5(B)"): "Extend it under the same three authorizations
+# (full parity; needs a second new door-authorized path)." Design 1.3, 10:54 MST: "Q1 (b). Keep the 06:21 uniform
+# “cannot verify.” The door-only path must not tell the door the truth again. Q2 (a), two tools. Q3 (a), no fallback.
+# Q4 (a), the existing permission." Read as the coordinator ruled it for this build (the WIDE reading of Q1 (b),
+# 2026-10-12): over MCP a record the record writer filed reaches the in-process outcome, while governed evidence that
+# is not a record (a query pin) and a client twin of governed evidence answer the 06:21 uniform `class-unverifiable`
+# — where the design note's narrow reading had them reach `class-label-mismatch`.
+
+#: A non-record class the deployment declares under ``ReplayMint`` (query-pin-like governed evidence).
+GOVERNED = "fixture.governed-evidence"
+#: Its document, carrying the erasure subject at a declared key path.
+GOVERNED_DOC = {"customer": {"id": h.SUBJECT_ID}, "note": "governed evidence whose bytes a client lane may also hold"}
+
+
+def _governed_store(root: pathlib.Path) -> FileArtifactStore:
+    """The deployment's substrate at ``root``, declaring :data:`GOVERNED` under ``ReplayMint`` beside the record class."""
+    return FileArtifactStore(
+        root=root,
+        write_kinds=WriteKinds(
+            {
+                WORKFLOW_TRACE_CLASS: (Execute, Resume),
+                h.ERASURE_RECORD_CLASS: (ArtifactErase,),
+                h.ERASURE_APPROVAL_CLASS: (ArtifactErase,),
+                REPLAY_RECORD_CLASS: (ReplayMint,),
+                GOVERNED: (ReplayMint,),
+            }
+        ),
+    )
+
+
+def _file_governed(store: FileArtifactStore, *, twin: bool) -> str:
+    """File :data:`GOVERNED_DOC` as governed evidence of the tenant; with ``twin``, ALSO on its client lane."""
+    from tests.replay.authority import mechanism_put  # noqa: PLC0415
+
+    address = content_hash(GOVERNED_DOC)
+    mechanism_put(store, tenant=TENANT, artifact_class=GOVERNED, name=address, artifact=GOVERNED_DOC)
+    if twin:
+        h.client_put(store, name="twin", document=GOVERNED_DOC)
+    return address
+
+
+def _outcome_of(door: Any, plane: Any, address: str, label: str) -> str:
+    """``admitted`` where the request reached its approval (the workflow suspended), else the refusal's reason code."""
+    try:
+        outcome = _ask(door, plane, _request(plane, address, label))
+    except ErasureRefused as refused:
+        return refused.reason_code
+    assert isinstance(outcome, WorkflowSuspended), outcome
+    return "admitted"
+
+
+def _both_doors(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, file: Any, label: str
+) -> tuple[str, str, wire_capture.Wire]:
+    """The same request through the in-process door and through the MCP-backed door, each on its own fresh plane."""
+    plane, _ = _deployment(tmp_path / "in-process")
+    store = _governed_store(plane.store.root)
+    address = file(store)
+    in_process = _outcome_of(h.door(plane, store=store), plane, address, label)
+
+    plane, _ = _deployment(tmp_path / "over-mcp")
+    store = _governed_store(plane.store.root)
+    assert file(store) == address
+    wire = wire_capture.Wire()
+    wire_capture.route_store_through(monkeypatch, names_world._server(tmp_path / "server", store), names_world._grant(), wire)
+    client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=names_world._Run(), write_kinds=store.write_kinds)  # type: ignore[arg-type]
+    return in_process, _outcome_of(h.door(plane, store=client), plane, address, label), wire
+
+
+def _requester_facing_reads(wire: wire_capture.Wire) -> list[str]:
+    """Every names, blob or presence resource the door read: the requester-facing reads design 1.3 takes it off."""
+    return [
+        r["params"]["uri"]
+        for r in wire.requests("resources/read")
+        if r["params"]["uri"].split("://")[0] in ("ccf-artifact-names", "ccf-artifact-blob", "ccf-artifact-meta")
+    ]
+
+
+def test_a_client_twin_of_governed_evidence_is_never_erased_over_mcp(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Governed evidence the tenant also filed, byte for byte, on its client lane, named by an erasure request as the
+    client class. In process the door refuses it ``class-label-mismatch`` (it sees the governed name). Over MCP the
+    door must never admit it: with design 1.2's client-lane rule alone the requester-facing names resource shows only
+    the twin's client name and the door ADMITTED the erasure (measured, ``admitted``), which would withhold the
+    tenant's governed evidence. Through the door's own naming path it is refused ``class-unverifiable`` — the 06:21
+    uniform "cannot verify" (design 1.3, Q1 (b), Dave 10:54; the wide reading: the design note's narrow reading
+    expected ``class-label-mismatch`` here) — no approval starts, and the door read no requester-facing resource."""
+    in_process, over_mcp, wire = _both_doors(
+        tmp_path, monkeypatch, lambda store: _file_governed(store, twin=True), h.DOC_CLASS
+    )
+    assert in_process == "class-label-mismatch", in_process
+    assert over_mcp == "class-unverifiable", over_mcp
+    assert [c["params"]["name"] for c in wire.requests("tools/call")] == [_door_naming_tool()]
+    assert _requester_facing_reads(wire) == []
+
+
+def test_governed_evidence_that_is_not_a_record_stays_unjudged_by_both_door_paths(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Governed evidence that is not a record (a query-pin-like document the tenant's record writer filed), named as a
+    client class: in process ``class-label-mismatch``; over MCP the 06:21 uniform ``class-unverifiable`` (design 1.3,
+    Q1 (b), 10:54, the wide reading). At the tools: the door's genuinely signed naming query gets the one refusal and
+    its genuinely signed subject match gets ``subject-unverifiable`` — the door paths tell the door no more than 06:21
+    did. Control: a record the record writer filed IS named and judged on the same server."""
+    in_process, over_mcp, wire = _both_doors(
+        tmp_path / "doors", monkeypatch, lambda store: _file_governed(store, twin=False), h.DOC_CLASS
+    )
+    assert (in_process, over_mcp) == ("class-label-mismatch", "class-unverifiable")
+    assert _requester_facing_reads(wire) == []
+
+    root = tmp_path / "tools"
+    root.mkdir()
+    store = _governed_store(root / "artifacts")
+    governed = _file_governed(store, twin=False)
+    record = _record_shaped("d3b-wide-control")
+    replay_writer(store, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS).write_replay_record(record=record)
+    spy = _Spy(store)
+    world = _World(
+        spy=spy,
+        server=_server(root, spy, authorizer=_authorizer(_subject_match_action())),
+        audit_log=ControlPlaneRegistry().audit_log,
+    )
+    ref = _ref(h.SUBJECT_ID)
+    naming = _ask_door_tool(world, DOOR, _door_naming_tool(), _naming_arguments(governed, _naming_signature(governed)))
+    assert naming.result.isError is True and _refused_constant() in naming.result.content[0].text, naming.call
+    match = _ask_door_tool(world, DOOR, _subject_match_tool(), _arguments(governed, ref, _door_signature(_query(TENANT, governed, ref))))
+    assert match.result.structuredContent == {"verdict": "subject-unverifiable"}, match.call
+
+    recorded = content_hash(record)
+    named = _ask_door_tool(world, DOOR, _door_naming_tool(), _naming_arguments(recorded, _naming_signature(recorded)))
+    assert named.result.structuredContent["filed_by_record_writer"] is True, named.call
+    assert [n["artifact_class"] for n in named.result.structuredContent["names"]] == [REPLAY_RECORD_CLASS], named.call
+    judged = _ask_door_tool(world, DOOR, _subject_match_tool(), _arguments(recorded, ref, _door_signature(_query(TENANT, recorded, ref))))
+    assert judged.result.structuredContent == {"verdict": "subject-in-replay-input"}, judged.call
+
+
+#: Records the record writer filed, and the outcome BOTH doors must reach (5 (B): full parity for records).
+WRITER_RECORD_PARITY = {
+    "a record the writer filed, the subject in a replay-input field": "replay-input",
+    "a record the writer filed, the subject at a key path only": "admitted",
+}
+
+
+@pytest.mark.parametrize("row", sorted(WRITER_RECORD_PARITY))
+def test_a_record_the_record_writer_filed_reaches_the_in_process_outcome_over_mcp(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, row: str
+) -> None:
+    """5 (B) parity for records (the panel's K37): the same request, naming a record the fabric's record writer filed,
+    through the in-process door and the MCP-backed door, reaches the same outcome — ``replay-input`` where the subject
+    sits in a replay-input field, ``admitted`` where it sits at a key path only — and over MCP it does so through the
+    door's two paths alone, naming then match. RED before design 1.3: ``class-unverifiable`` over MCP for both."""
+    record = (
+        _record_shaped("d3b-parity-writer-1")
+        if "replay-input" in row
+        else DecisionReplayRecord.model_validate(_record_at_key_path_only())
+    )
+
+    def file(store: FileArtifactStore) -> str:
+        replay_writer(store, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS).write_replay_record(record=record)
+        return content_hash(record)
+
+    in_process, over_mcp, wire = _both_doors(tmp_path, monkeypatch, file, REPLAY_RECORD_CLASS)
+    assert (in_process, over_mcp) == (WRITER_RECORD_PARITY[row], WRITER_RECORD_PARITY[row])
+    assert [c["params"]["name"] for c in wire.requests("tools/call")] == [_door_naming_tool(), _subject_match_tool()]
+    assert _requester_facing_reads(wire) == []
+
+
+def _naming_signature(address: str, *, signer: Any = None, tenant: str = TENANT) -> str:
+    query = h.contract("ccf.erasure", "DoorNamingQuery")(tenant_id=tenant, content_address=address)
+    return str(
+        h.contract("ccf.erasure", "sign_door_naming_query")(
+            query, signer=signer or signing.door_provider(), key_id=signing.DOOR_KID
+        )
+    )
+
+
+def _naming_arguments(address: str, signature: str) -> dict[str, Any]:
+    return {"content_address": address, "door_signature": signature}
+
+
+def _ask_door_tool(world: _World, grant: TokenGrant | None, tool: str, arguments: dict[str, Any]) -> _Answer:
+    """:func:`_ask_tool` for either door path: the answer, the substrate reads it cost, every message served."""
+    wire = wire_capture.Wire()
+    before = Counter(world.spy.reads)
+    result = wire_capture.call(world.server, grant, tool, arguments, wire)
+    reads = Counter(world.spy.reads)
+    reads.subtract(before)
+    (call,) = wire.answers("tools/call")
+    return _Answer(text="\n".join(wire.served()), call=call, reads=+reads, result=result)

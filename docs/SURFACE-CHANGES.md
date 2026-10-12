@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2667 entries**, of which **2385** name a public Python surface.
+**2686 entries**, of which **2404** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1394 entries — 1347 public Python surface, 47 not public Python API.
+1407 entries — 1360 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -19988,6 +19988,162 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.govern_resolution
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_resolution
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: one versioned-URI resolution of governed evidence, decided by `govern_dereference`'s own hold chain (now the private `_govern_verified`, entered by both after their capability check). It verifies an `Authorized[ArtifactRead]` bound to `"<class>/<name>"` first, rebuilds the URI from the capability's verified tenant, and returns the evidence (its address) to a principal the chain admits, or the one recorded, disclosed shell to everyone else. `govern_dereference` keeps its signature and behavior.
+- Why: design 1.1, Q2 (a): keep `D-IMPL-353` §1.2's class/name vocabulary for the resolution resource's capability. Red tests: `tests/mcp/test_f1_1b_resolution_decides_governed_classes.py` (6 of its 7 tests red on `633c4e53`; the client-lane control is green before and after).
+- Migration: none.
+
+*Recorded by `378-73-a-f1-1b-mcp-resolution-decides-governed-classes.md`.*
+
+#### ccf.artifacts.protocol.ArtifactResolutionRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactResolutionRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `ArtifactUriUnresolvable` and an `ArtifactNotFound` (two parents, as ruled) that `McpArtifactStore.resolve_uri` raises where the server answered a governed resolution with its refusal shell; it carries the shell, parsed, as `envelope`. Never `McpServerUnreachable`.
+- Why: design 1.1, Q1 (a) and Q3. With `ArtifactUriUnresolvable` as the only base, `tests/replay/test_record_content_address_integrity.py::test_child_admission_over_the_mcp_backed_store_reads_the_genuine_record_and_not_altered_bytes` fails (measured by the design seat).
+- Migration: none; a caller that handles `ArtifactUriUnresolvable` or `ArtifactNotFound` handles it unchanged.
+
+*Recorded by `378-73-a-f1-1b-mcp-resolution-decides-governed-classes.md`.*
+
+#### ccf_runtime.mcp.artifact_server.DOOR_NAMING_TOOL
+
+- Surface: ccf_runtime.mcp.artifact_server.DOOR_NAMING_TOOL
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"name_artifact_for_erasure"`, the erasure door's naming path: a tool under the subject match's three authorizations (the `artifact.subject.match` grant, the tenant's `ErasureAuthority`, a door-key signature over a `DoorNamingQuery`) answering the caller's tenant's names at an address and whether its record writer filed it there, never the bytes. Every refusal is `SUBJECT_MATCH_REFUSED`, audited; so is the uniform "cannot verify" for an address the door may not learn about.
+- Why: 5 (B), "a second new door-authorized path"; design 1.3, Q2 (a), Q4 (a).
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.subject_match.DOOR_NAMING_CLASS
+
+- Surface: ccf.erasure.subject_match.DOOR_NAMING_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf.erasure-door-naming"`, what a naming query's door signature asserts under `DOOR_SIGNATURE_ASSERTION`; distinct from `SUBJECT_MATCH_CLASS`, the record class and the probe class, so a signature made for one door path does not verify on the other.
+- Why: design 1.3, domain separation. Test: `tests/mcp/test_d3b_door_naming_path.py::test_each_door_paths_signature_is_refused_on_the_other_path`.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.DOOR_NAMING_CLASS
+
+- Surface: ccf.erasure.DOOR_NAMING_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package re-export of `ccf.erasure.subject_match.DOOR_NAMING_CLASS`.
+- Why: design 1.3; the package exports every subject-match name.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.subject_match.DoorNamingQuery
+
+- Surface: ccf.erasure.subject_match.DoorNamingQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: what the door asks the naming path: `tenant_id` (on the server, the caller's verified tenant) and `content_address`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.DoorNamingQuery
+
+- Surface: ccf.erasure.DoorNamingQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package re-export of `ccf.erasure.subject_match.DoorNamingQuery`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.subject_match.DoorNamingAnswer
+
+- Surface: ccf.erasure.subject_match.DoorNamingAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the naming path's whole answer: `names` (the caller's tenant's only, at least one) and `filed_by_record_writer`, decided on the server with its substrate's `WriteKinds`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.DoorNamingAnswer
+
+- Surface: ccf.erasure.DoorNamingAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package re-export of `ccf.erasure.subject_match.DoorNamingAnswer`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.subject_match.sign_door_naming_query
+
+- Surface: ccf.erasure.subject_match.sign_door_naming_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the door's detached signature over a naming query's canonical bytes, asserting `DOOR_NAMING_CLASS`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.sign_door_naming_query
+
+- Surface: ccf.erasure.sign_door_naming_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package re-export of `ccf.erasure.subject_match.sign_door_naming_query`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.subject_match.verify_door_naming_query
+
+- Surface: ccf.erasure.subject_match.verify_door_naming_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: refuses (`SubjectMatchSignatureInvalid`) unless the signature is the declared door key's over exactly the query, asserting `DOOR_NAMING_CLASS`; the same private check as `verify_subject_match_query`, so the two cannot drift.
+- Why: design 1.3. Severing it reddens `tests/mcp/test_d3b_door_naming_path.py::test_a_principal_holding_the_grant_but_not_the_door_key_gets_one_answer_on_the_naming_path`.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.erasure.verify_door_naming_query
+
+- Surface: ccf.erasure.verify_door_naming_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package re-export of `ccf.erasure.subject_match.verify_door_naming_query`.
+- Why: design 1.3.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
 #### ccf.controlplane.registry.ArtifactIsolationRefused
 
 - Surface: ccf.controlplane.registry.ArtifactIsolationRefused
@@ -31511,7 +31667,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-581 entries — 542 public Python surface, 39 not public Python API.
+587 entries — 548 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39086,6 +39242,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
 
 *Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the resolution resource verified no capability in its body and answered `found: true`/`found: false` from the naming index for every class.
+- After: the body verifies its `"<class>/<name>"` capability first. For a class the substrate declares under `ReplayMint` the resolution is decided by `govern_resolution`: an admitted principal gets `found: true` and the address as before; everyone else gets the governed shell, the same for a present pin, an admitted child contract, a child question, a sealed record, another principal's record and a URI nobody filed. Every other class resolves exactly as before, FW-6's `found: false` for an erased address included.
+- Why: F1-1b, X17 (a). Red tests: the closure gate's three `mcp-resolution` cells and `tests/mcp/test_f1_1b_resolution_decides_governed_classes.py`.
+- Migration: another principal of a tenant can no longer resolve a governed record it may not read, and no principal resolves a query pin, an admitted child contract or a child question over MCP; replay over the MCP-backed store already could not read those bytes.
+
+*Recorded by `378-73-a-f1-1b-mcp-resolution-decides-governed-classes.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_uri` read a refusal shell as a non-resolution answer and raised `McpServerUnreachable`.
+- After: `resolve_uri` raises `ArtifactResolutionRefused`, carrying the shell, for the server's governed refusal; `McpServerUnreachable` remains for an unreachable substrate and for an answer that is neither a resolution nor a refusal envelope.
+- Why: design 1.1, Q1 (a): "a typed client error".
+- Migration: none for callers that catch `ArtifactUriUnresolvable` or `ArtifactNotFound`.
+
+*Recorded by `378-73-a-f1-1b-mcp-resolution-decides-governed-classes.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: blob and presence took the governed dereference wherever the caller's tenant had filed the address under any `ReplayMint` class (N4), and names did the same (decision 1 (A): `governed or not own`).
+- After: blob and presence serve the client lane wherever the caller's tenant filed the address under a class not declared under `ReplayMint`; a governed filing of the same bytes by that tenant no longer overrides it. Record-shaped bytes and bytes not at their address still go to the governed read, as do addresses the tenant filed only as governed evidence and addresses it never filed. Names follows rule A6: the tenant's client-lane names; for record-shaped bytes or bytes not at their address the governed decision decides whether the governed names are added (a record's owner keeps its provenance) and its refusal never replaces the client-lane names. The names resource now reads the stored bytes internally for that test; they never leave the server. `put` and the storage layer are unchanged.
+- Why: F1-1c, X17 (a). Red tests: the closure gate's write-then-read cells; `tests/mcp/test_f1_1c_write_then_read.py` (3 tests, red on `633c4e53`).
+- Migration: none for data or configuration. Any principal of a tenant reads back what another principal of it filed on the client lane, bytes that are also governed evidence included (C8's tenant-shared client lane, kept). Not closed, and disclosed: the write timing of content-addressed deduplication (`FileArtifactStore.put` skips the file write when the bytes are already stored, by any filing); measured by the design seat at the store level, median 447.7 µs already stored against 455.7 µs new, p10–p90 roughly 160–3,000 µs for both; not measured over the wire.
+
+*Recorded by `378-73-b-f1-1c-a-tenants-client-lane-filing-decides-its-client-lane-reads.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: `match_artifact_subject` judged only an address the caller's tenant filed on its client lane; governed evidence answered `subject-unverifiable` without a byte read.
+- After: it also judges a record the tenant's record writer filed (genuine record bytes at their address), as the in-process door does; governed evidence that is not a record, a client twin of it, and an address the tenant never filed still answer `subject-unverifiable`. The new `name_artifact_for_erasure` tool is registered beside it.
+- Why: 5 (B) parity; Q1 (b) on the wide reading.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: no naming path for the erasure door.
+- After: `names_for_erasure(query=, door_signature=)` calls the server's naming tool through the same 401-typed session as every other call; a decline or a malformed answer raises `ArtifactStoreError`. Not a Protocol verb.
+- Why: design 1.3, the client side of the second door path.
+- Migration: none.
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store the door read the requester-facing names resource and blob, and asked the subject match only where the blob answered absent.
+- After: over a store offering `names_for_erasure` the door names every address through the naming path and judges it through the subject match only, never reading the names, blob or presence resources; any decline or failure of either path refuses the address, with no fallback. The `replay-input` rule uses the server's provenance bit. A store offering neither (the in-process stores) keeps the old flow.
+- Why: 5 (B); design 1.3, Q3 (a). Seven pinned tests were amended to the ruled outcome (coordinator authorization, 2026-10-12), listed in the lane's commits.
+- Migration: the door's MCP credential must hold `artifact.subject.match` (already required for record-shaped client filings); without it every address over MCP is refused, where ordinary client filings could be erased before. Upgrade the artifact server with or before the door's client: a new client against an older server is refused `class-unverifiable` for every address (by construction; not measured).
+
+*Recorded by `378-73-c-d3b-b-the-erasure-doors-own-paths-reach-records.md`.*
 
 #### ccf.peering.admission.PeeringAdmissionGate
 

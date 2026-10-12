@@ -218,6 +218,8 @@ from ccf.authz.capability import (
     verify,
 )
 from ccf.erasure import (
+    DoorNamingAnswer,
+    DoorNamingQuery,
     ErasedContentRefused,
     ErasureIndexProtocol,
     ErasureTrust,
@@ -228,6 +230,7 @@ from ccf.erasure import (
     judge_subject,
     reference_approval_verifier,
     subject_match_verdict,
+    verify_door_naming_query,
     verify_subject_match_query,
 )
 from ccf.erasure.approval import PinnedPolicySource
@@ -239,9 +242,11 @@ from ccf.products.resolver import refuse_incompatible_refusal_recorder
 from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
+    DereferencedEvidence,
     DereferenceRequest,
     DisclosingRecorderProtocol,
     govern_dereference,
+    govern_resolution,
 )
 from ccf_runtime.authz.product_entitlement import ProductEntitlementSourceProtocol
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
@@ -254,6 +259,7 @@ __all__ = [
     "ARTIFACT_META_URI_SCHEME",
     "ARTIFACT_NAMES_URI_SCHEME",
     "BLOB_URI_TEMPLATE",
+    "DOOR_NAMING_TOOL",
     "META_URI_TEMPLATE",
     "NAMES_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
@@ -305,6 +311,13 @@ PUT_ARTIFACT_TOOL = "put_artifact"
 #: item 5 — D3b): a Tool, because it takes the door's whole signed query, and
 #: answers one verdict, never bytes. See :func:`build_artifact_server`.
 SUBJECT_MATCH_TOOL = "match_artifact_subject"
+
+#: The erasure door's naming path (SEC-009; ``D-IMPL-378``, design 1.3 —
+#: OWED-RULINGS-3 item 5 (B)): a Tool under the subject match's three
+#: authorizations that answers the caller's tenant's names at an address and
+#: whether its record writer filed it there, never bytes. See
+#: :func:`build_artifact_server`.
+DOOR_NAMING_TOOL = "name_artifact_for_erasure"
 
 #: The ONE refusal every caller the subject match does not answer receives,
 #: whichever check refused it — no erasure authority for the caller's tenant, a
@@ -573,10 +586,18 @@ def build_artifact_server(
         # not change this tenant's answer.
         names = store.names_at(content_address=content_address)
         own = [named for named in names if named.tenant_id == authorized.tenant]
-        governed = any(
-            ReplayMint in store.write_kinds.for_class(named.artifact_class)
+        # Design 1.2 (F1-1c; Dave, 2026-10-09 10:54 MST: "Q1 (A), a tenant's own
+        # filing decides its own reads"): the names that tenant filed under a
+        # class the substrate does NOT declare under `ReplayMint` — its client
+        # lane. A governed filing of the same bytes by that tenant no longer
+        # overrides them (it did under N4, and a pin's bytes filed on the client
+        # lane then read back differently where the record writer had filed the
+        # pin than where it had not: the write-then-read channel).
+        client_own = [
+            named
             for named in own
-        )
+            if ReplayMint not in store.write_kinds.for_class(named.artifact_class)
+        ]
 
         def governed_read() -> bytes | RefusalEnvelope:
             # The governed dereference decides, records and discloses — and
@@ -599,8 +620,9 @@ def build_artifact_server(
             assert decided.payload is not None  # a bytes ask always carries them
             return decided.payload
 
-        if governed or not own:
-            # (3) Governed evidence, another tenant's bytes, or nothing at all.
+        if not client_own:
+            # (3) Governed evidence the tenant filed on no client lane, another
+            # tenant's bytes, or nothing at all.
             return governed_read()
         # (4) The client lane: filed under the capability's tenant in a class
         # the deployment did not declare governed. Served tenant-scoped, and
@@ -652,7 +674,7 @@ def build_artifact_server(
             resolved=True,
             occurred_at=entitlement_source.clock(),
             actor=authorized.principal,
-            artifact_class=own[0].artifact_class,
+            artifact_class=client_own[0].artifact_class,
             authz_action_id=ArtifactRead.action_id,
             authz_matched_pattern=None,
             authz_resource=content_address,
@@ -778,15 +800,15 @@ def build_artifact_server(
         verify(authorized, kind=ArtifactRead, resource=content_address)
         names = store.names_at(content_address=content_address)
         own = tuple(named for named in names if named.tenant_id == authorized.tenant)
-        governed = any(
-            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
+        client_own = tuple(
+            named
+            for named in own
+            if ReplayMint not in store.write_kinds.for_class(named.artifact_class)
         )
-        # Governed evidence, another tenant's address, or nothing at all: the
-        # split's one governed decision, asked without bytes (F1-1, D-IMPL-378).
-        # Answering `[]` for nothing beside the shell for a governed address
-        # told the two apart.
-        if governed or not own:
-            decided = govern_dereference(
+
+        def governed_decision() -> DereferencedEvidence | RefusalEnvelope:
+            # The split's one governed decision, asked without bytes (F1-1).
+            return govern_dereference(
                 authorized,
                 reference=DereferenceRequest(
                     reference=content_address, by_uri=False, wants_bytes=False
@@ -798,8 +820,33 @@ def build_artifact_server(
                 surface=SURFACE_MCP_RESOURCE,
                 address=artifact_names_uri(content_address=content_address),
             )
+
+        if not client_own:
+            # Governed evidence the tenant filed on no client lane, another
+            # tenant's address, or nothing at all (1 (A), D-IMPL-378): answering
+            # `[]` for nothing beside the shell for a governed address told the
+            # two apart.
+            decided = governed_decision()
             if isinstance(decided, RefusalEnvelope):
                 return canonical_bytes(decided).decode("utf-8")
+            return canonical_bytes(own).decode("utf-8")
+        # Rule A6 (design 1.2; Dave, 2026-10-09 10:54 MST, "Q2, the A6 names
+        # rule"): the tenant filed the address on its client lane, so its
+        # client-lane names answer. Bytes the client lane would serve — at their
+        # address, not shaped as a record — answer only those names, with no
+        # governed decision, exactly as the blob and presence reads serve them.
+        # Otherwise the governed decision decides whether the governed names are
+        # ADDED: a record's owner keeps its provenance, and a refusal never
+        # replaces the client-lane names. The bytes are read here for that test
+        # only and never leave this function.
+        try:
+            held = store.get(content_address=content_address)
+        except (ArtifactStoreError, KeyError, ValueError):
+            held = b""
+        if hashlib.sha256(held).hexdigest() == content_address and not _record_shaped(held):
+            return canonical_bytes(client_own).decode("utf-8")
+        if isinstance(governed_decision(), RefusalEnvelope):
+            return canonical_bytes(client_own).decode("utf-8")
         return canonical_bytes(own).decode("utf-8")
 
     @door.resource(
@@ -844,7 +891,50 @@ def build_artifact_server(
         (CLAUDE.md §7.4: swap the store, nothing else changes). Before this it
         resolved through the raw store and answered ``found: true`` with the
         erased address.
+
+        **A governed class resolves through the governed read** (``D-IMPL-378``,
+        design 1.1, F1-1b; Dave, 2026-10-09 10:54 MST: *"Q1 (a), a refusal
+        shell and a typed client error. Q2 (a), keep the class/name
+        permission."*). For a class the substrate declares under
+        ``ReplayMint`` the resolution is decided by
+        :func:`~ccf_runtime.authz.delivery_boundary.govern_resolution`, under
+        this resource's own ``"<class>/<name>"`` capability: a principal the
+        governed read admits gets ``found: true`` and the address, as before;
+        everyone else gets the one recorded, disclosed shell, which the MCP
+        store client raises as
+        :class:`~ccf.artifacts.protocol.ArtifactResolutionRefused`. A query pin
+        filed in one deployment and not another, a record its tenant sealed
+        (Q12) and a record of another principal no longer resolve differently
+        from nothing (``tests/mcp/test_f1_1b_resolution_decides_governed_classes.py``).
+        The routing is keyed on the URI's class segment, the caller's own
+        input, so it reveals nothing about the store. Every other class
+        resolves exactly as before, FW-6's ``found: false`` included.
         """
+        verify(authorized, kind=ArtifactRead, resource=f"{artifact_class}/{name}")
+        uri = artifact_uri(
+            tenant_id=authorized.tenant,
+            artifact_class=artifact_class,
+            name=name,
+            artifact_version=artifact_version,
+        )
+        if ReplayMint in store.write_kinds.for_class(artifact_class):
+            decided = govern_resolution(
+                authorized,
+                artifact_class=artifact_class,
+                name=name,
+                artifact_version=artifact_version,
+                store=consulted,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=uri,
+            )
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
+            return canonical_bytes(
+                ArtifactResolution(found=True, content_address=decided.content_address)
+            ).decode("utf-8")
         try:
             address = consulted.scoped(authorized.tenant).resolve_uri(
                 uri=artifact_uri(
@@ -920,6 +1010,44 @@ def build_artifact_server(
     # with — the SDK's reference detached-JWS verifier, the one the consult
     # above verifies the door's record signatures with.
     door_signature_verifier = reference_approval_verifier()
+
+    def the_door_may_judge(tenant: str, content_address: str) -> tuple[tuple[ArtifactName, ...], bool, bytes] | None:
+        """What the two door paths may answer about ``content_address`` for ``tenant``'s erasure door, or ``None``.
+
+        Design 1.3 (OWED-RULINGS-3 item 5 (B), *"full parity"*) under Dave's
+        2026-10-09 10:54 MST Q1 (b): *"Keep the 06:21 uniform “cannot
+        verify.” The door-only path must not tell the door the truth again."*
+        The 06:21 table the door may not learn more than: an address the
+        tenant never filed, and governed evidence that is not a record (a
+        query pin, an admitted child contract, a child question). So the door
+        paths answer ``None`` — the uniform "cannot verify" — for:
+
+        - an address the tenant filed under no name (Q1 (b));
+        - an address the tenant filed under a class the substrate declares
+          under ``ReplayMint`` whose stored bytes are not a record at that
+          address (not at their address, or not record-shaped) — governed
+          non-record evidence, and every client twin of it.
+
+        Otherwise — client-lane filings, and a record the tenant's record
+        writer filed (with or without a client twin) — they answer the
+        tenant's names, whether the record writer filed them, and the stored
+        bytes, read from the substrate for the door's judgment only, which
+        never leave this module (5 (B): records reach the in-process door's
+        outcome). Read only after all three authorizations.
+        """
+        own = tuple(
+            named for named in store.names_at(content_address=content_address) if named.tenant_id == tenant
+        )
+        if not own:
+            return None
+        filed = any(ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own)
+        try:
+            payload = store.get(content_address=content_address)
+        except (ArtifactStoreError, KeyError, ValueError):
+            return None
+        if filed and (hashlib.sha256(payload).hexdigest() != content_address or not _record_shaped(payload)):
+            return None
+        return own, filed, payload
 
     def the_doors_query(
         authorized: Authorized[ArtifactSubjectMatch],
@@ -1027,34 +1155,122 @@ def build_artifact_server(
             subject_ref_salt=subject_ref_salt,
             door_signature=door_signature,
         )
-        own = [
-            named
-            for named in store.names_at(content_address=query.content_address)
-            if named.tenant_id == authorized.tenant
-        ]
-        governed = any(
-            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
-        )
+        # Design 1.3 (5 (B)): a record the tenant's record writer filed is judged
+        # too, so the door reaches the in-process outcome for it; an address the
+        # door may not learn about (Q1 (b), 10:54) stays `subject-unverifiable`.
+        reach = the_door_may_judge(authorized.tenant, query.content_address)
         verdict: SubjectMatchVerdict = "subject-unverifiable"
-        if own and not governed:
-            try:
-                payload = store.get(content_address=query.content_address)
-            except (ArtifactStoreError, KeyError, ValueError):
-                pass
-            else:
-                verdict = subject_match_verdict(judge_subject(payload, query))
+        if reach is not None:
+            verdict = subject_match_verdict(judge_subject(reach[2], query))
         audit_log.append(
             action="authz_decision",
             key=query.content_address,
             version=query.content_address,
-            resolved=bool(own) and not governed,
+            resolved=reach is not None,
             occurred_at=entitlement_source.clock(),
             actor=authorized.principal,
-            artifact_class=own[0].artifact_class if own and not governed else None,
+            artifact_class=reach[0][0].artifact_class if reach is not None else None,
             authz_action_id=ArtifactSubjectMatch.action_id,
             authz_matched_pattern=None,
             authz_resource=query.content_address,
         )
         return SubjectMatchAnswer(verdict=verdict)
+
+    @door.tool(
+        name=DOOR_NAMING_TOOL,
+        action=ACTION_ARTIFACT_SUBJECT_MATCH,
+        subject=door.from_grant(),
+        resource=door.resource_route(),
+        # As the subject match: it writes nothing, its kind is not a read kind,
+        # and a stated (ambient stdio) identity is refused before any decision.
+        mutating=True,
+        products=door.products_unknown(
+            "the erasure door's naming path names an address, never a Context Product class"
+        ),
+    )
+    def name_artifact_for_erasure(
+        authorized: Authorized[ArtifactSubjectMatch],
+        content_address: str,
+        door_signature: str,
+    ) -> DoorNamingAnswer:
+        """The erasure door's naming path: its tenant's names at an address, never the bytes (``D-IMPL-378``, design 1.3).
+
+        OWED-RULINGS-3 item 5 (B), Dave 2026-10-09 06:21 MST: *"Extend it under
+        the same three authorizations (full parity; needs a second new
+        door-authorized path)."* Design 1.3, 10:54 MST: *"Q1 (b). Keep the 06:21
+        uniform “cannot verify.” The door-only path must not tell the door the
+        truth again. Q2 (a), two tools. Q3 (a), no fallback. Q4 (a), the
+        existing permission."*
+
+        **Authorized three ways, before anything is read** — exactly as
+        :func:`match_artifact_subject`: the deployment's authorizer must allow
+        :data:`~ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH` for the grant's
+        sole tenant (the guard); that tenant must have an
+        :class:`~ccf.erasure.ErasureAuthority` in this server's trust; and the
+        :class:`~ccf.erasure.DoorNamingQuery`, rebuilt under the caller's
+        tenant, must carry the signature of that authority's declared door key
+        asserting :data:`~ccf.erasure.DOOR_NAMING_CLASS`
+        (:func:`~ccf.erasure.verify_door_naming_query`) — so a subject-match
+        signature does not verify here, nor this path's there. Every refusal
+        past the guard is :class:`SubjectMatchRefused` with
+        :data:`SUBJECT_MATCH_REFUSED`, the one constant of both door paths,
+        audited unresolved.
+
+        **Then, for the door alone:** where the door paths may answer
+        (``the_door_may_judge``), every name the caller's tenant filed the
+        address under — never another tenant's (I6, C8) — and whether its
+        record writer filed it there, decided here with the substrate's
+        ``WriteKinds`` (the predicate of
+        :func:`~ccf.replay.provenance.filed_by_record_writer`). Where they may
+        not — an address the tenant never filed, governed evidence that is not
+        a record, a client twin of it — the same one refusal (Q1 (b)), so the
+        door refuses ``class-unverifiable`` as at 06:21. Every answer and every
+        refusal past the guard appends one ``authz_decision`` audit event.
+        """
+        verify(authorized, kind=ArtifactSubjectMatch, resource=ArtifactSubjectMatch.action_id)
+
+        def refused() -> SubjectMatchRefused:
+            audit_log.append(
+                action="authz_decision",
+                key=authorized.tenant,
+                version=ArtifactSubjectMatch.action_id,
+                resolved=False,
+                occurred_at=entitlement_source.clock(),
+                actor=authorized.principal,
+                authz_action_id=ArtifactSubjectMatch.action_id,
+                authz_resource=ArtifactSubjectMatch.action_id,
+            )
+            return SubjectMatchRefused(SUBJECT_MATCH_REFUSED)
+
+        authority = erasure_trust.authority_for(authorized.tenant)
+        try:
+            if authority is None:
+                raise ValueError("no erasure authority is declared for the caller's tenant")
+            query = DoorNamingQuery(tenant_id=authorized.tenant, content_address=content_address)
+            verify_door_naming_query(
+                query,
+                door_signature=door_signature,
+                authority=authority,
+                identity_provider=door_signature_verifier,
+            )
+        except ValueError:
+            raise refused() from None
+        reach = the_door_may_judge(authorized.tenant, query.content_address)
+        if reach is None:
+            raise refused()
+        names, filed, _ = reach
+        audit_log.append(
+            action="authz_decision",
+            key=query.content_address,
+            version=query.content_address,
+            resolved=True,
+            occurred_at=entitlement_source.clock(),
+            actor=authorized.principal,
+            artifact_class=None,
+            authz_action_id=ArtifactSubjectMatch.action_id,
+            authz_matched_pattern=None,
+            authz_resource=query.content_address,
+        )
+        return DoorNamingAnswer(names=names, filed_by_record_writer=filed)
 
     return door.build()

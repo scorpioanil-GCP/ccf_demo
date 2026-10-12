@@ -662,6 +662,7 @@
       "ArtifactNotFound",
       "ArtifactReadRefused",
       "ArtifactRef",
+      "ArtifactResolutionRefused",
       "ArtifactStoreError",
       "ArtifactStoreProtocol",
       "ArtifactStoreUnauthenticated",
@@ -713,6 +714,10 @@
           "tenant_id": "<class 'str'>",
           "uri": "<class 'str'>"
         }
+      },
+      "ArtifactResolutionRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, envelope: 'RefusalEnvelope') -> 'None'"
       },
       "ArtifactStoreError": {
         "kind": "class",
@@ -3239,7 +3244,10 @@
     "__all__": [
       "APPROVING_VERDICT",
       "ClassRetention",
+      "DOOR_NAMING_CLASS",
       "DOOR_SIGNATURE_ASSERTION",
+      "DoorNamingAnswer",
+      "DoorNamingQuery",
       "ERASURE_APPROVAL_CLASS",
       "ERASURE_INDEX_FILENAME",
       "ERASURE_RECORD_CLASS",
@@ -3291,10 +3299,12 @@
       "policy_head",
       "reference_approval_verifier",
       "require_append_authority",
+      "sign_door_naming_query",
       "sign_erasure_record",
       "sign_subject_match_query",
       "subject_match_verdict",
       "subject_ref_for",
+      "verify_door_naming_query",
       "verify_door_signature",
       "verify_erasure_approval",
       "verify_erasure_entry",
@@ -3315,9 +3325,27 @@
           "severity_exempt": "<class 'bool'>"
         }
       },
+      "DOOR_NAMING_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "DOOR_SIGNATURE_ASSERTION": {
         "kind": "constant",
         "shape": "str"
+      },
+      "DoorNamingAnswer": {
+        "kind": "contract",
+        "shape": {
+          "filed_by_record_writer": "<class 'bool'>",
+          "names": "tuple[ccf.artifacts.protocol.ArtifactName, ...]"
+        }
+      },
+      "DoorNamingQuery": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
       },
       "ERASURE_APPROVAL_CLASS": {
         "kind": "constant",
@@ -3622,6 +3650,10 @@
         "kind": "function",
         "shape": "(authorized: 'Authorized[ArtifactErase]', entry: 'ErasureIndexEntry') -> 'None'"
       },
+      "sign_door_naming_query": {
+        "kind": "function",
+        "shape": "(query: 'DoorNamingQuery', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
       "sign_erasure_record": {
         "kind": "function",
         "shape": "(record: 'ErasureRecord', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
@@ -3637,6 +3669,10 @@
       "subject_ref_for": {
         "kind": "function",
         "shape": "(declaration: 'ErasureSubjectDeclaration', subject_class: 'str', identifier: 'str') -> 'str'"
+      },
+      "verify_door_naming_query": {
+        "kind": "function",
+        "shape": "(query: 'DoorNamingQuery', *, door_signature: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
       },
       "verify_door_signature": {
         "kind": "function",
@@ -4013,6 +4049,9 @@
   },
   "ccf.erasure.subject_match": {
     "__all__": [
+      "DOOR_NAMING_CLASS",
+      "DoorNamingAnswer",
+      "DoorNamingQuery",
       "SUBJECT_MATCH_CLASS",
       "SubjectJudgment",
       "SubjectMatchAnswer",
@@ -4020,11 +4059,31 @@
       "SubjectMatchSignatureInvalid",
       "SubjectMatchVerdict",
       "judge_subject",
+      "sign_door_naming_query",
       "sign_subject_match_query",
       "subject_match_verdict",
+      "verify_door_naming_query",
       "verify_subject_match_query"
     ],
     "exports": {
+      "DOOR_NAMING_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DoorNamingAnswer": {
+        "kind": "contract",
+        "shape": {
+          "filed_by_record_writer": "<class 'bool'>",
+          "names": "tuple[ccf.artifacts.protocol.ArtifactName, ...]"
+        }
+      },
+      "DoorNamingQuery": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
       "SUBJECT_MATCH_CLASS": {
         "kind": "constant",
         "shape": "str"
@@ -4061,6 +4120,10 @@
         "kind": "function",
         "shape": "(payload: 'bytes', query: 'SubjectMatchQuery') -> 'SubjectJudgment'"
       },
+      "sign_door_naming_query": {
+        "kind": "function",
+        "shape": "(query: 'DoorNamingQuery', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
       "sign_subject_match_query": {
         "kind": "function",
         "shape": "(query: 'SubjectMatchQuery', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
@@ -4068,6 +4131,10 @@
       "subject_match_verdict": {
         "kind": "function",
         "shape": "(judgment: 'SubjectJudgment') -> 'SubjectMatchVerdict'"
+      },
+      "verify_door_naming_query": {
+        "kind": "function",
+        "shape": "(query: 'DoorNamingQuery', *, door_signature: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
       },
       "verify_subject_match_query": {
         "kind": "function",
@@ -11662,6 +11729,7 @@
       "govern_dereference",
       "govern_entitlement",
       "govern_erasure",
+      "govern_resolution",
       "govern_scope_denial",
       "recorded_boundary"
     ],
@@ -11745,6 +11813,10 @@
       "govern_erasure": {
         "kind": "function",
         "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', perspective: 'Perspective', erased: 'ErasedContentRefused', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
+      },
+      "govern_resolution": {
+        "kind": "function",
+        "shape": "(authorized: 'Authorized[ArtifactRead]', *, artifact_class: 'str', name: 'str', artifact_version: 'str', store: 'ArtifactStoreProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog', surface: 'str', address: 'str') -> 'DereferencedEvidence | RefusalEnvelope'"
       },
       "govern_scope_denial": {
         "kind": "function",
@@ -13069,6 +13141,7 @@
       "ArtifactResolution",
       "ArtifactSubstrate",
       "BLOB_URI_TEMPLATE",
+      "DOOR_NAMING_TOOL",
       "META_URI_TEMPLATE",
       "NAMES_URI_TEMPLATE",
       "NAME_URI_TEMPLATE",
@@ -13112,6 +13185,10 @@
         "shape": "(*args, **kwargs)"
       },
       "BLOB_URI_TEMPLATE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DOOR_NAMING_TOOL": {
         "kind": "constant",
         "shape": "str"
       },

@@ -78,7 +78,7 @@ __all__ = [
     "NAME_SEGMENT_SEPARATOR",
     "ArtifactName",
     "ArtifactNotFound", "ArtifactReadRefused",  # same line: committed specs cite this module by line range
-    "ArtifactRef",
+    "ArtifactRef", "ArtifactResolutionRefused",  # same line: committed specs cite this module by line range
     "ArtifactStoreError",
     "ArtifactStoreProtocol", "ArtifactStoreUnauthenticated",  # same line: committed specs cite this module by line range
     "ArtifactUriUnresolvable",
@@ -467,6 +467,40 @@ class ArtifactStoreUnauthenticated(ArtifactStoreError):
     (``tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too``).
     """
 
+
+
+class ArtifactResolutionRefused(ArtifactUriUnresolvable, ArtifactNotFound):
+    """A versioned-URI resolution the store's server answered with its governed refusal (``D-IMPL-378``, design 1.1, F1-1b).
+
+    Raised by :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.resolve_uri`
+    where the MCP artifact server's resolution resource decided a URI whose
+    class the server's substrate declares under ``ReplayMint`` — governed
+    evidence — through the governed read and answered its refusal shell, an
+    already-recorded, already-disclosed
+    :class:`~ccf.products.refusal.RefusalEnvelope`, instead of an address.
+    One shell answers a URI nothing is filed under, a query pin, an admitted
+    child contract, a child question and a record the caller may not read, so
+    the resolution no longer tells a present pin from nothing
+    (``tests/mcp/test_f1_1b_resolution_decides_governed_classes.py``).
+
+    Dave, 2026-10-09 10:54 MST, design 1.1: *"Q1 (a), a refusal shell and a
+    typed client error. Q2 (a), keep the class/name permission. Q3, a
+    two-parent error class is acceptable. One base fails a pinned test, and the
+    two parents name two different failures."* An
+    :class:`ArtifactUriUnresolvable`, so every caller that handles a URI it
+    cannot resolve handles this one identically; an :class:`ArtifactNotFound`,
+    so a caller that reads the artifact a URI names after resolving it meets
+    the refusal it would have met at the read
+    (``tests/replay/test_record_content_address_integrity.py::test_child_admission_over_the_mcp_backed_store_reads_the_genuine_record_and_not_altered_bytes``).
+    **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the server decided.
+
+    Attributes:
+        envelope: The refusal the server answered, parsed.
+    """
+
+    def __init__(self, message: str, *, envelope: RefusalEnvelope) -> None:
+        super().__init__(message)
+        self.envelope = envelope
 
 class DerivedWrite:
     """An artifact the fabric's own mechanism files, naming its class and name itself (D-IMPL-353 §1.2).
