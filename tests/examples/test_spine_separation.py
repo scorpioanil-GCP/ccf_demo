@@ -1171,13 +1171,20 @@ def _canonical_subject(tmp_path: pathlib.Path) -> pathlib.Path:
 
 
 def _spine_subject(tmp_path: pathlib.Path) -> pathlib.Path:
-    """A copy of a tree the predicate calls hand-composed. Same discipline."""
+    """A copy of a tree the predicate calls hand-composed. Same discipline.
+
+    AMENDED 2026-10-11: the frozen cp-00..cp-05 specimens were the last
+    hand-composed trees and their compatibility repair made them canonical, so
+    a hand-composed tree is selected while one remains and otherwise assembled
+    from the preserved spine (:func:`_copied_example`, the same predicate check).
+    """
     spines = [
         directory
         for directory in split_examples(EXAMPLES_ROOT)
         if shape_of(directory) == "spine"
     ]
-    assert spines, "no hand-composed example remains to exercise the seven"
+    if not spines:
+        return _copied_example(tmp_path)
     return _copied_named(tmp_path, spines[0].name)
 
 

@@ -86,6 +86,26 @@ the store it reads** — a role that could write would make that a promise rathe
 than a guarantee. A `host=… user=… password=…` keyword string works equally
 well; both are libpq conninfo and neither is preferred.
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). The spine now serves through the SDK's
+> governed resolver (`build_governed_resolver`): since `D-IMPL-353`/`D-IMPL-354`
+> a deployment can no longer register its own Control Plane entries or build its
+> own replay writers. The asking principal's jurisdiction grant now travels on
+> the request as `jurisdictions` through a declared binding (`D-IMPL-295`)
+> instead of being written over the resolved policy artifact; the shadowing
+> `intent` argument is withdrawn (`D-IMPL-264`); `ccf_config.yaml` declares the
+> mandatory `temporal_boundary:`, a labeled `demonstration_serve_instant:` at the
+> question's own instant (2026-08-16T12:00Z), and a rate-free evidence-clock row
+> for the `from_entity_freshness` expiry. **Measured 2026-10-11, the default
+> command is now REFUSED `tolerance-exceeded`:** the demonstration asks with
+> `debt_tolerance` 0.25 and the honest `D_c` is 0.2929. This config has always
+> said *"Above it the debt gate refuses with 409"*; the frozen spine never
+> enforced it (and the run output below called 0.29 within tolerance). The SDK
+> now enforces the caller's tolerance. The tolerance is not changed here — that
+> is a decision owed (`CP01-R2-F01`). Asked with `DEBT_TOLERANCE=0.30` the same
+> question serves (`D_c 0.2929`, expires 2026-08-17T00:00Z). The text of this
+> README before the amendment is in git.
+
 ```bash
 make example-cp-01
 ```
