@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2631 entries**, of which **2352** name a public Python surface.
+**2636 entries**, of which **2357** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1380 entries — 1334 public Python surface, 46 not public Python API.
+1382 entries — 1336 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20084,6 +20084,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-01-tuesday-security-refusals.md`.*
 
+#### ccf.authz.capability.DeclaredSkillGrant
+
+- Surface: ccf.authz.capability.DeclaredSkillGrant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a composition kind (`composition.skill-grant`) in `COMPOSITION_KINDS`; no door declares it and `kind_for_action` refuses its id by name. Admitted by `GrantLedger.request` (bound to one agent definition), by the grant-state writer (`STATE_WRITE_KINDS`) and by the ledger's derived registration (`DERIVED_REGISTER_KINDS`)
+- Why: ruling 4 (Dave, 2026-10-11 16:23 MST). Red test: `tests/products/test_paved_declared_grants.py::test_a_declared_policy_compatible_grant_is_in_force_and_the_composite_serves`
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.products.product.DeclaredGrantRefused
+
+- Surface: ccf.products.product.DeclaredGrantRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `GrantNotInForce` subclass raised at open when the ledger refuses a DECLARED grant (`refusal` carries the ledger's `GrantRefusal`, e.g. `RequirementsExceedRegime`)
+- Why: ruling 4. Test: `tests/products/test_paved_declared_grants.py::test_a_declared_grant_the_regime_does_not_permit_is_refused_by_the_ledger`
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20819,7 +20843,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-635 entries — 441 public Python surface, 194 not public Python API.
+636 entries — 442 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28183,6 +28207,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
 
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `grants` key
+- After: an optional, hash-transparent `grants: tuple[str, ...] | None` — `skills:` labels the deployment grants its agent; a label naming no declared skill is refused by name at open
+- Why: ruling 4. Test: `tests/products/test_paved_declared_grants.py::test_grants_naming_an_undeclared_skill_is_refused_by_name`
+- Migration: a composite whose agent's grants were made by hand (or could not be made) lists its `skills:` labels under `grants:`
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31235,7 +31271,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-568 entries — 529 public Python surface, 39 not public Python API.
+570 entries — 531 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39182,6 +39218,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: requested no grant; refused `GrantNotInForce` for every declared skill not already bound on the Control Plane handed in
+- After: requests each `grants:` skill through the ledger at composition before that check; refuses `DeclaredGrantRefused` when the ledger refuses one, and `GrantNotInForce` (unchanged) for a declared skill that is not under `grants:` and not bound
+- Why: ruling 4. Severing proof: granting every `skills:` entry regardless of `grants:` reddens `::test_a_declared_skill_not_listed_under_grants_is_not_in_force` (DID NOT RAISE)
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
+
+#### ccf.skills.grants.GrantLedger.request
+
+- Surface: ccf.skills.grants.GrantLedger.request
+- Public surface: true
+- Change type: behavior
+- Before: required `Authorized[SkillGrant]`
+- After: requires `Authorized[SkillGrant]` or `Authorized[DeclaredSkillGrant]`, verified as minted, bound to the one definition; the two tiers, audit and state records are unchanged
+- Why: ruling 4
+- Migration: none
+
+*Recorded by `20261011-03-a-deployment-declares-its-agents-grants.md`.*
 
 ### Not public Python API
 

@@ -2521,6 +2521,17 @@ class DeploymentConfig(VersionedArtifact):
     skills: Mapping[str, Mapping[str, Any]] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # Ruling 4 (Dave, 2026-10-11 16:23 MST; SDK-defined, CLAUDE.md §11): the
+    # skills the deployment DECLARES granted to its `agent:` — a list of
+    # `skills:` labels. `open_product` requests each through the grant ledger
+    # at composition (the policy-regime compatibility check, the regime's
+    # approval sink, the audit and state records a door grant gets); a skill
+    # declared under `skills:` but not listed here is not granted, and the
+    # paved road refuses it `GrantNotInForce` as before. Hash-transparent at
+    # `None`: a config declaring no grants hashes as it did.
+    grants: tuple[str, ...] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="before")
     @classmethod

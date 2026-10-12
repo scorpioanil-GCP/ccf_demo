@@ -311,6 +311,17 @@ agent:
   name: credit-memo-composer
   archetypes: [context_assembly]
 
+# THE FIVE GRANTS THE DEPLOYMENT DECLARES (2026-10-11 compatibility repair; SDK
+# round 2, ruling 4). Since D-IMPL-353 the paved road cannot grant a skill on its
+# own authority, and no example-reachable door could put these five in force, so
+# every open refused `GrantNotInForce`. The deployment now DECLARES the grants its
+# agent needs; `open_product` requests each through the grant ledger at
+# composition — the regime's tier-1 compatibility check against
+# `skill_governance` above, its tier-2 approval rule, the audit and grant-state
+# records — exactly as a door grant. These are the five `skills:` above, no more:
+# the agent's actual requirement, one child class each.
+grants: [spread-ask, family-ask, exposure-ask, collateral-ask, covenant-ask]
+
 # HOW FAR INTO THE PAST THIS TENANT ANSWERS FOR (`D-IMPL-358` ruling 11). Added
 # 2026-10-11 as a compatibility repair (examples/AMENDMENTS-2026-10-11.md): every
 # governed serve now consults this declaration and an undeclared boundary refuses

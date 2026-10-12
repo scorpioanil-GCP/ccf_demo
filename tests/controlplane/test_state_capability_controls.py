@@ -86,9 +86,12 @@ def _nothing_written(store: InMemoryStateStore) -> None:
 
 
 class TestPositive:
-    def test_the_state_write_kinds_are_exactly_the_four_derived_writers(self) -> None:
-        """Named population: the two engine kinds and the two ledger kinds."""
-        assert STATE_WRITE_KINDS == (Execute, Resume, SkillGrant, SkillRevoke)
+    def test_the_state_write_kinds_are_exactly_the_five_derived_writers(self) -> None:
+        """Named population: the two engine kinds, the two ledger door kinds, and (ruling 4,
+        Dave 2026-10-11 16:23) the composition root's declared-grant kind."""
+        from ccf.authz.capability import DeclaredSkillGrant
+
+        assert STATE_WRITE_KINDS == (Execute, Resume, SkillGrant, SkillRevoke, DeclaredSkillGrant)
 
     @pytest.mark.parametrize("kind", STATE_WRITE_KINDS)
     def test_every_state_write_kind_files_under_the_capabilitys_tenant(

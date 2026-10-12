@@ -105,6 +105,22 @@
       "default": null,
       "title": "Door"
     },
+    "grants": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Grants"
+    },
     "half_life": {
       "anyOf": [
         {

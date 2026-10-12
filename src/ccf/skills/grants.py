@@ -49,6 +49,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 from pydantic import field_validator
 
 from ccf.authz.capability import Authorized, verify
+from ccf.authz.capability import DeclaredSkillGrant
 from ccf.authz.capability import SkillGrant as SkillGrantKind
 from ccf.authz.capability import SkillRevoke as SkillRevokeKind
 from ccf.contracts.base import CCFContract
@@ -609,7 +610,9 @@ class GrantLedger:
 
     def _put_state(
         self,
-        authorized: Authorized[SkillGrantKind] | Authorized[SkillRevokeKind],
+        authorized: Authorized[SkillGrantKind]
+        | Authorized[DeclaredSkillGrant]
+        | Authorized[SkillRevokeKind],
         grant_hash: str,
         state: GrantState,
         grant: SkillGrant,
@@ -811,7 +814,7 @@ class GrantLedger:
 
     def request(
         self,
-        authorized: Authorized[SkillGrantKind],
+        authorized: Authorized[SkillGrantKind] | Authorized[DeclaredSkillGrant],
         grant: SkillGrant,
         *,
         definition: AgentDefinition,
@@ -889,7 +892,19 @@ class GrantLedger:
         # `getattr`, not attribute access: a handle must not trust its
         # annotation, and a bare `object()` presented here dies at `verify`
         # rather than one line earlier as an AttributeError (§1.5c).
-        verify(authorized, kind=SkillGrantKind, resource=getattr(authorized, "resource", ""))
+        # The door's `SkillGrant`, or — ruling 4 (Dave, 2026-10-11) — the
+        # composition root's `DeclaredSkillGrant` for a grant the deployment
+        # DECLARED. Either way verified first, bound to the one definition, and
+        # decided by the same two tiers below; neither kind is the other.
+        verify(
+            authorized,
+            kind=(
+                DeclaredSkillGrant
+                if getattr(authorized, "kind", None) is DeclaredSkillGrant
+                else SkillGrantKind
+            ),
+            resource=getattr(authorized, "resource", ""),
+        )
         self._require_covers(authorized, definition)
         actor = authorized.principal
         grant_hash = content_hash(grant)
@@ -992,7 +1007,8 @@ class GrantLedger:
 
     @staticmethod
     def _require_covers(
-        authorized: Authorized[SkillGrantKind], definition: AgentDefinition
+        authorized: Authorized[SkillGrantKind] | Authorized[DeclaredSkillGrant],
+        definition: AgentDefinition
     ) -> None:
         """Bind the capability's resource to the definition handed in (§1.5f).
 
@@ -1056,7 +1072,7 @@ class GrantLedger:
 
     def _decide(
         self,
-        authorized: Authorized[SkillGrantKind],
+        authorized: Authorized[SkillGrantKind] | Authorized[DeclaredSkillGrant],
         grant: SkillGrant,
         grant_hash: str,
         *,

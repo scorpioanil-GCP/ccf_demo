@@ -97,7 +97,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Protocol, runtime_checkable
 
-from ccf.agents.definitions import AgentDefinition
+from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
@@ -112,6 +112,7 @@ from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
     CompositionRegister,
+    DeclaredSkillGrant,
     ReplayMint,
     SkillGrant as SkillGrantKind,
     mint_at_composition,
@@ -208,7 +209,9 @@ from ccf.skills.dispatch import McpSkillRegistry
 from ccf.skills.grants import (
     ApprovalSink,
     GrantLedger,
+    GrantRefusal,
     RefusingApprovalSink,
+    SkillGrant,
 )
 from ccf.skills.producers import register_declared_producer
 
@@ -223,6 +226,7 @@ __all__ = [
     "AssessmentContext",
     "ChildResolverFactory",
     "ConsumerContext",
+    "DeclaredGrantRefused",
     "GrantNotInForce",
     "OpenedProduct",
     "open_product",
@@ -248,11 +252,31 @@ class GrantNotInForce(PermissionError):
     puts it in force; a deployment that could grant itself skills at open was
     the ambient authority the capability removes.
 
-    **Standing limitation, recorded rather than worked around.** Whether the
-    deployment's declared grants are a third composition-time write the
-    composition root may make is a question for D-IMPL-354's ruling; this
-    refusal is the faithful reading of the clause as it stands.
+    **Ruled 2026-10-11 (Dave, 16:23 MST, ruling 4).** A deployment's DECLARED
+    grants (``grants:`` in ``ccf_config.yaml``) are requested at composition,
+    under the composition kind
+    :class:`~ccf.authz.capability.DeclaredSkillGrant`, through the ledger's own
+    tier 1 and tier 2 (:func:`open_product`; :class:`DeclaredGrantRefused` when
+    the ledger refuses). This refusal now means the skill was declared under
+    ``skills:`` and neither declared under ``grants:`` nor granted at a door.
     """
+
+
+class DeclaredGrantRefused(GrantNotInForce):
+    """A grant the deployment DECLARED (``grants:``) was refused by the grant ledger's own governance.
+
+    Ruling 4 (Dave, 2026-10-11 16:23 MST; SDK-defined). The declared grant ran
+    through :meth:`~ccf.skills.grants.GrantLedger.request` — tier 1, the
+    policy-regime compatibility check, and tier 2, the regime's approval sink —
+    and was not put in force. Raised at open, by name, before anything is
+    composed; the refusal the ledger returned is :attr:`refusal` (``None`` when
+    the grant was requested and left pending an approval the sink did not give).
+    """
+
+    def __init__(self, message: str, *, skill: str, refusal: object | None) -> None:
+        super().__init__(message)
+        self.skill = skill
+        self.refusal = refusal
 
 
 def _utc_now() -> datetime:
@@ -1577,6 +1601,7 @@ def open_product(
                 questions=questions,
                 clock=clock,
                 approval_sink=approval_sink,
+                declared_grants=config.grants,
             )
     except BaseException:
         if bridge is not None:
@@ -1819,6 +1844,84 @@ def _register_declared_entitlement(
     )
 
 
+def _request_declared_grants(
+    ledger: GrantLedger,
+    *,
+    registry: ControlPlaneRegistry,
+    agent: AgentDefinition,
+    entries: list[Any],
+    declared: tuple[str, ...] | None,
+    clock: Callable[[], datetime],
+) -> None:
+    """Request each DECLARED grant through the ledger, at composition (ruling 4).
+
+    One ``DeclaredSkillGrant`` per declared skill, minted for exactly the agent
+    definition's key from a recorded ``composition`` decision on the Control
+    Plane's own audit log. A skill already bound to the agent is left alone (the
+    caller's version check then holds it to the declaration). A refusal — or a
+    grant left pending an approval the sink did not give — raises
+    :class:`DeclaredGrantRefused` by name; nothing is granted around it.
+    """
+    if not declared:
+        return
+    by_name = {entry.name: entry for entry in entries if isinstance(entry, SkillCatalogEntry)}
+    unknown = sorted(set(declared) - set(by_name))
+    if unknown:
+        raise ValueError(
+            f"`grants:` names {unknown!r}, which no `skills:` entry declares; a"
+            " deployment grants its agent only skills it declares (ruling 4,"
+            " 2026-10-11) — declare the skill under `skills:`, or remove the grant"
+        )
+    agent_key = f"{agent.tenant}/{AGENT_DEFINITION.class_id}/{agent.name}"
+    agent_hash = content_hash(agent)
+    for name in declared:
+        if name in ledger.bound_view(agent_hash):
+            continue
+        entry = by_name[name]
+        event = registry.audit_log.append(
+            action="composition",
+            key=agent_key,
+            version=DeclaredSkillGrant.action_id,
+            resolved=True,
+            occurred_at=clock(),
+            actor=COMPOSITION_PRINCIPAL,
+        )
+        outcome = ledger.request(
+            mint_at_composition(
+                DeclaredSkillGrant,
+                tenant=agent.tenant,
+                principal=COMPOSITION_PRINCIPAL,
+                resource=agent_key,
+                decision_id=content_hash(event),
+            ),
+            SkillGrant(
+                schema_version=entry.schema_version,
+                artifact_version=entry.artifact_version,
+                name=entry.name,
+                tenant=entry.tenant,
+                agent_definition_hash=agent_hash,
+                skill_name=entry.name,
+                skill_version=entry.artifact_version,
+            ),
+            definition=agent,
+        )
+        if isinstance(outcome, str) and name in ledger.bound_view(agent_hash):
+            continue
+        refusal = outcome if isinstance(outcome, GrantRefusal) else None
+        detail = refusal.detail if refusal is not None else (
+            "the grant was requested and is not in force (pending an approval"
+            " the deployment's approval sink did not give, or refused at"
+            f" registration: {outcome!r})"
+        )
+        raise DeclaredGrantRefused(
+            f"the declared grant of skill {name!r} to agent {agent.name!r}"
+            f" (tenant {agent.tenant!r}) was refused by the grant ledger's own"
+            f" governance: {detail} (ruling 4, 2026-10-11)",
+            skill=name,
+            refusal=refusal,
+        )
+
+
 def _mint_child_question_authority(
     registry: ControlPlaneRegistry, *, tenant: str, clock: Callable[[], datetime]
 ) -> Authorized[ReplayMint]:
@@ -1859,6 +1962,7 @@ def _derive_consumer_chain(
     questions: ChildQuestions,
     clock: Callable[[], datetime],
     approval_sink: ApprovalSink | None,
+    declared_grants: tuple[str, ...] | None = None,
 ) -> tuple[AgentDefinition, QuestionBoundChildResolver]:
     """The declared chain: agent → catalog → grant → question-bound resolver → gate.
 
@@ -1910,6 +2014,22 @@ def _derive_consumer_chain(
         sink=approval_sink if approval_sink is not None else RefusingApprovalSink(),
         clock=clock,
     )
+    # Ruling 4 (Dave, 2026-10-11 16:23 MST): the grants the deployment DECLARED
+    # (`grants:`) are requested HERE, at composition, through the ledger's own
+    # governance — tier 1 (the regime's compatibility check), tier 2 (the
+    # regime's approval sink), the audit and state records a door grant gets —
+    # under a `DeclaredSkillGrant` minted for exactly this agent definition. A
+    # declared label that names no declared skill is refused by name; a skill
+    # declared under `skills:` and NOT listed under `grants:` is not requested,
+    # so it meets the not-in-force refusal below exactly as before.
+    _request_declared_grants(
+        ledger,
+        registry=registry,
+        agent=agent,
+        entries=[parsed[key] for key in keys.skills],
+        declared=declared_grants,
+        clock=clock,
+    )
     bound = ledger.bound_view(agent_hash)
     produced: set[str] = set()
     not_in_force: list[str] = []
@@ -1943,8 +2063,10 @@ def _derive_consumer_chain(
             " Plane, and the paved road cannot grant them: a grant is the"
             f" {SkillGrantKind.action_id!r} door action, requiring"
             " Authorized[SkillGrant], which a composition root may not mint"
-            " (D-IMPL-353 §1.6; D-IMPL-354). Grant them through a governed door"
-            " as an authorized principal, then open the product"
+            " (D-IMPL-353 §1.6; D-IMPL-354). Declare them under `grants:` in the"
+            " deployment's config (ruling 4, 2026-10-11: requested at composition"
+            " through the ledger's own governance), or grant them through a"
+            " governed door as an authorized principal, then open the product"
         )
     for requirement in declaration.requires:
         if requirement.required and requirement.product_class not in produced:

@@ -93,3 +93,13 @@ section in `ccf_config.yaml`, registered by composition at `open_product`; the s
 | cp-15 | `ccf_config.yaml` declares `product_entitlement:` with the three grants `entitle()` used to register (PRIN-KYC-004 kyc-analyst, PRIN-COV-001 coverage-banker, PRIN-RES-002 research-analyst — the roles the estate's `ccf_v2.principal.perspective` names); `server/serve.py::entitle` and its two calls are removed. PRIN-TRD-003 stays undeclared (the negative control). Recorded friction: each granted role is now stated in the config AND read from the estate; a disagreement is refused `product-role-ungranted`, never served. |
 
 Other paved-road doors (cp-16..24; cp-07's bespoke door) adopt the same section; not changed in this round.
+
+## SDK round 2, item 3 — cp-14 declares its agent's grants, 2026-10-11
+
+Dave, 16:23 MST, ruling 4. cp-14 refused `GrantNotInForce` at open for all five skills: since D-IMPL-353 the paved road
+cannot grant and no example-reachable door could. The SDK now takes a `grants:` list in `ccf_config.yaml`; `open_product`
+requests each through the grant ledger at composition (tier-1 regime check, tier-2 approval rule, audit and state records).
+
+| Example | What changed |
+| --- | --- |
+| cp-14 | `ccf_config.yaml` declares `grants: [spread-ask, family-ask, exposure-ask, collateral-ask, covenant-ask]` — exactly its five `skills:`, one per required child class. Open now succeeds with the five in force (`grant_effective`, actor `ccf.composition-root`). Its served question still needs its producers: `door-cp-05-credit-exposure-rollup` does not boot (`examples/cp-05-credit-exposure-rollup/deployment.py` `FileArtifactStore` lacks `write_kinds` — the cp-05 owner's compatibility repair). |

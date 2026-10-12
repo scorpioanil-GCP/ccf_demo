@@ -1074,6 +1074,7 @@
       "ConfigRegister",
       "ConfigResolve",
       "ConfigVersionsRead",
+      "DeclaredSkillGrant",
       "DocsRead",
       "Execute",
       "GrantMutate",
@@ -1174,6 +1175,10 @@
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "ConfigVersionsRead": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
+      },
+      "DeclaredSkillGrant": {
         "kind": "class",
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
@@ -1994,6 +1999,7 @@
           "default_perspective": "collections.abc.Mapping[str, typing.Any] | None",
           "demonstration_serve_instant": "collections.abc.Mapping[str, typing.Any] | None",
           "door": "collections.abc.Mapping[str, typing.Any] | None",
+          "grants": "tuple[str, ...] | None",
           "half_life": "collections.abc.Mapping[str, typing.Any] | None",
           "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "policy": "collections.abc.Mapping[str, typing.Any] | None",
@@ -2561,7 +2567,7 @@
       },
       "DerivedRegisterAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.DeclaredSkillGrant]]"
       },
       "INVALIDATION_RECORD_CLASS_ID": {
         "kind": "constant",
@@ -2702,7 +2708,7 @@
       },
       "StateWriteAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.SkillRevoke]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant], ccf.authz.capability.Authorized[ccf.authz.capability.SkillRevoke], ccf.authz.capability.Authorized[ccf.authz.capability.DeclaredSkillGrant]]"
       },
       "StateWriteBypassError": {
         "kind": "class",
@@ -8467,6 +8473,7 @@
       "AssessmentContext",
       "ChildResolverFactory",
       "ConsumerContext",
+      "DeclaredGrantRefused",
       "GrantNotInForce",
       "OpenedProduct",
       "PopulationAcquireProtocol",
@@ -8497,6 +8504,10 @@
       "ConsumerContext": {
         "kind": "class",
         "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]') -> None"
+      },
+      "DeclaredGrantRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, skill: 'str', refusal: 'object | None') -> 'None'"
       },
       "GrantNotInForce": {
         "kind": "class",
