@@ -118,6 +118,7 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
 )
 from ccf_runtime.http_api.errors import (
+    ERROR_TENANT_UNAUTHORIZED,
     ERROR_EVIDENCE_ABSENT,
     ERROR_EVIDENCE_CLASS_SEALED,
     ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
@@ -156,6 +157,7 @@ __all__ = [
     "govern_dereference",
     "govern_entitlement",
     "govern_erasure",
+    "govern_scope_denial",
     "recorded_boundary",
 ]
 
@@ -714,77 +716,165 @@ def govern_entitlement(
         # (3) The governed determination. `cause="unauthorized"` is internal
         # truth; what a consumer sees is the Disclosure layer's decision, taken
         # inside `record` below and nowhere else.
-        envelope = envelope_for(
-            SubjectUnavailableRefusal(
-                cause="unauthorized",
-                detail=refused.message,
-                error_code=refused.error_code,
-            ),
-            request=RequestIdentity(
-                product_id=product_class,
-                product_version=product_version,
-                parameters=parameters,
-                temporal_boundary=asked_at,
-            ),
-            resource=ResourceRequestIdentity(
-                surface=surface,
-                address=address,
-                tenant_id=tenant,
-                determined_at=determined_at,
-            ),
-            # The policy that DECIDED, carried on the refusal from the source's
-            # own single resolution (D-34, `24.6-08`). The empty tuple is the
-            # positive "no policy was consulted", which is the honest answer
-            # for the subject-conflict path and for a tenant that registered
-            # none.
-            policy_bindings=(
-                (refused.policy,) if refused.policy is not None else ()
-            ),
+        return _record_unauthorized(
+            refused,
+            grant=grant,
+            tenant=tenant,
+            product_class=product_class,
+            product_version=product_version,
+            parameters=parameters,
+            asked_at=asked_at,
+            surface=surface,
+            address=address,
+            determined_at=determined_at,
+            refusal_recorder=refusal_recorder,
         )
-        # The mint AND the disclosure, both inside the seam and in that order.
-        # Nothing is disclosed before it is recorded, and a failed append
-        # propagates rather than releasing an unrecorded response.
-        return refusal_recorder.record(
-            envelope,
-            perspective=Perspective(
-                principal_id=grant.client_id,
-                # Dimension 4: the role the source DECIDED under, off the
-                # determination itself — not the role the caller asked for,
-                # which the resolver may have replaced or defaulted — and the
-                # positive absence when none was established (D-IMPL-260 P-D).
-                role=refused.role if refused.role is not None else NO_ROLE_RESOLVED,
-            ),
-            # `D-IMPL-358` step 5 section F: THE QUESTION'S INSTANT bounds the
-            # record — see the sibling in `govern_absence` for why this was wrong
-            # and why no control caught it. `govern_dereference` below keeps
-            # `determined_at` and is NOT a third instance: a resource
-            # dereference takes no `asked_at`, so the ruled resource-form
-            # boundary (`D-IMPL-256` (1)) is the only instant it has.
-            recorded_at=asked_at if asked_at is not None else determined_at,
-            # `D-IMPL-358` step 5: the LIVE determination instant, carried beside
-            # the record's own boundary rather than collapsed into it. Where an
-            # `asked_at` exists the boundary stays the QUESTION's instant; where a
-            # governed surface genuinely has none, the ruled resource-form boundary
-            # (`D-IMPL-256` (1)) is retained and this says so separately.
-            served_at=determined_at,
-            # Dimension 2: entitlement is refused before resolution begins —
-            # the resolver never ran, so there is no resolution to record and
-            # the record says WHY there is none, in the `NO_ROLE_RESOLVED`
-            # voice: a positive absence the door states, never one the seam
-            # infers from silence (`D-IMPL-264` D-09/D-10 am.1).
-            resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
-            policy_bindings=(
-                (
-                    PolicyBinding(
-                        key=refused.policy.identity,
-                        version=refused.policy.version,
-                    ),
-                )
-                if refused.policy is not None
-                and refused.policy.version is not None
-                else ()
-            ),
+
+
+def govern_scope_denial(
+    *,
+    grant: TokenGrant,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    denial: str,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """Record a scope-mapping deny on a product read as the entitlement denial is recorded.
+
+    **SDK-defined** (CLAUDE.md §11). Finding R5-CP17-F01; Dave, 2026-10-11
+    21:19 MST, verbatim *"Do (a)"*: an ENTITLED caller asking for a product class
+    no scope mapping names was denied at the mapping's resource axis as a tool
+    error naming the class, distinguishable from the governed refusal an
+    unentitled caller gets — an existence oracle on the class. The deny stands
+    (the authorizer decided it and audited it); this records it as the same
+    governed determination :func:`govern_entitlement` records for a denial —
+    :class:`~ccf.products.refusal.SubjectUnavailableRefusal`, ``cause``
+    ``unauthorized``, ``error_code`` ``tenant-unauthorized`` and the guard's
+    own statement as internal truth — through the SAME recorder, so the reply a
+    caller sees is the one Disclosure decides for that principal, and the class
+    name and the reason are on the record only.
+
+    No capability was minted and no product is read: the authorizer denied, so
+    this writes the refusal's record and nothing else. The determination instant
+    is read from the entitlement source's clock, as for every boundary denial.
+    """
+    if asked_at is not None and (
+        asked_at.tzinfo is None or asked_at.tzinfo.utcoffset(asked_at) is None
+    ):
+        raise ValueError(
+            f"asked_at {asked_at.isoformat()!r} carries no UTC offset; the"
+            " instant a question was asked as-of is the boundary a replay"
+            " resolves against and cannot be ambiguous (D-IMPL-38)"
         )
+    return _record_unauthorized(
+        ProductEntitlementRefused(
+            error_code=ERROR_TENANT_UNAUTHORIZED, message=denial, role=None
+        ),
+        grant=grant,
+        tenant=tenant,
+        product_class=product_class,
+        product_version=product_version,
+        parameters=parameters,
+        asked_at=asked_at,
+        surface=surface,
+        address=address,
+        determined_at=_determined_at(entitlement_source),
+        refusal_recorder=refusal_recorder,
+    )
+
+
+def _record_unauthorized(
+    refused: ProductEntitlementRefused,
+    *,
+    grant: TokenGrant,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    determined_at: datetime,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """The one recording of a boundary denial: envelope, record, disclosed shell."""
+    envelope = envelope_for(
+        SubjectUnavailableRefusal(
+            cause="unauthorized",
+            detail=refused.message,
+            error_code=refused.error_code,
+        ),
+        request=RequestIdentity(
+            product_id=product_class,
+            product_version=product_version,
+            parameters=parameters,
+            temporal_boundary=asked_at,
+        ),
+        resource=ResourceRequestIdentity(
+            surface=surface,
+            address=address,
+            tenant_id=tenant,
+            determined_at=determined_at,
+        ),
+        # The policy that DECIDED, carried on the refusal from the source's
+        # own single resolution (D-34, `24.6-08`). The empty tuple is the
+        # positive "no policy was consulted", which is the honest answer
+        # for the subject-conflict path and for a tenant that registered
+        # none.
+        policy_bindings=(
+            (refused.policy,) if refused.policy is not None else ()
+        ),
+    )
+    # The mint AND the disclosure, both inside the seam and in that order.
+    # Nothing is disclosed before it is recorded, and a failed append
+    # propagates rather than releasing an unrecorded response.
+    return refusal_recorder.record(
+        envelope,
+        perspective=Perspective(
+            principal_id=grant.client_id,
+            # Dimension 4: the role the source DECIDED under, off the
+            # determination itself — not the role the caller asked for,
+            # which the resolver may have replaced or defaulted — and the
+            # positive absence when none was established (D-IMPL-260 P-D).
+            role=refused.role if refused.role is not None else NO_ROLE_RESOLVED,
+        ),
+        # `D-IMPL-358` step 5 section F: THE QUESTION'S INSTANT bounds the
+        # record — see the sibling in `govern_absence` for why this was wrong
+        # and why no control caught it. `govern_dereference` below keeps
+        # `determined_at` and is NOT a third instance: a resource
+        # dereference takes no `asked_at`, so the ruled resource-form
+        # boundary (`D-IMPL-256` (1)) is the only instant it has.
+        recorded_at=asked_at if asked_at is not None else determined_at,
+        # `D-IMPL-358` step 5: the LIVE determination instant, carried beside
+        # the record's own boundary rather than collapsed into it. Where an
+        # `asked_at` exists the boundary stays the QUESTION's instant; where a
+        # governed surface genuinely has none, the ruled resource-form boundary
+        # (`D-IMPL-256` (1)) is retained and this says so separately.
+        served_at=determined_at,
+        # Dimension 2: entitlement is refused before resolution begins —
+        # the resolver never ran, so there is no resolution to record and
+        # the record says WHY there is none, in the `NO_ROLE_RESOLVED`
+        # voice: a positive absence the door states, never one the seam
+        # infers from silence (`D-IMPL-264` D-09/D-10 am.1).
+        resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+        policy_bindings=(
+            (
+                PolicyBinding(
+                    key=refused.policy.identity,
+                    version=refused.policy.version,
+                ),
+            )
+            if refused.policy is not None
+            and refused.policy.version is not None
+            else ()
+        ),
+    )
 
 
 # =========================================================================

@@ -83,6 +83,24 @@ ADDRESS_VARIABLES = (_NAMES.issuer_url.from_env, _NAMES.resource_server_url.from
 WIRE = WireRequest(product_id=CHILD_CLASS, parameters={THRESHOLD_PARAMETER: 1000}, temporal_boundary=ASKED_AT)
 
 
+#: A class the door's scope mapping names nowhere, asked as a well-formed question.
+OUTSIDE = "fixture.outside-the-scope-mapping"
+OUTSIDE_WIRE = WireRequest(product_id=OUTSIDE, parameters={THRESHOLD_PARAMETER: 1000}, temporal_boundary=ASKED_AT)
+
+
+def _refused_like_an_unentitled_caller(result: CallToolResult) -> None:
+    """R5-CP17-F01 (Dave 2026-10-11 21:19 MST, "Do (a)"): the authorizer's deny on a class
+    the scope mapping names nowhere is the governed refusal shell — not a tool error
+    naming the class — with its reason on the record only. Was: `isError` with
+    `tenant-unauthorized` and the class named."""
+    assert not result.isError, _text(result)
+    decoded = decode_outcome(_text(result).encode("utf-8"), sent=OUTSIDE_WIRE)
+    refusal = decoded.outcome.refusal
+    assert refusal is not None and refusal.kind == "subject-unavailable", refusal
+    assert refusal.replay_reference
+    assert "tenant-unauthorized" not in _text(result)
+
+
 def _arguments(**overrides: Any) -> dict[str, Any]:
     """The product tool's nine arguments for :data:`WIRE`, with ``overrides`` applied."""
     arguments: dict[str, Any] = {
@@ -135,7 +153,7 @@ def test_a_stdio_door_with_both_addresses_unset_starts_answers_and_still_refuses
     calls = [
         _arguments(),
         _arguments(tenant="another-tenant"),
-        _arguments(product_class="fixture.outside-the-scope-mapping"),
+        _arguments(product_class=OUTSIDE, request=canonical_bytes(OUTSIDE_WIRE).decode("utf-8")),
     ]
     with tempfile.TemporaryFile(mode="w+") as errlog:
         try:
@@ -161,10 +179,9 @@ def test_a_stdio_door_with_both_addresses_unset_starts_answers_and_still_refuses
     assert other_tenant.isError, _text(other_tenant)
     assert "does not carry tenant 'another-tenant'" in _text(other_tenant), _text(other_tenant)
 
-    # The authorizer, under the scope mapping the door registered and pinned.
-    assert outside_mapping.isError, _text(outside_mapping)
-    assert "tenant-unauthorized" in _text(outside_mapping), _text(outside_mapping)
-    assert "against the scope mapping in force" in _text(outside_mapping), _text(outside_mapping)
+    # The authorizer, under the scope mapping the door registered and pinned:
+    # still a deny, now answered as the governed refusal (R5-CP17-F01).
+    _refused_like_an_unentitled_caller(outside_mapping)
 
 
 # --- C2-A2 (a): the environment document need not name either address ------------------
@@ -181,7 +198,7 @@ def test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_st
     calls = [
         _arguments(),
         _arguments(tenant="another-tenant"),
-        _arguments(product_class="fixture.outside-the-scope-mapping"),
+        _arguments(product_class=OUTSIDE, request=canonical_bytes(OUTSIDE_WIRE).decode("utf-8")),
     ]
     with tempfile.TemporaryFile(mode="w+") as errlog:
         try:
@@ -203,7 +220,7 @@ def test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_st
     assert other_tenant.isError and "does not carry tenant 'another-tenant'" in _text(other_tenant), _text(
         other_tenant
     )
-    assert outside_mapping.isError and "tenant-unauthorized" in _text(outside_mapping), _text(outside_mapping)
+    _refused_like_an_unentitled_caller(outside_mapping)
 
 
 def test_a_door_composes_over_a_door_block_naming_only_the_credential(tmp_path: pathlib.Path) -> None:

@@ -183,6 +183,7 @@ from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_TOOL,
     govern_absence,
     govern_entitlement,
+    govern_scope_denial,
     govern_raised_refusal,
     recorded_boundary,
 )
@@ -1193,8 +1194,17 @@ def build_egress_server(
         asked_at: datetime,
         surface: str,
         address: str,
+        scope_denial: str | None = None,
     ) -> bytes:
         """The one body both the tool and the address answer through.
+
+        ``scope_denial`` (R5-CP17-F01; Dave 2026-10-11 21:19 MST, "Do (a)") is
+        the authorizer's deny statement when the tenancy guard DENIED this call
+        and handed it here instead of raising: the denial is then recorded by
+        :func:`~ccf_runtime.authz.delivery_boundary.govern_scope_denial` through
+        the same recorder an entitlement denial uses, and leaves through the
+        same emission site — so a class no scope mapping names reads exactly as
+        an unentitled caller's refusal does.
 
         ``surface`` and ``address`` are the CALLING surface's own identity —
         the tool names itself and the standing product URI; the address
@@ -1289,19 +1299,35 @@ def build_egress_server(
             # them — it is a refusal to hold two.
             parameters=dict(question.parameters),
         )
-        decided = govern_entitlement(
-            grant=verified_grant(),
-            tenant=tenant,
-            product_class=product_class,
-            product_version=version,
-            requested_role=None,
-            parameters=asked.parameters,
-            asked_at=asked_at,
-            surface=surface,
-            address=address,
-            entitlement_source=entitlement_source,
-            perspective_resolver=perspective_resolver,
-            refusal_recorder=recorder,
+        decided = (
+            govern_entitlement(
+                grant=verified_grant(),
+                tenant=tenant,
+                product_class=product_class,
+                product_version=version,
+                requested_role=None,
+                parameters=asked.parameters,
+                asked_at=asked_at,
+                surface=surface,
+                address=address,
+                entitlement_source=entitlement_source,
+                perspective_resolver=perspective_resolver,
+                refusal_recorder=recorder,
+            )
+            if scope_denial is None
+            else govern_scope_denial(
+                grant=verified_grant(),
+                tenant=tenant,
+                product_class=product_class,
+                product_version=version,
+                parameters=asked.parameters,
+                asked_at=asked_at,
+                surface=surface,
+                address=address,
+                denial=scope_denial,
+                entitlement_source=entitlement_source,
+                refusal_recorder=recorder,
+            )
         )
         if isinstance(decided, RefusalEnvelope):
             # The denial is ALREADY a recorded, disclosed decision (Q13: no
@@ -1388,6 +1414,45 @@ def build_egress_server(
 
     if expose_product_tool:
 
+        def _answer_denied(
+            *, grant: Any, tenant: str, arguments: Mapping[str, Any], denial: str
+        ) -> str:
+            """R5-CP17-F01 (Dave 2026-10-11 21:19 MST, "Do (a)"): the authorizer's deny,
+            answered as the governed refusal an unentitled caller gets.
+
+            The same argument checks the tool body runs, in the same order,
+            then :func:`_answer_question` with the deny's statement: recorded,
+            disclosed by the recorder, encoded by the one emission site. No
+            capability exists here and none is needed — nothing is read."""
+            del grant  # the recorder reads the in-flight verified grant itself
+            asked_at = arguments["asked_at"]
+            _refuse_naive(asked_at)
+            asked_wire = door_question(arguments["request"])
+            parameters = arguments.get("parameters", EMPTY_PARAMETERS)
+            if dict(asked_wire.parameters) != dict(parameters):
+                raise ValueError(
+                    "the encoded request declares parameters"
+                    f" {dict(asked_wire.parameters)!r} and the `parameters`"
+                    f" argument declares {dict(parameters)!r} (C-01)"
+                )
+            return _answer_question(
+                asked_wire,
+                tenant=tenant,
+                product_class=arguments["product_class"],
+                version=arguments["version"],
+                subject=arguments["subject"],
+                intent=arguments["intent"],
+                freshness=arguments["freshness"],
+                asked_at=asked_at,
+                surface=SURFACE_MCP_TOOL,
+                address=product_uri(
+                    tenant=tenant,
+                    product_class=arguments["product_class"],
+                    version=arguments["version"],
+                ),
+                scope_denial=denial,
+            ).decode("utf-8")
+
         @door.tool(
             name=PRODUCT_REQUEST_TOOL,
             action=ACTION_PRODUCT_RETRIEVE,
@@ -1398,6 +1463,9 @@ def build_egress_server(
             # protocol's tool/resource split (`SEC-018`).
             mutating=False,
             products=door.products_from_argument("product_class"),
+            # R5-CP17-F01: a deny is the governed refusal, never a tool error
+            # naming the class (an existence oracle).
+            on_denied=_answer_denied,
             description=product_tool_description,
         )
         def request_context_product(
