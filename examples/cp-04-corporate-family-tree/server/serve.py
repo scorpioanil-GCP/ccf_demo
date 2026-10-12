@@ -34,21 +34,22 @@ EMPTY — a parameterized URI registers as a resource TEMPLATE. Criterion 37's
 amended wording names `resources/list`; the substance is unchanged (that
 refinement did not touch `D-34`), and `compose.py` records it in full.
 
-The first limb is a choice this deployment makes. Since `24.5-L-09`,
-`runtime/ccf_runtime/mcp/egress.py::build_egress_server` takes
-`expose_product_resource` (default `True`) beside `expose_product_tool`, so
-that builder CAN be tool-only. This door KEEPS its resource registered and
-enumerable and refuses a read of it by name — a product RULING, not an SDK
-limit: switching this rung to a tool-only door is a design change for its next
-rebuild, not a correction (`D-IMPL-245`'s deferred list), so `CFT-G13` limb (a)
-measures a choice. When this door was built the builder registered the resource
-unconditionally and Dave ruled at Gate 1, in as many words: *"A listing that
-includes the resource is the SDK. Criterion 37 as written ('no resource is
-exposed') is false against this tree."* The criterion was amended to say what
-was true then; the gap it recorded, **`D-34`** (`D-IMPL-225` amendment 1), was
-closed by `24.5-L-09`. `D-04` of `24-CONTEXT.md` governed that phase: a minor
-phase records SDK gaps, and no file under `src/` or `runtime/` was touched
-(criterion 49); this door passes no `expose_product_resource` flag at all.
+The first limb is a choice this deployment makes, and since round 5 (AMENDED
+2026-10-11, examples/AMENDMENTS-2026-10-11.md) it is made on the SDK's standard
+door: `runtime/ccf_runtime/mcp/product_door.py::open_door_with_verifier` takes
+`expose_product_resource=True`, and :func:`door` passes it. Round 3 moved this
+door onto the standard door, which registered no resource at all, and limb (a)
+went red; the resource is now registered there on the same guarded server, under
+the same pinned authorizer and the same entitlement step as the tool (Dave,
+2026-10-11 20:19: *"Registering a product resource must not create an unguarded
+retrieval path."*). Keeping the resource is a product RULING, not an SDK limit:
+switching this rung to a tool-only door is a design change for its next rebuild,
+not a correction (`D-IMPL-245`'s deferred list). When this door was first built
+the builder registered the resource unconditionally and Dave ruled at Gate 1, in
+as many words: *"A listing that includes the resource is the SDK. Criterion 37
+as written ('no resource is exposed') is false against this tree."* The
+criterion was amended to say what was true then; the gap it recorded, **`D-34`**
+(`D-IMPL-225` amendment 1), was closed by `24.5-L-09`.
 
 What the door does control is limb (b), and `compose.py::build_resolver` is
 where it lives: `request is None` is the resource path, and the resolver refuses
@@ -93,15 +94,6 @@ import yaml
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 
-from ccf.controlplane.artifacts import (
-    PRODUCT_CLASS,
-    EgressDoorBinding,
-    ProductClassDeclaration,
-    parse_artifact,
-)
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import EnvironmentDocument, load_environment_document
-from ccf.products.request import ProductRequest
 from ccf_runtime.authz.product_entitlement import TokenGrant
 from ccf.projection.plan import Perspective
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
@@ -179,74 +171,6 @@ class Door:
     product_door: Any = None
 
 
-class FamilyTreeProducer:
-    """cp-04's composed door, presented to the SDK's standard door (``ServesProducts``).
-
-    AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md). This door
-    called ``build_egress_server`` itself. Since D-IMPL-353 that builder
-    requires an ``authorizer`` decided over a registered scope mapping, and a
-    deployment can neither register one (the registry takes a capability only
-    SDK composition code mints) nor declare one (``ccf.scope-mapping`` is not
-    manifest-addressable). The supported path for a hand-composed door is the
-    standard door over the nine members ``ServesProducts`` names — all of them
-    already held by :func:`compose` — which derives the scope mapping and the
-    pinned authorizer itself and composes OVER the declared entitlement policy.
-    Nothing below decides anything: ``resolve`` is ``composed.resolver``.
-    """
-
-    def __init__(self, composed: ComposedDoor, *, values: dict[str, Any]) -> None:
-        import deployment  # noqa: PLC0415 — the example root is on sys.path above
-
-        self._composed = composed
-        config = deployment.config()
-        declaration = parse_artifact(
-            {"semver": config["semver"], **config[deployment.KEY_PRODUCT_CLASS]}, PRODUCT_CLASS
-        )
-        assert isinstance(declaration, ProductClassDeclaration)  # PRODUCT_CLASS's contract
-        self._declaration = declaration
-        self._door = EgressDoorBinding.model_validate({
-            "semver": "1.0.0",
-            "producer_id": str(values["producer_id"]),
-            "producer_tenant": composed.tenant_id,
-            "tool_description": str(values["tool_description"]),
-            "required_scope": str(values["required_scope"]),
-        })
-        self._environment = load_environment_document(HERE.parent)
-
-    @property
-    def tenant_id(self) -> str:
-        return self._composed.tenant_id
-
-    @property
-    def declaration(self) -> ProductClassDeclaration:
-        return self._declaration
-
-    @property
-    def default_perspective(self) -> Perspective:
-        return Perspective(principal_id=self._composed.principal_id, role=self._composed.role)
-
-    @property
-    def control_plane(self) -> ControlPlaneRegistry:
-        return self._composed.control_plane
-
-    @property
-    def refusal_recorder(self) -> Any:
-        return self._composed.refusal_recorder
-
-    @property
-    def door(self) -> EgressDoorBinding:
-        return self._door
-
-    @property
-    def environment(self) -> EnvironmentDocument:
-        return self._environment
-
-    def resolve(self, *, tenant: str, product_class: str, version: str,
-                perspective: Perspective, request: ProductRequest | None) -> Any:
-        return self._composed.resolver(tenant=tenant, product_class=product_class,
-                                       version=version, perspective=perspective, request=request)
-
-
 @contextmanager
 def door(*, root: Path) -> Iterator[Door]:
     """Compose the deployment, open the SDK's standard door over it, write this boot's credential.
@@ -281,13 +205,23 @@ def door(*, root: Path) -> Iterator[Door]:
         return Perspective(principal_id=grant.client_id, role=composed.role)
 
     tokens = root / TOKEN_FILE
+    # AMENDED 2026-10-11 (round 5, examples/AMENDMENTS-2026-10-11.md): the
+    # door opens over the SDK's own composition of this deployment
+    # (`composed.product`, `ccf_runtime.mcp.composed_product.compose_for_door`)
+    # rather than over a `FamilyTreeProducer` conformer this module wrote; and
+    # it KEEPS the product resource registered (`expose_product_resource=True`)
+    # — CFT-G13 limb (a), the ruled `D-34` shape. The resource is decided by
+    # the same pinned authorizer and entitled by the same governed step as the
+    # tool, and `compose.py::build_resolver` refuses its parameter-free read by
+    # name (limb (b)).
     opened = open_door_with_verifier(
-        FamilyTreeProducer(composed, values=values),
+        composed.product,
         token_verifier=SourceBackedTokenVerifier(source=FileTokenSource(path=tokens)),
         perspective_resolver=resolve_perspective,
         # The ONE source, constructed at composition with this deployment's
         # clock (`24.6-10`); the recorder beside it reads the same Control Plane.
         entitlement_source=composed.entitlement_source,
+        expose_product_resource=True,
     )
     # This boot's ONE credential (read from the variable `ccf_environment.yaml`
     # names, or minted per boot), recognized for the declared principal on this

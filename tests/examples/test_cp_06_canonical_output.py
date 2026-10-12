@@ -608,8 +608,6 @@ SPECIMEN_FROZEN = {
     "artifacts/source-vocabulary.yaml": "f6ebc278c0aae65bef32f854605d11470dcddd947c4965b36187cc5d049aacce",
     "projection.py": "13427c110ba3470e4a6770743dcbea65cb16fc9e22cd6111d8545a71688afb71",
     "run.py": "d481ef508593dd36b8860fbe910df45612c06c317637f44282ad28d24dc9272d",
-    "server/door.yaml": "c3965c543218d6fa43600edeb97a933605cc6494fd7da2ac095abb6b1bca7ea4",
-    "server/serve.py": "ad41d5f6f0715a00d14f84f9b2a6f6f51c173a1a889b43420baccdae5ac6f8a7",
     "spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md": "8c12fab9bf57a351f7cba34f70b7d0704a0ca80b9436f926d7008b8b7293331a",
 }
 
@@ -621,6 +619,14 @@ SPECIMEN_AMENDED = {
     "ccf_config.yaml": "2026-10-11 (\"repair cp-06\"): decay_basis: valid-from on every λ_c row, the clock-only collateral_node row, temporal_boundary (D-IMPL-358)",
     "produce.py": "2026-10-11 (\"repair cp-06\"): write_kinds, tenant-placed keys, evidence_clock_key, the deployment `config` parameter",
     "README.md": "2026-10-11 (\"repair cp-06\"): the changed expiry and debt behavior disclosed",
+    # AMENDED 2026-10-11 (round 5, SDK round item 1 — Dave 20:19 MST, "the shared
+    # door adapter"): the MCP door could not be composed at all after D-IMPL-353
+    # (`register_typed` refused `CapabilityBypassError`; `build_egress_server`
+    # requires an authorizer over a scope mapping only SDK composition registers).
+    # It moved onto the SDK's standard door over `compose_for_door`.
+    "server/serve.py": "2026-10-11 (round 5): the door opens the SDK's standard door over `ccf_runtime.mcp.composed_product.compose_for_door` instead of registering its entitlement and calling `build_egress_server` itself",
+    "server/door.yaml": "2026-10-11 (round 5): `producer_id`, the identity the standard door asserts on every outcome (D-IMPL-340)",
+    "ccf_environment.yaml": "2026-10-11 (round 5): NEW — names the door's credential variable, which the standard door reads (D-IMPL-343)",
 }
 
 
