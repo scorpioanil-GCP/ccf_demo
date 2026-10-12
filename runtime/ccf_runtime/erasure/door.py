@@ -58,6 +58,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 from ccf.artifacts.protocol import (
     ArtifactNotFound,
@@ -101,10 +102,12 @@ from ccf.erasure.errors import ErasureCompositionRefused
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
 from ccf.erasure.subject_match import (
+    DoorNamingQuery,
     SubjectJudgment,
     SubjectMatchQuery,
     SubjectMatchVerdict,
     judge_subject,
+    sign_door_naming_query,
     sign_subject_match_query,
 )
 from ccf.erasure.trust import (
@@ -883,6 +886,22 @@ class ErasureDoor:
         it asks the server, which judges the bytes where they are with the same
         function and answers a verdict (:meth:`_judged_where_the_bytes_are`;
         D3b, ``D-IMPL-378``).
+
+        **Over a store offering the door paths, only through them** (design
+        1.3, OWED-RULINGS-3 item 5 (B); Dave, 2026-10-09 10:54 MST: *"Q1 (b).
+        Keep the 06:21 uniform “cannot verify.” The door-only path must not
+        tell the door the truth again. Q2 (a), two tools. Q3 (a), no
+        fallback."*). Where the store offers ``names_for_erasure`` — the
+        MCP-backed store — the door names each address through the server's
+        naming path (:func:`~ccf.erasure.sign_door_naming_query`) and judges it
+        through the subject match, and never reads the names, blob or presence
+        resources a requester reads; the ``replay-input`` rule takes the
+        server's provenance bit. A naming path that declines or fails refuses
+        the address ``class-unverifiable``, with no fallback: an address the
+        tenant never filed and governed evidence that is not a record answer
+        that way, as at 06:21, while a record the fabric's record writer filed
+        reaches the in-process door's outcome
+        (``tests/mcp/test_erasure_subject_match.py``).
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
@@ -894,6 +913,8 @@ class ErasureDoor:
                 reason_code="class-unverifiable",
             )
         reader = getattr(self._store, "inner", self._store)
+        # Design 1.3: the door's own naming path, where the store offers one.
+        door_naming = getattr(reader, "names_for_erasure", None)
         stored: dict[str, str] = {}
         for address in request.addresses:
             where = address.content_address
@@ -903,9 +924,21 @@ class ErasureDoor:
                     f"{where!r} is already erased within this tenant (SEC-009)",
                     reason_code="already-erased",
                 )
+            provenance: bool | None = None
             try:
-                named = names_at(content_address=where)
-            except (McpServerUnreachable, ArtifactStoreError, AttributeError) as unanswered:
+                if callable(door_naming):
+                    naming_query = DoorNamingQuery(tenant_id=tenant, content_address=where)
+                    answered = door_naming(
+                        query=naming_query,
+                        door_signature=sign_door_naming_query(
+                            naming_query, signer=self._door_signer, key_id=self._door_key_id
+                        ),
+                    )
+                    named = answered.names
+                    provenance = answered.filed_by_record_writer
+                else:
+                    named = names_at(content_address=where)
+            except (McpServerUnreachable, ArtifactStoreError, AttributeError, IdentityError, ValueError) as unanswered:
                 # (d), fix round 2: a substrate whose naming read fails — an
                 # older MCP server without the names resource, or a names read
                 # the governed dereference refused — has not verified the class.
@@ -919,6 +952,16 @@ class ErasureDoor:
                     reason_code="class-unverifiable",
                 ) from unanswered
             own = [name for name in named if name.tenant_id == tenant]
+            if not own and callable(door_naming):
+                # Design 1.3, Q1 (b): over the door paths an address naming
+                # nothing of this tenant is the uniform "cannot verify", never
+                # `address-not-in-tenant` (the server refuses it before this).
+                raise ErasureRefused(
+                    "the store's naming path named nothing of the requesting tenant at a"
+                    " requested address; its stored class and tenant cannot be verified"
+                    " (SEC-009; D-IMPL-374 (4), C2; D-IMPL-378, design 1.3)",
+                    reason_code="class-unverifiable",
+                )
             if not own:
                 raise ErasureRefused(
                     "a requested address is not an artifact of the requesting tenant"
@@ -957,22 +1000,12 @@ class ErasureDoor:
                     reason_code="subject-unverifiable",
                 ) from unaskable
             judged: SubjectJudgment | SubjectMatchVerdict
-            try:
-                payload = reader.get(content_address=where)
-            except ArtifactNotFound as absent:
-                # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): a store that
-                # answers the address as absent — the MCP artifact server does
-                # so for a client-lane filing it does not serve, a record-shaped
-                # one foremost — may judge it where the bytes are, for this door
-                # alone, and answer the verdict, never the bytes.
-                judged = self._judged_where_the_bytes_are(reader, query, absent)
-            except (ArtifactStoreError, KeyError, ValueError) as unreadable:
-                raise ErasureRefused(
-                    "a requested address could not be read to verify its subject (SEC-009)",
-                    reason_code="subject-unverifiable",
-                ) from unreadable
+            if callable(door_naming):
+                # Design 1.3, Q3 (a): judged where the bytes are, through the
+                # subject match alone — never the requester-facing blob read.
+                judged = self._judged_where_the_bytes_are(reader, query, None)
             else:
-                judged = judge_subject(payload, query)
+                judged = self._judged_on_the_bytes_it_reads(reader, query)
             # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
             # integrity." Byte fidelity FIRST, as the replay engine holds it
             # (`D-IMPL-89`): the address is the sha256 of the stored canonical
@@ -1003,7 +1036,9 @@ class ErasureDoor:
                     "a requested address could not be read to verify its subject (SEC-009)",
                     reason_code="subject-unverifiable",
                 )
-            if judged == "subject-in-replay-input" and self._filed_by_record_writer(tenant, where):
+            if judged == "subject-in-replay-input" and (
+                provenance if provenance is not None else self._filed_by_record_writer(tenant, where)
+            ):
                 decision = RetentionDecision(
                     policy_ref=request.retention_policy_ref,
                     verdict="refuse",
@@ -1021,8 +1056,31 @@ class ErasureDoor:
             stored[where] = address.artifact_class
         return stored
 
+    def _judged_on_the_bytes_it_reads(self, reader: Any, query: SubjectMatchQuery) -> SubjectJudgment | SubjectMatchVerdict:
+        """The judgment over the bytes the door reads from ``reader``, or the store's subject match where they are absent.
+
+        Raises:
+            ErasureRefused: ``subject-unverifiable`` — the bytes could not be
+                read, and the store's subject match did not answer for them.
+        """
+        try:
+            payload = reader.get(content_address=query.content_address)
+        except ArtifactNotFound as absent:
+            # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): a store that
+            # answers the address as absent — the MCP artifact server does
+            # so for a client-lane filing it does not serve, a record-shaped
+            # one foremost — may judge it where the bytes are, for this door
+            # alone, and answer the verdict, never the bytes.
+            return self._judged_where_the_bytes_are(reader, query, absent)
+        except (ArtifactStoreError, KeyError, ValueError) as unreadable:
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject (SEC-009)",
+                reason_code="subject-unverifiable",
+            ) from unreadable
+        return judge_subject(payload, query)
+
     def _judged_where_the_bytes_are(
-        self, reader: object, query: SubjectMatchQuery, absent: ArtifactNotFound
+        self, reader: object, query: SubjectMatchQuery, absent: ArtifactNotFound | None
     ) -> SubjectMatchVerdict:
         """The store's server-side subject match for ``query``, signed by this door (D3b; `D-IMPL-378`).
 

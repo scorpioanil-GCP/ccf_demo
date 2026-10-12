@@ -60,7 +60,7 @@ from typing import Final, Literal
 
 from pydantic import Field, field_validator
 
-from ccf.artifacts.protocol import CONTENT_ADDRESS_PATTERN
+from ccf.artifacts.protocol import CONTENT_ADDRESS_PATTERN, ArtifactName
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.erasure.contracts import REPLAY_INPUT_PATHS
@@ -70,15 +70,20 @@ from ccf.peering.identity import IdentityError, IdentityProvider, SignedContextP
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DOOR_NAMING_CLASS",
     "SUBJECT_MATCH_CLASS",
+    "DoorNamingAnswer",
+    "DoorNamingQuery",
     "SubjectJudgment",
     "SubjectMatchAnswer",
     "SubjectMatchQuery",
     "SubjectMatchSignatureInvalid",
     "SubjectMatchVerdict",
     "judge_subject",
+    "sign_door_naming_query",
     "sign_subject_match_query",
     "subject_match_verdict",
+    "verify_door_naming_query",
     "verify_subject_match_query",
 ]
 
@@ -86,6 +91,13 @@ __all__ = [
 #: under :data:`~ccf.erasure.DOOR_SIGNATURE_ASSERTION`: the signature is FOR a
 #: subject-match query, never a record or a probe (domain separation).
 SUBJECT_MATCH_CLASS: Final[str] = "ccf.erasure-subject-match"
+
+#: What the erasure door's naming query's signature asserts under
+#: :data:`~ccf.erasure.DOOR_SIGNATURE_ASSERTION` (``D-IMPL-378``, design 1.3):
+#: the signature is FOR a naming query — never a subject-match query, a record
+#: or a probe — so a signature made for one door path does not verify on the
+#: other (domain separation).
+DOOR_NAMING_CLASS: Final[str] = "ccf.erasure-door-naming"
 
 #: The judgment over stored bytes, in the order it is made.
 SubjectJudgment = Literal[
@@ -237,19 +249,141 @@ def verify_subject_match_query(
     Raises:
         SubjectMatchSignatureInvalid: any of those.
     """
-    protected, separator, signature = door_signature.partition(_DETACHED_SEPARATOR)
     try:
-        if authority.tenant_id != query.tenant_id:
-            raise ValueError("the authority is another tenant's")
-        if not separator or not protected or not signature:
-            raise ValueError("the signature is not a detached compact JWS")
-        payload = base64.urlsafe_b64encode(canonical_bytes(query)).rstrip(b"=").decode("ascii")
-        envelope = SignedContextProduct(payload=payload, protected=protected, signature=signature)
-        identity_provider.verify(signed=envelope, public_keys=authority.door_keys)
-        if envelope.declared_header().get(DOOR_SIGNATURE_ASSERTION) != SUBJECT_MATCH_CLASS:
-            raise ValueError("the signature does not assert that it signs a subject-match query")
+        _verify_door_query(
+            query,
+            query_tenant=query.tenant_id,
+            query_class=SUBJECT_MATCH_CLASS,
+            door_signature=door_signature,
+            authority=authority,
+            identity_provider=identity_provider,
+        )
     except (IdentityError, ValueError) as invalid:
         raise SubjectMatchSignatureInvalid(
             "no signature by the erasure door's declared key verifies over this subject-match query"
             " (SEC-009; D-IMPL-378, D3b)"
+        ) from invalid
+
+
+def _verify_door_query(
+    query: CCFContract,
+    *,
+    query_tenant: str,
+    query_class: str,
+    door_signature: str,
+    authority: ErasureAuthority,
+    identity_provider: IdentityProvider,
+) -> None:
+    """The ONE check of a door-path query's signature, for both door paths, so the two cannot drift (``D-IMPL-378``).
+
+    ``authority`` must be the query's tenant's; the signature must be a
+    detached compact JWS verifying over the query's canonical bytes against the
+    authority's declared door keys; and its protected header must assert
+    ``query_class`` under :data:`~ccf.erasure.DOOR_SIGNATURE_ASSERTION`.
+
+    Raises:
+        ValueError: any of those, or ccf.peering.identity.IdentityError from
+            the verifier.
+    """
+    protected, separator, signature = door_signature.partition(_DETACHED_SEPARATOR)
+    if authority.tenant_id != query_tenant:
+        raise ValueError("the authority is another tenant's")
+    if not separator or not protected or not signature:
+        raise ValueError("the signature is not a detached compact JWS")
+    payload = base64.urlsafe_b64encode(canonical_bytes(query)).rstrip(b"=").decode("ascii")
+    envelope = SignedContextProduct(payload=payload, protected=protected, signature=signature)
+    identity_provider.verify(signed=envelope, public_keys=authority.door_keys)
+    if envelope.declared_header().get(DOOR_SIGNATURE_ASSERTION) != query_class:
+        raise ValueError(f"the signature does not assert that it signs a {query_class} query")
+
+
+class DoorNamingQuery(CCFContract):
+    """What the erasure door asks the server's naming path about one requested address (``D-IMPL-378``, design 1.3).
+
+    **SDK-defined** (CLAUDE.md §8.2; SEC-009). OWED-RULINGS-3 item 5 (B), Dave
+    2026-10-09 06:21 MST, *"5(B)"*: *"Extend it under the same three
+    authorizations (full parity; needs a second new door-authorized path)."*
+    This is that second path's query: the server answers it under the same
+    three authorizations as the subject match, with the caller's tenant's
+    names at the address and whether that tenant's record writer filed it
+    there — names only, never the bytes.
+
+    Attributes:
+        tenant_id: The door's tenant. On the server it is the caller's verified
+            tenant, never a wire value, so a signature over one tenant's query
+            does not cover another's.
+        content_address: The requested address.
+    """
+
+    tenant_id: str = Field(min_length=1)
+    content_address: str
+
+    @field_validator("content_address")
+    @classmethod
+    def _is_an_address(cls, value: str) -> str:
+        if not CONTENT_ADDRESS_PATTERN.match(value):
+            raise ValueError("an address is a sha256 hex digest (SEC-009)")
+        return value
+
+
+class DoorNamingAnswer(CCFContract):
+    """The server's whole answer to the door's naming query (``D-IMPL-378``, design 1.3).
+
+    Attributes:
+        names: Every name the caller's tenant filed the address under, and no
+            other tenant's (I6, C8).
+        filed_by_record_writer: Whether one of those names is in a class the
+            server's substrate declares under ``ReplayMint`` — the predicate of
+            :func:`~ccf.replay.provenance.filed_by_record_writer`, decided on
+            the server, so the door's ``replay-input`` refusal needs no names
+            read of its own.
+    """
+
+    names: tuple[ArtifactName, ...] = Field(min_length=1)
+    filed_by_record_writer: bool
+
+
+def sign_door_naming_query(query: DoorNamingQuery, *, signer: IdentityProvider, key_id: str) -> str:
+    """The erasure door's detached signature over ``query``'s canonical bytes (``D-IMPL-378``, design 1.3).
+
+    Asserts :data:`DOOR_NAMING_CLASS`, so it never verifies as a subject-match
+    query, a record or a probe. Returns ``protected..signature``.
+
+    Raises:
+        ccf.peering.identity.KeyUnavailable: ``signer`` holds no key ``key_id``.
+    """
+    envelope = signer.sign(product=query, key_id=key_id, assertions={DOOR_SIGNATURE_ASSERTION: DOOR_NAMING_CLASS})
+    return f"{envelope.protected}{_DETACHED_SEPARATOR}{envelope.signature}"
+
+
+def verify_door_naming_query(
+    query: DoorNamingQuery,
+    *,
+    door_signature: str,
+    authority: ErasureAuthority,
+    identity_provider: IdentityProvider,
+) -> None:
+    """Refuse unless ``door_signature`` is the door's signature over exactly ``query`` (``D-IMPL-378``, design 1.3).
+
+    The subject match's check (:func:`verify_subject_match_query`), asserting
+    :data:`DOOR_NAMING_CLASS` instead of :data:`SUBJECT_MATCH_CLASS`.
+
+    Raises:
+        SubjectMatchSignatureInvalid: the authority is another tenant's, the
+            signature is not a detached JWS by its declared door key over
+            exactly this query, or it does not assert a naming query.
+    """
+    try:
+        _verify_door_query(
+            query,
+            query_tenant=query.tenant_id,
+            query_class=DOOR_NAMING_CLASS,
+            door_signature=door_signature,
+            authority=authority,
+            identity_provider=identity_provider,
+        )
+    except (IdentityError, ValueError) as invalid:
+        raise SubjectMatchSignatureInvalid(
+            "no signature by the erasure door's declared key verifies over this naming query"
+            " (SEC-009; D-IMPL-378, design 1.3)"
         ) from invalid

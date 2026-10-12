@@ -51,6 +51,7 @@ from mcp.server.fastmcp import FastMCP
 
 import ccf.artifacts.protocol as artifact_protocol
 from ccf.artifacts.file_store import FileArtifactStore
+import ccf.artifacts.mcp_store as mcp_store_module
 from ccf.artifacts.mcp_store import McpArtifactStore
 from ccf.artifacts.protocol import ArtifactName, ArtifactNotFound, ArtifactStoreError, WriteKinds
 from ccf.authz.capability import ArtifactWrite, ReplayMint
@@ -334,11 +335,13 @@ def test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_
     with _store_over_http(server, NAMES_WORLD_TOKEN, substrate.write_kinds) as client:
         refused = _refused(h.door(plane, store=client), plane, _request(plane, address, h.DOC_CLASS))
     assert refused.reason_code == "class-unverifiable", refused.reason_code
-    envelope = _assert_the_typed_refusal(refused.__cause__, address, what=f"the door's cause at {row}")
-    # The server's refusal, carried whole: what the names resource answers the door's credential, less its own record.
-    (answer,) = names_world._read(server, names_world._names_uri(address))
-    text = answer.content if isinstance(answer.content, str) else answer.content.decode("utf-8")
-    assert _without_presentation(_as_json(envelope), address) == _without_presentation(json.loads(text), address)
+    # Amended for design 1.3, Q1 (b) / Q3 (a) (Dave, 2026-10-09 10:54 MST): the door no longer reads the names
+    # resource, so its cause is the door naming path's one refusal (the uniform "cannot verify"), declined by the
+    # server and raised by the client as a decline, never an outage, an absence or the requester-facing refusal.
+    cause = refused.__cause__
+    assert isinstance(cause, ArtifactStoreError), f"the door's cause at {row}: {type(cause).__mro__}"
+    assert not isinstance(cause, (McpServerUnreachable, ArtifactNotFound, _read_refused())), type(cause).__mro__
+    assert str(cause) == mcp_store_module._DOOR_NAMING_DECLINED, f"the door's cause at {row}: {cause}"
 
 
 #: Answers a names resource may give that are neither a list of names nor a refusal envelope.

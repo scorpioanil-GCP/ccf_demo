@@ -85,11 +85,13 @@ from ccf.artifacts.protocol import (
     ArtifactStoreError,
     ArtifactStoreProtocol,
     ArtifactStoreUnauthenticated,
+    NAME_SEGMENT_SEPARATOR,
     MovingTargetRefused,
+    artifact_uri,
     held_content_address,
     parse_artifact_uri,
 )
-from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
+from ccf.authz.capability import ActionKind, ArtifactRead, Authorized, ReplayRead, verify, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
 from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
@@ -163,6 +165,7 @@ __all__ = [
     "govern_dereference",
     "govern_entitlement",
     "govern_erasure",
+    "govern_resolution",
     "govern_scope_denial",
     "recorded_boundary",
 ]
@@ -1312,6 +1315,108 @@ def govern_dereference(
     kind = verify_any(
         authorized, kinds=EVIDENCE_READ_KINDS, resource=reference.reference
     )
+    return _govern_verified(
+        kind,
+        authorized,
+        reference=reference,
+        store=store,
+        entitlement_source=entitlement_source,
+        refusal_recorder=refusal_recorder,
+        audit_log=audit_log,
+        surface=surface,
+        address=address,
+        erased_client_read=erased_client_read,
+    )
+
+
+def govern_resolution(
+    authorized: Authorized[ArtifactRead],
+    *,
+    artifact_class: str,
+    name: str,
+    artifact_version: str,
+    store: ArtifactStoreProtocol,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
+    audit_log: AuditLog,
+    surface: str,
+    address: str,
+) -> DereferencedEvidence | RefusalEnvelope:
+    """Decide one versioned-URI resolution of governed evidence through the governed read (``D-IMPL-378``, design 1.1).
+
+    **SDK-defined** (CLAUDE.md §11, §7.4). F1-1b: the MCP artifact server's
+    resolution resource answered ``found: true`` where a governed name was
+    filed and ``found: false`` where it was not, making no governed decision,
+    so a query pin filed in one deployment and not in the other told the two
+    apart, and a record its owner's tenant had sealed (Q12) still resolved.
+    Dave, 2026-10-09 10:54 MST, design 1.1: *"Q1 (a), a refusal shell and a
+    typed client error. Q2 (a), keep the class/name permission."*
+
+    The capability is the one the resolution resource's wrapper decided, bound
+    to ``"<class>/<name>"`` (``D-IMPL-353`` §1.2's one vocabulary for a write
+    and a name resolution), and it is verified here first, against exactly
+    that binding. The URI is then rebuilt from the capability's verified
+    tenant — never a wire value — and the class, name and version it was
+    decided for, and decided by :func:`govern_dereference`'s own hold chain
+    as a by-URI dereference that asks for no bytes: provenance, the
+    read-refusal marker, the holds, the erasure consult and the URI's naming,
+    in ``D-IMPL-345`` R-2's order. A principal that chain admits receives the
+    evidence (its address); every other caller receives the one recorded,
+    disclosed shell — the ``nonexistent`` shell for a pin, an admitted child
+    contract, a child question and an address nobody filed alike
+    (``tests/mcp/test_f1_1b_resolution_decides_governed_classes.py``).
+
+    Raises:
+        ccf.authz.capability.CapabilityBypassError: ``authorized`` is not an
+            ``ArtifactRead`` capability minted for ``"<class>/<name>"``.
+        Exception: whatever :func:`govern_dereference` raises past its
+            capability check, by the same contract.
+    """
+    verify(
+        authorized,
+        kind=ArtifactRead,
+        resource=f"{artifact_class}{NAME_SEGMENT_SEPARATOR}{name}",
+    )
+    return _govern_verified(
+        ArtifactRead,
+        authorized,
+        reference=DereferenceRequest(
+            reference=artifact_uri(
+                tenant_id=authorized.tenant,
+                artifact_class=artifact_class,
+                name=name,
+                artifact_version=artifact_version,
+            ),
+            by_uri=True,
+            wants_bytes=False,
+        ),
+        store=store,
+        entitlement_source=entitlement_source,
+        refusal_recorder=refusal_recorder,
+        audit_log=audit_log,
+        surface=surface,
+        address=address,
+    )
+
+
+def _govern_verified(
+    kind: type[ActionKind],
+    authorized: EvidenceReadAuthority,
+    *,
+    reference: DereferenceRequest,
+    store: ArtifactStoreProtocol,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
+    audit_log: AuditLog,
+    surface: str,
+    address: str,
+    erased_client_read: ErasedContentRefused | None = None,
+) -> DereferencedEvidence | RefusalEnvelope:
+    """:func:`govern_dereference`'s hold chain, entered only once the caller's capability was verified (``D-IMPL-378``).
+
+    ``kind`` is the capability kind the caller's entry point verified;
+    nothing reaches this function without that verification.
+    """
     if not isinstance(store, ErasureConsultingStore):
         # PM5 (panel C5; `D-IMPL-374`): U12 composes the consult ALWAYS; a
         # store that does not consult would serve erased bytes unrefused.
