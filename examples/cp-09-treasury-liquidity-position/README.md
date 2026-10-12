@@ -70,18 +70,45 @@ PYTHONPATH=src:runtime:examples/cp-09-treasury-liquidity-position \
 Every request parameter is optional. Omitted, the program asks the
 demonstration question in `artifacts/question.yaml`.
 
+**The demonstration clock (amended 2026-10-11).** The question is dated
+2026-06-17T18:05Z; the estate is a historical snapshot. `ccf_config.yaml`
+therefore declares a labelled **demonstration serve instant**,
+2026-06-17T18:10Z (`demonstration_serve_instant:`, `D-IMPL-378` C1): the
+deployment serves as if it were five minutes after the question, inside its
+one-hour `temporal_boundary`. It is the run's one time anchor; nothing on a
+question can move it; the SDK refuses it outside its own development substrates;
+and every replay record written under it names the declaration in its Policy
+Bindings dimension. Delete that section and the deployment serves on the real
+clock, where the same question is refused `asked-at-outside-temporal-bound` —
+the correct answer for a question that old
+(`tests/examples/test_cp_09_output.py::test_the_pinned_question_on_the_real_clock_is_refused_as_expired`).
+
 **Variations that change the answer, not the formatting:**
 
 ```bash
+# scope to one currency, same decision instant
+make -s example-cp-09 CURRENCIES=USD
+```
+
+The two other dated scenarios are DIFFERENT decision instants, so each needs a
+deployment declaring its own anchor — a question cannot move the clock. Set
+`serve_instant` in `ccf_config.yaml` to the instant shown, then run:
+
+```bash
 # the posture flip — same client, same question, two days earlier
+#   serve_instant: "2026-06-15T18:10:00+00:00"
 make -s example-cp-09 AS_OF=2026-06-15T18:05:00+00:00
 
 # fail closed on a stale signal
+#   serve_instant: "2026-08-21T16:05:00+00:00"
 make -s example-cp-09 AS_OF=2026-08-21T16:00:00+00:00 CURRENCIES=USD
-
-# scope to one currency at a live instant
-make -s example-cp-09 CURRENCIES=USD
 ```
+
+Run against the shipped declaration instead, both are refused
+`asked-at-outside-temporal-bound`: the tenant does not answer for an instant
+days away from the one it serves at. The tests run all three scenarios, each
+under a test-owned copy of this deployment declaring that scenario's anchor
+(`tests/examples/demonstration_deployment.py`).
 
 **The stale-signal variation exits non-zero, and that is correct.** You will see
 `make: *** [Makefile:515: example-cp-09] Error 1`. A refusal is not a crash, but

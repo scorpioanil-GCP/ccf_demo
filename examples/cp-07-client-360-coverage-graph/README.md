@@ -73,6 +73,15 @@ control is demonstrated rather than asserted:
 | Suburban Propane (demo) | 2026-08-16 | 0.5279 | 0.4721 | `ok` |
 | Container Store (control) | 2026-08-17 | 0.4774 | 0.5226 | `ok` |
 
+*(Measured at `asked_at` 2026-09-11. **Amended 2026-10-11:** `make example-cp-07`
+asks at the wall clock by design, and the estate is a static snapshot, so every
+reading above keeps rising as the calendar moves — on 2026-10-11 the control
+client also read `forced_llm`. The tests serve all three anchors at
+2026-09-11T12:00Z on a labelled demonstration clock — a test-owned copy of
+`ccf_config.yaml` declaring `demonstration_serve_instant:` five minutes later
+(`tests/examples/demonstration_deployment.py`) — so the comparison measures the
+anchors rather than the calendar. No half-life, threshold or timestamp moved.)*
+
 The stale client crosses a governance threshold the current ones do not. At the
 7-day half-life the spec first declared, every anchor read `fail_closed` and the
 ordering between them actually **inverted** — the term had stopped measuring its

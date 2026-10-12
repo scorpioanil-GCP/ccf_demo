@@ -481,3 +481,23 @@ door:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
+# 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
+# the dated scenario and use the existing, explicitly labelled development-clock
+# mechanism"). Added 2026-10-11 (examples/AMENDMENTS-2026-10-11.md, round 2). The
+# demonstration question — `run.py`'s default, `CP-SPEC-014`'s child question,
+# `dr-01`'s and `dr-02`'s — is asked at 2026-09-07T12:00Z; this deployment
+# declares, in its own Control Plane, that it is a DEMONSTRATION serving at
+# 2026-09-07T12:05Z — five minutes later, inside the one-hour `temporal_boundary`
+# above. It is the ONE time anchor every run of this tree shares, producer and
+# consumer alike (the standard door serves on it too): nothing a question carries
+# can move it, and the SDK refuses it unless the fabric runs on its development
+# substrates (this tree's SQLite graph and the default file-backed store). Every
+# replay record written under it names this declaration in its Policy Bindings
+# dimension. Remove this section and the deployment serves on the real clock
+# again — and the demonstration question is then refused
+# `asked-at-outside-temporal-bound`, the correct answer for a question that old
+# (`tests/examples/test_cp_06_canonical_output.py` asserts it).
+demonstration_serve_instant:
+  serve_instant: "2026-09-07T12:05:00+00:00"

@@ -240,3 +240,20 @@ door:
 temporal_boundary:
   max_past_seconds: 3600
   permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1; Dave,
+# 2026-10-11 16:23 ruling 1: "For historical time-based demonstrations, retain
+# the dated scenario and use the existing, explicitly labelled development-clock
+# mechanism"). Added 2026-10-11 (examples/AMENDMENTS-2026-10-11.md, round 2).
+# `run.py` asks at 2026-09-07T12:00Z, the instant its upstream
+# (`cp-06-canonical`) answers its own demonstration question at; this deployment
+# declares, in its own Control Plane, that it is a DEMONSTRATION serving at
+# 2026-09-07T12:05Z — the SAME serve instant the upstream declares, so packager
+# and upstream share one time anchor for the run. Nothing a question carries can
+# move it; the SDK refuses it unless the fabric runs on its development
+# substrates; every replay record written under it names this declaration in its
+# Policy Bindings dimension. Remove this section and the deployment serves on the
+# real clock again, where the demonstration question is refused
+# `asked-at-outside-temporal-bound` (`tests/examples/test_dr_02_packaging.py`).
+demonstration_serve_instant:
+  serve_instant: "2026-09-07T12:05:00+00:00"

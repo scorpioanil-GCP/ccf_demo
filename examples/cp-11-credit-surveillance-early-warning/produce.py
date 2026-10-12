@@ -60,7 +60,7 @@ class Assembled:
 
 def assemble_and_serve(
     *, asked: ProductRequest, root: Path,
-    registry: ControlPlaneRegistry | None = None,
+    registry: ControlPlaneRegistry | None = None, config: Path | None = None,
 ) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -73,6 +73,11 @@ def assemble_and_serve(
     (`EWS-G25`) demonstrable at all: the invalidation register the writer
     appends to on one run is the register the gate reads on the next. Omitted,
     each call gets its own, which is the ordinary single-question path.
+
+    ``config`` is the DEPLOYMENT, not the question: this example's own
+    ``ccf_config.yaml`` (``HERE``, read at call time) unless a deployer (a test) boots a copy of it declaring a
+    different demonstration serve instant (`tests/examples/demonstration_deployment.py`).
+    Nothing on ``asked`` can move the serve clock.
     """
     registry = registry if registry is not None else ControlPlaneRegistry()
 
@@ -86,7 +91,7 @@ def assemble_and_serve(
     #    handle — the composition root's job, never a deployment's, so the
     #    guarantee does not depend on anyone remembering.
     booted = load_config_and_boot(
-        HERE / "ccf_config.yaml",
+        config if config is not None else HERE / "ccf_config.yaml",
         registry=registry,
         connection=deployment.connection(root=root),
     )

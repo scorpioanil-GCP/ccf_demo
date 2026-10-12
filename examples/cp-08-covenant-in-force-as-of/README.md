@@ -84,6 +84,32 @@ PYTHONPATH=src:runtime:examples/cp-08-covenant-in-force-as-of \
 .venv/bin/python -m pytest tests/examples/test_cp_08_output.py      # same env
 ```
 
+**The demonstration clock (amended 2026-10-11).** The default run asks the
+dispute question — both axes at the 2025-09-09 drawdown — at 2025-10-05T12:00Z,
+the day the bank booked `AMD-01BB3F-2` (`run.py`'s `DEMONSTRATION_ASKED_AT`).
+`ccf_config.yaml` declares a labelled **demonstration serve instant**,
+2025-10-05T12:05Z (`demonstration_serve_instant:`, `D-IMPL-378` C1): the
+deployment serves as if it were five minutes after the question, inside its
+one-hour `temporal_boundary` and inside the evidence-anchored expiry. It is the
+run's one time anchor; nothing on a question can move it; the SDK refuses it
+outside its own development substrates; every replay record written under it
+names the declaration. Until this amendment the run asked at the wall clock and
+printed `REFUSED ttl-bounds` where this page promises the served answer below.
+Two refusals remain, and both are correct and tested:
+
+```bash
+# the wall clock, against the shipped deployment: refused asked-at-outside-temporal-bound
+PYTHONPATH=src:runtime:examples/cp-08-covenant-in-force-as-of \
+    .venv/bin/python examples/cp-08-covenant-in-force-as-of/run.py --asked-at now
+```
+
+and, on a deployment with the declaration removed, the default question is
+refused `asked-at-outside-temporal-bound` and a wall-clock question `ttl-bounds`
+(`tests/examples/test_cp_08_output.py::test_the_default_question_on_the_real_clock_is_refused_as_expired`,
+`::test_the_wall_clock_question_is_refused_because_its_evidence_has_expired`).
+A different `--asked-at` needs a deployment declaring its own anchor: set
+`serve_instant` to five minutes after it first.
+
 Both stores are read with `SELECT`. **Nothing in this product, its examples or
 its tests writes to either** — the ledger is append-only, so a seeded assertion
 is permanent, and a product that had to mutate its sources to demonstrate
@@ -108,7 +134,7 @@ facility FAC-01BB3F
   COVENANTS CARRIED  (4) — terms as they stand TODAY
     ...
 
-  D_c 0  signal ok   — the platform's reference assessment; this product declares none
+  D_c 0.0590…  signal ok   — the platform's reference assessment; this product declares none
 ```
 
 **`D_c` moves with the booking clock, and the expiry runs from it** (since

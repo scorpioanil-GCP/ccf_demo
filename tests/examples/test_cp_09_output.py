@@ -38,6 +38,12 @@ from typing import Any, Iterator
 
 import pytest
 
+from tests.examples.demonstration_deployment import (
+    anchored_after,
+    deployment_on_the_real_clock,
+    deployment_serving_at,
+)
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-09-treasury-liquidity-position"
 
@@ -114,8 +120,17 @@ def serve(example: Any, *, asked_at: datetime, **kwargs: Any) -> Any:
         **kwargs,
     )
     with tempfile.TemporaryDirectory(prefix="cp-09-test-") as scratch:
+        # The run's ONE time anchor (Dave, 2026-10-11, ruling 1): a deployment
+        # declaring a labelled demonstration serve instant five minutes after
+        # the scenario's own decision instant. Every other governed value is
+        # the example's own ccf_config.yaml, byte for byte.
+        config = deployment_serving_at(
+            EXAMPLE / "ccf_config.yaml",
+            serve_instant=anchored_after(asked_at),
+            directory=pathlib.Path(scratch) / "deployment",
+        )
         outcome = produce.assemble_and_serve(
-            asked=asked, root=pathlib.Path(scratch)
+            asked=asked, root=pathlib.Path(scratch), config=config
         )
         # The artifact store is read INSIDE the scratch directory's life, for
         # BOTH outcomes: a refusal's determination lives in the replay record
@@ -831,3 +846,33 @@ def test_tlp_g22_the_stale_scenario_participates_only_in_its_own_feed(
     assert age > INTRADAY_BOUND_SECONDS, (
         "the named signal is inside its bound, so the refusal would not fire"
     )
+
+
+def test_the_pinned_question_on_the_real_clock_is_refused_as_expired(
+    example: Any, tmp_path: pathlib.Path
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The same demonstration question, asked of the same deployment with its
+    declared demonstration serve instant REMOVED, is served on the real clock.
+    Months after its instant it is outside the tenant's declared one-hour
+    `temporal_boundary`, so the SDK refuses it by name, as data, with a replay
+    reference — it is never served stale, and never raises.
+    """
+    deployment, produce = example["deployment"], example["produce"]
+    asked = deployment.request(
+        anchor_lei=ANCHOR, asked_at=POST_FLIP,
+        max_staleness={"intraday-rate": "PT15M"},
+    )
+    config = deployment_on_the_real_clock(
+        EXAMPLE / "ccf_config.yaml", directory=tmp_path / "deployment"
+    )
+    assert not any(
+        line.startswith("demonstration_serve_instant:")
+        for line in config.read_text(encoding="utf-8").splitlines()
+    ), "the real-clock copy still declares a serve instant"
+    outcome = produce.assemble_and_serve(asked=asked, root=tmp_path, config=config)
+    assert not hasattr(outcome, "product"), "an expired question was served"
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert outcome.replay_reference, "the refusal carries no replay reference"

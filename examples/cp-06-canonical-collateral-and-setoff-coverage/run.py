@@ -17,8 +17,10 @@ Usage::
 
 Every basis flag omitted asks the question WITHOUT it, so the class default
 resolves — which is a different thing from passing the default's value, and
-the run prints which happened. ``--asked-at`` omitted asks now; `CP-SPEC-014`
-asks at the demonstration instant.
+the run prints which happened. ``--asked-at`` omitted asks at the demonstration
+instant, the one `CP-SPEC-014` asks at; ``--asked-at now`` asks at the wall clock
+(amended 2026-10-11: the deployment declares a labelled demonstration serve
+instant five minutes after it, so a wall-clock question is refused).
 
 **Named flags rather than positional arguments**, so a scope supplied without
 a facility cannot silently land in the facility's slot.
@@ -52,8 +54,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--facility", default=DEMONSTRATION_FACILITY)
     parser.add_argument("--scope", default=DEMONSTRATION_SCOPE, help="the borrower LEI the caller is entitled to walk")
     parser.add_argument(
-        "--asked-at", default=None,
-        help=f"ISO instant with offset; omit to ask now (CP-14 asks at {DEMONSTRATION_INSTANT})",
+        "--asked-at", default=DEMONSTRATION_INSTANT,
+        help=f"ISO instant with offset, or `now`; default {DEMONSTRATION_INSTANT}, the instant CP-14 asks at",
     )
     parser.add_argument("--intent", default=INTENT)
     parser.add_argument("--no-haircuts", dest="haircuts", action="store_false", default=None,
@@ -89,7 +91,7 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory() as scratch, produce.product(Path(scratch)) as opened:
         asked = opened.question(
             subject=parsed.facility,
-            asked_at=datetime.fromisoformat(parsed.asked_at) if parsed.asked_at else datetime.now(UTC),
+            asked_at=datetime.now(UTC) if parsed.asked_at == "now" else datetime.fromisoformat(parsed.asked_at),
             intent=parsed.intent,
             freshness=FRESHNESS,
             parameters=parameters,

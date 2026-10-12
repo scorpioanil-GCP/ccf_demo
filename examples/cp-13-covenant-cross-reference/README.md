@@ -56,12 +56,29 @@ make -s example-cp-13
 All three stores are read-only here. The namespaces are the **v2** ones and are
 **not** in `ccf_dataprep`'s `.env`, which names v1.
 
+**The demonstration clock (amended 2026-10-11).** The question is dated
+2026-09-13T00:00Z; the estate is a historical snapshot. `ccf_config.yaml` therefore
+declares a labelled **demonstration serve instant**, 2026-09-13T00:05Z
+(`demonstration_serve_instant:`, `D-IMPL-378` C1): the deployment serves as if it
+were five minutes after the question, inside its one-hour `temporal_boundary`. It
+is the run's one time anchor; nothing on a question can move it; the SDK refuses
+it outside its own development substrates; and every replay record written under
+it names the declaration in its Policy Bindings dimension. Delete that section and
+the deployment serves on the real clock, where the same question is refused
+`asked-at-outside-temporal-bound` — the correct answer for a question that old
+(`tests/examples/test_cp_13_output.py::test_the_pinned_question_on_the_real_clock_is_refused_as_expired`). A
+variation at a DIFFERENT dated instant needs a deployment declaring its own
+anchor: set `serve_instant` to five minutes after that instant first, or the
+question is refused `asked-at-outside-temporal-bound`. The tests run every dated
+scenario under a test-owned copy of this deployment declaring that scenario's
+anchor (`tests/examples/demonstration_deployment.py`).
+
 The principal is the axis this rung is about:
 
 ```bash
 make -s example-cp-13 PRINCIPAL=control-room CORPUS_SCOPE=filed-and-internal
 make -s example-cp-13 PRINCIPAL=relationship-manager CORPUS_SCOPE=filed-and-internal  # refused
-make -s example-cp-13 AS_OF=2025-08-12T00:00:00+00:00
+make -s example-cp-13 AS_OF=2025-08-12T00:00:00+00:00  # first set serve_instant: "2025-08-12T00:05:00+00:00"
 make -s example-cp-13 DEBT_TOLERANCE=0.10
 ```
 
