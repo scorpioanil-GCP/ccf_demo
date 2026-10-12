@@ -73,6 +73,24 @@ it mints per boot when that is unset. The v2 namespaces are not in
 `ccf_dataprep/.env`, which names v1. The governed run exits 0 with a refusal: a
 refusal is an answer.
 
+**Development serve instant (amended 2026-10-11, round 3).** The CP-14 instant is
+2026-09-07T12:00Z, and `ccf_config.yaml` declares this deployment a DEMONSTRATION
+serving at 2026-09-07T12:05Z (`demonstration_serve_instant:`), inside its one-hour
+`temporal_boundary` — the same instant cp-06-canonical serves on. Without it the
+dated question is refused `asked-at-outside-temporal-bound`. **What does not yet
+hold:** one time anchor across the five producers. cp-03-canonical and
+cp-04-canonical serve on the real clock, cp-13-canonical declares 2026-09-13, and
+the exposure child refuses the memo's question `required-absent` on `materiality`
+(an SDK need, CP05-R2-F-01). Measured on this commit, the governed run refuses with
+five rows: collateral admitted, the other four `ineligible`.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
 ## The story
 
 ### 0. Five doors, one registration each

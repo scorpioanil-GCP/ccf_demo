@@ -27,7 +27,6 @@ write path to either (CLAUDE.md §9).
 from __future__ import annotations
 
 import json
-import secrets
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -39,28 +38,26 @@ from typing import Any, Iterator
 import yaml
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken
-from mcp.server.auth.settings import AuthSettings
-from pydantic import AnyHttpUrl
 
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.products.entitlement import (
-    PRODUCT_ENTITLEMENT_POLICY,
-    ProductEntitlementGrant,
-    ProductEntitlementPolicy,
-    product_entitlement_key,
+from ccf.controlplane.artifacts import (
+    PRODUCT_CLASS,
+    EgressDoorBinding,
+    ProductClassDeclaration,
+    parse_artifact,
 )
+from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
+from ccf.deployment import EnvironmentDocument, load_config_and_boot, load_environment_document
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
-from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.products.request import ProductRequest
+from ccf.products.resolver import declared_refusal_recorder
+from ccf.replay.record import PolicyBinding
 from ccf.projection.plan import Perspective
-from ccf_runtime.authz.product_entitlement import (
-    ControlPlaneProductEntitlementSource,
-)
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
-from ccf_runtime.mcp.egress import build_egress_server
+from ccf_runtime.mcp.product_door import open_door_with_verifier
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 HERE = Path(__file__).parent
 EXAMPLE = HERE.parent
@@ -148,54 +145,129 @@ class Door:
     principal_id: str
     scope: str
     tenant_id: str
+    #: The standard door this boot opened (AMENDED 2026-10-11, round 3).
+    product_door: Any = None
+
+
+class CoverageProducer:
+    """cp-07's governed path, presented to the SDK's standard door (``ServesProducts``).
+
+    AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md). This door
+    used to call ``build_egress_server`` itself and register its entitlement
+    policy by hand. Since D-IMPL-353 neither is available to a deployment: the
+    registry takes a capability only SDK composition code mints
+    (``CapabilityBypassError``), and ``build_egress_server`` now requires an
+    ``authorizer`` decided over a registered scope mapping that no deployment
+    can register or declare. The supported path for a deployment that composes
+    its product by hand is this one — the nine members ``ServesProducts`` names,
+    handed to :func:`~ccf_runtime.mcp.product_door.open_door_with_verifier`,
+    which derives the scope mapping and the pinned authorizer itself
+    (door-cp-05 and hw1 are the precedents).
+
+    **The principals are DECLARED** (``ccf_config.yaml::product_entitlement:``,
+    G4-F-04) and the SDK's own boot registers them into this Control Plane,
+    under its composition recipe; the door composes over them and registers
+    no default of its own. The boot is the deployment's ordinary one, over an
+    owned scratch L3 nothing reads, closed at once; its policy pin is the pin
+    the refusal recorder records.
+    """
+
+    def __init__(self, *, root: Path, values: Any) -> None:
+        config = deployment.config()
+        self._tenant = str(config["tenant_id"])
+        declaration = parse_artifact(
+            {"semver": config["semver"], **config["product_class"]}, PRODUCT_CLASS)
+        assert isinstance(declaration, ProductClassDeclaration)  # PRODUCT_CLASS's contract
+        self._declaration = declaration
+        self._perspective = Perspective(
+            principal_id=str(values["principal_id"]), role=str(values["role"]))
+        self._control_plane = ControlPlaneRegistry()
+        boot_root = root / "door-boot"
+        boot_root.mkdir(parents=True, exist_ok=True)
+        booted = load_config_and_boot(
+            EXAMPLE / "ccf_config.yaml", registry=self._control_plane,
+            connection=deployment.connection(root=boot_root))
+        try:
+            policy_key = namespaced_key(tenant=self._tenant, key="policy")
+            policy_pin = next(pin for pin in booted.pins.entries if pin.key == policy_key)
+        finally:
+            booted.handle.close()
+        replay_root = root / "replay"
+        # Owner-only (SEC-014, D-IMPL-369): the store refuses a wider root it did not create.
+        replay_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # A DOOR THAT CANNOT RECORD A REFUSAL IS NOT A GOVERNED DOOR
+        # (`D-IMPL-256` (2)). The SDK's `declared_refusal_recorder` — the
+        # composition `open_product` uses — reads its disclosure posture off
+        # this Control Plane, so a denial and its shell are decided under one
+        # reading of the one declared policy.
+        self.replay_store = FileArtifactStore(root=replay_root, write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.graph-query": (ReplayMint,), ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,)}))
+        self._recorder = declared_refusal_recorder(
+            control_plane=self._control_plane,
+            artifact_store=self.replay_store,
+            replay_record_class="ccf.replay-record",
+            tenant_id=self._tenant,
+            assembly_mode=declaration.assembly_mode,
+            policy_bundle_pin=PolicyBinding(key=policy_pin.key, version=policy_pin.version),
+        )
+        self._door = EgressDoorBinding.model_validate({
+            "semver": "1.0.0",
+            "producer_id": str(values["producer_id"]),
+            "producer_tenant": self._tenant,
+            "tool_description": str(values["tool_description"]),
+            "required_scope": str(values["required_scope"]),
+        })
+        self._environment = load_environment_document(EXAMPLE)
+        # THE ASSEMBLY ROOT HAS TO EXIST BEFORE THE FIRST CALL, not after it.
+        # `deployment.connection` hands SQLite a path INSIDE this directory and
+        # SQLite will not create a missing parent, so a door that only named the
+        # directory answers its first request with `unable to open database file` —
+        # an MCP transport error, which is how a producer that never booted looks
+        # from the outside. Found by driving this door; recorded in `FINDINGS.md`.
+        assembly_root = root / "assembly"
+        assembly_root.mkdir(parents=True, exist_ok=True)
+        self._resolve = build_resolver(root=assembly_root)
+
+    @property
+    def tenant_id(self) -> str:
+        return self._tenant
+
+    @property
+    def declaration(self) -> ProductClassDeclaration:
+        return self._declaration
+
+    @property
+    def default_perspective(self) -> Perspective:
+        return self._perspective
+
+    @property
+    def control_plane(self) -> ControlPlaneRegistry:
+        return self._control_plane
+
+    @property
+    def refusal_recorder(self) -> Any:
+        return self._recorder
+
+    @property
+    def door(self) -> EgressDoorBinding:
+        return self._door
+
+    @property
+    def environment(self) -> EnvironmentDocument:
+        return self._environment
+
+    def resolve(self, *, tenant: str, product_class: str, version: str,
+                perspective: Perspective, request: ProductRequest | None) -> Any:
+        """Delegate to ``produce.assemble_and_serve`` through `build_resolver`."""
+        return self._resolve(tenant=tenant, product_class=product_class,
+                             version=version, perspective=perspective, request=request)
 
 
 @contextmanager
 def door(*, root: Path) -> Iterator[Door]:
-    """Register the entitlement, mint this boot's credential, build the door."""
+    """Compose the producer, open the SDK's standard door over it, write this boot's credential."""
     values = door_values()
-    config = deployment.config()
-    tenant = str(config["tenant_id"])
-    scope, principal = str(values["required_scope"]), str(values["principal_id"])
-    role = str(values["role"])
-
-    control_plane = ControlPlaneRegistry()
-    control_plane.register_typed(
-        product_entitlement_key(tenant_id=tenant),
-        ProductEntitlementPolicy(
-            tenant_id=tenant,
-            policy_version=str(config["product_class"]["schema_version"]),
-            principals={principal: ProductEntitlementGrant(
-                permitted_schema_names=frozenset(
-                    {str(config["product_class"]["schema_name"])}),
-                permitted_roles=frozenset({role}))},
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
-    )
-    # A DOOR DECISION HAPPENS WHEN IT HAPPENS. Binding the audit plane to the
-    # demonstration instant would stamp every decision this door ever made with
-    # one date.
-    entitlement_source = ControlPlaneProductEntitlementSource(
-        control_plane=control_plane, clock=lambda: datetime.now(UTC))
-
-    replay_root = root / "replay"
-    replay_root.mkdir(parents=True, exist_ok=True)
-
-    # THE ASSEMBLY ROOT HAS TO EXIST BEFORE THE FIRST CALL, not after it.
-    # `deployment.connection` hands SQLite a path INSIDE this directory and
-    # SQLite will not create a missing parent, so a door that only named the
-    # directory answers its first request with `unable to open database file` —
-    # an MCP transport error, which is how a producer that never booted looks
-    # from the outside. Found by driving this door; recorded in `FINDINGS.md`
-    # because the same omission is in a door already on `main`.
-    assembly_root = root / "assembly"
-    assembly_root.mkdir(parents=True, exist_ok=True)
-
-    tokens = root / TOKEN_FILE
-    credential = secrets.token_urlsafe(32)
-    tokens.write_text(
-        json.dumps({credential: {"client_id": principal, "scopes": [scope]}}),
-        encoding="utf-8")
+    producer = CoverageProducer(root=root, values=values)
+    scope, role = str(values["required_scope"]), str(values["role"])
 
     def resolve_perspective(*, grant: Any, tenant: str,
                             requested_role: str | None) -> Perspective:
@@ -203,39 +275,30 @@ def door(*, root: Path) -> Iterator[Door]:
 
         The subject is the verified `client_id`, never a value the caller
         supplied, and the role is derived from the declaration rather than
-        asked for.
+        asked for. Whether that principal may be served AT ALL is the declared
+        entitlement's decision, made by the door before this runs.
         """
         return Perspective(principal_id=grant.client_id, role=role)
 
-    server = build_egress_server(
-        server_name=tenant,
-        resolver=build_resolver(root=assembly_root),
+    tokens = root / TOKEN_FILE
+    opened = open_door_with_verifier(
+        producer,
         token_verifier=SourceBackedTokenVerifier(source=FileTokenSource(path=tokens)),
-        auth_settings=AuthSettings(
-            issuer_url=AnyHttpUrl(str(values["issuer_url"])),
-            resource_server_url=AnyHttpUrl(str(values["resource_server_url"])),
-            required_scopes=[scope],
-        ),
-        entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
-        # A DOOR THAT CANNOT RECORD A REFUSAL IS NOT A GOVERNED DOOR
-        # (`D-IMPL-256` (2)), and the SDK refuses to build one. A determination
-        # the fabric declined is still a determination: it is recorded,
-        # disclosed at the caller's level, and addressed, exactly as a fulfilled
-        # one is.
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=replay_root, write_kinds=WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.graph-query": (ReplayMint,), ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,)})),
-            replay_record_class="ccf.replay-record",
-            tenant_id=tenant,
-            assembly_mode=str(config["product_class"]["assembly_mode"]),
-            disclosure_level_for=entitlement_source.disclosure_level_for,
-        ),
-        expose_product_tool=True,
-        product_tool_description=str(values["tool_description"]),
     )
+    # This boot's ONE credential (read from the variable `ccf_environment.yaml`
+    # names, or minted per boot), recognized for the declared principal on this
+    # tenant only (SEC-018) — written after the door is composed; the file is
+    # read on every lookup.
+    tokens.write_text(json.dumps({opened.credential: {
+        "client_id": opened.principal_id, "scopes": [scope],
+        "tenants": [producer.tenant_id]}}), encoding="utf-8")
     try:
-        yield Door(server=server, credential=credential, principal_id=principal,
-                   scope=scope, tenant_id=tenant)
+        yield Door(
+            server=opened.server(issuer_url=str(values["issuer_url"]),
+                                 resource_server_url=str(values["resource_server_url"])),
+            credential=opened.credential, principal_id=opened.principal_id,
+            scope=scope, tenant_id=producer.tenant_id, product_door=opened)
     finally:
         tokens.unlink(missing_ok=True)
 
@@ -251,11 +314,10 @@ def serve() -> None:
     """
     with tempfile.TemporaryDirectory(prefix="cp07-door-") as scratch:
         with door(root=Path(scratch)) as opened:
-            auth_context_var.set(AuthenticatedUser(AccessToken(
-                token=opened.credential, client_id=opened.principal_id,
-                scopes=[opened.scope])))
+            auth_context_var.set(AuthenticatedUser(ambient_stdio_identity(
+                credential=opened.credential, principal_id=opened.principal_id,
+                scope=opened.scope, tenant=opened.tenant_id)))
             opened.server.run(transport="stdio")
-
 
 if __name__ == "__main__":  # pragma: no cover
     serve()

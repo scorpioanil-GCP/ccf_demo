@@ -51,13 +51,23 @@ SPECIMEN_AMENDED = frozenset(
         "assembler.py",
         "backends.yaml",
         "ccf_config.yaml",
+        # AMENDED 2026-10-11, round 3: the MCP door moved onto the SDK's standard
+        # door over the declared entitlement (`product_entitlement:`); it needs
+        # the environment document's credential name and a producer identity.
+        "ccf_environment.yaml",
         "deployment.py",
         "produce.py",
         "server/compose.py",
+        "server/egress-door.yaml",
+        "server/serve.py",
         "transport.py",
     }
 )
-SPECIMEN_FROZEN_DIGEST = "75c0d4d9082a0ab0a072ced0a362f8ec1730ecb188680c6cfce6e209f3f60ecb"
+#: Re-pinned 2026-10-11 (round 3) for the widened amended set above, and verified
+#: byte-identical to the branch point fd902e27 for every file outside it (computed
+#: from `git show fd902e27:<path>`, the same algorithm) — what is still frozen is
+#: still frozen; the round-2 pin was 75c0d4d9….
+SPECIMEN_FROZEN_DIGEST = "d4625cda42596c81ce109b2ce003fed6af1fd3ccdd0050f9adb40320284a17fa"
 
 #: The family this example demonstrates against, read from the example rather
 #: than restated: a constant here would be this module agreeing with itself.

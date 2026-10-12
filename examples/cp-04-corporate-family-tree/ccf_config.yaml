@@ -565,3 +565,22 @@ temporal_boundary:
 
 demonstration_serve_instant:
   serve_instant: "2026-08-31T12:00:00+00:00"
+
+# WHO THE MCP DOOR SERVES, AND UNDER WHICH ROLE (G4-F-04; Dave, 2026-10-11 16:23
+# MST, ruling 4). AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md):
+# the tenant's `ccf.product-entitlement-policy`, declared as Control Plane DATA.
+# `server/compose.py` used to register this one-principal policy by hand, which
+# D-IMPL-353 refuses (`CapabilityBypassError`); the SDK's own boot now registers
+# this section into the door's Control Plane. The principal and role are
+# `default_perspective:`'s — and only the declared default role, for the reason
+# `server/compose.py::compose` gives (the product tool carries no `role`
+# argument, so a second role would be a permission with no path to it). A
+# principal NOT named here is refused `principal-not-entitled` at the door,
+# recorded, before either system of record is read.
+product_entitlement:
+  tenant_id: cp-04-demo
+  policy_version: "1.0.0"
+  principals:
+    PRIN-COV-001:
+      permitted_schema_names: [reference.corporate-family]
+      permitted_roles: [credit-officer]

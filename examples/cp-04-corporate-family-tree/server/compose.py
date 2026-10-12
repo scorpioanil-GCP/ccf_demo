@@ -87,12 +87,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from ccf.contracts.claims import RelationshipClaim
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.products.entitlement import (
-    PRODUCT_ENTITLEMENT_POLICY,
-    ProductEntitlementGrant,
-    ProductEntitlementPolicy,
-    product_entitlement_key,
-)
+from ccf.deployment import load_config_and_boot
 from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
@@ -392,27 +387,25 @@ def compose(*, root: Path) -> ComposedDoor:
         the entitlement source and the recorder — what a door serves with.
     """
     control_plane = ControlPlaneRegistry()
-    declared = deployment.config()[deployment.KEY_PRODUCT_CLASS]
     # The DECLARED default, with no caller role in play — so the only way it
     # can fail is the authoring error `deployment.py::perspective` exits on,
     # and this composition has no governed refusal to branch on.
     perspective = deployment.declared_perspective()
-    control_plane.register_typed(
-        product_entitlement_key(tenant_id=deployment.tenant_id()),
-        ProductEntitlementPolicy(
-            tenant_id=deployment.tenant_id(),
-            policy_version=str(declared["schema_version"]),
-            principals={
-                perspective.principal_id: ProductEntitlementGrant(
-                    permitted_schema_names=frozenset(
-                        {str(declared["schema_name"])}
-                    ),
-                    permitted_roles=frozenset({perspective.role}),
-                )
-            },
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
+    # AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md). The
+    # entitlement policy is DECLARED (`ccf_config.yaml::product_entitlement:`,
+    # G4-F-04), not registered here: since D-IMPL-353 the registry takes a
+    # capability only SDK composition code mints, and this function's
+    # `register_typed` was refused `CapabilityBypassError`. The SDK's own boot
+    # registers the declared section into THIS Control Plane under its
+    # composition recipe — the deployment's ordinary boot, over an owned
+    # scratch L3 nothing reads, closed at once.
+    boot_root = root / "door-boot"
+    boot_root.mkdir(parents=True, exist_ok=True)
+    booted = load_config_and_boot(
+        deployment.CONFIG, registry=control_plane,
+        connection=deployment.connection(root=boot_root),
     )
+    booted.handle.close()
     # A door decision happens when it happens, so the clock is a wall-clock
     # read: this deployment's demonstration instant is PINNED, and binding the
     # audit plane to it would have every decision this door ever made stamped
@@ -435,9 +428,14 @@ def compose(*, root: Path) -> ComposedDoor:
     # The posture is read through the ONE entitlement source above, so a
     # denial and the shell a caller sees are decided under one reading of one
     # policy.
+    #
+    # AMENDED 2026-10-11 (round 3): the SDK's `declared_refusal_recorder` reads
+    # the posture off the Control Plane it is handed — THIS one, where the
+    # declared policy the entitlement source reads was registered — so one
+    # policy is still read once (`deployment.refusal_recorder`).
     refusal_recorder = deployment.refusal_recorder(
         root=root,
-        disclosure_level_for=entitlement_source.disclosure_level_for,
+        control_plane=control_plane,
     )
     return ComposedDoor(
         tenant_id=deployment.tenant_id(),

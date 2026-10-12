@@ -82,7 +82,6 @@ name, and no host, port, path or credential appears in any document here.
 from __future__ import annotations
 
 import json
-import secrets
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -93,14 +92,21 @@ from typing import Any, Iterator
 import yaml
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken
-from mcp.server.auth.settings import AuthSettings
-from pydantic import AnyHttpUrl
 
+from ccf.controlplane.artifacts import (
+    PRODUCT_CLASS,
+    EgressDoorBinding,
+    ProductClassDeclaration,
+    parse_artifact,
+)
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment import EnvironmentDocument, load_environment_document
+from ccf.products.request import ProductRequest
 from ccf_runtime.authz.product_entitlement import TokenGrant
 from ccf.projection.plan import Perspective
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
-from ccf_runtime.mcp.egress import build_egress_server
+from ccf_runtime.mcp.product_door import open_door_with_verifier
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 HERE = Path(__file__).resolve().parent
 # The example root, so the sibling modules this door composes over import by
@@ -119,6 +125,7 @@ EGRESS_DOOR = HERE / "egress-door.yaml"
 #: is an authoring mistake worth naming here rather than discovering as a
 #: `KeyError` inside a builder three frames down.
 DOOR_KEYS = (
+    "producer_id",
     "tool_description",
     "required_scope",
     "issuer_url",
@@ -168,11 +175,81 @@ class Door:
     composed: ComposedDoor
     #: The scope the door requires and the credential carries.
     scope: str
+    #: The SDK's standard door this boot opened (AMENDED 2026-10-11, round 3).
+    product_door: Any = None
+
+
+class FamilyTreeProducer:
+    """cp-04's composed door, presented to the SDK's standard door (``ServesProducts``).
+
+    AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md). This door
+    called ``build_egress_server`` itself. Since D-IMPL-353 that builder
+    requires an ``authorizer`` decided over a registered scope mapping, and a
+    deployment can neither register one (the registry takes a capability only
+    SDK composition code mints) nor declare one (``ccf.scope-mapping`` is not
+    manifest-addressable). The supported path for a hand-composed door is the
+    standard door over the nine members ``ServesProducts`` names — all of them
+    already held by :func:`compose` — which derives the scope mapping and the
+    pinned authorizer itself and composes OVER the declared entitlement policy.
+    Nothing below decides anything: ``resolve`` is ``composed.resolver``.
+    """
+
+    def __init__(self, composed: ComposedDoor, *, values: dict[str, Any]) -> None:
+        import deployment  # noqa: PLC0415 — the example root is on sys.path above
+
+        self._composed = composed
+        config = deployment.config()
+        declaration = parse_artifact(
+            {"semver": config["semver"], **config[deployment.KEY_PRODUCT_CLASS]}, PRODUCT_CLASS
+        )
+        assert isinstance(declaration, ProductClassDeclaration)  # PRODUCT_CLASS's contract
+        self._declaration = declaration
+        self._door = EgressDoorBinding.model_validate({
+            "semver": "1.0.0",
+            "producer_id": str(values["producer_id"]),
+            "producer_tenant": composed.tenant_id,
+            "tool_description": str(values["tool_description"]),
+            "required_scope": str(values["required_scope"]),
+        })
+        self._environment = load_environment_document(HERE.parent)
+
+    @property
+    def tenant_id(self) -> str:
+        return self._composed.tenant_id
+
+    @property
+    def declaration(self) -> ProductClassDeclaration:
+        return self._declaration
+
+    @property
+    def default_perspective(self) -> Perspective:
+        return Perspective(principal_id=self._composed.principal_id, role=self._composed.role)
+
+    @property
+    def control_plane(self) -> ControlPlaneRegistry:
+        return self._composed.control_plane
+
+    @property
+    def refusal_recorder(self) -> Any:
+        return self._composed.refusal_recorder
+
+    @property
+    def door(self) -> EgressDoorBinding:
+        return self._door
+
+    @property
+    def environment(self) -> EnvironmentDocument:
+        return self._environment
+
+    def resolve(self, *, tenant: str, product_class: str, version: str,
+                perspective: Perspective, request: ProductRequest | None) -> Any:
+        return self._composed.resolver(tenant=tenant, product_class=product_class,
+                                       version=version, perspective=perspective, request=request)
 
 
 @contextmanager
 def door(*, root: Path) -> Iterator[Door]:
-    """Compose the deployment, mint this boot's credential, and build the door.
+    """Compose the deployment, open the SDK's standard door over it, write this boot's credential.
 
     ``root`` is scratch space: this boot's token table sits in it, and every
     assembly's per-run SQLite L3 and file-backed artifact store are minted
@@ -184,20 +261,6 @@ def door(*, root: Path) -> Iterator[Door]:
     values = door_values()
     scope = str(values["required_scope"])
     composed = compose(root=root)
-
-    tokens = root / TOKEN_FILE
-    credential = secrets.token_urlsafe(32)
-    tokens.write_text(
-        json.dumps(
-            {
-                credential: {
-                    "client_id": composed.principal_id,
-                    "scopes": [scope],
-                }
-            }
-        ),
-        encoding="utf-8",
-    )
 
     def resolve_perspective(
         *, grant: TokenGrant, tenant: str, requested_role: str | None
@@ -217,43 +280,34 @@ def door(*, root: Path) -> Iterator[Door]:
         """
         return Perspective(principal_id=grant.client_id, role=composed.role)
 
-    server = build_egress_server(
-        # The server's name is this deployment's tenant, off its own
-        # declaration — a server name written here would be a domain value in
-        # code.
-        server_name=composed.tenant_id,
-        resolver=composed.resolver,
-        token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=tokens)
-        ),
-        auth_settings=AuthSettings(
-            issuer_url=AnyHttpUrl(str(values["issuer_url"])),
-            resource_server_url=AnyHttpUrl(str(values["resource_server_url"])),
-            required_scopes=[scope],
-        ),
-        # The ONE source, constructed at composition with this deployment's
-        # clock (`24.6-10`). It was built here until that row; it moved because
-        # the recorder beside it reads its disclosure posture through it, and
-        # two sources would read one policy twice.
-        entitlement_source=composed.entitlement_source,
+    tokens = root / TOKEN_FILE
+    opened = open_door_with_verifier(
+        FamilyTreeProducer(composed, values=values),
+        token_verifier=SourceBackedTokenVerifier(source=FileTokenSource(path=tokens)),
         perspective_resolver=resolve_perspective,
-        # A denial at this door is a recorded decision, filed to the store
-        # `produce.py::_serve` already writes (`D-IMPL-253` Q13,
-        # `D-IMPL-256` (2)).
-        refusal_recorder=composed.refusal_recorder,
-        # THE SECOND SURFACE, AND THE ONLY ONE THAT SERVES. The resource beside
-        # it is registered by the builder's default (`expose_product_resource`
-        # is True unless a door says otherwise, `24.5-L-09`), kept by ruling,
-        # and refuses in `compose.py::build_resolver`.
-        expose_product_tool=True,
-        product_tool_description=str(values["tool_description"]),
+        # The ONE source, constructed at composition with this deployment's
+        # clock (`24.6-10`); the recorder beside it reads the same Control Plane.
+        entitlement_source=composed.entitlement_source,
+    )
+    # This boot's ONE credential (read from the variable `ccf_environment.yaml`
+    # names, or minted per boot), recognized for the declared principal on this
+    # tenant only (SEC-018); the file is read on every lookup.
+    tokens.write_text(
+        json.dumps({opened.credential: {
+            "client_id": composed.principal_id, "scopes": [scope],
+            "tenants": [composed.tenant_id]}}),
+        encoding="utf-8",
     )
     try:
         yield Door(
-            server=server,
-            credential=credential,
+            server=opened.server(
+                issuer_url=str(values["issuer_url"]),
+                resource_server_url=str(values["resource_server_url"]),
+            ),
+            credential=opened.credential,
             composed=composed,
             scope=scope,
+            product_door=opened,
         )
     finally:
         tokens.unlink(missing_ok=True)
@@ -271,10 +325,11 @@ def serve() -> None:
         with door(root=Path(scratch)) as opened:
             auth_context_var.set(
                 AuthenticatedUser(
-                    AccessToken(
-                        token=opened.credential,
-                        client_id=opened.composed.principal_id,
-                        scopes=[opened.scope],
+                    ambient_stdio_identity(
+                        credential=opened.credential,
+                        principal_id=opened.composed.principal_id,
+                        scope=opened.scope,
+                        tenant=opened.composed.tenant_id,
                     )
                 )
             )
