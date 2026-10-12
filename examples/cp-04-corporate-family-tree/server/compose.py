@@ -86,8 +86,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from ccf.contracts.claims import RelationshipClaim
+from ccf.controlplane.artifacts import EgressDoorBinding
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import load_config_and_boot
 from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
@@ -95,6 +95,7 @@ from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
+from ccf_runtime.mcp.composed_product import compose_for_door
 from ccf_runtime.mcp.egress import ProductNotServable
 
 import assembler
@@ -142,6 +143,11 @@ class ComposedDoor:
     #: `serve.py` because a door left unbound would not build — and Dave's own
     #: preference is *"the problem to be detected at construction/boot."*
     refusal_recorder: ReplayRefusalRecorder
+    #: The SDK's composition of this deployment for the standard door
+    #: (AMENDED 2026-10-11, round 5): `ccf_runtime.mcp.composed_product
+    #: .compose_for_door`'s `ComposedProduct`, which `serve.py` opens the door
+    #: over. Its Control Plane, recorder and resolver are the three above.
+    product: Any = None
 
 
 def build_resolver(
@@ -346,6 +352,22 @@ def _typed(request: ProductRequest) -> ProductRequest:
     return request.model_copy(update={"parameters": parameters})
 
 
+#: This door's own document, beside this module — the identity and the prose
+#: the door asserts and advertises (CLAUDE.md §6.4).
+HERE = Path(__file__).resolve().parent
+EGRESS_DOOR = HERE / "egress-door.yaml"
+
+
+def _door_values() -> Mapping[str, Any]:
+    """The door binding's values, from the document that owns them."""
+    import yaml  # noqa: PLC0415
+
+    parsed = yaml.safe_load(EGRESS_DOOR.read_text(encoding="utf-8"))
+    if not isinstance(parsed, dict):
+        raise TypeError(f"{EGRESS_DOOR} is not a mapping of names to values")
+    return parsed
+
+
 def compose(*, root: Path) -> ComposedDoor:
     """Register the entitlement this door serves under, and build its resolver.
 
@@ -386,63 +408,60 @@ def compose(*, root: Path) -> ComposedDoor:
         The tenant, the principal, the role, the Control Plane, the resolver,
         the entitlement source and the recorder — what a door serves with.
     """
-    control_plane = ControlPlaneRegistry()
     # The DECLARED default, with no caller role in play — so the only way it
     # can fail is the authoring error `deployment.py::perspective` exits on,
     # and this composition has no governed refusal to branch on.
     perspective = deployment.declared_perspective()
-    # AMENDED 2026-10-11 (round 3, examples/AMENDMENTS-2026-10-11.md). The
-    # entitlement policy is DECLARED (`ccf_config.yaml::product_entitlement:`,
-    # G4-F-04), not registered here: since D-IMPL-353 the registry takes a
-    # capability only SDK composition code mints, and this function's
-    # `register_typed` was refused `CapabilityBypassError`. The SDK's own boot
-    # registers the declared section into THIS Control Plane under its
-    # composition recipe — the deployment's ordinary boot, over an owned
-    # scratch L3 nothing reads, closed at once.
+    # AMENDED 2026-10-11 (round 5, examples/AMENDMENTS-2026-10-11.md). Round 3
+    # booted the config here by hand (to get the DECLARED `product_entitlement:`
+    # registered — G4-F-04) and `serve.py` wrapped the result in a
+    # `FamilyTreeProducer` conformer; cp-07 and door-cp-05 wrote the same
+    # thing. That composition is now the SDK's own,
+    # `ccf_runtime.mcp.composed_product.compose_for_door`: one SDK boot of
+    # `ccf_config.yaml` into ONE fresh Control Plane (the declared entitlement
+    # registered by the SDK's composition recipe), the `policy` pin read off
+    # it, and the SDK's `declared_refusal_recorder` over the store
+    # `produce.py::_serve` writes (`root / deployment.ARTIFACT_STORE_DIRNAME`,
+    # never a second store). The recorder is handed to `build_resolver`, so
+    # the door's entitlement denials and the assembler's own refusals are
+    # recorded by ONE recorder under one policy pin, as before.
     boot_root = root / "door-boot"
     boot_root.mkdir(parents=True, exist_ok=True)
-    booted = load_config_and_boot(
-        deployment.CONFIG, registry=control_plane,
-        connection=deployment.connection(root=boot_root),
+    values = _door_values()
+    product = compose_for_door(
+        deployment.CONFIG,
+        boot_connection=deployment.connection(root=boot_root),
+        environment_root=HERE.parent,
+        door=EgressDoorBinding.model_validate({
+            "semver": "1.0.0",
+            "producer_id": str(values["producer_id"]),
+            "producer_tenant": deployment.tenant_id(),
+            "tool_description": str(values["tool_description"]),
+            "required_scope": str(values["required_scope"]),
+        }),
+        replay_store=deployment.artifact_store(root=root),
+        replay_record_class=deployment.REPLAY_RECORD_CLASS,
+        build_resolver=lambda recorder: build_resolver(root=root, refusal_recorder=recorder),
+        default_perspective=perspective,
     )
-    booted.handle.close()
+    control_plane = product.control_plane
+    refusal_recorder = product.refusal_recorder
     # A door decision happens when it happens, so the clock is a wall-clock
     # read: this deployment's demonstration instant is PINNED, and binding the
     # audit plane to it would have every decision this door ever made stamped
-    # 2026-08-31. Constructed ONCE, here, because the governed step reads it
-    # exactly once per determination and two sources would give one decision's
-    # audit event and its replay record two instants.
+    # 2026-08-31. Constructed ONCE, here, over the ONE Control Plane the
+    # recorder reads its disclosure posture from.
     entitlement_source = ControlPlaneProductEntitlementSource(
         control_plane=control_plane,
         clock=lambda: datetime.now(UTC),
-    )
-    # CONSTRUCTED BEFORE THE RESOLVER AND HANDED IN — one instance, not two.
-    # The door's entitlement denials and the assembler's own refusals are
-    # recorded by this recorder, over the store `produce.py::_serve` writes, so
-    # cp-04's audit plane has one writer whichever layer said no. The
-    # construction lives in `deployment.py` rather than here because it is the
-    # audit plane's shape rather than this door's wiring, and `transport.py`
-    # reaches the same constructor — two spellings of it would be two audit
-    # planes that happen to agree today.
-    #
-    # The posture is read through the ONE entitlement source above, so a
-    # denial and the shell a caller sees are decided under one reading of one
-    # policy.
-    #
-    # AMENDED 2026-10-11 (round 3): the SDK's `declared_refusal_recorder` reads
-    # the posture off the Control Plane it is handed — THIS one, where the
-    # declared policy the entitlement source reads was registered — so one
-    # policy is still read once (`deployment.refusal_recorder`).
-    refusal_recorder = deployment.refusal_recorder(
-        root=root,
-        control_plane=control_plane,
     )
     return ComposedDoor(
         tenant_id=deployment.tenant_id(),
         principal_id=perspective.principal_id,
         role=perspective.role,
         control_plane=control_plane,
-        resolver=build_resolver(root=root, refusal_recorder=refusal_recorder),
+        resolver=product.resolve,
         entitlement_source=entitlement_source,
         refusal_recorder=refusal_recorder,
+        product=product,
     )
