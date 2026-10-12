@@ -76,3 +76,31 @@ def deployment_on_the_real_clock(config: pathlib.Path, *, directory: pathlib.Pat
 def anchored_after(asked_at: datetime) -> datetime:
     """The serve instant a test deployment declares for a question asked at ``asked_at``."""
     return asked_at + SERVE_AFTER
+
+
+#: The paved road's two deployment documents (`ccf.products.product.open_product`
+#: reads `ccf_environment.yaml`, which names `ccf_config.yaml`).
+PAVED_DOCUMENTS = ("ccf_environment.yaml", "ccf_config.yaml")
+
+
+def paved_root_serving_at(
+    tree: pathlib.Path, *, serve_instant: datetime, directory: pathlib.Path
+) -> pathlib.Path:
+    """A test-owned ``config_root`` for a paved tree, declaring ``serve_instant``.
+
+    Copies the tree's two documents byte for byte, then rewrites only the
+    config's ``demonstration_serve_instant:`` (:func:`deployment_serving_at`).
+    The tree's own code — acquire, project, assess, gate — is still the tree's.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / PAVED_DOCUMENTS[0]).write_bytes((tree / PAVED_DOCUMENTS[0]).read_bytes())
+    deployment_serving_at(tree / PAVED_DOCUMENTS[1], serve_instant=serve_instant, directory=directory)
+    return directory
+
+
+def paved_root_on_the_real_clock(tree: pathlib.Path, *, directory: pathlib.Path) -> pathlib.Path:
+    """A test-owned ``config_root`` for a paved tree with NO declared serve instant."""
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / PAVED_DOCUMENTS[0]).write_bytes((tree / PAVED_DOCUMENTS[0]).read_bytes())
+    deployment_on_the_real_clock(tree / PAVED_DOCUMENTS[1], directory=directory)
+    return directory

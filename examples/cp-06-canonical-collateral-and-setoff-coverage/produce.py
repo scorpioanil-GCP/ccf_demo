@@ -93,7 +93,9 @@ plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-d
 
 
 # --8<-- [start:boot]
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
     """Open the product: one call binds this deployment's callables to its two documents.
 
     `ccf_config.yaml` declares the product and every binding; `ccf_environment
@@ -101,12 +103,16 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     read from. Every value a question needs comes from one of the two — the
     spine restates none — and the SDK refuses, at open and by name, anything
     the documents disagree on. ``environ`` is the caller's environment to read
-    those names from; ``None`` reads the process's.
+    those names from; ``None`` reads the process's. ``config_root`` is the
+    DEPLOYMENT — this tree, unless a deployer (a test) opens a copy of the two
+    documents declaring a different demonstration serve instant
+    (`tests/examples/demonstration_deployment.py`); nothing on a question can
+    move the serve clock.
     """
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=plan_factory,

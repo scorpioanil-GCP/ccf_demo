@@ -57,18 +57,25 @@ def _withholds_no_subject() -> bool:
 plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
 
 
-def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
+def product(
+    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+) -> OpenedProduct:
     """Open the product: one call binds this deployment's callables to its documents.
 
     `gate=` is `deployment.packaging_gate` and the class declares its identity,
     which are both-or-neither: without the declaration the SDK has no identity
     to stamp on a refusal the gate produced, and replay could not say which
     gate refused.
+
+    ``config_root`` is the DEPLOYMENT — this tree, unless a deployer (a test)
+    opens a copy of its two documents declaring a different demonstration serve
+    instant, or none (`tests/examples/demonstration_deployment.py`; amended
+    2026-10-11). Nothing on a question can move the serve clock.
     """
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
-        config_root=HERE,
+        config_root=config_root,
         scratch=scratch,
         acquire=deployment.acquire,
         project=plan_factory,

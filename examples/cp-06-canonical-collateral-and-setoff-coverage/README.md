@@ -40,13 +40,29 @@ export CCF_CP_06C_FLUREE_URL=http://<host>:8090   CCF_CP_06C_FLUREE_LEDGER=fibo-
 export CCF_CP_06C_POSTGRES_DSN=postgresql://...     CCF_CP_06C_POSTGRES_SCHEMA=ccf_v2
 make example-cp-06-canonical
 make example-cp-06-canonical FACILITY=--facility=FAC-044206 SCOPE=--scope=529900E95812SYWMCE44
-make example-cp-06-canonical ASKED_AT=--asked-at=2026-09-07T12:00:00+00:00
+make example-cp-06-canonical ASKED_AT=--asked-at=now          # refused: see below
 .venv/bin/python examples/cp-06-canonical-collateral-and-setoff-coverage/run.py --door
 ```
 
 The default question is the one `CP-SPEC-014` asks: BGC Group's facility `FAC-5B8418`,
-intent `lgd-assessment`, freshness `as-filed`, the obligor as the borrower scope. The v2
-namespaces are not in `ccf_dataprep/.env`, which names v1.
+intent `lgd-assessment`, freshness `as-filed`, the obligor as the borrower scope, asked at
+**2026-09-07T12:00Z**. The v2 namespaces are not in `ccf_dataprep/.env`, which names v1.
+
+**The demonstration clock (amended 2026-10-11).** `ccf_config.yaml` declares a labelled
+**demonstration serve instant**, 2026-09-07T12:05Z (`demonstration_serve_instant:`,
+`D-IMPL-378` C1, honored on the paved road since the SDK round of 2026-10-11): the product
+— in-process and through its door alike — serves as if it were five minutes after the
+demonstration question, inside its one-hour `temporal_boundary`. It is the one time anchor
+this tree's runs share with `CP-SPEC-014`, `dr-01` and `dr-02`; nothing on a question can
+move it; the SDK refuses it outside its own development substrates; every replay record
+written under it names the declaration. Until this amendment the default asked at the
+wall clock; it now asks the dated demonstration question, and `--asked-at now` is refused
+`asked-at-outside-temporal-bound` (an instant after the serve clock is outside the boundary). With
+the declaration removed, the demonstration question is refused
+`asked-at-outside-temporal-bound` on the real clock
+(`tests/examples/test_cp_06_canonical_output.py::test_the_demonstration_question_on_the_real_clock_is_refused_as_expired`).
+A question at a different dated instant needs a deployment declaring its own anchor: set
+`serve_instant` five minutes after it first.
 
 ## The story
 

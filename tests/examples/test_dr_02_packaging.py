@@ -516,3 +516,33 @@ def test_the_retained_record_carries_the_real_packaging_trace(estate: None) -> N
                 )
         finally:
             deployment.packaging_trace = honest  # type: ignore[assignment]
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, tmp_path: pathlib.Path
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question at `INSTANT`, asked of this tree's own two
+    documents with the declared demonstration serve instant REMOVED, is served
+    on the real clock: outside the one-hour `temporal_boundary`, so this tenant
+    refuses it by name, as data, with a replay reference, before it asks its
+    upstream anything (no door is needed to show it).
+    """
+    from tests.examples.demonstration_deployment import paved_root_on_the_real_clock  # noqa: PLC0415
+
+    deployment, produce = tree_modules_of(DR02, "deployment", "produce")
+    root = paved_root_on_the_real_clock(DR02, directory=tmp_path / "deployment")
+    with produce.product(tmp_path / "scratch", environ=_environ("http://127.0.0.1:9/mcp"), config_root=root) as opened:
+        outcome = opened.answer(opened.question(
+            subject=FACILITY, asked_at=INSTANT, intent=INTENT, freshness=FRESHNESS,
+            parameters={
+                deployment.FACILITY: FACILITY,
+                deployment.BORROWER_SCOPE: [SCOPE],
+                deployment.AUDIENCE: ["credit-officer"],
+            },
+        ))
+    assert isinstance(outcome, RefusalEnvelope), "an expired question was served"
+    assert (outcome.kind, outcome.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert outcome.replay_reference
+
