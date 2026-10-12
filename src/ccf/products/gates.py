@@ -418,7 +418,7 @@ class EvidenceAfterDecisionRefusal(CCFContract):
         decided_at: The decision instant the evidence post-dates.
     """
 
-    reason: Literal["evidence-after-decision"] = "evidence-after-decision"
+    reason: Literal["evidence-after-decision"]
     detail: str
     decided_at: datetime
 

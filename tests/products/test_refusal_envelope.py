@@ -519,6 +519,7 @@ def test_envelope_for_evidence_after_decision_refusal(request_identity: RequestI
     from ccf.products.gates import EvidenceAfterDecisionRefusal  # noqa: PLC0415
 
     refusal = EvidenceAfterDecisionRefusal(
+        reason="evidence-after-decision",
         detail="an observation is dated after the instant it is evaluated at",
         decided_at=_INSTANT,
     )

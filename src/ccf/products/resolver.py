@@ -4984,6 +4984,7 @@ class GovernedResolver:
             return self._record_refusal(
                 envelope=envelope_for(
                     EvidenceAfterDecisionRefusal(
+                        reason="evidence-after-decision",
                         detail=(
                             "the Context Debt cannot be assessed at the decision"
                             f" instant {decided_at.isoformat()}: {future_dated}"
