@@ -16,20 +16,43 @@ LEIs, `asked_at` = the instant it is held to (`CP14-F-19`), `intent` and
 not a credit-memo product; what is proved is that a real, governed
 `credit-risk.spread` child can be acquired through `D-IMPL-340` and admitted.
 
+**AMENDED 2026-10-11, round 4 (`examples/AMENDMENTS-2026-10-11.md`).** This
+module used to compose the consumer BY HAND (the "low road"): it registered a
+policy regime, a catalog entry and a grant on the Control Plane itself and
+built the question-bound resolver directly. Since `D-IMPL-353` every one of
+those writes needs a capability only SDK composition mints — the regime
+registration is refused `CapabilityBypassError`, a grant needs
+`Authorized[SkillGrant]`, and the question-bound resolver needs
+`Authorized[ReplayMint]` at construction — and a test that minted them would be
+inventing the grant (Dave, 2026-10-11: "Do not obtain success by bypassing a
+gate or inventing a grant"). The consumer is therefore composed on the ONE
+supported path: the DECLARED consumer document
+`cp_03_canonical_paved_consumer/ccf_config.yaml` (`requires`, `producers:`,
+`skills:`, `agent:`, `grants:`) opened through `open_product`, whose
+composition requests the declared grant through the ledger's own governance.
+The variants each gate needs (another expected producer identity or tenant,
+another lane floor, another tolerance) are edits to that declaration, made in
+memory. Every gate's assertion is unchanged except where the paved road
+answers at a different boundary by design; each such case says so in place.
+`test_the_hand_composed_low_road_is_closed` keeps the reason executable.
+
 **Reads the estate, seeds nothing.** The producer process reads the same live
 estate the in-process example reads; this module reads none of it directly.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import pathlib
 import socket
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -37,41 +60,22 @@ import httpx
 import pytest
 import yaml
 
-from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import CapabilityBypassError
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import MCP_PRODUCER, declared_artifact_class, parse_artifact
-from ccf.mcp.client import SyncMcpBridge
-from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
-from ccf.products.composite import CompositeAdmissionGate
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.erasure import ErasureTrust
+from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract
+from ccf.products.product import OpenedProduct, open_product
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
-from ccf.skills.callables import CallableRegistry
-from ccf.skills.catalog import (
-    McpProductBinding,
-    SkillArgumentSchema,
-    SkillCatalog,
-    SkillCatalogEntry,
-    SkillRequirements,
-)
-from ccf.skills.dispatch import McpSkillRegistry, ProducerDoesNotOffer
-from ccf.skills.grants import GrantLedger, SkillGrant
-from ccf.skills.producers import register_declared_producer
-
-from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
-from tests.products.composite_fixture import boot_composite
-from tests.products.test_resolver_seam import (
-    PERSPECTIVE,
-    PRODUCT_CLASS as PARENT_CLASS,
-    PRODUCT_VERSION as PARENT_VERSION,
-    TENANT,
-    THRESHOLD_PARAMETER,
-    _Booted,
-    _arguments,
-)
+from tests.deployment.conftest import write_artifact
+from tests.products import paved_fixture as fixture
+from tests.products.paved_fixture import THRESHOLD_PARAMETER
 
 pytestmark = [pytest.mark.postgres]
 
@@ -92,11 +96,15 @@ PRODUCT_VERSION = str(CONFIG["product_class"]["schema_version"])
 INTENT = sorted(CONFIG["product_class"]["discovery"]["intents"])[0]
 FRESHNESS = "filing-cadence"
 
+#: The consumer's DECLARED document — the one supported composition (round 4).
+CONSUMER = pathlib.Path(__file__).resolve().parent / "cp_03_canonical_paved_consumer"
+CONSUMER_CONFIG: dict[str, Any] = yaml.safe_load((CONSUMER / "ccf_config.yaml").read_text(encoding="utf-8"))
+TENANT = str(CONSUMER_CONFIG["tenant_id"])
+
 #: The consumer's logical name for the producer — what its `McpProductBinding`
 #: selects by. The consumer's vocabulary, not the producer's.
 SERVER_NAME = "canonical-spread-producer"
 SKILL = "spread-ask"
-REGIME_KEY = f"{TENANT}/policy-bundle/cp-03-canonical"
 ENDPOINT_VAR = "CCF_TEST_CP03C_PRODUCER_URL"
 CREDENTIAL_VAR = "CCF_TEST_CP03C_PRODUCER_TOKEN"
 DEV_TOKEN = "dev-token-cp-03-canonical-door"
@@ -115,8 +123,6 @@ STALE_OBLIGOR = "549300D0WZR1VI2QGB24"
 
 ESTATE_VARIABLES = ("CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA")
 
-_LEDGERS: dict[int, tuple[GrantLedger, str]] = {}
-
 
 @pytest.fixture(scope="module")
 def estate() -> None:
@@ -128,24 +134,26 @@ def estate() -> None:
         pytest.skip(message)
 
 
-@pytest.fixture
-def bridge() -> Iterator[SyncMcpBridge]:
-    with SyncMcpBridge(call_timeout_seconds=CALL_TIMEOUT_SECONDS) as bridge:
-        yield bridge
+@dataclass
+class _Consumer:
+    """Every consuming deployment one test opens, under one owned tmp root.
+
+    Round 4: the consumer is the DECLARED one, opened through `open_product`;
+    this holder keeps the opened products open until the test ends.
+    """
+
+    root: pathlib.Path
+    stack: ExitStack = field(default_factory=ExitStack)
+    opened: list[OpenedProduct] = field(default_factory=list)
 
 
 @pytest.fixture
-def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    """The consumer: the SDK's fixture composite, REQUIRING `credit-risk.spread`."""
-    deployment = boot_composite(
-        tmp_path,
-        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # `D-IMPL-378` P2 (c): `_plan_factory` never withholds
-        product_class_overrides={
-            "requires": [{"product_class": PRODUCT_CLASS, "required": True, "compatible_from": "1.0.0"}]
-        },
-    )
-    yield next(deployment)
-    deployment.close()
+def booted(tmp_path: pathlib.Path) -> Iterator[_Consumer]:
+    """The consumer side: the fixture composite REQUIRING `credit-risk.spread`."""
+    holder = _Consumer(root=tmp_path / "consumers")
+    holder.root.mkdir()
+    with holder.stack:
+        yield holder
 
 
 @contextmanager
@@ -178,24 +186,39 @@ def producer(estate: None, **environment: str) -> Iterator[str]:
 
 
 class _Recording:
-    """An `httpx` client factory that records every URL this process requests."""
+    """Every URL this process requests over `httpx`, and every client it opens.
 
-    def __init__(self, token: str) -> None:
+    Round 4: the declared consumer builds its own MCP client, so the recording
+    is an instrument on `httpx.AsyncClient` for the life of the consumer rather
+    than a credential factory handed to a hand-built registration. It observes;
+    it changes nothing the client sends.
+    """
+
+    def __init__(self) -> None:
         self.urls: list[str] = []
         self.sessions = 0
-        self._token = token
 
-    def __call__(self) -> httpx.AsyncClient:
-        self.sessions += 1
+    @contextmanager
+    def watching(self) -> Iterator[_Recording]:
+        original_init = httpx.AsyncClient.__init__
+        original_send = httpx.AsyncClient.send
+        recording = self
 
-        async def note(request: httpx.Request) -> None:
-            self.urls.append(str(request.url))
+        def init(client: httpx.AsyncClient, *args: Any, **kwargs: Any) -> None:
+            recording.sessions += 1
+            original_init(client, *args, **kwargs)
 
-        return httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {self._token}"},
-            event_hooks={"request": [note]},
-            timeout=CALL_TIMEOUT_SECONDS,
-        )
+        async def send(client: httpx.AsyncClient, request: httpx.Request, *args: Any, **kwargs: Any) -> Any:
+            recording.urls.append(str(request.url))
+            return await original_send(client, request, *args, **kwargs)
+
+        httpx.AsyncClient.__init__ = init  # type: ignore[method-assign]
+        httpx.AsyncClient.send = send  # type: ignore[method-assign]
+        try:
+            yield self
+        finally:
+            httpx.AsyncClient.__init__ = original_init  # type: ignore[method-assign]
+            httpx.AsyncClient.send = original_send  # type: ignore[method-assign]
 
 
 def producer_document(
@@ -212,73 +235,6 @@ def producer_document(
         "credential_from_env": CREDENTIAL_VAR,
         "offers": [{"product_class": offered_class, "versions_from": versions_from}],
     }
-
-
-def ledger_for_spread(booted: _Booted, *, product_version: str = PRODUCT_VERSION) -> tuple[GrantLedger, str]:
-    """A real ledger over the consumer's Control Plane with one `mcp_product` grant."""
-    registry = booted.control_plane
-    if id(registry) in _LEDGERS:
-        return _LEDGERS[id(registry)]
-    regime_class = declared_artifact_class("policy-bundle")
-    registry.register_typed(
-        REGIME_KEY,
-        parse_artifact(
-            {
-                "class_id": "policy-bundle",
-                "semver": "1.0.0",
-                "declaration": {
-                    "regime": "cp-03-canonical-consumer",
-                    "skill_governance": {"grant_requires_approval": False, "permitted_scopes": []},
-                },
-            },
-            regime_class,
-        ),
-        regime_class,
-    )
-    definition = AgentDefinition(
-        schema_version="1.0.0",
-        artifact_version="1.0.0",
-        name="cp-03-canonical-consumer",
-        tenant=TENANT,
-        archetypes=("context_assembly",),
-        context_contract={"consumes": [{"product_class": PRODUCT_CLASS, "schema_version": product_version}]},
-        perspective={"role": PERSPECTIVE.role, "selection_params": {}},
-        policy_regime={"ref": f"ccf-artifact://{REGIME_KEY}@1.0.0"},
-        halflife_debt_profile={"ref": f"ccf-artifact://{TENANT}/debt-profile/x@1.0.0"},
-        instruction_bindings=(),
-    )
-    catalog = SkillCatalog(registry)
-    catalog.register(
-        SkillCatalogEntry(
-            schema_version="1.0.0",
-            artifact_version="1.0.0",
-            name=SKILL,
-            tenant=TENANT,
-            skill_type="mcp_product",
-            description="asks the registered canonical spread producer a question",
-            argument_schema=SkillArgumentSchema(properties={}, required=()),
-            binding=McpProductBinding(server=SERVER_NAME, product_class=PRODUCT_CLASS, product_version=product_version),
-            requirements=SkillRequirements(required_scopes=frozenset(), required_context_products=frozenset()),
-            produces=PRODUCT_CLASS,
-        )
-    )
-    ledger = GrantLedger(control_plane=registry, catalog=catalog, sink=None, clock=lambda: ADMITTED_AT)
-    outcome = ledger.request(
-        SkillGrant(
-            schema_version="1.0.0",
-            artifact_version="1.0.0",
-            name=f"grant-{SKILL}",
-            tenant=TENANT,
-            agent_definition_hash=content_hash(definition),
-            skill_name=SKILL,
-            skill_version="1.0.0",
-        ),
-        definition=definition,
-        actor="cp-03-canonical-consumer",
-    )
-    assert isinstance(outcome, str), outcome
-    _LEDGERS[id(registry)] = (ledger, content_hash(definition))
-    return _LEDGERS[id(registry)]
 
 
 def questions_at(tolerance: str) -> Callable[[ChildRequirement, ProductRequest], ChildQuestion]:
@@ -302,78 +258,97 @@ def questions_at(tolerance: str) -> Callable[[ChildRequirement, ProductRequest],
 
 
 def consumer(
-    booted: _Booted, *, url: str, bridge: SyncMcpBridge, recording: _Recording | None = None,
-    document: Mapping[str, Any] | None = None, tolerance: str = "1.0",
-) -> tuple[GovernedResolver, _Recording]:
-    """The consuming deployment: registration → grant → question-bound resolver → resolver."""
-    registry = McpSkillRegistry(audit_log=booted.control_plane.audit_log, clock=lambda: ADMITTED_AT)
-    factory = recording or _Recording(DEV_TOKEN)
-    register_declared_producer(
-        registry,
-        artifact=parse_artifact(document or producer_document(), MCP_PRODUCER),
-        environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN},
-        bridge=bridge,
-        credential_factory=lambda _token: factory,
+    booted: _Consumer, *, url: str, recording: _Recording | None = None,
+    document: Mapping[str, Any] | None = None, tolerance: str = "1.0", requires_from: str | None = None,
+) -> tuple[OpenedProduct, _Recording]:
+    """The consuming deployment, DECLARED: registration → grant → resolver, all derived.
+
+    ``document`` replaces the declared producer registration (the consumer's
+    expectation of the producer — the only thing the identity gates vary);
+    ``requires_from`` replaces the parent's lane floor.
+    """
+    config = copy.deepcopy(CONSUMER_CONFIG)
+    if document is not None:
+        declared = {key: value for key, value in document.items() if key != "semver"}
+        config["producers"]["spread"] = declared
+    if requires_from is not None:
+        config["product_class"]["requires"][0]["compatible_from"] = requires_from
+    root = pathlib.Path(tempfile.mkdtemp(prefix="consumer-", dir=booted.root))  # owned: under the test's tmp_path
+    (root / "config").mkdir()
+    write_artifact(root / "config", "ccf_config.yaml", config)
+    (root / "config" / "ccf_environment.yaml").write_text(
+        (CONSUMER / "ccf_environment.yaml").read_text(encoding="utf-8"), encoding="utf-8"
     )
-    ledger, agent_hash = ledger_for_spread(booted)
-    children = QuestionBoundChildResolver(
-        ledger=ledger,
-        agent_definition_hash=agent_hash,
-        gate=CompositeAdmissionGate(tenant_id=TENANT, consumer_scope="consumer://cp-03-canonical", registry=booted.control_plane),
-        child_questions=questions_at(tolerance),
-        callable_registry=CallableRegistry(),
-        artifact_store=booted.store,
-        mcp_skills=registry,
+    watched = booted.stack.enter_context((recording or _Recording()).watching())
+    opened = booted.stack.enter_context(
+        open_product(
+            erasure_trust=ErasureTrust(authorities={}),
+            control_plane=ControlPlaneRegistry(),
+            config_root=root / "config",
+            scratch=root / "scratch",
+            acquire=fixture.Acquire(),
+            project=fixture.plan_factory,
+            assess=fixture.assess,
+            questions=questions_at(tolerance),
+            environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN},
+            clock=lambda: ADMITTED_AT,
+        )
     )
-    arguments = _arguments(booted)
-    arguments.update(composite_children=children, admission_clock=lambda: ADMITTED_AT)
-    return GovernedResolver(**arguments), factory
+    booted.opened.append(opened)
+    return opened, watched
 
 
-def ask(resolver: GovernedResolver, *, subject: str = ROSTER_OBLIGOR) -> Any:
-    return resolver(
-        tenant=TENANT,
-        product_class=PARENT_CLASS,
-        version=PARENT_VERSION,
-        perspective=PERSPECTIVE,
-        request=ProductRequest(
-            schema_name=PARENT_CLASS,
-            schema_version=PARENT_VERSION,
-            subject=subject,
-            intent="fixture-intent",
-            freshness="fixture-freshness",
-            asked_at=CP14_INSTANT,
-            parameters={THRESHOLD_PARAMETER: 1000},
-        ),
+def ask(opened: OpenedProduct, *, subject: str = ROSTER_OBLIGOR) -> Any:
+    outcome = opened.answer(
+        opened.question(
+            subject=subject, asked_at=CP14_INSTANT, intent="fixture-intent",
+            freshness="fixture-freshness", parameters={THRESHOLD_PARAMETER: 1000},
+        )
     )
+    _ANSWERED[id(outcome)] = (outcome, opened)
+    return outcome
 
 
-def record_of(booted: _Booted, outcome: Any) -> DecisionReplayRecord:
-    fresh = FileArtifactStore(root=booted.store.root)
-    if isinstance(outcome, ServedProduct):
-        return DecisionReplayRecord.model_validate_json(fresh.get(content_address=outcome.replay_ref.content_address))
-    return DecisionReplayRecord.model_validate_json(
-        fresh.get(content_address=fresh.resolve_uri(uri=outcome.replay_reference))
-    )
+#: Which opened consumer answered which outcome (kept alive with it).
+_ANSWERED: dict[int, tuple[Any, OpenedProduct]] = {}
 
 
-def the_row(booted: _Booted, outcome: Any) -> Any:
+def record_of(booted: _Consumer, outcome: Any) -> DecisionReplayRecord:
+    return _ANSWERED[id(outcome)][1].record_of(outcome)
+
+
+def the_row(booted: _Consumer, outcome: Any) -> Any:
     rows = record_of(booted, outcome).content_generation_path.child_resolutions
     assert len(rows) == 1, rows
     return rows[0]
 
 
-def retained_child(booted: _Booted, address: str) -> ContextProductContract:
-    return ContextProductContract.model_validate_json(
-        FileArtifactStore(root=booted.store.root).get(content_address=address)
-    )
+def store_root(opened: OpenedProduct) -> pathlib.Path:
+    return opened.scratch / opened.replay.store_dirname
+
+
+def reader(root: pathlib.Path) -> FileArtifactStore:
+    """A READ-ONLY view of a consumer's store: it declares no mechanism-written
+    class, so any write through it would need a client capability nobody here
+    holds (`D-IMPL-353` §1.2)."""
+    return FileArtifactStore(root=root, write_kinds=WriteKinds.declare({}))
+
+
+def retained_child(booted: _Consumer, address: str) -> ContextProductContract:
+    for opened in booted.opened:
+        store = reader(store_root(opened))
+        try:
+            return ContextProductContract.model_validate_json(store.get(content_address=address))
+        except Exception:  # noqa: BLE001 — not retained by THIS consumer; try the next
+            continue
+    raise AssertionError(f"no consumer of this test retained {address}")
 
 
 # --- the proof ------------------------------------------------------------------
 
 
 def test_the_cp14_question_is_answered_by_the_producer_in_another_process_and_admitted(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """A CP-14-shaped question → `mcp_product` → the canonical producer, in
     another process → a governed `credit-risk.spread` child → admission. The
@@ -385,7 +360,7 @@ def test_the_cp14_question_is_answered_by_the_producer_in_another_process_and_ad
     Declared product gate `OFC-G16` (`CP-SPEC-003C` §G.1).
     """
     with producer(estate) as url:
-        resolver, recording = consumer(booted, url=url, bridge=bridge)
+        resolver, recording = consumer(booted, url=url)
         served = ask(resolver)
     assert isinstance(served, ServedProduct), getattr(served, "detail", served)
     row = the_row(booted, served)
@@ -410,7 +385,7 @@ def test_the_cp14_question_is_answered_by_the_producer_in_another_process_and_ad
 
 
 def test_the_consumer_process_runs_no_producer_assembler(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """After a real acquisition: the producer's modules are not imported here,
     no spread fabric exists under this deployment's root, the producer's replay
@@ -420,24 +395,24 @@ def test_the_consumer_process_runs_no_producer_assembler(
     Declared product gate `OFC-G17` (`CP-SPEC-003C` §G.1).
     """
     with producer(estate) as url:
-        resolver, _ = consumer(booted, url=url, bridge=bridge)
+        resolver, _ = consumer(booted, url=url)
         served = ask(resolver)
     assert isinstance(served, ServedProduct), getattr(served, "detail", served)
     for module in sys.modules.values():
         origin = getattr(module, "__file__", None) or ""
         assert not origin.startswith(str(EXAMPLE)), f"the producer's {origin} was imported into the consumer"
-    assert not list(booted.root.parent.rglob("cp_03_canonical*.sqlite3"))
-    index = json.loads((booted.store.root / ".artifact-names.json").read_text())
+    assert not list(booted.root.rglob("cp_03_canonical*.sqlite3"))
+    index = json.loads((store_root(resolver) / ".artifact-names.json").read_text())
     assert [key for key in index if key.startswith(f"{PRODUCER_TENANT}/")] == []
     row = the_row(booted, served)
     assert row.child_replay_ref is not None
     assert row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
     with pytest.raises(Exception):
-        FileArtifactStore(root=booted.store.root).resolve_uri(uri=row.child_replay_ref)
+        reader(store_root(resolver)).resolve_uri(uri=row.child_replay_ref)
 
 
 def test_the_expected_producer_identity_and_tenant_come_from_the_registration(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """The same door, the same bytes: only the consumer's registration changes.
     Expecting another producer id refuses `producer-mismatch`; expecting another
@@ -447,9 +422,9 @@ def test_the_expected_producer_identity_and_tenant_come_from_the_registration(
     Declared product gate `OFC-G18` (`CP-SPEC-003C` §G.1).
     """
     with producer(estate) as url:
-        impostor, _ = consumer(booted, url=url, bridge=bridge, document=producer_document(producer_id="somebody-else-egress"))
+        impostor, _ = consumer(booted, url=url, document=producer_document(producer_id="somebody-else-egress"))
         refused_id = ask(impostor)
-        moved, _ = consumer(booted, url=url, bridge=bridge, document=producer_document(producer_tenant="some-other-tenant"))
+        moved, _ = consumer(booted, url=url, document=producer_document(producer_tenant="some-other-tenant"))
         refused_tenant = ask(moved)
     assert not isinstance(refused_id, ServedProduct)
     row = the_row(booted, refused_id)
@@ -463,38 +438,41 @@ def test_the_expected_producer_identity_and_tenant_come_from_the_registration(
 
 
 def test_a_lane_the_requirement_does_not_admit_is_refused_and_an_unoffered_class_is_an_error(
-    tmp_path: pathlib.Path, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """Class and version are still established on the producer leg: a parent
-    requiring the next major refuses the served `1.1.0` child
-    `version-incompatible`; a registration offering another class never opens
-    a socket — a wiring error, not a governed refusal.
+    requiring a lane above the served `1.1.0` refuses the child
+    `version-incompatible`; a registration offering a lane the requirement can
+    never admit never opens a socket — a wiring error, not a governed refusal.
 
     Declared product gate `OFC-G19` (`CP-SPEC-003C` §G.1).
+
+    AMENDED 2026-10-11 round 4: on the declared road the two floors are checked
+    against each other when the consumer OPENS (`D-IMPL-343` R-13), so the cases
+    split by major. Within the major (requirement floor `1.2.0`, producer floor
+    `1.1.0`) the door serves `1.1.0` and the ADMISSION gate refuses it
+    `version-incompatible` — this gate's governed refusal, unchanged. Across
+    majors (requirement `2.0.0`; or an offer from `3.0.0`) the open refuses by
+    name before any socket exists, where the hand-composed consumer used to
+    reach `version-incompatible` at admission or `ProducerDoesNotOffer` at the
+    ask: the same verdict, at the earlier boundary the declared road has.
     """
-    deployment = boot_composite(
-        tmp_path,
-        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # `D-IMPL-378` P2 (c): `_plan_factory` never withholds
-        product_class_overrides={
-            "requires": [{"product_class": PRODUCT_CLASS, "required": True, "compatible_from": "2.0.0"}]
-        },
-    )
-    booted = next(deployment)
-    try:
-        with producer(estate) as url:
-            resolver, _ = consumer(booted, url=url, bridge=bridge)
-            refused = ask(resolver)
-            assert not isinstance(refused, ServedProduct)
-            assert the_row(booted, refused).refusal_ref == "version-incompatible"
-            narrow, _ = consumer(booted, url=url, bridge=bridge, document=producer_document(versions_from="3.0.0"))
-            with pytest.raises(ProducerDoesNotOffer):
-                ask(narrow)
-    finally:
-        deployment.close()
+    with producer(estate) as url:
+        resolver, recording = consumer(booted, url=url, requires_from="1.2.0")
+        refused = ask(resolver)
+        assert not isinstance(refused, ServedProduct)
+        row = the_row(booted, refused)
+        assert row.refusal_ref == "version-incompatible"
+        assert row.outcome_status == "rejected-at-admission"
+        assert recording.urls and all(u.startswith(url) for u in recording.urls), recording.urls
+    with pytest.raises(ValueError, match="R-13"):
+        consumer(booted, url="http://127.0.0.1:1/mcp", requires_from="2.0.0")
+    with pytest.raises(ValueError, match="R-13"):
+        consumer(booted, url="http://127.0.0.1:1/mcp", document=producer_document(versions_from="3.0.0"))
 
 
 def test_no_question_argument_becomes_an_address_and_the_childs_own_gate_governs(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """A subject shaped like a URL reaches the producer as a subject string and
     the only host this process contacted is the registered endpoint. The
@@ -504,9 +482,20 @@ def test_no_question_argument_becomes_an_address_and_the_childs_own_gate_governs
 
     Declared product gate `OFC-G20` (`CP-SPEC-003C` §G.1).
     """
-    hostile = "http://evil.invalid/steal?x=1"
+    # AMENDED 2026-10-11 round 4: since `D-IMPL-357` C1 the SDK's subject floor
+    # (`SUBJECT_FLOOR_V1`, an address grammar with no `?`) refuses the original
+    # hostile subject at the PARENT, before any child question exists — a
+    # stronger outcome, asserted here first. The producer-leg half of the gate
+    # is then exercised with the floor-admissible URL-shaped subject.
     with producer(estate) as url:
-        resolver, recording = consumer(booted, url=url, bridge=bridge)
+        floored, floor_recording = consumer(booted, url=url)
+        at_the_floor = ask(floored, subject="http://evil.invalid/steal?x=1")
+        assert not isinstance(at_the_floor, ServedProduct)
+        assert (at_the_floor.reason, at_the_floor.key) == ("malformed-value", "subject"), at_the_floor
+        assert floor_recording.urls == [], "a subject refused at the parent's floor reached the network"
+    hostile = "http://evil.invalid/steal"
+    with producer(estate) as url:
+        resolver, recording = consumer(booted, url=url)
         refused = ask(resolver, subject=hostile)
     assert recording.urls and all(u.startswith(url) for u in recording.urls), recording.urls
     assert not any("evil.invalid" in u for u in recording.urls)
@@ -520,7 +509,7 @@ def test_no_question_argument_becomes_an_address_and_the_childs_own_gate_governs
 
 
 def test_at_cp14s_own_tolerance_the_spread_slot_is_withheld_and_the_composite_refuses(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """Estate truth, preserved across the boundary. At `CP-SPEC-014`'s own
     tolerance the producer withholds the spread with the debt block; the
@@ -530,7 +519,7 @@ def test_at_cp14s_own_tolerance_the_spread_slot_is_withheld_and_the_composite_re
     Declared product gate `OFC-G21` (`CP-SPEC-003C` §G.1).
     """
     with producer(estate) as url:
-        resolver, _ = consumer(booted, url=url, bridge=bridge, tolerance="0.25")
+        resolver, _ = consumer(booted, url=url, tolerance="0.25")
         refused = ask(resolver)
     assert not isinstance(refused, ServedProduct)
     assert refused.reason == "child_admission"
@@ -544,7 +533,7 @@ def test_at_cp14s_own_tolerance_the_spread_slot_is_withheld_and_the_composite_re
 
 
 def test_a_severed_producer_is_a_governed_refusal_not_a_fake_child(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """A correctly registered producer at a port nothing listens on: the slot is
     `producer-unavailable`, the composite refuses with the row, a record
@@ -555,7 +544,7 @@ def test_a_severed_producer_is_a_governed_refusal_not_a_fake_child(
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         dead_port = probe.getsockname()[1]
-    resolver, _ = consumer(booted, url=f"http://127.0.0.1:{dead_port}/mcp", bridge=bridge)
+    resolver, _ = consumer(booted, url=f"http://127.0.0.1:{dead_port}/mcp")
     refused = ask(resolver)
     assert not isinstance(refused, ServedProduct)
     row = the_row(booted, refused)
@@ -565,7 +554,7 @@ def test_a_severed_producer_is_a_governed_refusal_not_a_fake_child(
 
 
 def test_the_door_and_the_in_process_run_serve_one_content_address(
-    booted: _Booted, bridge: SyncMcpBridge, estate: None
+    booted: _Consumer, estate: None
 ) -> None:
     """The product is the constant; the transport is the variable. The child
     retained through the door hashes to the address the same question hashes
@@ -573,10 +562,9 @@ def test_the_door_and_the_in_process_run_serve_one_content_address(
 
     Declared product gate `OFC-G23` (`CP-SPEC-003C` §G.1).
     """
-    import tempfile  # noqa: PLC0415
 
     with producer(estate) as url:
-        resolver, _ = consumer(booted, url=url, bridge=bridge)
+        resolver, _ = consumer(booted, url=url)
         served = ask(resolver)
     assert isinstance(served, ServedProduct), getattr(served, "detail", served)
     through_the_door = the_row(booted, served).child_content_address
@@ -601,3 +589,28 @@ def test_the_door_and_the_in_process_run_serve_one_content_address(
             sys.modules.pop(name, None)
             if module is not None:
                 sys.modules[name] = module
+
+
+def test_the_hand_composed_low_road_is_closed() -> None:
+    """Why this module composes its consumer from the declaration (round 4).
+
+    The first write the hand-composed consumer made — registering its own
+    policy regime on its own Control Plane — is refused without a capability,
+    and nothing in this module can supply one without minting it (`D-IMPL-353`
+    §1.1, §1.6). The declared road is the supported path, not a convenience.
+    """
+    registry = ControlPlaneRegistry()
+    regime_class = declared_artifact_class("policy-bundle")
+    regime = parse_artifact(
+        {
+            "class_id": "policy-bundle",
+            "semver": "1.0.0",
+            "declaration": {
+                "regime": "cp-03-canonical-consumer",
+                "skill_governance": {"grant_requires_approval": False, "permitted_scopes": []},
+            },
+        },
+        regime_class,
+    )
+    with pytest.raises(CapabilityBypassError):
+        registry.register_typed(f"{TENANT}/policy-bundle/cp-03-canonical", regime, regime_class)  # type: ignore[call-arg]

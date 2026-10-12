@@ -30,6 +30,13 @@ low road reaches its verdict for the same mismatch at ADMISSION
 (`version-incompatible`, `OFC-G19`), because it addresses the exact lane; both
 refuse, both retain the reason, and the boundary differs by design.
 
+**AMENDED 2026-10-11, round 4.** The low road described above is closed:
+since `D-IMPL-353` its Control Plane writes need capabilities only SDK
+composition mints, so `test_cp_03_canonical_cross_deployment.py` now opens
+this same declaration (see its module docstring). The equivalence leg below
+compares two deployments of one declaration; the `R-13` contrast above is now
+measured on the declared road at both boundaries (open and admission).
+
 **Reads the estate, seeds nothing.** The producer process reads the live
 estate; this module reads none of it directly.
 """
@@ -47,7 +54,6 @@ import pytest
 import yaml
 
 from ccf.erasure import ErasureTrust
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import MCP_PRODUCER, parse_artifact
 from ccf.products.child_resolver import ChildQuestion
@@ -73,14 +79,14 @@ from tests.examples.test_cp_03_canonical_cross_deployment import (
     ROSTER_OBLIGOR,
     SERVER_NAME,
     SKILL,
-    _Booted,
+    _Consumer,
     ask,
-    booted,  # noqa: F401  # the low road's fixture, imported so the equivalence leg can boot it
-    bridge,  # noqa: F401
+    booted,  # noqa: F401  # the other module's consumer fixture, for the equivalence leg
     consumer,
     estate,  # noqa: F401
     producer,
     producer_document,
+    reader,
     the_row,
 )
 from tests.products import paved_fixture as fixture
@@ -99,7 +105,7 @@ CHILD_IDENTITY = (
     "outcome_status", "eligibility_basis", "child_content_address", "child_schema_name", "child_schema_version",
     "child_asked_at", "child_graph_snapshot_at", "child_debt", "child_lineage_ref", "child_operators_invoked",
     "child_expires_at", "child_policy_bundle_versions", "producer_id", "producer_tenant", "producer_server",
-    "producer_registration_address", "child_question_address", "child_replay_ref", "producing_skill_name",
+    "producer_registration_address", "child_question_address", "producing_skill_name",
     "producing_skill_version", "required_product_class", "required", "producing_fabric",
     "child_eligibility_checked_at", "child_eligibility_assertion_address",
     # `D-IMPL-342`: the producer's own refusal, as its door disclosed it — the
@@ -114,6 +120,13 @@ CHILD_IDENTITY = (
 # `child_question_ref` (`D-IMPL-342` / `CP14-F-35`): each parent retains the
 # question on ITS OWN store under its own tenant, so the reference differs while
 # the address it resolves to (`child_question_address`, above) agrees.
+# `child_replay_ref` (AMENDED 2026-10-11 round 4): since Dave's Q11 (2026-10-07;
+# `D-IMPL-378`, commit 2c96526d) the PRODUCER issues every answer's record under
+# a fresh per-answer issuance (`ccf.replay.record.new_issuance`), so two consumers
+# asking the same question are handed two different producer records — by
+# design: "Equal public references must not identify different immutable record
+# contents." It is the producer's word about THIS answer, not child identity.
+PER_ANSWER = ("child_replay_ref",)
 PARENT_OWNED = ("grant_hash", "child_admitted_at", "child_reported_address", "child_debt_factors", "refusal_ref", "child_question_ref")
 
 
@@ -168,7 +181,7 @@ def paved_row(opened: OpenedProduct, outcome: Any) -> Any:
 
 def paved_child(opened: OpenedProduct, address: str) -> ContextProductContract:
     return ContextProductContract.model_validate_json(
-        FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=address)
+        reader(opened.scratch / opened.replay.store_dirname).get(content_address=address)
     )
 
 
@@ -176,15 +189,23 @@ def paved_child(opened: OpenedProduct, address: str) -> ContextProductContract:
 
 
 def test_the_paved_consumer_admits_the_spread_with_the_low_roads_child_identities(
-    tmp_path: pathlib.Path, booted: _Booted, bridge: Any, estate: None
+    tmp_path: pathlib.Path, booted: _Consumer, estate: None
 ) -> None:
     """One producer process, two consumers: the low road and the paved road
     admit the SAME child — every child-level row member equal, the retained
     child byte-identical — and the parent-owned members are the ones that differ.
     `OFC-G16`'s consumer side, re-expressed.
+
+    AMENDED 2026-10-11 round 4 (`examples/AMENDMENTS-2026-10-11.md`): the
+    hand-composed low road cannot be built since `D-IMPL-353`; the first leg is
+    the cross-deployment module's consumer, itself opened from this declaration
+    in its own scratch and Control Plane. What remains proved: two independent
+    consumer deployments admit the same child, byte-identical, every child-level
+    member equal; the producer's per-answer record reference differs by design
+    (Q11); the grant is the one the declaration derives.
     """
     with producer(estate) as url:
-        low_resolver, _ = consumer(booted, url=url, bridge=bridge)
+        low_resolver, _ = consumer(booted, url=url)
         low = ask(low_resolver)
         with paved(tmp_path, url=url) as opened:
             served = ask_paved(opened)
@@ -196,8 +217,18 @@ def test_the_paved_consumer_admits_the_spread_with_the_low_roads_child_identitie
     assert row.outcome_status == "admitted" and row.eligibility_basis == "provider-controls"
     differing = {name for name in CHILD_IDENTITY if getattr(row, name) != getattr(low_row, name)}
     assert differing == set(), {name: (getattr(row, name), getattr(low_row, name)) for name in differing}
-    assert row.grant_hash != low_row.grant_hash, "two parents, two grants — named, not hidden"
-    assert set(row.model_fields) == set(CHILD_IDENTITY) | set(PARENT_OWNED), "every row member is classified"
+    # AMENDED 2026-10-11 round 4: the "low road" leg is no longer hand-composed
+    # (`D-IMPL-353` closed that path; `test_cp_03_canonical_cross_deployment.py`
+    # module docstring), so both legs are deployments of ONE declaration and the
+    # grant the SDK requests for each is the same grant: equal, measured. The
+    # old assertion ("two parents, two grants") compared two different parents
+    # and has no subject left.
+    assert row.grant_hash == low_row.grant_hash, "one declaration, one declared grant"
+    for name in PER_ANSWER:
+        assert getattr(row, name) != getattr(low_row, name), f"{name}: one producer record handed to two answers"
+        assert getattr(row, name).startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
+        assert getattr(low_row, name).startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
+    assert set(type(row).model_fields) == set(CHILD_IDENTITY) | set(PER_ANSWER) | set(PARENT_OWNED), "every row member is classified"
     # The same bytes: the child retained by both consumers hashes to one address.
     assert content_hash(child) == row.child_content_address == low_row.child_content_address
     assert (child.schema_name, child.schema_version, child.tenant_id) == (PRODUCT_CLASS, PRODUCT_VERSION, PRODUCER_TENANT)
@@ -229,7 +260,7 @@ def test_the_paved_consumer_runs_no_producer_assembler_and_holds_no_producer_rec
     assert [key for key in index if key.startswith(f"{PRODUCER_TENANT}/")] == []
     assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
     with pytest.raises(Exception):
-        FileArtifactStore(root=store_root).resolve_uri(uri=row.child_replay_ref)
+        reader(store_root).resolve_uri(uri=row.child_replay_ref)
 
 
 def test_r13_a_floor_the_served_lane_satisfies_serves_and_one_it_does_not_is_refused_with_the_reason(
