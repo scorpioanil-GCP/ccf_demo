@@ -72,10 +72,14 @@ sources:
   # `BKR999` is a real credential this deployment recognizes and grants
   # NOTHING — the negative control.
   credentials:
-    BKR006:
+    # AMENDED 2026-10-11 (round 3): the two names were crossed — BKR006 is the
+    # DCM banker and BKR014 the M&A originator (`server/serve.py`
+    # PERSPECTIVE_BY_PRINCIPAL; the estate's banker register). Each credential
+    # name now reaches the principal its remedy describes.
+    BKR014:
       from_env: CCF_CP_18_TOKEN_MA
       remedy: export CCF_CP_18_TOKEN_MA with the M&A originator's bearer credential.
-    BKR014:
+    BKR006:
       from_env: CCF_CP_18_TOKEN_DCM
       remedy: export CCF_CP_18_TOKEN_DCM with the DCM banker's bearer credential.
     BKR027:

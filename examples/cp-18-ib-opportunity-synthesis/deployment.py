@@ -84,6 +84,21 @@ def plan_id() -> str:
 
 
 def acquire(context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
+    # AMENDED 2026-10-11 (round 3). A perspective this deployment declares no
+    # projection for is refused HERE, by name, as data — before anything is
+    # read. It used to fall through: a banker id with no row returns an EMPTY
+    # estate before the plan is looked up, so the projection was handed a role
+    # it does not declare and RAISED (`ValueError`) where a governed refusal is
+    # owed (`make -s example-cp-18 BANKER=--banker=BKR999`, round 1).
+    if context.perspective.role not in projection.PERSPECTIVE_MEMBERS:
+        raise GovernedRefusalRaised(
+            SubjectUnavailableRefusal(
+                cause="unauthorized",
+                detail=f"perspective {context.perspective.role!r} is not declared in `artifacts/perspectives.yaml`",
+                error_code="no-projection-plan",
+            ),
+            resolution=RESOLVED_BY_THE_RESOLVER,
+        )
     effective = context.request.parameters
     as_of = _instant(effective[AS_OF])
     since = _instant(effective[SINCE]) if effective.get(SINCE) else as_of - timedelta(days=DEFAULT_SINCE_DAYS)

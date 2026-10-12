@@ -215,3 +215,27 @@ example · file · what changed · why · finding id.
 - cp-01-counterparty-reference-snapshot · `artifacts/question.yaml` · default `debt_tolerance` 0.25 → **0.30** (illustrative calibration, disclosed in the file and README). The SDK now enforces the caller's tolerance and the dated estate reads D_c 0.2929, so 0.25 withheld the answer `tolerance-exceeded`. Default now SERVES (content address a5671201…cb5, expires 2026-08-17); `make example-cp-01 DEBT_TOLERANCE=0.25` still refuses. Finding CP01-R2-F01.
 - cp-03-obligor-financial-spread · `artifacts/question.yaml` · default `debt_tolerance` 0.25 → **0.90** (illustrative calibration, disclosed). Dated estate reads D_c 0.8782. Default now SERVES (content address 97518352…c247, expires 2026-09-04, `fail_closed` printed); `DEBT_TOLERANCE=0.25` still refuses. `tests/examples/test_cp_03_output.py::test_a_strict_tolerance_is_honored_and_withholds_the_spread` (renamed from `…demonstration_tolerance…`) now asks at 0.25 explicitly and asserts the default covers the reading.
 - cp-02-facility-terms-snapshot · `tests/examples/test_cp_02_output.py::test_a_facility_with_no_maturity_date_serves` · asks with an illustrative `debt_tolerance` 0.65 (that facility's dated data reads D_c 0.6203; the default question's 0.25 is unchanged and its default facility serves at D_c 0.0396).
+
+## Round 3 — cp-15 … cp-24 and peer-cp-20 (2026-10-11, branch `r3-high`)
+
+Dave, 16:23 rulings 1, 4 and 6; 17:51 tolerances. Every change is a compatibility repair; no asked_at, TTL, temporal
+boundary, entitlement or tolerance was widened. The history of each tree before this amendment is in git.
+
+- cp-15, cp-16, cp-17, cp-18, cp-19, cp-21, cp-23, cp-24 · ccf_config.yaml · labelled `demonstration_serve_instant` five minutes after each demonstration question (cp-16 2026-06-30T00:05Z; cp-17 2026-08-17T00:05Z, `T1`; the rest 2026-08-25T00:05Z); the "KNOWN CONSEQUENCE (G4-F-01)" paragraph is amended to say the SDK round closed it · ruling 1, SDK round 2 item 4 · G4-F-01
+- cp-16, cp-17, cp-18, cp-19, cp-21, cp-23, cp-24 · ccf_config.yaml, server/serve.py · `product_entitlement:` declares exactly the three grants `entitle()` registered (measured by capturing `entitle()`'s own registration, against .76 read-only); `entitle()` and its two calls removed; the fourth credential stays undeclared (the negative control) · ruling 4, SDK round 2 item 1 (cp-15 was migrated in that round) · G4-F-04
+- cp-15 … cp-24 (eight doors) · server/serve.py `http_app` · passes `authorizer=` (a `ControlPlaneTenantAuthorizer` pinned to the exact scope-mapping version the standard door's composition just registered) and `replay_record_product_class=None` · `create_app` requires both since D-IMPL-353 §4 / SEC-017; no example registers a mapping · SEC353-G-01
+- cp-15 … cp-24 (eight trees) · produce.py · `product(..., config_root=HERE)` so a test can open a test-owned copy declaring another instant (`tests/examples/demonstration_deployment.py::product_asked_at`, added) · the cp-13-canonical precedent · —
+- cp-18 · ccf_environment.yaml · the credential names were crossed (`CCF_CP_18_TOKEN_MA` reached BKR006, the DCM banker); each name now reaches the principal its remedy describes · example defect · R3-CP18-F01
+- cp-18 · deployment.py, README.md · a perspective with no declared projection is refused `no-projection-plan` (governed, recorded) before any read; `BANKER=BKR999`/`BKR998` used to RAISE `ValueError` in the projection. README: both are refused alike (it called the second "withheld"; in-process both ask under the same unmapped perspective) · §D "never a raise where a governed refusal is owed" · R3-CP18-F02
+- cp-21 · run.py · `--door` called `server.serve.main([])`, which never existed (AttributeError); it now serves the loopback door like every sibling · example defect · R3-CP21-F01
+- cp-20 · run.py · prints the served product's content address · presentation only · —
+- tests · test_cp_15_ownership, test_cp_16_surveillance, test_cp_17_wall, test_cp_18_ranking, test_cp_19_typology, test_cp_21_large_exposure, test_cp_23_portfolio, test_cp_24_whatif · an ORDINARY passing test per tree: the demonstration question with the declaration removed is refused `asked-at-outside-temporal-bound`, and on the declared clock it serves · ruling 1 · —
+- tests · test_cp_16_surveillance (`ask`), test_cp_17_wall (`_answer`), test_cp_17_replay (MWE-G11) · questions at other dated instants open a test-owned copy declaring five minutes after them; MWE-G11's T0 and T1 halves are each such a deployment with the same boundary recorded · ruling 1 (one anchor per run) · —
+- tests · test_cp_17_replay (CP17-F-09), test_cp_19_replay (CP17-F-09 second instance) · strict xfails removed: both XPASS on the current SDK · ruling 6 · —
+- tests · test_cp_17_doors (MWE-G18) · two identical door calls now assert two references and two records equal in every member but the per-answer issuance · Dave's Q11 / D-IMPL-378 E1 (a) · —
+- tests · test_cp_17_sabotage (MWE-G03) · the injected foreign edge is not injected into the SDK's unheld-subject probe call · SEC-020 probe · —
+- tests · test_cp_20_co_lender · reads records through `opened.artifact_store` (a bare `FileArtifactStore(root=…)` needs `write_kinds`) · D-IMPL-353 §1.2 · G4 test repair
+
+Default debt tolerance: **not raised anywhere in this round.** cp-23's default, withheld in round 1 when asked at the
+real clock, SERVES at its pinned instant on the development clock (D_c 0.9425, `forced_llm`), so no tolerance move was
+required.

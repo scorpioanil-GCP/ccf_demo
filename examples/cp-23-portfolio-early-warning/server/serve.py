@@ -7,6 +7,14 @@ credentials the environment names, a perspective resolver that maps a verified
 one-principal policy, the tenant's three-grant entitlement policy (the latest
 registration wins). The fourth principal holds a credential and no grant.
 
+AMENDED 2026-10-11 (round 3, SDK round 2 item 1, G4-F-04): the third
+override is gone. A deployment can no longer register an entitlement policy
+from code (D-IMPL-353), so the tenant's three-grant policy is DECLARED in
+`ccf_config.yaml` (`product_entitlement:`) and registered by the SDK's
+composition at open; the door composes over it (it registers its own
+one-principal default only when nothing is declared). No ordering rule is
+involved any more.
+
 WHERE THE ROLE NAMES COME FROM. `ccf_v2.banker.role` carries exactly three
 values — `coverage`, `credit` and `product` — and this product uses those
 rather than inventing PM/CO/RM (the cp-15 discipline: do not declare what the
@@ -37,10 +45,8 @@ from ccf_runtime.http_api.dependencies import ApiDependencies  # noqa: E402
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant  # noqa: E402
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
 from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
-from ccf_runtime.mcp.product_door import ProductDoor, open_door_with_verifier  # noqa: E402
-from ccf.products.entitlement import (  # noqa: E402
-    PRODUCT_ENTITLEMENT_POLICY, ProductEntitlementGrant, ProductEntitlementPolicy, product_entitlement_key,
-)
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer  # noqa: E402
+from ccf_runtime.mcp.product_door import ProductDoor, open_door_with_verifier, scope_mapping_key  # noqa: E402
 from ccf.products.product import OpenedProduct  # noqa: E402
 from ccf.projection.plan import Perspective  # noqa: E402
 
@@ -92,41 +98,33 @@ def perspective_resolver(opened: OpenedProduct) -> Callable[..., Perspective]:
     return resolve
 
 
-def entitle(opened: OpenedProduct) -> None:
-    """Register the tenant's three-grant policy — AFTER the door's own."""
-    mapping = perspective_by_principal()
-    opened.control_plane.register_typed(
-        product_entitlement_key(tenant_id=opened.tenant_id),
-        ProductEntitlementPolicy(
-            tenant_id=opened.tenant_id,
-            policy_version=opened.declaration.schema_version,
-            principals={
-                principal_id: ProductEntitlementGrant(
-                    permitted_schema_names=frozenset({opened.declaration.schema_name}),
-                    permitted_roles=frozenset({role}),
-                )
-                for principal_id, role in mapping.items()
-                if principal_id != UNGRANTED
-            },
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
-    )
-
-
 def open_book_door(opened: OpenedProduct, *, environ: Mapping[str, str] | None = None) -> ProductDoor:
-    """The standard door with its three overrides, then the tenant policy."""
+    """The standard door with its two overrides, over the DECLARED tenant policy (`ccf_config.yaml`)."""
     door = open_door_with_verifier(
         opened,
         environ=environ,
         token_verifier=SourceBackedTokenVerifier(source=token_source(opened)),
         perspective_resolver=perspective_resolver(opened),
     )
-    entitle(opened)
     return door
 
 
 def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type lives in the runtime
     """The HTTP door over the same opened product, tokens and recorder."""
+    # AMENDED 2026-10-11 (round 3): `create_app` now REQUIRES an authorizer and a
+    # replay-record class (D-IMPL-353 §4; SEC-017), and the SDK ships no paved HTTP
+    # door. The HTTP door decides under the SAME scope mapping the standard door's
+    # composition registers (tenant, `product.retrieve`, this class), pinned to the
+    # exact version that composition just returned; a deployment cannot register a
+    # mapping of its own. `replay_record_product_class=None` declares no class, which
+    # fails closed for a rostered caller's replay reads.
+    open_book_door(opened)
+    mapping = scope_mapping_key(tenant_id=opened.tenant_id)
+    authorizer = ControlPlaneTenantAuthorizer(
+        control_plane=opened.control_plane, scope_mapping_key=mapping,
+        scope_mapping_version=opened.control_plane.versions(mapping)[-1],
+        clock=lambda: datetime.now(UTC),
+    )
     app = create_app(
         ApiDependencies(
             control_plane=opened.control_plane,
@@ -138,13 +136,14 @@ def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type
             product_resolver=opened.resolve,
         ),
         auth=BearerTokenAuth(token_source=token_source(opened)),
+        authorizer=authorizer,
         product_entitlement=ControlPlaneProductEntitlementSource(
             control_plane=opened.control_plane, clock=lambda: datetime.now(UTC),
         ),
         perspective_resolver=perspective_resolver(opened),
         refusal_recorder=opened.refusal_recorder,
+        replay_record_product_class=None,
     )
-    entitle(opened)
     return app
 
 

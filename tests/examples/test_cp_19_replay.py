@@ -37,7 +37,6 @@ from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.engine import (
     ReplayDivergence,
     ReplayOutcome,
-    ReplayUnresolvable,
     replay,
     replay_refusal,
 )
@@ -355,10 +354,6 @@ def test_a_computed_empty_serve_replays_through_the_public_seam(
     assert replayed.product_content_address == content_hash(empty.outcome.product)
 
 
-@pytest.mark.xfail(
-    strict=True, raises=ReplayUnresolvable,
-    reason="CP17-F-09, second instance: a refusal recorded at the acquisition seam pins the request-contract version the resolver registers only on the served path, so the first question of a fresh Control Plane leaves a record replay cannot resolve",
-)
 def test_a_seam_refusal_asked_first_of_a_fresh_product_reconstructs(
     estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
 ) -> None:
@@ -369,6 +364,10 @@ def test_a_seam_refusal_asked_first_of_a_fresh_product_reconstructs(
     Claims no gate. The companion assertion — that the same refusal DOES
     reconstruct once the product has served a question — is what makes this a
     measurement of the ordering rather than of the refusal.
+
+    AMENDED 2026-10-11 (round 3): this was a strict expected failure
+    (`CP17-F-09`, `ReplayUnresolvable`); on the current SDK it passes, so the
+    obsolete mark is removed (Dave, 2026-10-11 ruling 6).
     """
     ungranted = Perspective(principal_id="PRIN-AML-XXX", role="unmapped")
     with modules["produce"].product(tmp_path / "fresh") as opened:

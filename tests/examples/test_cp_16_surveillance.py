@@ -27,6 +27,8 @@ from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 
+from tests.examples.demonstration_deployment import paved_root_on_the_real_clock, product_asked_at
+
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres, pytest.mark.mongo]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -130,7 +132,10 @@ def ask(
 ) -> Any:
     """One question on the paved road, in its own scratch, as the stated principal."""
     deployment = modules["deployment"]
-    with modules["produce"].product(scratch) as opened:
+    # The run's ONE time anchor (Dave, 2026-10-11 ruling 1): the tree's declared
+    # demonstration serve instant for its own question, a test-owned copy
+    # declaring five minutes after any other instant (amended 2026-10-11).
+    with product_asked_at(modules["produce"], EXAMPLE, scratch, as_of) as opened:
         parameters: dict[str, Any] = {deployment.AS_OF: as_of}
         parameters.update({k: v for k, v in params.items() if v is not None})
         # `as_of` IS the decision instant (`CP-SPEC-016` §F.4.1), so a
@@ -505,3 +510,28 @@ def test_a_subject_with_no_evidence_is_refused_indistinguishably(
     )
     # And a subject WITH evidence is served, so the gate is not vacuously true.
     assert isinstance(ask(modules, tmp_path / "d", subject=SUBJECT), Answer)
+
+
+def test_the_demonstration_question_on_the_real_clock_is_refused_as_expired(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path,
+) -> None:
+    """Ruling 1 (Dave, 2026-10-11): the expired question, as an ORDINARY test.
+
+    The demonstration question, asked of this tree's own two documents with the
+    declared demonstration serve instant REMOVED, is served on the real clock —
+    outside the one-hour `temporal_boundary` — so the SDK refuses it by name, as
+    data, with a replay reference. The same question on the declared clock
+    serves (the positive control). Added 2026-10-11 (round 3).
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    deployment = modules["deployment"]
+    root = paved_root_on_the_real_clock(EXAMPLE, directory=tmp_path / "deployment")
+    with modules["produce"].product(tmp_path / "real", config_root=root) as opened:
+        asked = opened.question(subject=SUBJECT, asked_at=ASKED_AT, intent=INTENT, freshness=FRESHNESS,
+                                parameters={deployment.AS_OF: AS_OF})
+        refused = opened.answer(asked, perspective=Perspective(principal_id=DESK[0], role=DESK[1]))
+    assert isinstance(refused, RefusalEnvelope), "an expired question was served"
+    assert (refused.kind, refused.reason) == ("temporal-bound-refusal", "asked-at-outside-temporal-bound")
+    assert refused.replay_reference
+    assert isinstance(ask(modules, tmp_path / "declared"), Answer), "the declared clock serves it"

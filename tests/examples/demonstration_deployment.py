@@ -104,3 +104,36 @@ def paved_root_on_the_real_clock(tree: pathlib.Path, *, directory: pathlib.Path)
     (directory / PAVED_DOCUMENTS[0]).write_bytes((tree / PAVED_DOCUMENTS[0]).read_bytes())
     deployment_on_the_real_clock(tree / PAVED_DOCUMENTS[1], directory=directory)
     return directory
+
+
+def declared_serve_instant(tree: pathlib.Path) -> datetime | None:
+    """The demonstration serve instant ``tree``'s own ``ccf_config.yaml`` declares, if any."""
+    import yaml  # noqa: PLC0415
+
+    config = yaml.safe_load((tree / PAVED_DOCUMENTS[1]).read_text(encoding="utf-8"))
+    section = config.get("demonstration_serve_instant")
+    if not section:
+        return None
+    return datetime.fromisoformat(str(section["serve_instant"]))
+
+
+def product_asked_at(produce, tree: pathlib.Path, scratch: pathlib.Path, asked_at: datetime | str):  # noqa: ANN001, ANN201
+    """Open ``tree``'s paved product on the ONE time anchor a question at ``asked_at`` needs.
+
+    The tree's own deployment when its declared serve instant is five minutes
+    after ``asked_at`` (the example's demonstration question); otherwise a
+    test-owned copy of its two documents declaring five minutes after
+    ``asked_at`` (:func:`paved_root_serving_at`), written under ``scratch``.
+    ``produce`` is the tree's own module, whose ``product(scratch, *,
+    config_root=)`` opens the deployment. Added 2026-10-11 (round 3).
+    """
+    if isinstance(asked_at, str):
+        asked_at = datetime.fromisoformat(asked_at)
+    serve_instant = anchored_after(asked_at)
+    if declared_serve_instant(tree) == serve_instant:
+        return produce.product(scratch)
+    root = paved_root_serving_at(
+        tree, serve_instant=serve_instant,
+        directory=scratch.parent / f"{scratch.name}-deployment-{serve_instant:%Y%m%dT%H%M%S}",
+    )
+    return produce.product(scratch, config_root=root)
