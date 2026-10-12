@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2646 entries**, of which **2367** name a public Python surface.
+**2649 entries**, of which **2370** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1385 entries — 1339 public Python surface, 46 not public Python API.
+1386 entries — 1340 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -20144,6 +20144,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.govern_scope_denial
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_scope_denial
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: records a scope-mapping deny on a product read as the boundary's governed `subject-unavailable` refusal and returns the disclosed shell
+- Why: R5-CP17-F01; Dave 2026-10-11 21:19 MST "Do (a)". Red test: `tests/mcp/test_undeclared_class_reads_as_unentitled.py::test_an_undeclared_class_and_an_unentitled_caller_get_one_reply`
+- Migration: none
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20879,7 +20891,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-638 entries — 444 public Python surface, 194 not public Python API.
+639 entries — 445 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28279,6 +28291,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-12-a-wrong-producer-tenant-is-named-not-an-outage.md`.*
 
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+- Public surface: true
+- Change type: reshaped
+- Before: an authorizer deny always raised `ActionUnauthorizedRefused` (a `tenant-unauthorized` tool error)
+- After: takes `on_denied: Callable[..., Any] | None = None`; when given, an authorizer deny is answered by `on_denied(grant=, tenant=, arguments=, denial=)` with no capability minted; `None` keeps the tool error
+- Why: R5-CP17-F01; the product door answers its deny the governed way
+- Migration: none
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31331,7 +31355,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-575 entries — 536 public Python surface, 39 not public Python API.
+576 entries — 537 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39362,6 +39386,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `20261011-13-evidence-after-the-decision-instant-is-a-governed-refusal.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: `request_context_product` for a class outside the scope mapping returned a tool error naming the class
+- After: it returns the governed refusal outcome (`isError` false), recorded, indistinguishable from an unentitled caller's
+- Why: R5-CP17-F01; Dave 2026-10-11 21:19 MST "Do (a)". Red test as above; `tests/mcp/test_stdio_door_addresses.py` amended to the ruled behavior
+- Migration: a client that read the `tenant-unauthorized` tool error for an unknown class reads a `subject-unavailable` refusal
+
+*Recorded by `20261011-14-an-undeclared-class-reads-as-an-unentitled-caller.md`.*
 
 ### Not public Python API
 
