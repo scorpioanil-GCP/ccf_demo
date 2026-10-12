@@ -41,13 +41,15 @@ from mcp.types import TextContent
 
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY
+from ccf_runtime.authz.artifact import SCOPE_MAPPING
 from ccf.mcp.client import run_with_session
 from ccf.products.disclosure import DISCLOSURE_MINIMAL, WITHHELD
 from ccf.products.door import WireRequest
 from ccf.products.product import OpenedProduct
 from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope, SubjectUnavailableRefusal
 from ccf.projection.plan import Perspective
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf_runtime.http_api.errors import (
     ERROR_PRINCIPAL_NOT_ENTITLED,
@@ -337,9 +339,38 @@ def test_the_unconfigured_principal_is_refused_like_a_nonexistent_product(
     assert _value(internal.fields["cause"]) == "unauthorized"
     assert KYC in internal.detail
 
+    # TWO POLICY DECISIONS, BOTH TRUTHFUL (Dave, 2026-10-11 20:19 MST, ruling 5:
+    # *"Accept the tenant-allow followed by product-entitlement-deny audit
+    # sequence. Passing one authorization check does not mean passing every
+    # check. Keep both truthful events. Make the test distinguish the two policy
+    # decisions and prove that the product entitlement is denied and no product
+    # is delivered. Do not delete the tenant event or leave the test requiring
+    # every earlier check to deny."*). The credential IS recognized for this
+    # tenant and this product class by the door's scope mapping (an allow, on
+    # the `ccf.authz-scope-mapping` decision surface), and the principal holds NO
+    # product entitlement (a deny, on the `product-entitlement-policy` surface).
+    # Until 2026-10-11 this asserted that no decision for the principal was an
+    # allow, which required the earlier, correct, tenant allow to be a deny.
     decisions = [e for e in opened.control_plane.audit_events() if isinstance(e, AuthzDecisionAuditEvent) and e.actor == KYC]
     assert decisions, "no `authz_decision` was audited for the unconfigured principal"
-    assert not any(e.resolved for e in decisions), "the unconfigured principal was allowed once"
+    tenant_scope = [e for e in decisions if e.artifact_class == SCOPE_MAPPING.class_id]
+    entitlement = [e for e in decisions if e.artifact_class == PRODUCT_ENTITLEMENT_POLICY.class_id]
+    assert {e.artifact_class for e in decisions} == {SCOPE_MAPPING.class_id, PRODUCT_ENTITLEMENT_POLICY.class_id}, (
+        "the principal's decisions are not exactly the two policy surfaces —"
+        " the tenant scope mapping and the product entitlement — both on the log:"
+        f" {sorted({e.artifact_class or '-' for e in decisions})}"
+    )
+    # The tenant decision: an ALLOW, kept, and saying what it allowed.
+    assert tenant_scope and all(e.resolved for e in tenant_scope), [(e.sequence, e.resolved) for e in tenant_scope]
+    assert all(e.authz_failing_axis is None and e.authz_matched_pattern for e in tenant_scope)
+    # The product-entitlement decision: a DENY — the one that decides this request.
+    assert entitlement, "no product-entitlement decision was audited; the deny is not on the log"
+    assert not any(e.resolved for e in entitlement), "the product entitlement was granted to the unconfigured principal"
+    assert all(e.key == opened.tenant_id for e in decisions)
+    # The order Dave accepted: the tenant allow, then the entitlement deny.
+    assert max(e.sequence for e in tenant_scope) < min(e.sequence for e in entitlement)
+    # No product delivered: nothing on the wire (above) and nothing in the record.
+    assert _record(opened, shell["replay_reference"]).content_generation_path.product_content_address == NO_PRODUCT_ADDRESS
 
     comparator = mcp["coverage-no-such-product"]
     assert comparator.is_error is False, comparator.text[:300]

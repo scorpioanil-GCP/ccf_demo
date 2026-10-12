@@ -61,9 +61,18 @@ def serve() -> None:
         )
 
 
-def loopback(*, announce: Callable[[int], None]) -> None:
-    """Open the product, open its door on an ephemeral loopback port, announce, serve."""
-    with tempfile.TemporaryDirectory(prefix="cp13c-door-") as scratch, produce.product(Path(scratch)) as opened:
+def loopback(*, announce: Callable[[int], None], config_root: Path | None = None) -> None:
+    """Open the product, open its door on an ephemeral loopback port, announce, serve.
+
+    ``config_root`` is the deployment the door boots on — this tree unless the
+    operator names a copy of its two documents (amended 2026-10-11 for CP-14's
+    demonstration call, Dave 20:19 MST ruling 2: the declared demonstration
+    serve instant lives in that copy's Control Plane, never on a question).
+    """
+    deployment_root = {} if config_root is None else {"config_root": config_root}
+    with tempfile.TemporaryDirectory(prefix="cp13c-door-") as scratch, produce.product(
+        Path(scratch), **deployment_root
+    ) as opened:
         open_door(opened).serve_loopback(announce=announce)
 
 

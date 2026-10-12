@@ -110,12 +110,28 @@ def estate() -> None:
         pytest.skip(message)
 
 
+#: CP-14's demonstration configuration for its call to the family producer (Dave,
+#: 2026-10-11 20:19 MST, ruling 2, option (a)): cp-04-canonical's own two documents
+#: declaring the shared 2026-09-07T12:05Z demonstration serve instant. The
+#: producer's own tree serves on the real clock and is unchanged
+#: (`tests/examples/test_cp_14_demonstration_clock.py` holds the copy to it).
+FAMILY_DEMONSTRATION_ROOT = (
+    FAMILY_EXAMPLE.parent / "cp-14-credit-memo-context" / "producer-demonstration"
+    / "cp-04-canonical-corporate-family-tree"
+)
+
+
 @contextmanager
-def family_producer() -> Iterator[str]:
-    """The family producer process — cp-04-canonical's own paved door, `run.py --door`."""
+def family_producer(config_root: pathlib.Path | None = FAMILY_DEMONSTRATION_ROOT) -> Iterator[str]:
+    """The family producer process — cp-04-canonical's own paved door, `run.py --door`.
+
+    Booted on CP-14's demonstration configuration by default (amended
+    2026-10-11, round 5); ``config_root=None`` boots it on its own tree.
+    """
     env = {**os.environ, "CCF_CP_04C_DOOR_TOKEN": DEV_TOKEN}
+    root = [] if config_root is None else ["--config-root", str(config_root)]
     process = subprocess.Popen(
-        [sys.executable, str(FAMILY_RUN), "--door"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
+        [sys.executable, str(FAMILY_RUN), "--door", *root], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
     )
     try:
         assert process.stdout is not None

@@ -59,6 +59,12 @@ def main(argv: list[str]) -> int:
         help="instead of asking once: boot the MCP egress door on an ephemeral 127.0.0.1"
              " port, print `READY {port}`, and serve questions from other processes until terminated",
     )
+    parser.add_argument(
+        "--config-root", default=None,
+        help="with --door: the deployment directory (its ccf_environment.yaml and ccf_config.yaml)"
+             " the door boots on; omit for this tree. CP-14's demonstration call names"
+             " examples/cp-14-credit-memo-context/producer-demonstration/<this tree>",
+    )
     parsed = parser.parse_args(argv[1:])
 
     if parsed.door:
@@ -66,7 +72,10 @@ def main(argv: list[str]) -> int:
         # readiness line a harness reads is this module's to print.
         from server import serve as door  # noqa: PLC0415
 
-        door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
+        door.loopback(
+            announce=lambda port: print(f"READY {port}", flush=True),
+            config_root=None if parsed.config_root is None else Path(parsed.config_root),
+        )
         return 0
 
     anchor = parsed.lei
