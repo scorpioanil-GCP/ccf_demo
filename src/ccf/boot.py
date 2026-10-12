@@ -99,6 +99,7 @@ __all__ = [
     "FabricHandle",
     "ReadOnlyFabricRefused",
     "boot",
+    "compose_invalidation_sink",
 ]
 
 #: What :attr:`FabricHandle.lease_scope` reports for a read-only boot (FW-2;
@@ -384,6 +385,34 @@ def _mint_invalidation_records(
     )
 
 
+def compose_invalidation_sink(
+    registry: ControlPlaneProtocol, *, tenant_ids: Sequence[str]
+) -> ControlPlaneInvalidationSink:
+    """The invalidation sink a composition binds, holding ONE scoped capability per composed tenant.
+
+    SDK-defined (CLAUDE.md §8.1, §11; round 5, item 4 — Dave, 2026-10-11 20:19
+    MST: *"Invalidation must use the existing scoped writer capability."*). The
+    recipe :func:`boot` has always used for the graph writer's sink, made
+    callable by the other composition root that needs it:
+    :func:`~ccf.products.product.open_product`, so a deployment can record a
+    boundary an EXTERNAL event sets (a Reg FD disclosure) through the same
+    capability, confined to the same tenant prefix and the same record class,
+    with nothing minted by the deployment. Each tenant is validated as
+    :func:`boot` validates it; the capability for each is
+    :func:`_mint_invalidation_records`'s, from a recorded ``composition`` audit
+    event; the sink refuses every tenant it was not composed for
+    (:class:`~ccf.controlplane.invalidation.InvalidationUnauthorized`).
+    """
+    composed = _composed_tenants(tenant_ids)
+    return ControlPlaneInvalidationSink(
+        registry=registry,
+        authorities=tuple(
+            _mint_invalidation_records(registry, tenant_id=tenant_id)
+            for tenant_id in composed
+        ),
+    )
+
+
 def _composed_tenants(tenant_ids: Sequence[str]) -> tuple[str, ...]:
     """The tenants this boot composes for: non-empty, distinct, each a real id."""
     if not tenant_ids:
@@ -652,15 +681,7 @@ def boot(
             # D-IMPL-354: the sink is not a composition root and mints
             # nothing; this function is, and mints exactly one invalidation-record
             # capability per composed tenant — for that tenant's records and no other.
-            attach(
-                ControlPlaneInvalidationSink(
-                    registry=registry,
-                    authorities=tuple(
-                        _mint_invalidation_records(registry, tenant_id=tenant_id)
-                        for tenant_id in composed
-                    ),
-                )
-            )
+            attach(compose_invalidation_sink(registry, tenant_ids=composed))
     except BaseException:
         # The same guard the mint above gets, for the same reason, over a call
         # that needs it more: since D-IMPL-93 this constructor is a callable an

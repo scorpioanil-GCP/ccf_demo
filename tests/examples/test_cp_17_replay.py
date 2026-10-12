@@ -36,7 +36,6 @@ import pytest
 import yaml
 
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.product import OpenedProduct
 from ccf.products.refusal import RefusalEnvelope
@@ -441,8 +440,14 @@ def test_the_reg_fd_boundary_refuses_a_determination_that_touched_the_issuer_bef
     def at(name: str, scratch: str) -> Any:
         return product_asked_at(modules["produce"], EXAMPLE, tmp_path / scratch, INSTANTS[name])
 
+    # AMENDED 2026-10-11 (round 5, SDK round item 4 — Dave 20:19 MST: "Invalidation
+    # must use the existing scoped writer capability"): since D-IMPL-354 the sink
+    # takes the `InvalidationRecordRegister` capability only SDK composition mints,
+    # so a sink built here was refused (`TypeError: ... missing ... 'authorities'`).
+    # The deployment records the boundary through the sink `open_product` composed
+    # for its own tenant, under the recipe every fabric boot uses.
     def invalidate(opened: OpenedProduct) -> None:
-        ControlPlaneInvalidationSink(registry=opened.control_plane).record(
+        opened.invalidation_sink.record(
             tenant_id=opened.tenant_id, entity_uri=issuer_uri, invalidated_from=boundary,
             reason=INVALIDATION_REASON, source=str(disclosure["event_id"]),
         )

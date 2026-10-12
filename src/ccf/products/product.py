@@ -138,6 +138,8 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
+from ccf.boot import compose_invalidation_sink
+from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.deployment.classes import resolve_artifact_class
@@ -613,6 +615,7 @@ class OpenedProduct:
         agent: AgentDefinition | None = None,
         population: PopulationAcquireProtocol | None = None,
         honors_demonstration_serve_instant: bool = False,
+        invalidation_sink: ControlPlaneInvalidationSink | None = None,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -645,6 +648,7 @@ class OpenedProduct:
         #: which every resolver and door built over this product composes with.
         self.erasure_trust = erasure_trust
         self.refusal_recorder = refusal_recorder
+        self._invalidation_sink = invalidation_sink
         self.mcp_skills = mcp_skills
         self.agent = agent
         self._bridge = bridge
@@ -664,6 +668,34 @@ class OpenedProduct:
         self._capabilities = capabilities
         self._children = children
         self._packaging_trace = packaging_trace
+
+    @property
+    def invalidation_sink(self) -> ControlPlaneInvalidationSink:
+        """Where this deployment records an invalidation boundary an external event sets.
+
+        SDK-defined (CLAUDE.md §8.1, §11; round 5, item 4 — Dave, 2026-10-11
+        20:19 MST: *"Invalidation must use the existing scoped writer
+        capability."*). Composed once, at open, over this product's ONE Control
+        Plane by :func:`ccf.boot.compose_invalidation_sink` — the recipe every
+        fabric boot uses for its graph writer — holding the
+        ``InvalidationRecordRegister`` capability for THIS product's tenant
+        only. ``record(tenant_id=..., entity_uri=..., invalidated_from=...,
+        reason=..., source=...)`` advances that entity's boundary as a new
+        audited version of its record (a boundary that does not move registers
+        nothing); a tenant this product was not opened for is refused
+        :class:`~ccf.controlplane.invalidation.InvalidationUnauthorized` before
+        anything is read or written. Every later question's dependency
+        invalidation gate reads the record.
+
+        Raises:
+            RuntimeError: this object was not built by :func:`open_product`.
+        """
+        if self._invalidation_sink is None:
+            raise RuntimeError(
+                "this OpenedProduct holds no invalidation sink; it is composed by"
+                " open_product, the composition root that mints its capability"
+            )
+        return self._invalidation_sink
 
     # --- the developer's three verbs ------------------------------------------
 
@@ -1681,6 +1713,9 @@ def open_product(
         honors_demonstration_serve_instant=(
             clock is _utc_now and config.demonstration_serve_instant is not None
         ),
+        # Round 5, item 4: the scoped invalidation writer, for this tenant only,
+        # composed under the recipe every fabric boot uses (D-IMPL-354; D-IMPL-382).
+        invalidation_sink=compose_invalidation_sink(registry, tenant_ids=(config.tenant_id,)),
     )
 
 
