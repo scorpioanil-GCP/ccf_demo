@@ -39,6 +39,8 @@ import pytest
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest
+from ccf.products.entitlement import product_entitlement_key
+from ccf.replay.record import DecisionReplayRecord
 
 from tests.examples.test_cp_04_two_callers import drive, tool_call
 
@@ -279,3 +281,69 @@ def test_the_door_reimplements_no_governance() -> None:
             " delegate, never re-decide"
         )
     assert "produce.assemble_and_serve" in source
+
+
+# --- the declared entitlement (AMENDED 2026-10-11, round 3; G4-F-04) -------------------
+#
+# The door's principals are DECLARED in `ccf_config.yaml::product_entitlement:` and
+# registered by the SDK's own composition; the door used to register them by hand,
+# which D-IMPL-353 refuses (`CapabilityBypassError`). The served branches above are
+# the declared principal served under its own grant; the two tests below are the
+# policy in force being the declared one, and a principal the declaration does NOT
+# name being refused by it.
+
+UNDECLARED = "PRIN-UNDECLARED-007"
+
+
+@pytest.fixture(scope="module")
+def undeclared() -> dict[str, Any]:
+    """One door; a credential for a principal the declaration does not name."""
+    serve = _load("serve")
+    anchor = _anchor("DEMONSTRATION_LEI")
+    with tempfile.TemporaryDirectory(prefix="cp07-door-") as scratch:
+        root = pathlib.Path(scratch)
+        with serve.door(root=root) as opened:
+            tokens = root / serve.TOKEN_FILE
+            issued = json.loads(tokens.read_text(encoding="utf-8"))
+            issued["token-undeclared"] = {
+                "client_id": UNDECLARED, "scopes": [opened.scope], "tenants": [opened.tenant_id]}
+            tokens.write_text(json.dumps(issued), encoding="utf-8")
+            results = drive(
+                opened,
+                {"ask": tool_call(_arguments(lei=anchor, asked_at=INSTANT))},
+                credential="token-undeclared",
+            )
+            plane = opened.product_door.product.control_plane
+            key = product_entitlement_key(tenant_id=opened.tenant_id)
+            versions = plane.versions(key)
+            assert len(versions) == 1, versions  # the declared policy, and no door default over it
+            policy = plane.resolve(key, versions[0])
+            is_error, text = results["ask"]
+            cause = None
+            if not is_error:
+                body = json.loads(text)
+                store = opened.product_door.product.replay_store
+                record = DecisionReplayRecord.model_validate_json(
+                    store.get(content_address=store.resolve_uri(uri=body["replay_ref"])))
+                cause = record.content_generation_path.assembly_refusal
+            return {"is_error": is_error, "text": text, "cause": cause, "policy": policy,
+                    "declared_principal": opened.principal_id}
+
+
+def test_the_policy_in_force_is_the_declared_one(undeclared: dict[str, Any]) -> None:
+    """The door composed OVER `product_entitlement:` and registered no default of its own."""
+    declared = _load("deployment").config()["product_entitlement"]
+    policy = undeclared["policy"]
+    assert sorted(policy.principals) == sorted(declared["principals"])
+    assert undeclared["declared_principal"] in policy.principals
+    for principal, grant in declared["principals"].items():
+        assert sorted(policy.principals[principal].permitted_roles) == sorted(grant["permitted_roles"])
+
+
+def test_a_principal_the_declaration_does_not_name_is_refused(undeclared: dict[str, Any]) -> None:
+    """A recognized credential is not an entitlement: refused by name, recorded, nothing served."""
+    assert not undeclared["is_error"], undeclared["text"]
+    body = json.loads(undeclared["text"])
+    assert body["product_json"] is None and body["content_address"] is None, body
+    assert body["replay_ref"], "the denial crossed MCP with no replay reference"
+    assert "principal-not-entitled" in (undeclared["cause"] or ""), undeclared["cause"]

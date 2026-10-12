@@ -98,6 +98,16 @@ callers, one seal.
 > entitlement policy, which needs a capability only an SDK composition root can
 > mint, and no supported path exists for a hand-composed door (recorded as an
 > SDK need). The text of this README before the amendment is in git.
+>
+> **AMENDED 2026-10-11, round 3.** The door now runs. Its one principal is
+> DECLARED in `ccf_config.yaml::product_entitlement:` (PRIN-COV-001,
+> credit-officer) and registered by the deployment's own boot; `server/serve.py`
+> opens the SDK's standard door (`open_door_with_verifier`) over an adapter of
+> `compose()`'s nine members. One declared gate stays red: **`CFT-G13`** — the
+> standard door registers the product TOOL only, so the parameterized product
+> RESOURCE this ruling (D-34) keeps is no longer listed (recorded as an SDK need,
+> R3-CP04-F02). An undeclared principal is refused `principal-not-entitled` and
+> the denial is recorded.
 
 **1 · Create the virtual environment.** This repository has no `python` on
 `PATH`; the `Makefile` uses `.venv/bin/python`, and nothing creates it for you.

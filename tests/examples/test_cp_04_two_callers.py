@@ -1457,16 +1457,10 @@ UNENTITLED_ASK = "mcp-tool(a verified but unentitled principal)"
 UNENTITLED_PRINCIPAL = "PRIN-NOT-GRANTED"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "SEC353-G-05: cp-04's frozen door registers its entitlement policy as"
-        " `control_plane.register_typed(key, artifact, class)`"
-        " (server/compose.py::compose), and the registry now takes the"
-        " capability the key lives on, so the door raises"
-        " CapabilityBypassError at boot (docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md)"
-    ),
-)
+# AMENDED 2026-10-11 (round 3; examples/AMENDMENTS-2026-10-11.md): the
+# SEC353-G-05 expected-failure mark is REMOVED (ruling 6) — the door now composes
+# over the DECLARED entitlement policy (`ccf_config.yaml::product_entitlement:`)
+# on the SDK's standard door, and boots.
 def test_an_unentitled_principal_gets_a_recorded_shell_and_not_an_error() -> None:
     """`D-34`/`D-IMPL-256` (1) and criterion 36, at cp-04's OWN door.
 
@@ -1515,9 +1509,14 @@ def test_an_unentitled_principal_gets_a_recorded_shell_and_not_an_error() -> Non
             tokens = root / serve.TOKEN_FILE
             table = _json.loads(tokens.read_text(encoding="utf-8"))
             stranger = "stranger-" + "0" * 24
+            # AMENDED 2026-10-11 (round 3): a credential now names the tenants
+            # it reaches (SEC-018; an unscoped one reaches nothing and is refused
+            # at the grant, before entitlement is ever asked). This one reaches
+            # this door's tenant, so the deny branch under test is ENTITLEMENT's.
             table[stranger] = {
                 "client_id": UNENTITLED_PRINCIPAL,
                 "scopes": [opened.scope],
+                "tenants": [tenant],
             }
             tokens.write_text(_json.dumps(table), encoding="utf-8")
 

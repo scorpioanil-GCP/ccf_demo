@@ -206,10 +206,20 @@ posture rather than a document's age. The ceiling binds, and
 | `artifacts/source-vocabulary.yaml` | the sources' own names — four edge IRIs with measured counts, the `lei` resolution predicate, the node kind prefixes, and the tables | `acquisition.py` knows no predicate and no table |
 | `artifacts/projection.yaml` | the scoring weights, the seniority ranks, the recency horizon, the gap threshold, the material roles, and the truncation disclosure note | Π has no weights and the No-Hardcoding lint refuses the alternative |
 | `server/door.yaml` | the MCP door's governance values and its `module:callable` entry point | `server/serve.py` has nothing to open |
+| `ccf_environment.yaml` | the NAME of the door's credential variable (`CCF_CP_07_DOOR_TOKEN`) — added 2026-10-11 (round 3) when the door moved onto the SDK's standard door | the door cannot open |
 | `spec/CP-SPEC-007_*.md` | Gate 1 — written **before** any of this code existed | you lose the record of what was promised before it was built |
 
 Code beside them is thin and generic: `produce.py` names no predicate, table,
 edge, weight or number at all.
+
+**The MCP door (amended 2026-10-11, round 3).** The principal the door serves is
+DECLARED in `ccf_config.yaml::product_entitlement:` (PRIN-COV-002,
+coverage-banker), and the deployment's own boot registers it — a deployment can no
+longer register an entitlement policy by hand (D-IMPL-353). `server/serve.py` opens
+the SDK's standard door (`open_door_with_verifier`) over `CoverageProducer`, which
+delegates every question to `produce.assemble_and_serve`. A credential whose
+principal is not declared is refused (`principal-not-entitled` in the record; the
+caller sees `subject-unavailable`), and nothing is assembled.
 
 ## Whitepaper / CLAUDE.md sections exercised
 
