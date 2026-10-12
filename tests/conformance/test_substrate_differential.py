@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The differential suite — every backend byte-identical to the fallback (D-05).
 
 D-05 artifact 3a: the prose decides (``docs/GRAPH_QUERY_SEMANTICS.md``), the

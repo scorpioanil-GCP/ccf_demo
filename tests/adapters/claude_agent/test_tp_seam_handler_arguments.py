@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The Claude leg's in-process handler applies the seam's argument rule (TP-04 follow-on).
 
 ``D-IMPL-361``. Task 3's review measured that the adapter's in-process handler

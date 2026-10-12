@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-009 step (1) — the erasure fact is written only through a governed door (`D-IMPL-374` (4)).
 
 The hole as worded: *the fabric has no mechanism to erase a subject's content;

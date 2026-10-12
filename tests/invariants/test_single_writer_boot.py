@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """CINV-04, single-writer leg: the runtime backstop of the D-IMPL-41 stack.
 
 DESIGN.md §2A.5.3 builds single-writer enforcement in four layers. Three of them

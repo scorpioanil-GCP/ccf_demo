@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """An environment document's ``door:`` block may name its credential only (`D-IMPL-378` C2-A2 (a)).
 
 Ruling C2-A2 (a), Dave, 2026-10-08 12:29 MST: make the two door address names

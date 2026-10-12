@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`ResolvedPins.version_for` names the actual cause when a bare key misses a placed pin.
 
 `D-IMPL-378` item 3 (the `D-IMPL-377` close-out, §7e; estate family R). Since

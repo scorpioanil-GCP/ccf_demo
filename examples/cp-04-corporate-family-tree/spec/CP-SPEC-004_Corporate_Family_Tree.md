@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 # Corporate Family Tree — Context Product Specification
 
 **`CP-SPEC-004` · rung 04 of the vault's ladder · Tier 2 · the FIRST of Tier 2**

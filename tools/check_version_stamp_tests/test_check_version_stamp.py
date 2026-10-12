@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """``tools/check_version_stamp.py``'s own tests (D-IMPL-357 §D, SEC-029, fix round 1 finding 6).
 
 Real temporary git repositories under ``tmp_path``, real subprocess

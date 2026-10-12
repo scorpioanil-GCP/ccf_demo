@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-009 fix round 2 — the re-review's probes A, B and C inverted, plus I3, (a) and N3 (`D-IMPL-374` (4)).
 
 * A (I3) — an erasure the requester files with its own erase capability and a

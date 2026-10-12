@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """mypy --strict control: an incomplete authority bundle is refused where it is written.
 
 D-IMPL-353 §4 rule 6. Three shapes an embedder could hand the CLI's in-process

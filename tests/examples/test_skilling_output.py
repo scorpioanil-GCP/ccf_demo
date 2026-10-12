@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Example 02's assertions, under a runner that can actually fail (D-09).
 
 ``archive/examples/02-skilling/run.py`` used to carry its own guarantee: 60 ``assert``

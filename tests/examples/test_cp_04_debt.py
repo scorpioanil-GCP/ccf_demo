@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`D_c` MOVES WHEN ITS INPUTS MOVE — the gate `D-IMPL-230` requires, and never an equality.
 
 **WHAT THIS MODULE IS FOR, in Dave's words.** *"The assertion is that `D_c` MOVES

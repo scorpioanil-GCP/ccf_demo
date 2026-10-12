@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The directed descendant walk — criterion 9's mechanism half, ledger row `24.5-L-06`.
 
 `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201 (INV-CH7-24). Before plan

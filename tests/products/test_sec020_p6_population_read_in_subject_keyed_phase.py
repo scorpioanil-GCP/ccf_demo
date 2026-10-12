@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020, ruling P6 (a): a population read left inside the subject-keyed phase must not run. SEC-020 is OPEN.
 
 ``D-IMPL-378`` (SDK-defined, CLAUDE.md §11). The configuration: a class that

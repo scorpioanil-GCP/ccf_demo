@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Section 1 is agent-free by construction, and this is what makes it true.
 
 Phase 16 CONTEXT `D-12` answers UAT gap G-01: readers arrived at the SDK with an

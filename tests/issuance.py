@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Comparing two answers modulo the per-answer issuance — Dave's E1 (a), stated once.
 
 ``D-IMPL-378``, Dave's batch ruling of 2026-10-08 12:29 MST, verbatim: *"Approve

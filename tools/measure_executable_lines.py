@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Count a Python file's executable lines — ``R-04``'s method, made re-runnable.
 
 ``24.10-04`` / ``R-03``. **SDK-defined tooling** (CLAUDE.md §11): this measures

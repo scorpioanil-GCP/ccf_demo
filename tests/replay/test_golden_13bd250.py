@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The golden ``13bd250`` record, replayed at HEAD — both legs of ``D-IMPL-243``.
 
 Whitepaper §7.10; CLAUDE.md §7.4; ``D-IMPL-243`` (Dave: *"No pre-phase record

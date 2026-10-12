@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """``McpContentAcquirer`` — the L4/L5 client role of the one shared MCP client.
 
 SDK-defined (CLAUDE.md §7.1, bullet 2: "MCP as ingress for content acquisition

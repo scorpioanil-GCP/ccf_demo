@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The Control Plane registry holds and serves independent reconstructions — never a registrant's object, never a reader's (``D-IMPL-380``, sixth round).
 
 The defect this pins (the fifth-round delta review, the Fable seat, reproduced

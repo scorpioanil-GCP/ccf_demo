@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """D-27 at the HTTP door: *you may not* and *there is no such thing* look alike.
 
 Ledger row ``24.6-L-21``; ``D-IMPL-253`` Q27 with **amendment 2 (4)**, which is

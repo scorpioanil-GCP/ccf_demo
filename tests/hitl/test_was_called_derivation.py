@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """R1 was-called derivation assertions, under the door-minted binding (08-03 Task 3; D-IMPL-353 §2 P6).
 
 The R1 finding (Cursor, LOW): the happy path proved *subject equality*, not

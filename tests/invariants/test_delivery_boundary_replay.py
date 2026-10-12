@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """No transport mints, discloses or catches — the delivery-boundary replay invariant, whole-surface.
 
 ``24.6-11`` Task 3; criterion 36; ``D-IMPL-256`` and ``24.6-CONTEXT.md`` D-37.

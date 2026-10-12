@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Record provenance: whether the fabric's own record writer filed an address (`D-IMPL-378`, item 3).
 
 SDK-defined (CLAUDE.md §7.4, §10, §11); whitepaper §7.10 (a Decision Replay

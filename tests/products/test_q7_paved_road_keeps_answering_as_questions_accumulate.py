@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020 Q7: the shared-owner walk also reads the SDK's own state, which grows as a service runs, so it is cut off sooner.
 
 SEC-020 is OPEN: these tests measure the walk as built; they close nothing. Lane

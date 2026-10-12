@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The Disclosure layer — what a policy permits to cross the consumer boundary.
 
 ``24.6-08``, ledger rows ``24.6-L-16`` and ``24.6-L-21``. The rulings of record

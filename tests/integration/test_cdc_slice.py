@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """CDC→G end to end: change events → envelopes → graph, through L2 only (FABR-09).
 
 Whitepaper §8.3 Pattern 1; DESIGN.md §2A.4.1. The question this file answers

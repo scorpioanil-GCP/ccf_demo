@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The ``workflow`` noun — invocations/status/resume (D-IMPL-23; ORCH-01).
 
 **The tenant is the grant's (``SEC-002``).** ``GET /execution`` used to take

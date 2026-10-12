@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """LOW-01 exploit test (HTTP half) — a non-ASCII bearer is a 401, never a 500.
 
 The HTTP API reaches the same two token sources as the MCP doors, through

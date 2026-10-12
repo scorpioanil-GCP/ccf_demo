@@ -54,21 +54,21 @@ Rows by coupling shape:
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 5 | `archive/examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 |  |
 | `.gitignore` | 24 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
-| `Makefile` | 277 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 355 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 359 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 386 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 390 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `README.md` | 122 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 126 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 147 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 148 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 149 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 150 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 151 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 152 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 153 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 154 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
+| `Makefile` | 283 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 361 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 365 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 392 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 396 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `README.md` | 129 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 133 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 154 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 155 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 156 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 157 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 158 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 159 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 160 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 161 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 342 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
@@ -139,38 +139,38 @@ Rows by coupling shape:
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 117 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 213 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/AMENDMENTS-2026-10-11.md` | 99 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/README.md` | 38 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/artifacts/expected.yaml` | 5 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/artifacts/question.yaml` | 13 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/artifacts/ttl.yaml` | 15 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/ccf_config.yaml` | 25 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/AMENDMENTS-2026-10-11.md` | 107 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/README.md` | 46 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/artifacts/expected.yaml` | 11 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/artifacts/question.yaml` | 19 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/artifacts/ttl.yaml` | 21 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/ccf_config.yaml` | 31 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 652 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 1169 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 1587 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 1800 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 2105 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 3062 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 786 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1195 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1408 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md` | 1284 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/cp-15-kyc-refresh-beneficial-ownership/spec/CP-SPEC-015_KYC_Refresh_Beneficial_Ownership.md` | 91 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/cp-21-large-exposure/FINDINGS.md` | 360 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/external/README.md` | 23 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
-| `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/hw1-harness-clients/runner/drive.py` | 960 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `examples/hw1-harness-clients/runner/model_stub.py` | 10 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `examples/hw1-harness-clients/runner/model_stub.py` | 33 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
-| `examples/s1-01-hello-context-product/report.py` | 12 | `examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
-| `perf/suites/common.py` | 140 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `perf/suites/crossproc/conftest.py` | 3 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `perf/suites/crossproc/conftest.py` | 52 | `archive/examples/04-cross-process` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/04-cross-process` |
-| `perf/synth/artifacts/controlplane.yaml` | 3 | `archive/examples/04-cross-process` | `comment` | documentary | - | - | 23-04 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 213 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 794 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1203 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1416 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md` | 1292 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/cp-15-kyc-refresh-beneficial-ownership/spec/CP-SPEC-015_KYC_Refresh_Beneficial_Ownership.md` | 99 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/cp-21-large-exposure/FINDINGS.md` | 368 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/external/README.md` | 31 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/external/README.md` | 70 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/external/README.md` | 81 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 15 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/hw1-harness-clients/runner/drive.py` | 966 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `examples/hw1-harness-clients/runner/model_stub.py` | 16 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `examples/hw1-harness-clients/runner/model_stub.py` | 39 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 29 | `examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
+| `examples/s1-01-hello-context-product/report.py` | 18 | `examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
+| `perf/suites/common.py` | 146 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `perf/suites/crossproc/conftest.py` | 9 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `perf/suites/crossproc/conftest.py` | 58 | `archive/examples/04-cross-process` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/04-cross-process` |
+| `perf/synth/artifacts/controlplane.yaml` | 9 | `archive/examples/04-cross-process` | `comment` | documentary | - | - | 23-04 |  |
 | `public/concepts/answers-no-document-contains.md` | 33 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/concepts/answers-no-document-contains.md` | 63 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
 | `public/concepts/answers-no-document-contains.md` | 69 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
@@ -262,158 +262,158 @@ Rows by coupling shape:
 | `public/reference/artifacts/skill-grants.md` | 25 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 22 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `pyproject.toml` | 100 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 515 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 517 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 465 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 467 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 684 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 1942 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 3096 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 3325 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 6796 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
-| `tests/client/conformance/suite.py` | 501 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/client/conformance/suite.py` | 534 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/client/conformance/test_the_suite_fires.py` | 208 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/conformance/test_a3_discharge.py` | 31 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/conformance/test_harness_portability.py` | 58 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/conformance/test_harness_portability.py` | 76 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/deployment/fixtures/s1-00-multifile/README.md` | 3 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `tests/deployment/fixtures/s1-00-multifile/README.md` | 10 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
-| `tests/deployment/fixtures/s1-00-multifile/README.md` | 27 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `tests/deployment/test_config_derivation.py` | 33 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/deployment/test_config_document.py` | 29 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/deployment/test_config_equivalence.py` | 42 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/deployment/test_manifest.py` | 931 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tests/deployment/test_operator_builder.py` | 487 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 2 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 7 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 55 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 61 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 62 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 123 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 202 | `archive/examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 209 | `archive/examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 221 | `archive/examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 428 | `archive/examples/05-workflow-hitl` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 429 | `archive/examples/06-decision-replay` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 545 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 598 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_client_example_purity.py` | 588 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_cp_readme_template.py` | 5 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_cp_readme_template.py` | 21 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_cp_readme_template.py` | 65 | `archive/examples/external/00-hello-context` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/external/00-hello-context/run.py` |
-| `tests/examples/test_cp_readme_template.py` | 207 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_cp_readme_template.py` | 240 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tests/examples/test_demo_generator.py` | 4 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_demo_generator.py` | 22 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
+| `pyproject.toml` | 106 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 521 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 523 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 471 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 473 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 690 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `src/ccf/products/bind.py` | 80 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `src/ccf/products/bind.py` | 82 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 1948 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 3102 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 3331 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 6802 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/cli/test_schema_export.py` | 66 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
+| `tests/client/conformance/suite.py` | 507 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/client/conformance/suite.py` | 540 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/client/conformance/test_the_suite_fires.py` | 214 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/conformance/test_a3_discharge.py` | 37 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/conformance/test_harness_portability.py` | 64 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/conformance/test_harness_portability.py` | 82 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 11 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 18 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 35 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_derivation.py` | 39 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_document.py` | 35 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_equivalence.py` | 48 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_manifest.py` | 937 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
+| `tests/deployment/test_operator_builder.py` | 493 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 8 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 13 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 9 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 61 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 67 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 68 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 129 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 208 | `archive/examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 215 | `archive/examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 227 | `archive/examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 434 | `archive/examples/05-workflow-hitl` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 435 | `archive/examples/06-decision-replay` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 551 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 604 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_client_example_purity.py` | 594 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 11 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 27 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 71 | `archive/examples/external/00-hello-context` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/external/00-hello-context/run.py` |
+| `tests/examples/test_cp_readme_template.py` | 213 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 246 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tests/examples/test_demo_generator.py` | 10 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_demo_generator.py` | 28 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/00-quickstart` | `indirect-execution` | live | - | `tools/docs_tests/test_snippet_gate.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_snippet_gate.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
-| `tests/examples/test_frozen_family_quarantine.py` | 84 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
-| `tests/examples/test_frozen_family_quarantine.py` | 97 | `tests/examples/test_s1_00_output.py` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 46 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 48 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 65 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 195 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 200 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 542 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_s1_00_provision_write_fence.py` | 21 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/scenario/provision.py` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 145 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 477 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 606 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_spine_separation.py` | 60 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/integration/test_proto_quickstart.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/lints/test_archived_examples_non_gating.py` | 40 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/lints/test_examples_scope.py` | 90 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/lints/test_examples_scope.py` | 104 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/lints/test_examples_scope.py` | 112 | `archive/examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/perf_smoke/test_smoke.py` | 97 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
-| `tests/products/test_gate_two_call_shape.py` | 207 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 425 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 426 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 716 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 1094 | `archive/examples/00-quickstart` | `count-constant` | live | 9 | - | 23-04 | `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 1114 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 1150 | `archive/examples/00-quickstart` | `count-constant` | live | 11 | - | 23-04 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 1189 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 1919 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 2454 | `archive/examples/00-quickstart` | `count-scan-function` | live | 9 | - | 23-04 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 3271 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 3963 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 4325 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 4386 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
-| `tests/products/test_gate_two_call_shape.py` | 4844 | `archive/examples/00-quickstart` | `count-scan-function` | live | 11 | - | 23-04 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
-| `tests/products/test_gate_two_call_shape.py` | 4869 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_delegated_binder_sites()` feeds `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_gate_two_call_shape.py` | 6005 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_gate_two_call_shape.py` | 6012 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 717 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
-| `tests/products/test_request_contract.py` | 758 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 3080 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 3082 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
-| `tests/products/test_required_operators_guard.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
-| `tests/replay/test_engine_rehydration.py` | 1167 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
-| `tools/docs_tests/test_gate_assurance_surfaces.py` | 646 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/docs_tests/test_gate_two_wording.py` | 162 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 23-10 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 387 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 388 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 391 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 392 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 417 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 421 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 427 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/docs_tests/test_resolver_seam_obligations.py` | 218 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_resolver_seam_obligations.py` | 372 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 309 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 368 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tools/lints/citations.py` | 434 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 479 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 479 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 503 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 509 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_citations.py` | 887 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 76 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 86 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 87 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 265 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/measure_examples.py` | 320 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/measure_null_attributes.py` | 74 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 165 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 182 | `public/tutorial/demo-walkthrough.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 192 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 416 | `tests/examples/test_quickstart_output.py` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 432 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 433 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 436 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 460 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 467 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 469 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tests/examples/test_frozen_family_quarantine.py` | 90 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/examples/test_frozen_family_quarantine.py` | 103 | `tests/examples/test_s1_00_output.py` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/examples/test_gate_two_divergence.py` | 103 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
+| `tests/examples/test_hw1_harness_clients_no_model.py` | 18 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 34 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 52 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 54 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 23-10 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 71 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 201 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 206 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 548 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 612 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 633 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_s1_00_provision_write_fence.py` | 27 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/scenario/provision.py` |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 151 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 483 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 612 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_source_estate.py` | 56 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_spine_separation.py` | 66 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/halflife/test_debt.py` | 713 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/integration/test_proto_quickstart.py` | 9 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/invariants/test_citation_coverage.py` | 51 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/lints/test_archived_examples_non_gating.py` | 46 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/lints/test_examples_scope.py` | 47 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tests/lints/test_examples_scope.py` | 61 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tests/lints/test_examples_scope.py` | 96 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tests/lints/test_examples_scope.py` | 110 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/lints/test_examples_scope.py` | 118 | `archive/examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tests/perf_smoke/test_smoke.py` | 103 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
+| `tests/products/test_gate_two_call_shape.py` | 213 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 431 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 432 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 722 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 1100 | `archive/examples/00-quickstart` | `count-constant` | live | 9 | - | 23-04 | `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 1120 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 1156 | `archive/examples/00-quickstart` | `count-constant` | live | 11 | - | 23-04 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 1195 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 1925 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 2460 | `archive/examples/00-quickstart` | `count-scan-function` | live | 9 | - | 23-04 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 10, 10 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 3277 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 44 witnesses, headroom 30; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 3969 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 4331 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 4392 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
+| `tests/products/test_gate_two_call_shape.py` | 4850 | `archive/examples/00-quickstart` | `count-scan-function` | live | 11 | - | 23-04 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=2, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=2; first break: wave 8 (23-04) |
+| `tests/products/test_gate_two_call_shape.py` | 4875 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_delegated_binder_sites()` feeds `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 16 witnesses, headroom 14; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_gate_two_call_shape.py` | 6011 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_gate_two_call_shape.py` | 6018 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 723 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
+| `tests/products/test_request_contract.py` | 764 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3086 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3088 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
+| `tests/products/test_required_operators_guard.py` | 9 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/products/test_required_operators_guard.py` | 118 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_required_operators_guard.py` | 241 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/replay/test_engine_rehydration.py` | 1173 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
+| `tools/docs_tests/test_gate_assurance_surfaces.py` | 652 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/docs_tests/test_gate_two_wording.py` | 168 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 23-10 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 23 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 24 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 48 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 51 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 393 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 394 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 397 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 398 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 423 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 427 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 433 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/docs_tests/test_resolver_seam_obligations.py` | 224 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_resolver_seam_obligations.py` | 378 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 315 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 374 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 375 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 889 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_snippet_gate.py` | 63 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
+| `tools/lints/citations.py` | 443 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 488 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 488 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 512 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 518 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_citations.py` | 893 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 82 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 92 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 93 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 271 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_scope.py` | 47 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/measure_examples.py` | 267 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/measure_examples.py` | 314 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/measure_examples.py` | 326 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/measure_null_attributes.py` | 80 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 171 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 188 | `public/tutorial/demo-walkthrough.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 198 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 422 | `tests/examples/test_quickstart_output.py` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 438 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 439 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 442 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 466 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 473 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 475 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
 
 ## Measured but not assigned
 

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Decision 1 (A), as ruled: a names refusal reaches the MCP client as a TYPED refusal, never as an outage.
 
 Dave, 2026-10-09 06:21 MST (``D-IMPL-378``), verbatim: *"Names changes approved: approve the uniform “cannot

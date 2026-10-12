@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020, D-IMPL-380 ruling 4 (a): an oversized deployment marker is refused ``"oversized"``, and never read whole.
 
 Dave, 2026-10-10 05:34 MST (the ``D-IMPL-380`` amendment), verbatim: *"Cap the read at the longest marker the SDK

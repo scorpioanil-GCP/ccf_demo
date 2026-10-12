@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The ScopeMappingArtifact and its D-01 pattern grammar (10-01; ``SEC-002``).
 
 HARD-04; D-IMPL-68; 10-CONTEXT D-01/D-03/D-04. The artifact is a dedicated

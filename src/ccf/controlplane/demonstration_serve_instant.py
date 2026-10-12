@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The instant a DEMONSTRATION deployment declares it serves at (`D-IMPL-378` C1).
 
 **SDK-defined, not whitepaper-derived** (CLAUDE.md §11). Ruled by Dave as C1 (a),

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The criterion-15-class present-tense sweep, codified — derived universe, declared vocabulary.
 
 ``24.6-L-09`` (B-09). The instrument this module replaces was a shell command
@@ -686,7 +692,7 @@ def test_the_marked_needle_is_the_only_marked_line() -> None:
         for number, line in enumerate(text.splitlines(), 1):
             if line.rstrip().endswith(SWEEP_EXEMPT_MARKER):
                 marked.append(f"{path.as_posix()}:{number}")
-    assert marked == ["tests/examples/test_hw1_empty_fabric_refusal.py:508"], (
+    assert marked == ["tests/examples/test_hw1_empty_fabric_refusal.py:514"], (
         "the sabotage-input carve-out has moved or grown. One line, plan"
         f" 24.6-06's needle, is the whole of it; found {marked}"
     )

@@ -528,7 +528,7 @@ last_activity: >-
   cp-03 (24.3). Tree clean, `origin/main` = `92761e0`.
   **THE TWO SDK-SURFACE QUESTIONS THAT HAVE GATED PHASE 24 PLANNING SINCE 2026-08-25 ARE NOW
   RULED.** **`D-IMPL-223` -- FOUR SCHEDULING CLASSES, FOREVER, AS THE SCHEDULER; the Standard's
-  eight names are SPEC VOCABULARY.** `OperatorCategory` (`src/ccf/operators/base.py:60`) is a
+  eight names are SPEC VOCABULARY.** `OperatorCategory` (`src/ccf/operators/base.py:66`) is a
   plan-order class carrying INV-CH7-26/28, not a synonym for a Standard name -- so *"the name
   Enrich is absent from `src/`"* and *"I cannot schedule this work"* are DIFFERENT FAILURES and
   only the second is an SDK hole. Measured BEFORE the ruling: `Enrich`, `Similarity`, `Evaluate`

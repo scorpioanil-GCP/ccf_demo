@@ -1,3 +1,11 @@
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 # Client 360 / Coverage Graph — rung 7
 
 `coverage.client-360.v1` · Tier 2 · PostgreSQL + Fluree · reads the curated

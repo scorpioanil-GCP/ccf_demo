@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-006 at the MCP door — the ``approver-not-eligible`` refusal (`D-IMPL-366`, brief §5 row "S1 at the doors", T2b).
 
 RED-FIRST on `main` @ `a236e6ce`. The MCP submit tool over the REAL transport:

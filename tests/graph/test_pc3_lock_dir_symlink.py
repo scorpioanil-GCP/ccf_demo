@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """PC3 (panel C3): a writer-lease lock directory reached through a symbolic link is refused (SEC-013; `D-IMPL-374`).
 
 The cross-AI panel measured it with two processes (probe

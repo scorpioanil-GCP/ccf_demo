@@ -41,7 +41,7 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
    (`examples/door-cp-05-credit-exposure-rollup/adapter.py::ExposureProducer.resolve`), which, after its own
    two recorded pre-assembly refusals and the instant guard, calls the frozen specimen's
    low road: `prod.produce_governed(...)` at `adapter.py:209`.
-4. `produce_governed` (`examples/cp-05-credit-exposure-rollup/produce.py:136`) calls the
+4. `produce_governed` (`examples/cp-05-credit-exposure-rollup/produce.py:142`) calls the
    specimen's `deployment.effective_request`, which assembles the four inputs from the
    specimen's documents and hands them to the SDK's own resolution seam —
    `resolve_effective_request` at `src/ccf/products/constraints.py::resolve_effective_request`.
@@ -203,7 +203,7 @@ same seam) and is the measured cost of a wrapper over a frozen spine, recorded b
 | T2 | the same with `resolution=ResolutionNotApplicable(...)` | recorded with the explicit marker; a raise with no `resolution` is refused at construction |
 | T3 | the same with an already-recorded `RefusalEnvelope` | passed through, not re-recorded (one record) |
 | T4 | **distinctness — programming failure**: a fixture resolver raises `TypeError` / a bare `ValueError` | `ccf-runtime-failure`; zero records |
-| T5 | **distinctness — configuration failure**: the resolver raises `EnvironmentMissing` (`src/ccf/deployment/environment.py:99`, a `LookupError`) | `ccf-runtime-failure`; zero records |
+| T5 | **distinctness — configuration failure**: the resolver raises `EnvironmentMissing` (`src/ccf/deployment/environment.py:105`, a `LookupError`) | `ccf-runtime-failure`; zero records |
 | T6 | **distinctness — persistence failure**: the recorder's store raises `OSError` while recording a `GovernedRefusalRaised` | `ccf-runtime-failure`; no refusal crosses; zero records |
 | T7 | **distinctness — transport failure**: the consumer's child resolver against a door that is not listening | `producer-unavailable`, as today; no governed row is invented |
 | T8 | the typed absence (`ProductNotServable`) still governs as before | unchanged outcome |

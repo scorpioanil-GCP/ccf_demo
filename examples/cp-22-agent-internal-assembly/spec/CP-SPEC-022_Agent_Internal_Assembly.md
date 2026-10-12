@@ -8,6 +8,14 @@ measured_against:
   repo: ccf_code @ ec0c153e
   estate: 192.168.4.76 — Postgres ccf_v2, Fluree fibo-v2, Mongo fibo_v2
 ---
+<!--
+Copyright (c) 2026 David Castillo. All rights reserved.
+Use, copying, modification, and distribution of the covered material
+are governed by the CCF SDK Interim Software and Patent License
+in the repository-root LICENSE.md and any controlling signed agreement.
+Rights under that interim license begin only upon its execution
+and are limited to its stated scope and term.
+-->
 
 # Agent-Internal Assembly — Context Product Specification
 

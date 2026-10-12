@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """PC2 (panel C2): ``invoke_agent`` gives a rostered caller no existence oracle (SEC-017; `D-IMPL-374`).
 
 The cross-AI panel measured it (probe ``probe_b5_invoke_oracle.py``). For a

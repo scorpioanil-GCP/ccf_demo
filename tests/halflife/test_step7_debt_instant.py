@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`D-IMPL-358` step 7: the debt instant is HANDED, never read from a clock.
 
 Ruling 6: Context Debt is computed at the decision instant, and the scorer reads no

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The standard door over a hand-composed product — the shared adapter, once (round 5, item 1).
 
 **SDK-defined** (CLAUDE.md §7.1, §8.3, §11); an extension beyond the

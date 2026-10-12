@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """A request contract can declare a DECIMAL default for a ``number`` argument (CP05-R2-F-01).
 
 **The finding** (``NEEDS-SDK.md``, r2-frozen fork, cp-05/door-cp-05; carried to

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """E2 (ii) (d)'s trusted-code assumption: the false-declaration counterexample, kept visible, and its boundary, measured.
 
 ``D-IMPL-378``, Dave, 2026-10-08 16:40 MST, E2 (ii), option (d), verbatim:

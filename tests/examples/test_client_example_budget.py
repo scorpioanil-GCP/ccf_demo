@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The client example stays small enough to read — as a red CI check.
 
 **Who reads this number and what fails when it moves.** ``make ci-core`` reads
@@ -15,7 +21,9 @@ README; it is an assertion with a named reader.
 
 The counting rule, decided rather than assumed
 ------------------------------------------------
-**Physical lines, total, no exclusions.** Blank lines count. Comment lines
+**Physical lines, total, no exclusions but one.** The exact copyright banner,
+leading the file, is left out once (Dave, 2026-10-11: *"Copyright notices are
+not client implementation"*; see :data:`COPYRIGHT_BANNER`). Blank lines count. Comment lines
 count. Docstring lines count. That is the strictest and simplest reading of
 *"the ENTIRE example a reader studies"*, and it is the only rule a 300-line file
 of one-statement-per-comment cannot game. Both padding forms get a control
@@ -79,14 +87,43 @@ BUDGET_PATTERN = re.compile(
 README_NAME = "README.md"
 
 
+#: The exact first-party copyright banner (``docs/license/SOURCE_HEADERS.md``),
+#: the ONE thing the count leaves out. Dave, 2026-10-11 16:23: *"Client line
+#: budget: exclude the exact copyright banner. Copyright notices are not client
+#: implementation. Keep counting the actual client code under the existing rule.
+#: Do not create a general exemption that hides code."*
+COPYRIGHT_BANNER: tuple[str, ...] = (
+    "# Copyright (c) 2026 David Castillo. All rights reserved.",
+    "# Use, copying, modification, and distribution of the covered material",
+    "# are governed by the CCF SDK Interim Software and Patent License",
+    "# in the repository-root LICENSE.md and any controlling signed agreement.",
+    "# Rights under that interim license begin only upon its execution",
+    "# and are limited to its stated scope and term.",
+)
+
+
 def physical_lines(path: pathlib.Path) -> int:
-    """Total physical lines in ``path``. No exclusions, by ruling.
+    """Total physical lines in ``path``, less the exact copyright banner once.
+
+    Every other line counts, as ruled: blank, comment and docstring lines alike.
+    The banner is left out only where it stands verbatim as the file's leading
+    block (after a shebang or an encoding line, if any), and only once; a
+    banner edited by one character, moved below the code, or repeated counts in
+    full, so the exclusion cannot be stretched to hide code.
 
     ``splitlines()`` rather than counting newlines, so a final line with no
     trailing newline still counts — otherwise the counting rule would have a
     one-line hole that a single missing ``\\n`` opens.
     """
-    return len(path.read_text(encoding="utf-8").splitlines())
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = 0
+    while start < len(lines) and start < 2 and (
+        lines[start].startswith("#!") or re.match(r"#.*coding[:=]", lines[start])
+    ):
+        start += 1
+    if tuple(lines[start : start + len(COPYRIGHT_BANNER)]) == COPYRIGHT_BANNER:
+        return len(lines) - len(COPYRIGHT_BANNER)
+    return len(lines)
 
 
 def declared_budget(root: pathlib.Path) -> int | None:
@@ -368,3 +405,34 @@ def test_c20_9_the_gate_refuses_an_over_budget_harness_client(
         assert not any(innocent.name in entry for entry in violations), (
             f"{innocent.name} is within budget and was named anyway: {violations}"
         )
+
+
+# --- the copyright banner, ruled out of the count and nothing else (Dave, 2026-10-11) ---
+
+
+def test_the_exact_leading_banner_is_not_counted(tmp_path: pathlib.Path) -> None:
+    body = ["import sys", "print(sys.argv)"]
+    path = tmp_path / "client.py"
+    path.write_text("\n".join([*COPYRIGHT_BANNER, *body]) + "\n", encoding="utf-8")
+    assert physical_lines(path) == len(body)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["edited-by-one-character", "below-the-code", "repeated"],
+)
+def test_anything_but_the_exact_leading_banner_counts_in_full(tmp_path: pathlib.Path, shape: str) -> None:
+    """Control: the exclusion is the banner verbatim, leading, once — never a general exemption."""
+    body = ["import sys", "print(sys.argv)"]
+    if shape == "edited-by-one-character":
+        lines = [COPYRIGHT_BANNER[0].replace("2026", "2027"), *COPYRIGHT_BANNER[1:], *body]
+        expected = len(lines)
+    elif shape == "below-the-code":
+        lines = [*body, *COPYRIGHT_BANNER]
+        expected = len(lines)
+    else:
+        lines = [*COPYRIGHT_BANNER, *COPYRIGHT_BANNER, *body]
+        expected = len(lines) - len(COPYRIGHT_BANNER)
+    path = tmp_path / "client.py"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert physical_lines(path) == expected

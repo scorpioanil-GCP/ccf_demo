@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """N-2 (FW-2 x PC3): a read-only boot neither validates nor touches the writer-lease settings (`D-IMPL-374`).
 
 The scoped re-review measured it with the SEC-013 network doubles: a read-only

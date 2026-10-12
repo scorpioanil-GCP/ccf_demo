@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The invalidation key range belongs to the invalidation-record capability alone (D-IMPL-382, review of b66ab4fa).
 
 Found by the focused independent review (Dave, 09:46: *"Run the focused independent review …

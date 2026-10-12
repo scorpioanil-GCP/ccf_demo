@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Delivery is deterministic, for a fulfilled product and for a refusal of each new kind.
 
 ``24.6-11`` Task 1; criterion 26. The ruling of record is ``D-IMPL-253``

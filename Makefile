@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 # CCF SDK — single documented command surface for CI and developers (D-10).
 # Every target CI runs, a developer runs the same way; the Makefile mirrors
 # .github/workflows/ci.yml command-for-command (Phase I.5, plan 08-01).

@@ -1331,7 +1331,7 @@ approve and resume an execution alone.
    `record.started_by` — **dispatched on the event class** (`event.event_class`
    at the transport and primitives; the gate class at the engine): the
    approval-gate class only in 1.0.2. It resolves the policy ref through
-   `resolve_pinned` (`src/ccf/controlplane/resolution.py:69`, as the factory
+   `resolve_pinned` (`src/ccf/controlplane/resolution.py:75`, as the factory
    already does), then refuses — typed `ApproverNotEligible`, non-enumerating —
    when `submission.principal.approver.subject_id ∉ eligible_principals`, when
    it equals `event.requested_by`, **or when `event.requested_by` is absent** on
@@ -1477,7 +1477,7 @@ design document.**
 
 | # | Axis | Recommendation (from the verified recon) |
 |---|---|---|
-| G1 | What a "subject" is | **Deployment-declared** subject classes and key paths beside `WriteKinds` (`src/ccf/artifacts/protocol.py:252-358`; mechanism only, no SDK roster — a fixed roster is the No-Hardcoding defect). |
+| G1 | What a "subject" is | **Deployment-declared** subject classes and key paths beside `WriteKinds` (`src/ccf/artifacts/protocol.py:258-364`; mechanism only, no SDK roster — a fixed roster is the No-Hardcoding defect). |
 | G2 | Replay inputs vs retained content | **Split them.** `principal_id`/`role` (`src/ccf/replay/engine.py::_re_execute` rebuilds `Perspective` from them), the request (`src/ccf/replay/engine.py::_re_execute`; erasing it would *silently replay a different question under the decision's id*, `D-IMPL-111`), `touched_entities` (`src/ccf/replay/record.py::ContextFabricSnapshot`) and the approver's `subject_id` are **replay inputs** — retention-exempt or pseudonymized at write (GDPR Art. 17(3)(b) for audit actors). Admitted child contracts, child questions and annotations are **retained content** — erasable. |
 | G3 | The erasure fact | An **immutable `ccf.erasure-record`** artifact class declared under `WriteKinds`, written by mechanism through `put` (the `DerivedWrite` shape, `src/ccf/replay/serve.py::ReplayWriter.write_replay_record`): retention reason — the structural field `D-IMPL-50` ruled and never built (§1.3; nothing of it is in the tree), so the erasure record's reason vocabulary is `D-IMPL-360`'s to declare as a deployment-declared closed set under G1's rule, or `D-IMPL-50`'s lifecycle lands first under G10 — actor, `erased_at` from the injected clock, legal basis, addresses. **Never** a state-store register as authority — `ControlPlaneStateStore` is "deliberately not append-only" (`src/ccf/controlplane/state.py::ControlPlaneStateStore`) with an in-memory audit log, so erasure there is reversible and replay would read an unversioned mutable input. |
 | G4 | Where the consult sits | **At the substrate read**, not the doors: eight in-process `store.get` sites bypass a door-only consult (`src/ccf/replay/engine.py::resolve_artifact`, `:677`, `:831`, `:1311`; `src/ccf/products/product.py::OpenedProduct.record_of`; `src/ccf/products/child_resolver.py::GrantBoundChildResolver._touched_entities`; `runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`; `runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server.dereference`). |

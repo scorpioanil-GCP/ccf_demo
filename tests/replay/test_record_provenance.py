@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Record provenance at the replay engine's read: bytes the record writer did not file are not a record (D-IMPL-378, item 3).
 
 **The hole, as worded.** Lane 378-clientlane measured, and the coordinator

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Delivery is unreachable without the replay append (04-RESEARCH.md Pattern 5).
 
 Whitepaper §7.10.1 (the five inviolate dimensions, INV-CH7-79/80); CLAUDE.md

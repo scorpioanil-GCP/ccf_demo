@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Advisory A3's discharge: a real SDK-produced ``ResultMessage`` through seam 4.
 
 The A3 advisory (``docs/PHASE_I4_GATE.md`` §5, standing since the I.3 gate):

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The composition roots mint for their own writes; the callers hold what they were handed (D-IMPL-353 §1.6, D-IMPL-354).
 
 Controls over what Lane J-SRC added to ``ccf.products`` when the handles began

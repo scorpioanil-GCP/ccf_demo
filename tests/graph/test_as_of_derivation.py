@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """``as_of`` is the degenerate query — the D-07 pin, byte-for-byte.
 
 `GQ-21` at docs/GRAPH_QUERY_SEMANTICS.md:446: ``as_of(tenant, at)`` is

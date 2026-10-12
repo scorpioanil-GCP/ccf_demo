@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """FW-6 (whole-branch review M-2): the MCP artifact server's name resolution consults the erasure index (SEC-009; `D-IMPL-374`).
 
 The whole-branch review read it: the blob, presence and names resources of

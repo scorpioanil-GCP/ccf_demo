@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020 limitation, measured (OPEN): under an early policy, a composite child's own decision record names the stand-in.
 
 Lane ``378j-fixup`` item J: the "j" batch panel's F-J1-1 (Fable seat J1; reproduced by the coordinator on

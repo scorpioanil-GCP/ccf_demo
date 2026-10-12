@@ -298,7 +298,7 @@ machinery.
 - **Adopter writes:** `door.yaml producer_id`; `serve.py:318-319`
   `producer_id=door.producer_id, producer_tenant=tenant`; the principal/role pair in
   `door.yaml` copied from `default_perspective`.
-- **SDK API:** `build_egress_server(producer_id, producer_tenant)` (`egress.py:790-791`,
+- **SDK API:** `build_egress_server(producer_id, producer_tenant)` (`egress.py:796-797`,
   both-or-neither at `:942`), `ProducerAssertion`, `DoorOutcome`.
 - **Duplicated authority:** `producer_tenant` vs `tenant_id`; principal/role vs
   `default_perspective`. The D-IMPL-340 as-built record calls the producer pair

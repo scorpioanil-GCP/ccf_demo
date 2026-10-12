@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`LEX-F-04` — which route a rung asks for the ledger point, and what it gets.
 
 **The finding this pins, and the correction it carries.** `LEX-F-04` (cp-21)

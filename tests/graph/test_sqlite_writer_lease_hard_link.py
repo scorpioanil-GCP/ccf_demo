@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-013, PROPOSAL (lane ``378f-small2``, option B): the SQLite writer lease refuses a file with a second name.
 
 ``src/ccf/graph/backends/sqlite.py::SqliteWriterLease`` takes an exclusive ``flock`` on

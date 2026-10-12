@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """cp-00 … cp-04 — the operator-set check they no longer write is performed by the SDK, per example.
 
 Dave, 2026-10-11 20:19 MST, ruling 4, verbatim: *"Approve cp-00 through cp-04's

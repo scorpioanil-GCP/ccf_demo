@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """`door_answer` and `door_question` — the door's own three properties.
 
 Phase 19, `19-01-PLAN.md` Task 3. `C-01`, `C-02`, `C-04`, `C-06`, `C-15`.

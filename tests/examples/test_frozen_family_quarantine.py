@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The frozen-family reds are quarantined by name (D-IMPL-378 C4) — and s1-00's are released.
 
 **Amended 2026-10-11 (Dave's ruling 6, 16:23 MST; `examples/AMENDMENTS-2026-10-11.md`).**

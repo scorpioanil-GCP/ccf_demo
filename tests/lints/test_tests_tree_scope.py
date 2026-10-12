@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Lint posture over ``tests/`` — CINV-01 in, CINV-02 and CINV-03 out.
 
 D-IMPL-78 (Dave, 2026-08-04; plan 15-04). D-09 relocates the example CI

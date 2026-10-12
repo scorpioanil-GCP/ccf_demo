@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-020, E2 (ii): a class affirming ``never`` is built only over a plan factory that positively declares it never withholds.
 
 Dave, 2026-10-08 12:29 MST (``D-IMPL-378``), on the owed ruling E2 (ii),

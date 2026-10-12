@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The record writer hands out only the reference of the record it wrote (``D-IMPL-378`` decision 5 (a)).
 
 Dave, 2026-10-09 06:06 MST, confirmed at 06:21 MST ("5a"), verbatim: *"(a). Verify

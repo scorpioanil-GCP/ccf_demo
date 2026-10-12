@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The composite's child view is built from contracts the store never held (``D-IMPL-380``, third round, ruling 2 (a)).
 
 Dave, 2026-10-10 09:18 MST (the ``D-IMPL-380`` amendment), verbatim: *"Fix all three the same way. Copy before the

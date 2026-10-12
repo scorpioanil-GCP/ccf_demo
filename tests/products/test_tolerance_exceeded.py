@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Three authorities, one shell — the tolerance step through the booted resolver (``24.6-L-04``, ``24.6-L-05``).
 
 ``D-IMPL-251`` C1=A and C2=B, recorded as ``D-IMPL-240`` amendment 2, and

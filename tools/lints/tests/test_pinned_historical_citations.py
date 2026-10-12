@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The narrowly pinned historical citation exception (D-IMPL-378 repair 1.5), ruled.
 
 Dave, 2026-10-09 10:54 MST: *"Revert the three unauthorized cp-04 citation
@@ -48,11 +54,11 @@ CP04_SITES: list[tuple[str, int, str]] = [
     # AMENDED 2026-10-11 (ruling 3 of 2026-10-11, the authorized compatibility
     # repair of the frozen specimen): the two deployment.py sites moved from
     # lines 259 and 2841 — same citation text, unedited; see citations.py.
-    (f"{SPECIMEN}/deployment.py", 271, "worker.py::SpecDrivenEntityResolution.identity"),
-    (f"{SPECIMEN}/deployment.py", 2971, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 277, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 2977, "worker.py::SpecDrivenEntityResolution.identity"),
     (
         f"{SPECIMEN}/projection.py",
-        169,
+        175,
         "src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
     ),
 ]
@@ -133,7 +139,7 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
     )
     changed = raw + extra
     findings = check_file_bytes(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
-    expected = [f"{rel}:271", f"{rel}:2971"]  # AMENDED 2026-10-11: was 259, 2841; then 272, 2972 (A-1 root import)
+    expected = [f"{rel}:277", f"{rel}:2977"]  # AMENDED 2026-10-11: was 259, 2841; then 272, 2972 (A-1 root import); 2026-10-12: +6 banner
     if change != "one byte appended":
         last_line = changed.count(b"\n")
         expected.append(f"{rel}:{last_line}")

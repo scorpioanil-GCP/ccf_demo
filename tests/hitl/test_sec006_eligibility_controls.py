@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-006 — approver eligibility at the transport and the primitive (`D-IMPL-366`).
 
 RED-FIRST on `main` @ `a236e6ce`, the `D-IMPL-363` shape: every control here is

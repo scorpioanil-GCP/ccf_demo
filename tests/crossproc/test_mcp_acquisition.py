@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """L4/L5 acquisition across a real process boundary (XPRC-01, ROADMAP crit. 1).
 
 CLAUDE.md §7.1 bullet 2 ("MCP as ingress for content acquisition (L4–L5)");

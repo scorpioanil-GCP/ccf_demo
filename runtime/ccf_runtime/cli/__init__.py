@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The ``ccf`` CLI — front door 3 of 3 (EXPR-02; D-IMPL-22; CLAUDE.md §8.3).
 
 SDK-defined. A thin httpx client over the HTTP API skeleton

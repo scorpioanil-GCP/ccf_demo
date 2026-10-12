@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """SEC-013 (``D-IMPL-378``, 2026-10-09): with a declared lock directory, a SQLite writer boot whose identity lock cannot
 be taken is refused; it never boots on the path lock alone.
 

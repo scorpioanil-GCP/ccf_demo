@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """Cross-file citation drift, checked mechanically (SDK-defined; CLAUDE.md §11).
 
 A citation of the form ``path/to/file.py:NNN`` is an *assertion about another
@@ -378,7 +384,10 @@ _LANDED_FRAGMENT_SHA = "66700aeb90aff07ee76e9c3d57c5b6f4727c543eb3d53298d6ac0994
 # quarantines from this test module, which changed its bytes and moved the
 # pinned citation from line 818 to 802 — the citation text is unedited (was
 # c2b03b94…).
-_FROZEN_TEST_SHA = "d7f7fa2088268794f5adeac8a3d273421795db4ac06452bcef0900b0b56d662f"
+# AMENDED 2026-10-12 (banners, Dave 14:51 / 23:44 of 2026-10-11): the 6-line
+# copyright banner moves every citation down 6 lines and changes the bytes;
+# same citation texts, unedited (was d7f7fa20…, c28e12d2…, 25aef57f…).
+_FROZEN_TEST_SHA = "4d457e1930acc83e9e352aafcb6dac197d7199bb1c027edfe9fc20d65bb7da03"
 PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
@@ -395,23 +404,23 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
         # now imports it from the package root, one line fewer above both
         # citations — same texts, unedited, 272 -> 271 and 2972 -> 2971
         # (was sha e3db51a4…).
-        line=271,
+        line=277,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
+        sha256="fc0740a865887f2921d29df837ac40cdfd2c7145bef66ab3d08f9f1fad50d003",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=2971,
+        line=2977,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
+        sha256="fc0740a865887f2921d29df837ac40cdfd2c7145bef66ab3d08f9f1fad50d003",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/projection.py",
-        line=169,
+        line=175,
         citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
-        sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
+        sha256="e1a18192e7b7e7c8da92f8bdf64d04c3690c12e38cfcc8d160aa671bc6cf5533",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
@@ -437,7 +446,7 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     ),
     PinnedCitation(
         path="tests/examples/test_cp_04_debt.py",
-        line=802,
+        line=808,
         citation="runtime/ccf_runtime/http_api/routes/product.py::retrieve",
         sha256=_FROZEN_TEST_SHA,
         reason=_FROZEN_TEST_REASON,

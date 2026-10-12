@@ -1,3 +1,9 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
 """The resolver's composition mint reads its tenant off the MAX_TTL key — RECORDED, not fixed (D-IMPL-354, join panel round 2).
 
 Cursor's F-COMP-01 at the D-IMPL-353 join's second panel: `_mint_register_at_composition`
