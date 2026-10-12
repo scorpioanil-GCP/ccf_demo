@@ -184,8 +184,14 @@ def request(
     )
 
 
-#: The instant the bundled demonstration asks as of. A caller who wants another
-#: passes `--as-of`; the seeded rows are fixed instants so this is reproducible.
+#: The dated scenario instant: what `request()` asks as of when its caller
+#: passes no `asked_at`. The seeded rows are fixed instants, so an answer as of
+#: this instant reproduces exactly — but only under a serve clock held at it,
+#: which is what `tests/examples/test_s1_00_output.py` supplies. Served on the
+#: real clock it is an expired question, refused
+#: `asked-at-outside-temporal-bound` (asserted there as an ordinary passing
+#: test). `consume.py`, the documented command, therefore asks as of NOW
+#: unless `--as-of` is given (amended 2026-10-11, AMENDMENTS-2026-10-11.md).
 DEFAULT_ASKED_AT = "2026-08-01T00:00:00+00:00"
 
 

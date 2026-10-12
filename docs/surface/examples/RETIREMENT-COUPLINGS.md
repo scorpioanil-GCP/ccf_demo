@@ -8,16 +8,16 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **360** across **114** files
+- Coupling rows: **361** across **115** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
-- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **250**
+- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **255**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 12 |
-| 17-08 | 121 |
+| 17-08 | 122 |
 | 23-04 | 208 |
 | 23-10 | 19 |
 
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 3 |
 | `path-construction` | 12 |
-| `prose` | 119 |
+| `prose` | 120 |
 | `snippet-include` | 56 |
 | `string-literal` | 22 |
 | `tmp_path-synthetic` | 13 |
@@ -55,10 +55,10 @@ Rows by coupling shape:
 | `.github/workflows/live-legs.yml` | 5 | `archive/examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 |  |
 | `.gitignore` | 24 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
 | `Makefile` | 277 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 351 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 355 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 379 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 383 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 355 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 359 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 386 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 390 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
 | `README.md` | 122 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 126 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 147 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
@@ -139,6 +139,7 @@ Rows by coupling shape:
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 117 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 213 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/AMENDMENTS-2026-10-11.md` | 99 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/README.md` | 38 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/expected.yaml` | 5 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/question.yaml` | 13 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
@@ -313,7 +314,7 @@ Rows by coupling shape:
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/00-quickstart` | `indirect-execution` | live | - | `tools/docs_tests/test_snippet_gate.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_snippet_gate.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_fixture_write_lock.py` | 1 | `examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
-| `tests/examples/test_frozen_family_quarantine.py` | 38 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/examples/test_frozen_family_quarantine.py` | 77 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
 | `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -883,7 +884,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-LEGS.md` | 91 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 11 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 111 | append-only decision log |
+| `docs/DECISIONS.md` | 113 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |

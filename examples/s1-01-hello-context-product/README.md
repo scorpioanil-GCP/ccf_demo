@@ -28,14 +28,31 @@ re-ingested in between. The measured Context Debt rises with the staleness
 and crosses this deployment's Forced-LLM band, so the answer arrives saying
 *how much to trust it* and *which dimension is weak*.
 
-Ask a fourth question that is in no artifact at all:
+Ask a fourth question that is in no artifact at all (with the Fluree server
+from [Run it](#run-it) up and `CCF_TEST_FLUREE_URL` exported):
 
 ```sh
-PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py \
+NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+CCF_TEST_FLUREE_URL=http://localhost:8090 PYTHONPATH=src:runtime \
+  .venv/bin/python examples/s1-01-hello-context-product/run.py \
   --subject http://example.org/fibo/GammaBank \
-  --as-of 2026-08-01T00:00:00Z \
-  --decision-instant 2026-08-01T00:05:00Z
+  --as-of "$NOW" \
+  --decision-instant "$NOW"
 ```
+
+**Amended 2026-10-11 (`examples/AMENDMENTS-2026-10-11.md`).** This command used
+to pin `--as-of 2026-08-01T00:00:00Z --decision-instant 2026-08-01T00:05:00Z`.
+A question you compose carries no declared demonstration period, so it is
+served on the real clock, and since `D-IMPL-358` an answer whose ten-minute
+lifetime ran out in August is refused: that command now stops with
+`RuntimeError: the governed resolver refused this question: RefusalEnvelope(kind='ttl-refusal', reason='ttl-bounds', …)`.
+Asked as of now it is served: GammaBank has **no** natural person at or above
+the 25.000 percent threshold (Jane Doe, John Smith, Marcus Vale and Sarah Chen
+each aggregate 0.000 percent), `D_c` ≈ 0.29 → `forced_llm`, measured at the
+instant you ask. The as-of instant, the expiry, `D_c`, the content address and
+the replay address all vary with the run. Only the three declared questions
+above are dated; each comes with its own declared service period
+(`artifacts/questions.yaml`, `simulation_clock:`).
 
 Nothing was edited. The subject and both instants are fields on a typed
 `ProductRequest`, validated at the door against the request surface the
@@ -100,12 +117,20 @@ before plan 15.5-13.
 
 ## Run it
 
-**Prerequisite: a reachable Fluree server.** `artifacts/manifest.yaml` declares
-`backend: fluree`, and a run that cannot reach one **refuses** rather than
-falling back to anything.
+**Prerequisites.** `make venv` (creates `.venv` from the hash-verified lock;
+there is no `python` on this repository's PATH, so every command below names
+`.venv/bin/python`), Docker, and port 8090 free. **A reachable Fluree server.**
+`artifacts/manifest.yaml` declares `backend: fluree`, and a run that cannot
+reach one **refuses** rather than falling back to anything. The example
+**writes** Fluree transactions (a fresh graph per run), so point it only at a
+disposable local server — never at a shared or curated one.
+
+**Reproducible setup (amended 2026-10-11).** A disposable, named,
+memory-capped local server, removed when you stop it:
 
 ```sh
-docker run --rm -p 8090:8090 fluree/server:4.1.4
+docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p 8090:8090 fluree/server:4.1.4
+until curl -s -o /dev/null http://localhost:8090/fluree/ledgers; do sleep 1; done   # ready when it answers
 ```
 
 ```sh
@@ -116,8 +141,54 @@ or, directly:
 
 ```sh
 CCF_TEST_FLUREE_URL=http://localhost:8090 \
-  PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py
+  PYTHONPATH=src:runtime .venv/bin/python examples/s1-01-hello-context-product/run.py
 ```
+
+and the correctness legs (the example's own tests, then every Fluree-marked test):
+
+```sh
+CCF_TEST_FLUREE_URL=http://localhost:8090 CCF_REQUIRE_FLUREE=1 PYTHONPATH=src:runtime:. \
+  .venv/bin/python -m pytest -q tests/examples -k s1_01      # measured 2026-10-11: 48 passed
+make leg-fluree
+```
+
+When you are done, `docker stop ccf-s1-01-fluree` stops the server and `--rm`
+removes it, with every graph the runs wrote.
+
+**What `make example-s1-01` prints, measured 2026-10-11** on a fresh
+`fluree/server:4.1.4` (344 lines, the first of them the estate-fence line; the three answers and their debt are the
+table at the top of this page). Every line is the same on every run except
+the three `replay record address` lines, one per question, which are issued
+afresh for every answer. The stable lines to check:
+
+```
+QUESTION 1 of 3 — asked, not configured
+  as-of instant               2026-08-01 00:00:00+00:00   the graph is read here
+  decision instant            2026-08-01 00:05:00+00:00   the TTL runs from here
+    Jane Elizabeth Doe        30.000 percent   http://example.org/fibo/JaneDoe
+    John Michael Smith        45.000 percent   http://example.org/fibo/JohnSmith
+  content address             b54bd625288e8eb823d18db28c06c0977e48111aeb1626649896b5e4d5e512bf
+  context debt D_c            0.0348251467461090910588235294
+  routing signal              ok
+  replay record address       <issued per answer>
+QUESTION 2 of 3 — asked, not configured
+    Jane Elizabeth Doe        60.000 percent   http://example.org/fibo/JaneDoe
+  content address             9aa1eac83d234c65cd95980270ec9bd20aab69d25585727c5927da1f1bc0a0a5
+  context debt D_c            0.0348251467461090910588235294
+  routing signal              ok
+QUESTION 3 of 3 — asked, not configured
+    Jane Elizabeth Doe        30.000 percent   http://example.org/fibo/JaneDoe
+    John Michael Smith        45.000 percent   http://example.org/fibo/JohnSmith
+    Marcus Vale               30.000 percent   http://example.org/fibo/MarcusVale
+  content address             512d1856d9afbf3bfef1ef8c052c66ca0b02b10e167bd1a08e8e1adc2b7248a0
+  context debt D_c            0.2213415448674956763647368421
+  routing signal              forced_llm
+```
+
+The three declared questions are dated (August and September 2026) and are
+served at their declared service periods (`artifacts/questions.yaml`,
+`simulation_clock:`), composed through the SDK's `admission_clock` seam
+(`D-IMPL-358` step 13), which is why they still answer today.
 
 `CCF_TEST_FLUREE_URL` is the variable `artifacts/backends.yaml` names — the same
 one `tests/conftest.py` gates the Fluree test leg on, so one export configures
@@ -191,7 +262,7 @@ To materialise the enterprise source estate this example reads from —
 the world that exists before any fabric does — run:
 
 ```sh
-PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py --estate /tmp/estate
+PYTHONPATH=src:runtime .venv/bin/python examples/s1-01-hello-context-product/run.py --estate /tmp/estate
 ```
 
 Nothing that writes goes into CCF's Context Graph. Systems of record are

@@ -1,4 +1,14 @@
-"""The 12 frozen-family reds are quarantined by name (D-IMPL-378 C4).
+"""The frozen-family reds are quarantined by name (D-IMPL-378 C4) — and s1-00's are released.
+
+**Amended 2026-10-11 (Dave's ruling 6, 16:23 MST; `examples/AMENDMENTS-2026-10-11.md`).**
+s1-00 was repaired (its deployment reads the placed keys) and its nine
+`xfail(strict, raises=KeyError)` marks were REMOVED, not relabeled: *"remove the
+obsolete missing-key expected-failure marks once the example is repaired … Do not
+replace the old expected-failure label with an expiry label."* The roster below
+is therefore three (cp-00 and cp-01), and
+:func:`test_the_released_s1_00_tests_carry_no_expected_failure_mark` asserts
+the released nine still exist and carry no xfail mark of any kind — so a
+re-quarantine under a new label goes red here rather than passing silently.
 
 Dave's D-IMPL-355 (Option A) keeps s1-00, cp-00 and cp-01 out of the repair.
 Their deployments read bare Control Plane keys that the placed-key Control
@@ -35,7 +45,6 @@ _S1_00 = (
 
 #: module path -> {test name: the class name of the exception its quarantine expects}
 QUARANTINED: dict[str, dict[str, str]] = {
-    "tests/examples/test_s1_00_output.py": {name: "KeyError" for name in _S1_00},
     "tests/examples/test_cp_00_output.py": {
         "test_a_missing_threshold_is_refused_not_defaulted": "UnpinnedArtifactError",
         "test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal": "UnpinnedArtifactError",
@@ -59,8 +68,28 @@ def _xfail_keywords(function: ast.FunctionDef) -> dict[str, ast.expr] | None:
     return None
 
 
-def test_the_roster_is_the_twelve_the_hosted_runs_measured() -> None:
-    assert len(_CASES) == 12
+def test_the_roster_is_the_three_still_quarantined() -> None:
+    """Twelve were measured on hosted run 37732648612; s1-00's nine were released."""
+    assert len(_CASES) == 3
+
+
+#: Released by ruling 6 (2026-10-11): the nine s1-00 tests, repaired.
+RELEASED: dict[str, tuple[str, ...]] = {"tests/examples/test_s1_00_output.py": _S1_00}
+
+
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [(module, name) for module, names in RELEASED.items() for name in names],
+    ids=[name for names in RELEASED.values() for name in names],
+)
+def test_the_released_s1_00_tests_carry_no_expected_failure_mark(module: str, name: str) -> None:
+    """Each released test still exists and carries NO xfail mark — not a relabeled one."""
+    tree = ast.parse((REPO_ROOT / module).read_text(encoding="utf-8"))
+    functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+    assert name in functions, f"{module} no longer defines {name}: the release follows a rename"
+    assert _xfail_keywords(functions[name]) is None, (
+        f"{module}::{name} carries an xfail mark again; ruling 6 released it"
+    )
 
 
 @pytest.mark.parametrize(
@@ -99,7 +128,9 @@ def _module_strings(tree: ast.Module) -> dict[str, str]:
     return strings
 
 
-@pytest.mark.parametrize("module", sorted(QUARANTINED), ids=lambda module: module.rsplit("/", 1)[-1])
+@pytest.mark.parametrize(
+    "module", sorted(set(QUARANTINED) | set(RELEASED)), ids=lambda module: module.rsplit("/", 1)[-1]
+)
 def test_no_other_frozen_family_quarantine_escapes_the_roster(module: str) -> None:
     """The roster is two-directional: every mark citing the frozen-family cause is on it."""
     tree = ast.parse((REPO_ROOT / module).read_text(encoding="utf-8"))
@@ -115,4 +146,4 @@ def test_no_other_frozen_family_quarantine_escapes_the_roster(module: str) -> No
         text = reason.value if isinstance(reason, ast.Constant) else strings.get(ast.unparse(reason), "")
         if any(marker in str(text) for marker in _QUARANTINE_MARKERS):
             cited.add(node.name)
-    assert cited == set(QUARANTINED[module]), sorted(cited ^ set(QUARANTINED[module]))
+    assert cited == set(QUARANTINED.get(module, {})), sorted(cited ^ set(QUARANTINED.get(module, {})))

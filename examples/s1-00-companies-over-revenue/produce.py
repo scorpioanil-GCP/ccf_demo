@@ -205,6 +205,7 @@ def assemble_and_serve(
     plan_class: Callable[..., ProjectionPlan],
     request: ProductRequest,
     root: Path,
+    serve_clock: Callable[[], datetime] | None = None,
 ) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -227,6 +228,17 @@ def assemble_and_serve(
     second, which carries the same ``reason`` and ``key`` and additionally a
     ``replay_reference``: the refusal is recorded, so a consumer holding it can
     name the decision record that authorized saying no.
+
+    ``serve_clock`` is the instant the fabric judges the serve at — the
+    temporal bound's and the expiry gate's comparand — and it is passed to the
+    SDK's own ``admission_clock`` seam ONLY when a caller supplies one. Omitted,
+    the SDK's process clock stands, which is what ``consume.py`` (the
+    documented command) does. ``tests/examples/test_s1_00_output.py`` supplies a
+    fixed instant so its served-path assertions run at a controlled time
+    (Dave's ruling 6, 2026-10-11 16:23 MST). The instant arrives as an
+    argument, never off ``request``: a serve instant taken from caller input
+    would let any question move the fabric's clock. The same seam, and the same
+    pass-only-when-supplied shape, ``s1-01``'s spine uses (`D-IMPL-358` step 13).
     """
     registry = ControlPlaneRegistry()
 
@@ -324,6 +336,7 @@ def assemble_and_serve(
             product_ttl_seconds=int(
                 (scenario.expires_at - scenario.now).total_seconds()
             ),
+            **({"admission_clock": serve_clock} if serve_clock is not None else {}),
         )
         outcome = resolve(
             tenant=booted.tenant_id,
