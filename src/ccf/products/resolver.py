@@ -4543,6 +4543,12 @@ class GovernedResolver:
         # `assessed`, `decided_at` and the composition laws.
         composed: CompositionOutcome | None = None
         outcomes: Mapping[str, object] | None = None
+        # Round 5 SDK lane A (CP08-R3-F-01): the rows the per-requirement walk
+        # produced, bound for the ONE exit between that walk and the composition
+        # — the evidence-after-decision refusal at scoring — so it keeps the
+        # child evidence `D-GATE-338` requires of every exit after acquisition.
+        # `()` for a non-composite: no child was asked anything.
+        walk_child_rows: tuple[ChildResolution, ...] = ()
         children: ChildContractView | None = None
         invocation = ""
         if registered.requires:
@@ -4665,6 +4671,7 @@ class GovernedResolver:
                 self._retain_child_contracts(
                     child.contract for child in resolved.admitted
                 )
+                walk_child_rows = tuple(resolved.rows)
                 if resolved.blocking:
                     composed = CompositionOutcome(
                         factors=None,
@@ -5012,6 +5019,7 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=self._applied_bindings(effective),
                 resolution=effective,
+                child_resolutions=walk_child_rows,
                 served_at=served_at,
             )
 
