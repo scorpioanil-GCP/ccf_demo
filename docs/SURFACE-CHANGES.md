@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2659 entries**, of which **2377** name a public Python surface.
+**2664 entries**, of which **2382** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1392 entries — 1345 public Python surface, 47 not public Python API.
+1394 entries — 1347 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -494,6 +494,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   nothing; read the receipt's field, not only the status
 
 *Recorded by `006-approver-eligibility-is-the-sdks.md`.*
+
+#### ccf_runtime.http_api.grants.GateDenial
+
+- Surface: ccf_runtime.http_api.grants.GateDenial
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the authorizer's deny the gate hands to a route that answers its own — the verified grant, the selected tenant and the deny's internal statement; it carries no capability
+- Why: R5-CP17-F01 on the HTTP door; the product route records the deny as the governed refusal an unentitled caller gets
+- Migration: none
+
+*Recorded by `20261012-a1-the-http-product-door-answers-an-undeclared-class-as-unentitled.md`.*
+
+#### ccf_runtime.http_api.grants.denial_from_request
+
+- Surface: ccf_runtime.http_api.grants.denial_from_request
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: returns the gate's `GateDenial` for this request, or `None` when the gate allowed it; refuses `403 no-capability` for a stashed object that is not a `GateDenial` or a deny handed to a route that does not declare it answers one
+- Why: R5-CP17-F01; the one reader of the deny, beside `authorized_from_request`
+- Migration: none
+
+*Recorded by `20261012-a1-the-http-product-door-answers-an-undeclared-class-as-unentitled.md`.*
 
 #### ccf.replay.record.NO_ASSEMBLY_REFUSAL
 
@@ -20963,7 +20987,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-642 entries — 446 public Python surface, 196 not public Python API.
+644 entries — 448 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -21320,6 +21344,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   refusal can name the envelope that reached the mint
 
 *Recorded by `007-empty-identity-declaration-refused-by-name.md`.*
+
+#### ccf_runtime.authz.route_declaration.RouteAuthorization
+
+- Surface: ccf_runtime.authz.route_declaration.RouteAuthorization
+- Public surface: true
+- Change type: reshaped
+- Before: `action_id`, `resource`, `products`
+- After: adds `answers_denial: bool = False` — whether the route answers the authorizer's deny itself as a governed refusal
+- Why: R5-CP17-F01; the declaration is where a route states how its deny is answered, so the gate reads it rather than a path
+- Migration: none; the default keeps the gate's `403`
+
+*Recorded by `20261012-a1-the-http-product-door-answers-an-undeclared-class-as-unentitled.md`.*
+
+#### ccf_runtime.authz.route_declaration.authorizes
+
+- Surface: ccf_runtime.authz.route_declaration.authorizes
+- Public surface: true
+- Change type: reshaped
+- Before: `authorizes(action_id, *, resource, products=None)`
+- After: `authorizes(action_id, *, resource, products=None, answers_denial=False)`
+- Why: R5-CP17-F01; the product route passes `answers_denial=True`
+- Migration: none
+
+*Recorded by `20261012-a1-the-http-product-door-answers-an-undeclared-class-as-unentitled.md`.*
 
 #### ccf.products.contract.ProductLineage
 
@@ -31463,7 +31511,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-577 entries — 538 public Python surface, 39 not public Python API.
+578 entries — 539 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -31555,6 +31603,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   (G5 (a)); re-run it
 
 *Recorded by `006-approver-eligibility-is-the-sdks.md`.*
+
+#### ccf_runtime.http_api.app.create_app
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: behavior
+- Before: `GET /product/{tenant}/{product_class}/{version}` answered an authorizer deny (a class the scope mapping names nowhere, or a credential whose scope lacks the product action) `403 request-unauthorized`
+- After: it answers that deny as the recorded governed refusal — `404 subject-unavailable` at minimal disclosure — indistinguishable from an unentitled caller's refusal of a real class; the deny stays on the audit log and its reason (`tenant-unauthorized`) is on the replay record only
+- Why: R5-CP17-F01; Dave 2026-10-11 21:19 MST "Do (a)". Red test: `tests/http_api/test_undeclared_class_reads_as_unentitled_http.py::test_an_undeclared_class_and_an_unentitled_caller_get_one_reply_over_http`
+- Migration: a client that read `403 request-unauthorized` from the product route for an unknown class, or for a credential lacking the product action, reads the `subject-unavailable` refusal (the `403` stays for authentication, tenant, roster and every other route)
+
+*Recorded by `20261012-a1-the-http-product-door-answers-an-undeclared-class-as-unentitled.md`.*
 
 #### ccf.deployment.operators.build_operator_registry
 

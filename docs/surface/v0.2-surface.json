@@ -12020,7 +12020,7 @@
       },
       "RouteAuthorization": {
         "kind": "class",
-        "shape": "(*, action_id: 'str', resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None) -> None"
+        "shape": "(*, action_id: 'str', resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None, answers_denial: 'bool' = False) -> None"
       },
       "TENANT_PATH_PARAM": {
         "kind": "constant",
@@ -12028,7 +12028,7 @@
       },
       "authorizes": {
         "kind": "function",
-        "shape": "(action_id: 'str', *, resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None) -> 'Callable[[_Endpoint], _Endpoint]'"
+        "shape": "(action_id: 'str', *, resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None, answers_denial: 'bool' = False) -> 'Callable[[_Endpoint], _Endpoint]'"
       },
       "composed_fields": {
         "kind": "function",
@@ -12698,12 +12698,18 @@
   },
   "ccf_runtime.http_api.grants": {
     "__all__": [
+      "GateDenial",
       "absent",
       "authorized_from_request",
+      "denial_from_request",
       "grant_from_request",
       "within_tenant"
     ],
     "exports": {
+      "GateDenial": {
+        "kind": "class",
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', statement: 'str') -> None"
+      },
       "absent": {
         "kind": "function",
         "shape": "(key: 'str', version: 'str') -> 'HTTPException'"
@@ -12711,6 +12717,10 @@
       "authorized_from_request": {
         "kind": "function",
         "shape": "(request: 'Request', *, kind: 'type[A]') -> 'Authorized[A]'"
+      },
+      "denial_from_request": {
+        "kind": "function",
+        "shape": "(request: 'Request') -> 'GateDenial | None'"
       },
       "grant_from_request": {
         "kind": "function",

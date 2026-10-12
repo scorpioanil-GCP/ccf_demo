@@ -166,6 +166,21 @@ the ONE governed step, and **encodes what it returns**: a
 to the governed determination, not to HTTP or MCP."* Nothing on this page mints
 a replay record, discloses, or reads a clock.
 
+**And so does the scope mapping's deny** (finding R5-CP17-F01; Dave,
+2026-10-11 21:19 MST, verbatim *"Do (a)"*, ruled for the MCP door and carried
+here). The gate's authorizer decides on the class before this route exists, and
+it used to answer its deny ``403 request-unauthorized`` — so a class the scope
+mapping names nowhere drew a ``403`` while an unentitled caller's real class
+drew this route's ``404``, and the status said whether the class exists. The
+route now declares ``answers_denial``: the gate, having decided and audited the
+deny and minted nothing, hands it here as a
+:class:`~ccf_runtime.http_api.grants.GateDenial`, and the route records it with
+:func:`~ccf_runtime.authz.delivery_boundary.govern_scope_denial` — the same
+recorder, the same :func:`_refusal_response`, after the same request-shape
+checks every caller meets. The reason (``tenant-unauthorized``) is on the
+record; the reply is the one Disclosure decides, identical to an unentitled
+caller's but for the per-answer reference and the echo of the caller's class.
+
 Algorithmic module (CINV-03).
 """
 
@@ -195,6 +210,7 @@ from ccf_runtime.authz.delivery_boundary import (
     govern_absence,
     govern_entitlement,
     govern_raised_refusal,
+    govern_scope_denial,
     recorded_boundary,
 )
 from ccf_runtime.authz.product_entitlement import (
@@ -214,7 +230,11 @@ from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_REQUEST_INCOMPLETE,
     refusal_detail,
 )
-from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
+from ccf_runtime.http_api.grants import (
+    authorized_from_request,
+    denial_from_request,
+    grant_from_request,
+)
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND, status_for
 from ccf_runtime.http_api.routes import (
     canonical_response,
@@ -286,6 +306,10 @@ def build_router(
         resource=ResourceBinding.path("product_class"),
         # SEC-017: a declared product roster is held to the class by the gate.
         products=ProductClassBinding.path("product_class"),
+        # R5-CP17-F01: the authorizer's deny is answered HERE, as the governed
+        # refusal an unentitled caller gets, never as the gate's 403 — which
+        # told a caller the class is one the scope mapping names nowhere.
+        answers_denial=True,
     )
     def retrieve(
         tenant: str,
@@ -335,6 +359,32 @@ def build_router(
         # (`D-IMPL-38`); a `500` there for a value this door already knows how
         # to refuse `400` would be a door lie.
         echo = _echo(asked) if asked is not None else None
+        # R5-CP17-F01 (Dave 2026-10-11 21:19 MST, "Do (a)"): the gate's
+        # authorizer DENIED this request and handed the deny here instead of
+        # answering 403. It is recorded through the same recorder an
+        # entitlement denial uses and leaves through the same emission site,
+        # AFTER the same request-shape checks above — so a class the scope
+        # mapping names nowhere reads exactly as an unentitled caller's refusal
+        # of a real one. No capability exists here; nothing is read.
+        denied = denial_from_request(request)
+        if denied is not None:
+            return _refusal_response(
+                govern_scope_denial(
+                    grant=denied.grant,
+                    tenant=denied.tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=dict(asked.parameters) if asked is not None else {},
+                    asked_at=asked.asked_at if asked is not None else None,
+                    surface=SURFACE_HTTP_ROUTE,
+                    address=request.url.path,
+                    denial=denied.statement,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorded_boundary(
+                        refusal_recorder=refusal_recorder, builder="build_router"
+                    ),
+                )
+            )
         # D-IMPL-353 §1.3/§1.4: the capability for THIS class, or nothing.
         # The tenant every call below acts under is the CAPABILITY's; the
         # `tenant` path segment is the product's address, which the gate has
