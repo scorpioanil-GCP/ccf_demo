@@ -508,9 +508,11 @@ def test_the_erasure_door_over_the_mcp_backed_store_admits_genuine_bytes_and_not
 
     The control: the harness's genuine client filing, the subject at its key
     path, is admitted to approval. A second filing, altered in place under its
-    address, reads as absent through the MCP store, which re-hashes what the
-    server sends, so the door refuses it ``subject-unverifiable`` with
-    ``ArtifactNotFound`` as the cause.
+    address, is refused ``subject-unverifiable``. Amended for design 1.3, Q3 (a)
+    (coordinator 09:35, 2026-10-12): the door no longer reads the blob (which
+    the MCP store re-hashed and answered as absent, the old ``ArtifactNotFound``
+    cause); it names the address through its own path and the server's subject
+    match, re-hashing the stored bytes first, answers ``subject-unverifiable``.
     """
     from ccf_runtime.erasure import ErasureRefused  # noqa: PLC0415
     from ccf_runtime.workflow.engine import WorkflowSuspended  # noqa: PLC0415
@@ -521,16 +523,61 @@ def test_the_erasure_door_over_the_mcp_backed_store_admits_genuine_bytes_and_not
 
     plane = h.compose(tmp_path)
     door = h.door(plane, store=_mcp_client(tmp_path, plane.store, monkeypatch))
+    # Amended (design 1.3, Q3 (a); coordinator 09:35, 2026-10-12): capture what the door asks the server, so the
+    # assertion below names the mechanism that now catches altered bytes.
+    exchange = _record_the_mcp_exchange(monkeypatch)
     assert isinstance(_ask(door, plane, h.request(plane)), WorkflowSuspended)
 
     second = h.client_put(plane.store, name="note-2", document={"customer": {"id": h.SUBJECT_ID}, "note": "second"})
     _stored_file(tmp_path / "artifacts", second.content_address).write_bytes(
         canonical_bytes({"customer": {"id": h.SUBJECT_ID}, "note": "altered"})
     )
+    # The capture's positive control: it saw the server judge the genuine filing.
+    assert ("tool", "match_artifact_subject", {"verdict": "subject-found"}) in exchange, exchange
+    exchange.clear()
     with pytest.raises(ErasureRefused) as refused:
         _ask(door, plane, _readdress(h.request(plane), second.content_address))
     assert refused.value.reason_code == "subject-unverifiable", refused.value.reason_code
-    assert isinstance(refused.value.__cause__, ArtifactNotFound), repr(refused.value.__cause__)
+    # Amended (design 1.3, Q3 (a); coordinator 09:35): the door never reads the requester-facing blob; it names the
+    # address through its own path and the server's subject match judges the altered bytes where they are.
+    assert [kind for kind, *_ in exchange if kind == "read"] == [], exchange
+    assert [(name, answer) for kind, name, answer in exchange if name == "match_artifact_subject"] == [
+        ("match_artifact_subject", {"verdict": "subject-unverifiable"})
+    ], exchange
+    assert [name for kind, name, _ in exchange] == ["name_artifact_for_erasure", "match_artifact_subject"], exchange
+
+
+def _record_the_mcp_exchange(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, Any]]:
+    """Every resource read and tool call the MCP-backed store makes from here on: ``(kind, name, structured answer)``.
+
+    Wraps the session runner ``_mcp_client`` installed (the in-process server), so the store's own calls are seen.
+    """
+    import ccf.artifacts.mcp_store as mcp_store_module  # noqa: PLC0415
+
+    exchange: list[tuple[str, str, Any]] = []
+    answered = mcp_store_module.run_with_session
+
+    class _Recorded:
+        def __init__(self, session: Any) -> None:
+            self._session = session
+
+        async def read_resource(self, uri: Any) -> Any:
+            exchange.append(("read", str(uri), None))
+            return await self._session.read_resource(uri)
+
+        async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+            result = await self._session.call_tool(name, arguments)
+            exchange.append(("tool", name, result.structuredContent))
+            return result
+
+    async def recorded(*, url: str, operation: Any, http_client_factory: Any) -> Any:
+        async def through(session: Any) -> Any:
+            return await operation(_Recorded(session))
+
+        return await answered(url=url, operation=through, http_client_factory=http_client_factory)
+
+    monkeypatch.setattr(mcp_store_module, "run_with_session", recorded)
+    return exchange
 
 
 def test_the_artifact_servers_client_lane_never_serves_bytes_altered_under_their_address(
