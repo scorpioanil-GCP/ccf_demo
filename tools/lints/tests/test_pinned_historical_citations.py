@@ -48,8 +48,8 @@ CP04_SITES: list[tuple[str, int, str]] = [
     # AMENDED 2026-10-11 (ruling 3 of 2026-10-11, the authorized compatibility
     # repair of the frozen specimen): the two deployment.py sites moved from
     # lines 259 and 2841 — same citation text, unedited; see citations.py.
-    (f"{SPECIMEN}/deployment.py", 272, "worker.py::SpecDrivenEntityResolution.identity"),
-    (f"{SPECIMEN}/deployment.py", 2972, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 271, "worker.py::SpecDrivenEntityResolution.identity"),
+    (f"{SPECIMEN}/deployment.py", 2971, "worker.py::SpecDrivenEntityResolution.identity"),
     (
         f"{SPECIMEN}/projection.py",
         169,
@@ -133,7 +133,7 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
     )
     changed = raw + extra
     findings = check_file_bytes(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
-    expected = [f"{rel}:272", f"{rel}:2972"]  # AMENDED 2026-10-11: was 259, 2841
+    expected = [f"{rel}:271", f"{rel}:2971"]  # AMENDED 2026-10-11: was 259, 2841; then 272, 2972 (A-1 root import)
     if change != "one byte appended":
         last_line = changed.count(b"\n")
         expected.append(f"{rel}:{last_line}")

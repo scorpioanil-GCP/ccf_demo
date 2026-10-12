@@ -187,13 +187,12 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
-from ccf.deployment.classes import resolve_artifact_class
 from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.provenance import EffectiveRequest
 from ccf.replay.record import PolicyBinding, ResolutionNotApplicable
-from ccf.deployment import BootedFabric, derive_deployment
+from ccf.deployment import BootedFabric, derive_deployment, resolve_artifact_class
 from ccf.graph.backends.fluree import DEFAULT_BRANCH, MAX_DEPTH_CEILING
 from ccf.products.constraints import CAPABILITY_TRAVERSAL_DEPTH, TechnicalCapability
 from ccf.products.provenance import ProvenanceSource

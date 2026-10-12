@@ -388,16 +388,23 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
         # bytes, so the two deployment.py pins move to the repaired file — the
         # same two citation texts, unedited, at their new lines (was 259 and
         # 2841, sha fab1612b…). projection.py is untouched and keeps its pin.
-        line=272,
+        # AMENDED again 2026-10-11 (integration of int2 at cebfb1d5): the
+        # repaired file imported `resolve_artifact_class` through the submodule
+        # `ccf.deployment.classes`, which `tools/docs_tests/test_advisory_discharge.py::
+        # test_a1_no_submodule_import_is_taught_or_demonstrated` refuses (A-1); it
+        # now imports it from the package root, one line fewer above both
+        # citations — same texts, unedited, 272 -> 271 and 2972 -> 2971
+        # (was sha e3db51a4…).
+        line=271,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="e3db51a475639260a5ddd9533dcbc17a990bfbd824c150ca93a55d1d2ec553bf",
+        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
-        line=2972,
+        line=2971,
         citation="worker.py::SpecDrivenEntityResolution.identity",
-        sha256="e3db51a475639260a5ddd9533dcbc17a990bfbd824c150ca93a55d1d2ec553bf",
+        sha256="c28e12d2988eccba58fce97f311be54697fca58fdf7bfaf61edf3990606db887",
         reason=_CP04_REASON,
     ),
     PinnedCitation(
