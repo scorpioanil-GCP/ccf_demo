@@ -1135,16 +1135,22 @@ def build_artifact_server(
         Every refusal past the guard is :class:`SubjectMatchRefused` with
         :data:`SUBJECT_MATCH_REFUSED`, whatever refused.
 
-        **Judged only where the caller's tenant filed the address on its client
-        lane.** An address it never filed (another tenant's, or none), and one
-        it filed under a class the substrate declares under ``ReplayMint`` —
-        governed evidence, read only through the governed dereference — answer
-        ``subject-unverifiable`` without a byte read. Otherwise the bytes are
-        read from the substrate for this judgment only, as the in-process door
-        reads them from its unconsulted store, re-hashed against the address
-        before anything is judged, and never leave this function: the answer
-        is :class:`~ccf.erasure.SubjectMatchAnswer`, one verdict. Every answer
-        appends one ``authz_decision`` audit event naming the address.
+        **Judged where :func:`the_door_may_judge` lets the door judge** (design
+        1.3, 5 (B), under Dave's 2026-10-09 10:54 MST Q1 (b)): an address the
+        caller's tenant filed on its client lane, and a record the tenant's
+        record writer filed (with or without a client twin), which reaches the
+        in-process door's outcome. An address the tenant never filed (another
+        tenant's, or none), governed evidence that is not a record at its
+        address (a query pin, an admitted child contract, a child question), and
+        every client twin of such evidence answer ``subject-unverifiable``.
+        Where the door may judge, the bytes are read from the substrate for this
+        judgment only, as the in-process door reads them from its unconsulted
+        store; :func:`~ccf.erasure.judge_subject` re-hashes them against the
+        address before anything is judged, and they never leave this function:
+        the answer is :class:`~ccf.erasure.SubjectMatchAnswer`, one verdict.
+        Every answer appends one ``authz_decision`` audit event naming the
+        address. (Corrected 2026-10-12 after the batch's focused review: this
+        paragraph had kept the pre-1.3 rule.)
         """
         verify(authorized, kind=ArtifactSubjectMatch, resource=ArtifactSubjectMatch.action_id)
         query = the_doors_query(
