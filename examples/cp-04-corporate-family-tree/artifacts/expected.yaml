@@ -839,9 +839,26 @@ declaration:
   # is the whole content of the pin: a re-seal that collapsed the two would
   # have made the role cosmetic while every roster stayed green, which is the
   # regression Dave asked these values to stand against.
+  #
+  # RE-SEALED 2026-10-11 (compatibility repair, Dave's ruling 3 of 2026-10-11;
+  # examples/AMENDMENTS-2026-10-11.md), for the named causes the repair carries
+  # and no other: the product is now sealed by the SDK's governed resolver
+  # (the hand-composed gates/record/serve no longer exist on the SDK surface),
+  # its class declares `ttl_anchor: from_decision` (the expiry it always
+  # served), and the recorded question carries the `families` binding argument.
+  # THE PAYLOAD DID NOT MOVE: the served payload at the demonstration question
+  # was compared key for key against `page/run-transcript.txt` (the published
+  # run) and is identical. Read off the shipped caller against the LIVE estate
+  # (Fluree `fibo-v2`, PostgreSQL `ccf_v2`), one run per role, from the
+  # program's own `content address` line:
+  #
+  #   credit-officer  fad6e55d…  ->  ce668a7e…
+  #   kyc-analyst     79733117…  ->  69144770…
+  #
+  # Still two different values, and the detailed counts still 22 and 0.
   perspective_content_addresses:
-    credit-officer: "fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7"
-    kyc-analyst: "79733117121056fe40c6c095e4f7ff7ec6be33b884676fa4e60b38d43979bac8"
+    credit-officer: "ce668a7ef64de2a0b7e76f43654462bcd90aed19caf5edbe44f00259c7eb919c"
+    kyc-analyst: "691447702fc92fc71837658eca372ed8b67e208a7e281b38422c763a8db03f27"
 
   # ---- `D_c` at two depths — the close-panel Finding 1 pin ----------------
   #

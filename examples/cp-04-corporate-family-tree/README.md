@@ -76,6 +76,29 @@ callers, one seal.
 
 ## Run it
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). This specimen now serves through the
+> SDK's governed resolver (`ccf.products.resolver.build_governed_resolver`):
+> since `D-IMPL-353`/`D-IMPL-354` a deployment can no longer register its own
+> Control Plane entries or construct its own replay writers. The question, the
+> depth, the walk, the TTL window and the payload are unchanged — the served
+> payload at the demonstration question was compared key for key with
+> `page/run-transcript.txt` and is identical (22 members, 4 findings, the
+> cycle and the duplicate pair; `D_c = 0.0909`). What changed around it:
+> `intent` is no longer also a request argument (`D-IMPL-264` D-01); the family
+> reaches the policy operator through a declared request binding (`families`,
+> filled from the subject by the deployment) and the depth bounds the ingest,
+> because the resolver reads only declared operator parameters; the class
+> declares `ttl_anchor: from_decision`, the expiry it always served; and
+> `ccf_config.yaml` declares the now-mandatory `temporal_boundary:` and a
+> labeled `demonstration_serve_instant:` at the question's own instant
+> (honored only on the SDK's own development backends, pinned on every record).
+> The content addresses moved for those causes (see `artifacts/expected.yaml`,
+> `CFT-G16`). **The MCP door (`server/`) does not run**: it registers its own
+> entitlement policy, which needs a capability only an SDK composition root can
+> mint, and no supported path exists for a hand-composed door (recorded as an
+> SDK need). The text of this README before the amendment is in git.
+
 **1 · Create the virtual environment.** This repository has no `python` on
 `PATH`; the `Makefile` uses `.venv/bin/python`, and nothing creates it for you.
 

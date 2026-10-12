@@ -23,7 +23,6 @@ import dataclasses
 import importlib.util
 import os
 import pathlib
-import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -33,13 +32,32 @@ from typing import Any
 
 import pytest
 
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_base import frozen_digest
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-04-canonical-corporate-family-tree"
 SPECIMEN = REPO_ROOT / "examples" / "cp-04-corporate-family-tree"
+#: The specimen files the 2026-10-11 amendments changed (CFC-G09 names them),
+#: and the content digest of every OTHER tracked file of the specimen
+#: (`tests/examples/specimen_base.py::frozen_digest`; verified byte-identical
+#: to the branch point fd902e27 when pinned).
+SPECIMEN_AMENDED = frozenset(
+    {
+        "README.md",
+        "artifacts/expected.yaml",
+        "artifacts/question.yaml",
+        "assembler.py",
+        "backends.yaml",
+        "ccf_config.yaml",
+        "deployment.py",
+        "produce.py",
+        "server/compose.py",
+        "transport.py",
+    }
+)
+SPECIMEN_FROZEN_DIGEST = "75c0d4d9082a0ab0a072ced0a362f8ec1730ecb188680c6cfce6e209f3f60ecb"
 
 #: The family this example demonstrates against, read from the example rather
 #: than restated: a constant here would be this module agreeing with itself.
@@ -446,14 +464,21 @@ def test_the_specimen_is_untouched() -> None:
     the specimen exists to be.
 
     Declared product gate `CFC-G09` (`CP-SPEC-004C` §G.1).
-    """
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
 
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11: compatibility repairs
+    to the frozen cp-00..cp-05 specimens authorized; `examples/AMENDMENTS-2026-10-11.md`).
+    The specimen is no longer untouched: the SQLite identity-lock migration
+    changed `backends.yaml` and `deployment.py`, and the governed-resolver
+    repair changed the files named in :data:`SPECIMEN_AMENDED`. The pin
+    therefore NAMES them and asserts that every other tracked file of the
+    specimen is byte-for-byte its frozen self, by content digest — the same
+    verdict on any branch, before and after a merge, rather than a diff
+    against whatever commit the branch happened to leave main at.
+    """
+    assert frozen_digest(REPO_ROOT, SPECIMEN, amended=SPECIMEN_AMENDED) == SPECIMEN_FROZEN_DIGEST, (
+        "a file of the frozen specimen outside the 2026-10-11 amendment"
+        f" {sorted(SPECIMEN_AMENDED)} was changed, added or removed"
+    )
 
 
 def test_no_specimen_identity_is_reused(at_depth_three: Any) -> None:

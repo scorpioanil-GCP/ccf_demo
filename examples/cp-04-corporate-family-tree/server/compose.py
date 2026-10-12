@@ -309,6 +309,8 @@ def build_resolver(
                 perspective=perspective,
                 assembler_id=product.assembler_id,
                 assembler_version=product.assembler_version,
+                # AMENDED 2026-10-11: what resolution established, when it ran.
+                resolution=product.resolutions[-1] if product.resolutions else None,
             )
 
         # `seen` is this call's own observer log and never a shared history, so

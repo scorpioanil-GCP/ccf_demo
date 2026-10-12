@@ -65,7 +65,7 @@ from ccf.products.constraints import (
     ReferencePolicyConstraintResolver,
     TechnicalCapability,
 )
-from ccf.products.refusal import SubjectUnavailableRefusal
+from ccf.products.refusal import RefusalEnvelope, SubjectUnavailableRefusal
 from ccf.products.request import (
     AnchorAmbiguityRefusal,
     ProductRequest,
@@ -178,6 +178,13 @@ class FamilyTreeAssembler:
         default_factory=lambda: dict(deployment.unsupported_arguments())
     )
     observer: Callable[[object], None] = field(default=_unobserved)
+    #: AMENDED 2026-10-11 (compatibility repair): the resolution evidence of
+    #: the last question this assembler resolved — complete on success, partial
+    #: on a refusal (`ResolutionOutcome.evidence`, D-IMPL-264 D-08). A refusal
+    #: recorder needs it: a refusal's record carries what resolution
+    #: established (D-07), and the paired outcome is no longer a union this
+    #: seam can return beside the refusal.
+    resolutions: list[Any] = field(default_factory=list, compare=False)
 
     @property
     def assembler_id(self) -> str:
@@ -304,6 +311,12 @@ class FamilyTreeAssembler:
             perspective=perspective,
             intent=request.intent,
             tenant=tenant_id,
+            # AMENDED 2026-10-11 (compatibility repair): `served_at` became a
+            # required keyword (D-IMPL-358 step 5). The deployment's serve
+            # instant — its declared demonstration instant when it declares
+            # one, the live clock otherwise — so constraint effectivity is
+            # judged at the same instant the governed resolver serves at.
+            served_at=deployment.serve_instant(),
             capabilities=(
                 TechnicalCapability(
                     capability=CAPABILITY_TRAVERSAL_DEPTH,
@@ -321,11 +334,16 @@ class FamilyTreeAssembler:
         # capability the answer is `constraint-refusal` with
         # `bound.authority == "technical"`, so a consumer learns what they
         # asked for AND what the boundary was.
-        if isinstance(
-            effective,
-            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
-        ):
-            return effective
+        #
+        # AMENDED 2026-10-11 (compatibility repair): `resolve` now returns ONE
+        # shape — a `ResolutionOutcome` carrying the evidence and, when the
+        # resolution did not complete, the governed refusal beside it
+        # (D-IMPL-264 D-08). The refusal is returned exactly as before; the
+        # effective request is the outcome's evidence.
+        self.resolutions.append(effective.evidence)
+        if outcome_refusal := effective.refusal:
+            return outcome_refusal
+        effective = effective.evidence
         resolved_depth = effective.parameter(deployment.PARAM_MAX_DEPTH)
         # The SDK's own step 5 held every effective value to the declared
         # surface, so an `int` here is a fact the resolution established rather
@@ -364,6 +382,12 @@ class FamilyTreeAssembler:
         # bad question, not a broken deployment, and a verdict returned as a
         # value cannot be swallowed by a bare `except`.
         if isinstance(assembled, ProductRequestViolation):
+            return assembled
+
+        # AMENDED 2026-10-11: a refusal the governed resolver reached is
+        # returned as the RECORDED envelope it already is (its replay reference
+        # resolves) — never re-recorded and never raised.
+        if isinstance(assembled, RefusalEnvelope):
             return assembled
 
         # A declared-but-inert parameter is refused by the SDK's own tier step —
