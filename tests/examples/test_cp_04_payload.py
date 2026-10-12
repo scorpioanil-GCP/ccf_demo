@@ -112,6 +112,7 @@ import ast
 import importlib
 import json
 import pathlib
+import re
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -515,7 +516,9 @@ def _refusal_record(root: pathlib.Path, reference: str) -> Mapping[str, Any] | N
     if not reference or reference == NO_REPLAY_REFERENCE:
         return None
     deployment = _load("deployment")
-    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    # AMENDED 2026-10-11: `FileArtifactStore` requires `write_kinds`
+    # (D-IMPL-353 §1.2); the deployment's own declared store, read only.
+    store = deployment.artifact_store(root=root)
     try:
         name = parse_artifact_uri(reference)
         return dict(
@@ -579,10 +582,6 @@ def asked_with_as_of(estate: tuple[str, str]) -> Asked:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_seed_carries_what_these_six_gates_need(served: Asked) -> None:
     """Without this, a green gate could be a true statement about nothing.
 
@@ -813,10 +812,6 @@ def inert_parameter_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_cft_g06_as_of_is_refused_not_supported_at_tier(
     asked_with_as_of: Asked,
 ) -> None:
@@ -1038,10 +1033,6 @@ def cycle_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g07_a_cycle_carries_type_ordered_members_and_closing_edge(
     served: Asked,
 ) -> None:
@@ -1208,10 +1199,6 @@ def orthogonality_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g08_findings_are_orthogonal_to_the_tree(served: Asked) -> None:
     """`CFT-G08` (criterion 32). Findings are orthogonal to the tree.
 
@@ -1339,10 +1326,6 @@ def unresolved_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster(
     served: Asked,
 ) -> None:
@@ -1588,10 +1571,6 @@ def class_chain_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g15_each_served_node_carries_its_fibo_class_chain(served: Asked) -> None:
     """`CFT-G15` (criterion 39). Ontology role 2 — the chain is SERVED.
 
@@ -1708,10 +1687,6 @@ def test_the_chain_check_refuses_a_wrong_chain_that_is_not_empty() -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_no_cycle_two_member_reaches_a_served_payload(served: Asked) -> None:
     """Why `CFT-G15` asserts content for ONE cycle and not for two — measured.
 
@@ -2126,10 +2101,6 @@ def mutated_views(estate: tuple[str, str]) -> tuple[str, Mapping[str, Asked]]:
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g16_perspective_conditions_on_fibo_class(
     views: Mapping[str, Asked], mutated_views: tuple[str, Mapping[str, Asked]]
 ) -> None:
@@ -2682,10 +2653,6 @@ def duplicate_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_duplicate_pair_is_surfaced_by_the_product(served: Asked) -> None:
     """Criterion 10, PRODUCT half. The same company entered twice is SURFACED.
 
@@ -2782,10 +2749,6 @@ def test_the_duplicate_check_refuses_a_merged_pair() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_served_anchor_is_a_member_of_the_served_tree(served: Asked) -> None:
     """The payload's anchor is in its own `nodes` block, by name.
 
@@ -2830,3 +2793,51 @@ def test_the_anchor_check_admits_the_compliant_shape() -> None:
     """**Compliance control.** A later limb cannot quietly forbid the real case."""
     projection = _load("projection")
     projection.refuse_unadmitted_anchor("x://anchor", admitted={"x://anchor", "x://b"})
+
+
+# ---------------------------------------------------------------------------
+# AMENDED 2026-10-11 — the expired question, as an ORDINARY passing test
+# (Dave, ruling 1 of 2026-10-11: "Keep an expired-question case as a normal
+# test that asserts the correct refusal").
+# ---------------------------------------------------------------------------
+
+
+def test_the_dated_question_on_the_live_clock_is_refused_by_name(
+    estate: tuple[str, str], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The demonstration question, served on the REAL clock, is refused — by name.
+
+    `ccf_config.yaml` declares a labeled `demonstration_serve_instant:` at the
+    question's own instant (2026-08-31T12:00Z), which is why the default
+    command serves. Remove that one declaration — a copy of the config, nothing
+    else changed — and the governed resolver judges the same question at the
+    live clock: the tenant's declared temporal boundary refuses an `asked_at`
+    weeks in the past, `temporal-bound-refusal / asked-at-outside-temporal-bound`,
+    as a RECORDED governed determination and never a served tree. The control
+    is the default question itself, which must serve, so the refusal is
+    evidence about the clock rather than about a broken ask.
+    """
+    deployment = _load("deployment")
+    served = ask(asked_as="the demonstration question, demonstration clock")
+    assert served.payload is not None, served.refusal
+
+    # A TEXT copy, so the config's comments (which the deployment reads for
+    # its source-vocabulary pointer) survive; only the declaration is removed.
+    text = deployment.CONFIG.read_text(encoding="utf-8")
+    declared = re.search(
+        r"^demonstration_serve_instant:\n(?:[ ]+.*\n?)+", text, flags=re.M
+    )
+    assert declared, (
+        "the config declares no demonstration serve instant, so this control"
+        " would not be removing the one thing it is about"
+    )
+    live = tmp_path / "ccf_config.yaml"
+    live.write_text(text[: declared.start()] + text[declared.end():], encoding="utf-8")
+    assert "demonstration_serve_instant" not in yaml.safe_load(live.read_text(encoding="utf-8"))
+    monkeypatch.setattr(deployment, "CONFIG", live)
+
+    refused = ask(asked_as="the demonstration question, live clock")
+    assert refused.payload is None, "a stale question was SERVED on the live clock"
+    assert refused.refusal is not None
+    assert "asked-at-outside-temporal-bound" in refused.refusal, refused.refusal
+    assert refused.record is not None, "the refusal reached the caller with no record behind it"

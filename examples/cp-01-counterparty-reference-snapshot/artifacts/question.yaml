@@ -61,7 +61,15 @@ declaration:
   # The value is unchanged, and so is this product's content address: the debt
   # tolerance decides whether the product is SERVED, never what it CONTAINS
   # (spec §E.3), so it is not in the payload the address is taken over.
-  debt_tolerance: "0.25"
+  # ILLUSTRATIVE CALIBRATION (Dave, 2026-10-11 17:34 and 17:51: "raise the tolerance so they serve";
+  # "approved to move all tolerances as required to demonstrate the examples").
+  # This example runs against a point-in-time demonstration estate rather than continuously
+  # refreshed production data. The default debt tolerance is set just above the measured
+  # Context Debt of the dated demonstration question (D_c 0.2929) so the governed answer is served;
+  # it was 0.25 until 2026-10-11, which the SDK now enforces and which refuses this question
+  # `tolerance-exceeded` (kept as an ordinary passing test). It demonstrates how the SDK
+  # applies a caller's tolerance and is not a recommended production value.
+  debt_tolerance: "0.30"
 
   # Spec §B.4. `false` excludes an entity whose registration has lapsed rather
   # than returning it unflagged, which is the whole point of the parameter.

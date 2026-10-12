@@ -39,6 +39,20 @@ what the documentation page's ``--8<--`` includes address, and they are opened
 in the order the fabric is called in — `boot`, `ingest`, `operators`, `project`,
 `gate`, `record`, `serve`. Step 3 fills the stub's regions; it does not
 renumber them.
+
+AMENDED 2026-10-11 — compatibility repair (Dave, ruling 3 of 2026-10-11 16:23
+MST; ``examples/AMENDMENTS-2026-10-11.md``). Everything above describes the
+spine as it was frozen and is kept as that record. Its hand-composed half —
+registering the MaxTTL and request contract, running the gates, building the
+record, constructing the replay and query-pin writers, and overwriting the
+policy operator's resolved parameters per principal — no longer exists on the
+SDK's surface (``D-IMPL-353``/``D-IMPL-354``; ``D-IMPL-295``). Steps 3–9 now
+run inside :func:`~ccf.products.resolver.build_governed_resolver`, over the
+same declared operator, the same Π and the same D_c; the per-principal grant
+reaches the operator as a governed request binding. The regions follow the
+SDK's canonical shape (``D-IMPL-306``): ``boot``, ``acquire`` (the read, the
+request check and the ingest), ``govern``. Both refusals-as-data above are
+unchanged. The original text of this file is in git at the branch point.
 """
 
 from __future__ import annotations
@@ -50,30 +64,28 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.controlplane.artifacts import ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric, build_operator_registry, load_config_and_boot
+from ccf.deployment import BootedFabric, load_config_and_boot
+from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtAssessment
-from ccf.products.contract import (
-    ContextProductContract,
-    MaxTTL,
-    ProductLineage,
-    register_product_class,
-)
-from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from ccf.products.contract import ContextProductContract
+from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
     ProductRequestViolation,
     refuse_request,
 )
-from ccf.projection.engine import ProjectionEngine
+from ccf.products.resolver import build_governed_resolver
 from ccf.projection.plan import ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
-from ccf.replay.serve import QueryPinWriter, ReplayWriter, ServedProduct, serve
+from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
-
 
 class Scenario(Protocol):
     """What this spine asks a deployment to supply.
@@ -107,6 +119,19 @@ class Scenario(Protocol):
 
     @property
     def policy_bundle_key(self) -> str: ...
+
+    # AMENDED 2026-10-11: what the governed resolver is wired with.
+    @property
+    def product_class_key(self) -> str: ...
+
+    @property
+    def half_life_key(self) -> str: ...
+
+    @property
+    def ttl_seconds(self) -> int: ...
+
+    @property
+    def effective_request(self) -> ProductRequest: ...
 
     @property
     def plan_id(self) -> str: ...
@@ -190,12 +215,30 @@ class Assembled:
     tenant_id: str
     scenario: Scenario
     product: ContextProductContract
-    gated: ServableProduct
+    #: AMENDED 2026-10-11: the resolver's delivery — a ``ServedProduct``,
+    #: produced only by ``DeliveryCapability.deliver`` over a
+    #: ``ServableProduct`` after the record is appended. Holding it, with its
+    #: record readable from the store, is the evidence the gates ran.
+    gated: ServedProduct
     operators_invoked: frozenset[str]
     view: GraphView
     record: DecisionReplayRecord
     served: ServedProduct
     store: FileArtifactStore
+
+
+class GovernedRefusal(RuntimeError):
+    """The governed resolver refused a question this class otherwise answers.
+
+    AMENDED 2026-10-11. Before the repair a gate refusal raised a bare
+    ``RuntimeError`` naming the refusal; the resolver now returns it as a
+    :class:`~ccf.products.refusal.RefusalEnvelope`, carried here so a caller
+    can read its reason and replay reference.
+    """
+
+    def __init__(self, envelope: RefusalEnvelope) -> None:
+        super().__init__(f"the governed resolver refused this question: {envelope!r}")
+        self.envelope = envelope
 
 
 def assemble_and_serve(
@@ -208,7 +251,12 @@ def assemble_and_serve(
     root: Path,
     unsupported: Mapping[str, str] | None = None,
 ) -> Assembled | ProductRequestViolation | AnchorUnresolvable:
-    """Answer one question, end to end, against ``root`` as scratch space."""
+    """Answer one question, end to end, against ``root`` as scratch space.
+
+    Raises:
+        GovernedRefusal: the governed resolver refused a question that conforms
+            to the request contract (AMENDED 2026-10-11).
+    """
     registry = ControlPlaneRegistry()
 
     # --8<-- [start:boot]
@@ -222,6 +270,7 @@ def assemble_and_serve(
     booted = load_config_and_boot(config, registry=registry, connection=connection)
     # --8<-- [end:boot]
     try:
+        # --8<-- [start:acquire]
         # The one line that crosses the deployment seam: the deployment names
         # its own artifact keys, reads its own store, and hands back this
         # question's values.
@@ -235,219 +284,124 @@ def assemble_and_serve(
         if scenario is None:
             return AnchorUnresolvable(anchor=request.subject)
 
-        # THE DOOR, and this spine is the RESOLVER standing at it. Checked
-        # before the graph is touched, so a question this class does not answer
-        # costs nothing and returns a reason rather than an approximation.
-        # `intent` and `debt_tolerance` are REQUIRED with no default (§B.4), so
-        # a request omitting either is refused here as data.
+        # THE DOOR's first check, kept here so a question this class does not
+        # answer is still returned as a `ProductRequestViolation` before the
+        # graph is touched. `debt_tolerance` is REQUIRED with no default (§B.4).
+        # The resolver repeats the check over the effective request.
         violation = refuse_request(
             request=scenario.request, declared=scenario.request_contract
         )
         if violation is not None:
             return violation
 
-        # --8<-- [start:ingest]
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3
         #    anywhere in this process (single-writer, CLAUDE.md §10,
         #    INV-CH7-10). The Postgres estate this deployment READ from is not
-        #    reachable from here at all: the fabric's write path leads into the
-        #    fabric's own state and nowhere else.
+        #    reachable from here at all.
         #
-        #    ONE ENVELOPE, and `deployment.source_read` says why at length. The
-        #    obvious alternative — one envelope per signal class so annual and
-        #    quarterly facts carry their own `observed_time` — does not survive
-        #    contact with L2: all of them share this product's single
-        #    `match_key`, so the idempotent upsert merges them into one entity
-        #    and the last write wins.
+        #    ONE ENVELOPE, and `deployment.source_read` says why at length: every
+        #    signal class shares this product's single `match_key`, so the
+        #    idempotent upsert would merge them into one entity anyway.
         for envelope in scenario.envelopes:
             booted.handle.worker.ingest(envelope)
-        # --8<-- [end:ingest]
+        # --8<-- [end:acquire]
 
-        # --8<-- [start:operators]
-        # 3. The graph view at the boundary this deployment named — the
-        #    request's own `asked_at`, never a clock, so replay feeds the same
-        #    instant back through the same code path.
-        view = booted.handle.reader.as_of(
-            tenant_id=booted.tenant_id, at=scenario.temporal_boundary
-        )
+        # --8<-- [start:govern]
+        # 3. Π at L5, constructed by the fabric from the `required` set the SDK
+        #    hands it — the product class's own document — so there is no
+        #    second authored operator set to diverge from. A NAMED function, so
+        #    a static check can read that its only operator source is
+        #    `required`. The D_c is this deployment's own, measured over the
+        #    per-period filing dates (the view is kept only as the last
+        #    readable evidence the write path executed).
+        witnessed: dict[str, GraphView] = {}
 
-        # 4. The L4 registry, built from WHATEVER parameter sets the deployment
-        #    declared. This product declares ONE — `policy.principal-subgraph`,
-        #    carrying the calling principal's EXPANDED jurisdiction grant — and
-        #    gets a one-operator registry. `OFS-G10` asserts the count is
-        #    exactly one and that nothing named `Enrich` is registered: §D.2.1
-        #    ruled the attribute batch-select to be L2 assembly rather than an
-        #    operator, because `Enrich` does not exist in `src/` and forcing it
-        #    into one of the four canonical categories would make the lineage
-        #    record say something untrue. If the eight-member vocabulary is
-        #    later adopted, that gate turns RED — and the redness is the signal
-        #    to reopen the question, not a regression.
-        #
-        #    The admitted policy-bundle version is looked up from the pins
-        #    here, never written into any document.
-        operators = build_operator_registry(
-            parameters=scenario.operator_parameters,
-            view=view,
-            pins=booted.pins,
-            policy_bundle_key=scenario.policy_bundle_key,
-        )
-        # --8<-- [end:operators]
+        def plan_factory(
+            *, required: tuple[str, ...], request: ProductRequest
+        ) -> ProjectionPlan:
+            return plan_class(
+                plan_id=scenario.plan_id, required=required, scenario=scenario
+            )
 
-        # --8<-- [start:project]
-        # 5. Π at L5. The plan's required set comes from the product class's
-        #    own document, so there is no second authored set to diverge from.
-        plan = plan_class(
-            plan_id=scenario.plan_id,
-            required=tuple(scenario.product_class.required_operator_keys),
-            scenario=scenario,
-        )
-        execution = ProjectionEngine(
-            reader=booted.handle.reader, registry=operators
-        ).execute(
-            plan=plan,
-            perspective=scenario.perspective,
-            tenant_id=booted.tenant_id,
-            temporal_boundary=scenario.temporal_boundary,
-        )
-        # --8<-- [end:project]
+        def debt_scorer(*, view: GraphView, evidence: object = None) -> DebtAssessment:
+            witnessed["view"] = view
+            return scenario.debt()
 
-        # --8<-- [start:gate]
-        # 6. L6. Registering the MaxTTL value is what MINTS `max_ttl_version` —
-        #    the pin is a content hash of what was registered, which is why the
-        #    class document cannot declare it and why the ceiling reaches this
-        #    call through the deployment rather than through the class.
-        declared = scenario.product_class
-        max_ttl_version = registry.register(
-            declared.max_ttl_key, MaxTTL(seconds=scenario.max_ttl_seconds)
+        # 4. The governed resolver. It registers this class's MaxTTL and
+        #    request surface from the deployment's declarations, builds the ONE
+        #    declared operator (`policy.principal-subgraph`, its admitted set
+        #    bound to the effective request's `jurisdictions`), runs Π, holds
+        #    the claimed lineage to what ran, runs the three L6 gates — the
+        #    `ttl-bounds` refusal over the latest filing is gate 3's, as before
+        #    — and appends the record BEFORE anything is delivered.
+        store = FileArtifactStore(
+            root=root / scenario.artifact_store_dirname,
+            write_kinds=WriteKinds.declare(
+                {
+                    scenario.replay_record_class: (ReplayMint,),
+                    scenario.query_pin_class: (ReplayMint,),
+                    ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                }
+            ),
         )
-        request_contract_version = registry.register(
-            scenario.request_contract_key, scenario.request_contract
-        )
-        product_class = register_product_class(
-            registry=registry,
-            schema_name=declared.schema_name,
-            schema_version=declared.schema_version,
-            ttl_anchor=declared.ttl_anchor,
-            assembly_mode=declared.assembly_mode,
-            max_ttl_key=declared.max_ttl_key,
-            max_ttl_version=max_ttl_version,
+        resolve = build_governed_resolver(
+            fabric=booted,
+            control_plane=registry,
+            product_class_key=scenario.product_class_key,
             request_contract_key=scenario.request_contract_key,
-            request_contract_version=request_contract_version,
+            operator_parameter_keys=tuple(scenario.operator_parameters),
+            policy_bundle_key=scenario.policy_bundle_key,
+            plan_factory=plan_factory,
+            debt_scorer=debt_scorer,
+            # The λ_c table the `from_entity_freshness` expiry runs from.
+            evidence_clock_key=scenario.half_life_key,
+            artifact_store=store,
+            # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+            erasure_trust=ErasureTrust(authorities={}),
+            erasure_index=erasure_index_at(store.root),
+            replay_record_class=scenario.replay_record_class,
+            query_pin_class=scenario.query_pin_class,
+            max_ttl_seconds=scenario.max_ttl_seconds,
+            product_ttl_seconds=scenario.ttl_seconds,
         )
 
-        # 7. The lineage the product CLAIMS — filled from the DECLARATION,
-        #    never from `execution`. A claim copied out of the execution record
-        #    is not a claim, it is a transcript. Gate 2 then holds the two to
-        #    strict equality, IN BOTH DIRECTIONS, so a declared operator that
-        #    did not run and an operator that ran undeclared are both refusals.
-        policy_version = booted.pins.version_for(scenario.policy_bundle_key)
-        candidate = ContextProductContract(
-            schema_name=product_class.schema_name,
-            schema_version=product_class.schema_version,
-            plan_id=execution.plan_id,
-            tenant_id=booted.tenant_id,
-            temporal_boundary=scenario.temporal_boundary,
-            expires_at=scenario.expires_at,
-            ttl_anchor=product_class.ttl_anchor,
-            lineage=ProductLineage(
-                operators_invoked=frozenset(declared.required_operator_keys),
-                policy_bundle_versions=frozenset({policy_version}),
-                graph_snapshot_at=scenario.temporal_boundary,
-            ),
-            payload=execution.projection.payload,
-            # HOW MUCH TO TRUST THE ANSWER, delivered WITH the answer and
-            # therefore inside its content address. Measured over the periods
-            # this question assembled — two decay rates at once where the
-            # spread mixes an annual with a current quarter.
-            debt=scenario.debt(),
-        )
-        # A refusal is not a thing to proceed past. `ServableProduct` is not
-        # constructible outside `run_gates` (INV-CH7-52) — and the branch below
-        # being REACHABLE is what makes that evidence rather than an assumption.
-        #
-        # `ttl-bounds` REFUSES 27 OF THE 50 OBLIGORS IN THIS ESTATE, and the
-        # refusal is raised rather than routed around. The expiry is the
-        # payload's latest `filed_date` plus the declared window, so an obligor
-        # whose last filing predates that window has a spread that has expired
-        # — which is the correct answer about a company that stopped filing.
-        #
-        # §E.1.1 IS WHY THIS RUNG AND RUNG 02 ARE READ TOGETHER. Rung 02
-        # anchors on a credit agreement's effective date, which can never
-        # advance, and refuses 50 of 60 PERMANENTLY. This rung anchors on
-        # `filed_date`, which moves every quarter, so its 27 refusals CLEAR AS
-        # FILERS FILE. Same primitive, opposite behavior, and the difference is
-        # entirely whether the anchored field is re-observed. Widening the
-        # window here, or quietly re-anchoring on `asked_at`, would make the
-        # numbers look healthy and retire the primitive — `OFS-G09` is the gate
-        # that turns RED if anyone does.
-        match run_gates(
-            candidate,
-            engine_resolved=execution.operators_invoked,
-            now=scenario.now,
-            registry=registry,
-            product_class=product_class,
-        ):
-            case ServableProduct() as gated:
-                pass
-            case refusal:
-                raise RuntimeError(
-                    f"the three validation gates refused this product: {refusal}"
-                )
-        # --8<-- [end:gate]
-
-        # --8<-- [start:record]
-        # 8. Replay BEFORE delivery. `policy_bindings` is built here, by the
-        #    adopter, because dimension 2 assembled by a rule nobody in the
-        #    deployment wrote down is not an audit record.
-        #
-        #    THE RESTATEMENT IS WHAT MAKES REPLAY FALSIFIABLE HERE (§D.5). A
-        #    replayed decision over a since-restated period must reproduce the
-        #    figure AS IT STOOD at decision time, not today's. Rungs 01 and 02
-        #    had to record that fixture as needing an estate condition nobody
-        #    had supplied; this estate holds 321 of them.
-        record = build_replay_record(
-            execution=execution,
-            product=gated.product,
+        # 5. Ask. A refusal is a value; this specimen promises a served answer,
+        #    so a refusal is raised by name with its envelope.
+        served = resolve(
+            tenant=booted.tenant_id,
+            product_class=scenario.product_class.schema_name,
+            version=scenario.product_class.schema_version,
             perspective=scenario.perspective,
-            policy_bindings=(
-                PolicyBinding(key=scenario.policy_bundle_key, version=policy_version),
-            ),
-            assembly_mode=declared.assembly_mode,
-            recorded_at=scenario.now,
-            # WHICH QUESTION THIS DECISION ANSWERED, in the record itself —
-            # including `basis`, so replay re-asks the same question rather
-            # than a similar one. Two `basis` values over a restated obligor
-            # are two different answers and `OFS-G11` holds them to two
-            # different content addresses.
-            request=scenario.request,
+            request=scenario.effective_request,
         )
-        # --8<-- [end:record]
-
-        # --8<-- [start:serve]
-        # 9. The record is persisted BEFORE the product is delivered, and
-        #    delivery is what the successful append returns — no branch reaches
-        #    a served product without a recorded decision (INV-CH7-79).
-        store = FileArtifactStore(root=root / scenario.artifact_store_dirname)
-        served = serve(
-            product=gated,
-            record=record,
-            replay_writer=ReplayWriter(
-                store=store, artifact_class=scenario.replay_record_class
-            ),
-            query_pin_writer=QueryPinWriter(
-                store=store, artifact_class=scenario.query_pin_class
-            ),
-            executed_queries=execution.executed_queries,
+        if not isinstance(served, ServedProduct):
+            # §B.2: A SUPPRESSED OBLIGOR MUST READ EXACTLY LIKE AN ABSENT ONE.
+            # Before the repair a principal granted nothing received a product
+            # with no obligor in it, which the assembler then refused as the
+            # §D.2 404. The resolver now anchors the expiry on the admitted
+            # view, so the same principal's question is refused one step
+            # earlier — no evidence instant in an empty view — with its record
+            # written. The caller receives the 404 an absent obligor receives;
+            # the audit plane keeps the account.
+            admitted = witnessed.get("view")
+            if served.reason == "ttl-anchor-unresolvable" and admitted is not None and not any(
+                True for _ in admitted.entities
+            ):
+                return AnchorUnresolvable(anchor=request.subject)
+            raise GovernedRefusal(served)
+        record = DecisionReplayRecord.model_validate_json(
+            store.get(content_address=served.replay_ref.content_address)
         )
-        # --8<-- [end:serve]
+        # --8<-- [end:govern]
 
         return Assembled(
             tenant_id=booted.tenant_id,
             scenario=scenario,
-            product=gated.product,
-            gated=gated,
-            operators_invoked=execution.operators_invoked,
-            view=execution.view,
+            product=served.product,
+            gated=served,
+            # From the RECORD's own account of the plan.
+            operators_invoked=frozenset(record.content_generation_path.operator_plan),
+            view=witnessed["view"],
             record=record,
             served=served,
             store=store,

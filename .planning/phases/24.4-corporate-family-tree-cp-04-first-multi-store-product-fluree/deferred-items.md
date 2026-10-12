@@ -404,7 +404,7 @@ test_no_projecting_body_names_the_binder_without_binding_it[examples/cp-04-corpo
 
 The message names the subject exactly. The tool prints a line anchor and
 this record keeps it verbatim; the symbol it locates is
-`examples/cp-04-corporate-family-tree/produce.py::_project`, and the anchor
+`_project` in `examples/cp-04-corporate-family-tree/produce.py` as it stood at `7c2d6dd` (removed 2026-10-11 by the ruling-3 compatibility repair; see `examples/AMENDMENTS-2026-10-11.md`), and the anchor
 below is reproduced as it stood at `7c2d6dd`:
 
 > `examples/cp-04-corporate-family-tree/produce.py:410: _project() constructs or
@@ -423,7 +423,7 @@ without moving the total.
 `ProjectionEngine.execute`, because the product class's `required_operator_keys`
 and the projection's own are two separately authored documents and the binder is
 the only thing that holds them in agreement. cp-04's
-`examples/cp-04-corporate-family-tree/produce.py::_project` calls neither the
+`_project` in `examples/cp-04-corporate-family-tree/produce.py` as it stood at `7c2d6dd` (removed 2026-10-11 by the ruling-3 compatibility repair; see `examples/AMENDMENTS-2026-10-11.md`) calls neither the
 binder nor qualifies for either declared exemption —
 `RULED_ONE_DOCUMENT_DEPLOYMENTS` (the deployment registers no
 `ccf.projection-requirements` AND the plan's `required=` reads the product

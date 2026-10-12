@@ -156,6 +156,34 @@ filing in the payload. Ask the same question an hour later and the expiry does
 not move. An expiry that tracked the question would make every product
 permanently fresh.
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). The spine now serves through the SDK's
+> governed resolver (`build_governed_resolver`): since `D-IMPL-353`/`D-IMPL-354`
+> a deployment can no longer register its own Control Plane entries, build its
+> own replay writers, or overwrite a resolved operator parameter per principal
+> (the grant now reaches the policy operator as a governed request binding,
+> `D-IMPL-295`). `intent` travels on the request's top-level axis, not as an
+> argument (`D-IMPL-264`). `ccf_config.yaml` declares the now-mandatory
+> `temporal_boundary:` and a labeled `demonstration_serve_instant:` at the
+> question's own instant (2026-08-29T12:00Z). The question, its parameters, the
+> window, the TTL and the debt arithmetic are unchanged.
+>
+> **What the default command now does.** The SDK honors a caller's
+> `debt_tolerance` as requested (`D-IMPL-251` C1=A), which the paragraph below
+> records nothing doing in 2026-08. Asked at the demonstration's former `0.25`,
+> the spread is **withheld**: `refused: tolerance-exceeded`, authority `caller`,
+> with a replay reference — spec §E.2's own promise (*"Breach → 409 with the
+> debt block, not a 200 with a warning"*); `make -s example-cp-03
+> DEBT_TOLERANCE=0.25` shows it. **Illustrative calibration (Dave, 2026-10-11):**
+> the default question now asks with `debt_tolerance` **0.90**, set just above
+> the dated estate's reading, so `make -s example-cp-03` serves the spread
+> exactly as described below — measured 2026-10-11: 16 columns, latest filing
+> 2026-08-05, expires 2026-09-04, `D_c = 0.8782 → fail_closed`. This example runs
+> against a point-in-time demonstration estate rather than continuously
+> refreshed production data; the value demonstrates how the SDK applies a
+> caller's tolerance and is not a recommended production threshold. The
+> paragraph below is kept as the record of the 2026-08-30 ruling.
+
 **Context debt reads `0.8782` → `fail_closed`, and the spread is served
 anyway.** That is deliberate and it is recorded: the signal is advisory at every
 rung of this ladder, and the figure is driven by the width of the history window

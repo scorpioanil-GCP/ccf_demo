@@ -152,15 +152,34 @@ class FacilityAssembler:
                 " different answer"
             )
 
-        assembled = produce.assemble_and_serve(
-            config=self.config,
-            connection=self.connection,
-            read=self.read,
-            plan_class=self.plan_class,
-            request=request,
-            root=self.root,
-            unsupported=self.unsupported,
-        )
+        # AMENDED 2026-10-11 (compatibility repair). The spine now serves through
+        # the SDK's governed resolver, and a Policy-removed entity no longer
+        # reaches this seam as a served `None` payload: the operator admits
+        # nothing, so the evidence-anchored TTL has no instant to run from and
+        # the resolver refuses at gate 3 (`ttl-anchor-unresolvable`) — with a
+        # replay record written, so the audit plane still knows which principal
+        # asked under which policy. That refusal, over an admitted view holding
+        # no entity of this class, is the same outcome the branch below handles,
+        # and it gets the same text a missing entity gets (`D-IMPL-245` (4)).
+        # Every other governed refusal propagates unchanged.
+        try:
+            assembled = produce.assemble_and_serve(
+                config=self.config,
+                connection=self.connection,
+                read=self.read,
+                plan_class=self.plan_class,
+                request=request,
+                root=self.root,
+                unsupported=self.unsupported,
+            )
+        except produce.GovernedRefusal as refused:
+            admitted_nothing = refused.view is not None and not any(
+                record.claim.entity_class == deployment.ENTITY_CLASS
+                for record in refused.view.entities
+            )
+            if refused.envelope.reason == "ttl-anchor-unresolvable" and admitted_nothing:
+                raise AssemblyRefused(_not_available(request.subject)) from None
+            raise
         self.observer(assembled)
 
         # A GOVERNED REFUSAL IS RETURNED, NOT RAISED (D-60). A bad question is a

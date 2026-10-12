@@ -53,7 +53,7 @@ from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.replay.serve import ServedProduct
 from tests.deployment.conftest import write_artifact
-from tests.examples.specimen_base import branch_point
+from tests.examples.specimen_base import frozen_digest
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -63,6 +63,17 @@ pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 WRAPPER = REPO_ROOT / "examples" / "door-cp-05-credit-exposure-rollup"
 SPECIMEN = REPO_ROOT / "examples" / "cp-05-credit-exposure-rollup"
+#: AMENDED 2026-10-11 (Dave, ruling 3 of 2026-10-11; examples/AMENDMENTS-2026-10-11.md):
+#: the frozen specimen's files the compatibility repairs changed — `backends.yaml`
+#: and `deployment.py` (the SQLite identity-lock migration), and `deployment.py`,
+#: `produce.py`, `ccf_config.yaml` and `README.md` (the 2026-10-11 repair to the
+#: current SDK) — and the content digest of EVERY OTHER tracked file of the
+#: specimen (`tests/examples/specimen_base.py::frozen_digest`; verified equal
+#: to the bytes at the branch point fd902e27 when pinned).
+SPECIMEN_AMENDED = frozenset(
+    {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py"}
+)
+SPECIMEN_FROZEN_DIGEST = "68d4669f43df4d5072788acc6b81866c61c49ea7a455c150115875ff49f57601"
 CONSUMER = pathlib.Path(__file__).resolve().parent / "cp_05_door_paved_consumer"
 RUN = WRAPPER / "run.py"
 
@@ -390,10 +401,18 @@ def test_a_genuine_fault_in_the_frozen_tree_still_reads_as_producer_unavailable(
 def test_the_wrapper_is_a_binding_adapter_over_the_standard_door_and_the_specimen_is_untouched() -> None:
     """The wrapper imports the SDK's door and the frozen specimen's own
     `produce_governed`; it re-implements no door, no resolver, no record; and
-    the frozen tree has ZERO files changed by this work."""
-    base = branch_point(REPO_ROOT)
-    changed = subprocess.run(["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.split()
-    assert changed == [], f"the frozen specimen was modified: {changed}"
+    the frozen tree has ZERO files changed by this work.
+
+    AMENDED 2026-10-11: the specimen is no longer untouched — ruling 3's
+    compatibility repairs changed the files `SPECIMEN_AMENDED` names. So the
+    frozen half NAMES them and asserts every other tracked file of the specimen
+    is byte-for-byte its frozen self, by content digest: the same verdict on
+    any branch, before and after a merge, instead of a diff against whatever
+    commit the branch happened to leave main at."""
+    assert frozen_digest(REPO_ROOT, SPECIMEN, amended=SPECIMEN_AMENDED) == SPECIMEN_FROZEN_DIGEST, (
+        "a file of the frozen specimen outside the 2026-10-11 amendment"
+        f" {sorted(SPECIMEN_AMENDED)} was changed, added or removed"
+    )
     forbidden = {"build_egress_server", "build_governed_resolver", "GovernedResolver", "ProducerAssertion", "TokenVerifier", "AuthSettings", "FastMCP", "FileTokenSource", "build_replay_record"}
     serve_tree = ast.parse((WRAPPER / "server" / "serve.py").read_text(encoding="utf-8"))
     adapter_tree = ast.parse((WRAPPER / "adapter.py").read_text(encoding="utf-8"))

@@ -175,7 +175,10 @@ from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
 from tools.lints import matches_module
 from tools.lints.algorithmic import LLM_MODULES
 
-from .cp_04_seed import live_estate
+# AMENDED 2026-10-11: `FLUREE_FIXTURE` restored. d0316820 converted this module
+# to the curated estate and dropped the import while two readers still use it —
+# a NameError the D-IMPL-264 quarantine masked until the specimen was repaired.
+from .cp_04_seed import FLUREE_FIXTURE, live_estate
 from .test_cp_04_two_callers import (
     RECORDS,
     SUBJECT_UNAVAILABLE_KIND,
@@ -752,10 +755,6 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_seed_carries_what_these_five_gates_need(
     observed: Observed, estate: tuple[str, str]
 ) -> None:
@@ -1023,7 +1022,7 @@ class Provenance:
 
 @pytest.fixture(scope="module")
 def provenance(
-    observed: Observed, estate: tuple[str, str], postgres_dsn: str
+    observed: Observed, estate: tuple[str, str]
 ) -> tuple[Provenance, ...]:
     """The declared resolving members, with both stores read directly.
 
@@ -1043,7 +1042,13 @@ def provenance(
             f" served member carries its LEI {lei!r}"
         )
         uri = str(node["uri"])
-        direct = direct_attribute_row(postgres_dsn, schema, lei)
+        # AMENDED 2026-10-11: the ESTATE's attribute store — the one the
+        # assembly read. d0316820 moved this module onto the curated estate and
+        # left this read on the suite's throwaway `postgres_dsn`, which holds no
+        # schema at all (masked by the D-IMPL-264 quarantine until now).
+        direct = direct_attribute_row(
+            os.environ["CCF_CP_04_POSTGRES_DSN"], schema, lei
+        )
         entries.append(
             Provenance(
                 uri=uri,
@@ -1061,10 +1066,6 @@ def provenance(
     return tuple(entries)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g10_the_assembly_opened_both_stores(
     observed: Observed, provenance: tuple[Provenance, ...]
 ) -> None:
@@ -1333,10 +1334,6 @@ def whole_estate_resolution(estate: tuple[str, str]) -> WholeEstateResolution:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g11_attributes_resolve_in_one_batched_query(
     observed: Observed,
     whole_estate_resolution: WholeEstateResolution,
@@ -2068,10 +2065,6 @@ def door_reading(surfaces: dict[str, Any]) -> DoorReading:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_cft_g13_the_tool_serves_and_the_registered_resource_refuses(
     door_reading: DoorReading,
 ) -> None:
@@ -2395,10 +2388,6 @@ def standalone_violations(
     return violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g14_one_standalone_assembler_serves_both_callers(
     observed: Observed, surfaces: dict[str, Any]
 ) -> None:
@@ -3174,7 +3163,9 @@ def _resolved_record(root: pathlib.Path, reference: str) -> Mapping[str, Any]:
     check exists to catch.
     """
     deployment = _load("deployment")
-    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    # AMENDED 2026-10-11: `FileArtifactStore` requires `write_kinds`
+    # (D-IMPL-353 §1.2); the deployment's own declared store, read only.
+    store = deployment.artifact_store(root=root)
     name = parse_artifact_uri(reference)
     return dict(
         json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
@@ -3211,10 +3202,6 @@ def _refused_over_capability(
     return client.ask(parameters, as_of=typed.asked_at)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_a_refused_outcome_carries_the_assembler_identity_and_resolves(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3283,10 +3270,6 @@ _SCRATCH_SHADOW_FAMILY = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_a_wrapper_that_skips_the_recorder_is_refused_at_the_door(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3357,10 +3340,6 @@ def test_a_wrapper_that_skips_the_recorder_is_refused_at_the_door(
             sys.modules.pop(name, None)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_replay_carries_the_assembler_identity_for_fulfilled_and_refused(
     estate: tuple[str, str], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

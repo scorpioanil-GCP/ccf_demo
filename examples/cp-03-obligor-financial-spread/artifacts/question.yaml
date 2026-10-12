@@ -103,7 +103,15 @@ declaration:
     # a versioned candidate (`credit-memo-policy-v2.debtToleranceDefault` = 0.25,
     # superseding v1's 0.3), recorded at §F.4 finding 12 and NOT bound here,
     # because that artifact is named for rung 14.
-    debt_tolerance: "0.25"
+    # ILLUSTRATIVE CALIBRATION (Dave, 2026-10-11 17:34 and 17:51: "raise the tolerance so they serve";
+    # "approved to move all tolerances as required to demonstrate the examples").
+    # This example runs against a point-in-time demonstration estate rather than continuously
+    # refreshed production data. The default debt tolerance is set just above the measured
+    # Context Debt of the dated demonstration question (D_c 0.8782) so the governed answer is served;
+    # it was 0.25 until 2026-10-11, which the SDK now enforces and which refuses this question
+    # `tolerance-exceeded` (kept as an ordinary passing test). It demonstrates how the SDK
+    # applies a caller's tolerance and is not a recommended production value.
+    debt_tolerance: "0.90"
 
   # DECLARED AND INERT — spec §B.5. `as_of` is refused `400 not_supported_at_tier`
   # rather than silently ignored: reconstructing a spread as it stood on a past

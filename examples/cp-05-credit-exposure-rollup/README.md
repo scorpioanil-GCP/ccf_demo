@@ -34,6 +34,28 @@
 > diffs this specimen against `main`'s merge base is red on the branch and
 > green once the change merges.
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). `deployment.py` reads its Control Plane
+> artifacts by tenant-placed key (`D-IMPL-354`), resolves the effective request
+> at the serve instant (`D-IMPL-358` step 5 ruling B — `constraints_in_force`
+> lost its `asked_at=`), and `replay_writers` returns the declared store and its
+> two classes rather than writers this tree never spent (a writer now needs a
+> capability only the SDK mints); `produce.py` hands the resolver placed keys and
+> reads its record through a store that declares its `write_kinds`;
+> `ccf_config.yaml` declares the now-mandatory `temporal_boundary:` and a labeled
+> `demonstration_serve_instant:` at the question's own instant
+> (2026-09-07T12:00Z). The default command reaches the promised outcome —
+> **WITHHELD** (`tolerance-exceeded`, default authority, tolerance 0.25), exit 0,
+> with a replay reference; at `DEBT_TOLERANCE=1.0` it serves gross
+> 10,125,000,000 / adjusted 9,325,000,000. **Not repaired:** `make
+> example-cp-05-server` (its hand-built door registers an entitlement policy,
+> which needs a capability only an SDK composition root mints — the standard
+> door over this specimen is `examples/door-cp-05-credit-exposure-rollup`), and
+> the `internal-appetite` regime without an explicit `materiality` (refused
+> `required-absent`: this tree's request-contract defaults sit under
+> `argument_defaults`, a key the SDK never reads, and a decimal default cannot
+> yet be declared where it does). Both are recorded as SDK needs.
+
 ## What this demonstrates
 
 **That "total exposure" is not a sum.** A data product that adds facility

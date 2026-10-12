@@ -125,61 +125,46 @@ parameter or number. The other holds every one of those and makes no fabric call
 the first one does not. The split is structural rather than editorial: a reader
 can tell which code is CCF's from the directory listing.
 
-What follows are three regions of the fabric's half, included from the tree.
+What follows are the fabric's half's two working regions, included from the tree.
 
-### Π, where the caller's threshold is applied
+!!! note "Amended 2026-10-11 — the specimen now serves through the governed resolver"
+    This page was written against a spine that composed the gates, the replay
+    record and the delivery by hand. Since `D-IMPL-353`/`D-IMPL-354` a
+    deployment cannot register its own Control Plane entries or build its own
+    replay writers, so the specimen's compatibility repair (Dave, ruling 3 of
+    2026-10-11; `examples/AMENDMENTS-2026-10-11.md`) hands those steps to the
+    SDK's `build_governed_resolver`. The question, the threshold, the operators,
+    the TTL and the debt arithmetic are unchanged. The earlier text and code are
+    in git.
+
+### Reading the source and writing the graph
+
+The deployment reads its source estate for this question, the request is
+checked against the declared contract before anything is touched, and the
+envelopes go to the one write handle. Nothing else in the process holds one, and
+the system of record this deployment read from is not reachable from the write
+path at all.
+
+```py
+--8<-- "examples/cp-00-institutional-holders/produce.py:acquire"
+```
+
+### Π, the gates, the record and the delivery
 
 The threshold is a **request parameter**, declared required with no default, and
-it is applied here at L5 — never in the graph query. The consequence is the one
-worth carrying away: every threshold compiles to the *same* pinned read, so what
-the caller's number changes is the payload, and therefore the product's content
-address, rather than what was read. That is also what makes the assembled state
-identical across callers, which is why the specification's first optimisation is
-to materialize that state rather than to make the read faster.
+it is applied at Π — never in the graph query. Every threshold compiles to the
+*same* pinned read, so what the caller's number changes is the payload, and
+therefore the product's content address, rather than what was read.
+
+The governed resolver then does what the hand-composed spine used to do: it
+registers the class's TTL ceiling and request surface from the deployment's
+declarations, builds the declared operators, runs Π, holds the lineage the
+product claims to what actually ran, runs the three validation gates, and
+persists the replay record **before** it delivers. There is no branch that
+reaches a served product without a recorded decision.
 
 ```py
---8<-- "examples/cp-00-institutional-holders/produce.py:project"
-```
-
-### The three validation gates
-
-Registering the TTL ceiling is what **mints** its version pin, because a pin is a
-content hash of what was registered — which is why the ceiling reaches this call
-through the deployment rather than through the product class's own document.
-
-The lineage the product claims is then filled **from the declaration**, never
-copied out of the execution record. A claim copied out of a transcript is a
-transcript. The second gate holds the two to strict equality in both directions,
-so a declared operator that did not run and an operator that ran undeclared are
-both refusals.
-
-And a `ServableProduct` is not constructible outside the gate call. Holding one
-*is* the evidence the gates ran — evidence rather than assumption, because the
-refusal branch below it is reachable and raises.
-
-```py
---8<-- "examples/cp-00-institutional-holders/produce.py:gate"
-```
-
-### The decision is recorded before it is delivered
-
-The executed graph queries are persisted, then the replay record, and **delivery
-is what the successful append returns**. There is no branch that reaches a served
-product without a recorded decision, and no moment at which the record pins a
-question the store cannot resolve.
-
-```py
---8<-- "examples/cp-00-institutional-holders/produce.py:serve"
-```
-
-### The single writer, for completeness
-
-One handle writes to the Context Graph anywhere in the process. Nothing else
-holds one and nothing can obtain one — and the system of record this deployment
-read from is not reachable from the write path at all.
-
-```py
---8<-- "examples/cp-00-institutional-holders/produce.py:ingest"
+--8<-- "examples/cp-00-institutional-holders/produce.py:govern"
 ```
 
 ## The whole Control Plane, in one document

@@ -60,6 +60,27 @@ export CCF_CP_02_POSTGRES_DSN='dbname=<database>'
 make -s example-cp-02
 ```
 
+> **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
+> `examples/AMENDMENTS-2026-10-11.md`). The spine now serves through the SDK's
+> governed resolver (`build_governed_resolver`): since `D-IMPL-353`/`D-IMPL-354`
+> a deployment can no longer register its own Control Plane entries or build its
+> own replay writers. The composed need-to-know/jurisdiction allowlist now
+> travels on the request as `jurisdictions` through a declared binding
+> (`D-IMPL-295`) instead of being written over the resolved policy artifact; the
+> shadowing `intent` argument is withdrawn (`D-IMPL-264`); `ccf_config.yaml`
+> declares the mandatory `temporal_boundary:`, a labeled
+> `demonstration_serve_instant:` at the question's own instant
+> (2026-08-29T12:00Z), and a rate-free evidence-clock row for the
+> `from_entity_freshness` expiry. The question, the TTL and the debt arithmetic
+> are unchanged; measured 2026-10-11 the default command serves `FAC-36D0CC`,
+> `D_c 0.0396`, expiring 2026-10-27T00:00Z — the published figures. **One
+> variation below changes:** `ASKED_AT=2026-09-15T23:45:00+00:00` now asks for
+> an instant after the declared serve instant and is refused
+> `asked-at-outside-temporal-bound`; the comparison it demonstrates (the expiry
+> does not move when the question moves) is asserted by `FTS-G01` in the tests,
+> which declares each run's own serve instant. The text of this README before
+> the amendment is in git.
+
 Without `make`, spelling the interpreter explicitly:
 
 ```bash

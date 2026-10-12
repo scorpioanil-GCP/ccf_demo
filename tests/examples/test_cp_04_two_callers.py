@@ -640,7 +640,9 @@ def _record_behind(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
     if not reference or reference == NO_REPLAY_REFERENCE:
         return None
     deployment = _load("deployment")
-    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    # AMENDED 2026-10-11: `FileArtifactStore` requires `write_kinds`
+    # (D-IMPL-353 §1.2); the deployment's own declared store, read only.
+    store = deployment.artifact_store(root=root)
     try:
         name = parse_artifact_uri(reference)
         return dict(
@@ -730,10 +732,6 @@ def mcp_answer_at_a_planted_depth(surfaces: dict[str, Any]) -> Answer:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_two_callers_answer_one_request_equivalently(
     in_process_answer: Answer, mcp_answer: Answer
 ) -> None:
@@ -749,10 +747,6 @@ def test_the_two_callers_answer_one_request_equivalently(
     assert not answer_violations(answers), "\n".join(answer_violations(answers))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_comparison_refuses_a_planted_difference(
     in_process_answer: Answer, mcp_answer_at_a_planted_depth: Answer
 ) -> None:
@@ -787,10 +781,6 @@ def test_the_comparison_refuses_an_answer_carrying_nothing() -> None:
     assert any("nothing to agree about" in entry for entry in violations), violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_comparison_refuses_a_single_caller(in_process_answer: Answer) -> None:
     """**Vacuity control.** One caller that ran is not two callers that agreed."""
     violations = answer_violations({in_process_answer.caller: in_process_answer})
@@ -1082,10 +1072,6 @@ def test_cft_g13_b_a_read_of_the_product_resource_refuses_and_never_serves_a_tre
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_refusal_check_refuses_a_resolver_that_returned_a_payload(
     in_process_answer: Answer,
 ) -> None:
@@ -1106,10 +1092,6 @@ def test_the_refusal_check_refuses_a_resolver_that_returned_a_payload(
     assert any("served" in entry for entry in violations), violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_cft_g13_c_the_tool_serves_on_a_client_supplied_lei_and_max_depth(
     mcp_answer_at_a_planted_depth: Answer,
 ) -> None:
@@ -1133,10 +1115,6 @@ def test_cft_g13_c_the_tool_serves_on_a_client_supplied_lei_and_max_depth(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_the_tool_refuses_an_over_capability_depth_rather_than_clamping_it(
     surfaces: dict[str, Any],
 ) -> None:
@@ -1213,10 +1191,6 @@ def test_the_tool_refuses_an_over_capability_depth_rather_than_clamping_it(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_tool_serves_a_depth_the_estate_cannot_exhibit(
     surfaces: dict[str, Any],
 ) -> None:
@@ -1278,10 +1252,6 @@ def _refusing_request(deployment: Any, lei: str) -> Any:
     return typed.model_copy(update={"subject": lei, "parameters": parameters})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
     estate: tuple[str, str],
 ) -> None:
@@ -1394,10 +1364,6 @@ def _non_integer_depth_request(deployment: Any, value: Any) -> Any:
     return typed.model_copy(update={"parameters": parameters})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
-)
 def test_a_non_integer_max_depth_is_refused_by_name_and_the_door_survives(
     estate: tuple[str, str],
 ) -> None:
@@ -1586,7 +1552,9 @@ def test_an_unentitled_principal_gets_a_recorded_shell_and_not_an_error() -> Non
             f" boundary with no record behind it: {text[:1000]}"
         )
 
-        store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+        # AMENDED 2026-10-11: `FileArtifactStore` requires `write_kinds`
+        # (D-IMPL-353 §1.2); the deployment's own declared store, read only.
+        store = deployment.artifact_store(root=root)
         name = parse_artifact_uri(reference)
         record = _json.loads(
             store.get(content_address=name.artifact_version).decode("utf-8")
@@ -1700,10 +1668,6 @@ def test_an_unverified_caller_reaches_neither_surface(
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_resolver_assembles_under_the_perspective_it_was_handed(
     estate: tuple[str, str],
 ) -> None:
@@ -1759,10 +1723,6 @@ def test_the_resolver_assembles_under_the_perspective_it_was_handed(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
-)
 def test_the_two_declared_roles_seal_to_different_content_addresses(
     estate: tuple[str, str],
 ) -> None:

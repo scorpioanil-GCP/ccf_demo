@@ -290,6 +290,8 @@ class FamilyTreeInProcessAdapter:
                 perspective=conditioned,
                 assembler_id=product.assembler_id,
                 assembler_version=product.assembler_version,
+                # AMENDED 2026-10-11: what resolution established, when it ran.
+                resolution=product.resolutions[-1] if product.resolutions else None,
             )
 
         # THE INDEX IS TAKEN BEFORE THE CALL AND NOT AFTER. `seen` is the
