@@ -111,6 +111,7 @@ from ccf.erasure.trust import ErasureTrust
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
+    CompositionRegister,
     ReplayMint,
     SkillGrant as SkillGrantKind,
     mint_at_composition,
@@ -188,6 +189,7 @@ from ccf.products.resolver import (
 # `compose_serve_clock` makes, rather than two different function objects.
 from ccf.products.resolver import _utc_now as _sdk_serve_clock
 from ccf.products.demonstration_clock import compose_serve_clock
+from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitlement_key
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
@@ -1534,6 +1536,15 @@ def open_product(
         ),
     )
 
+    # G4-F-04 (Dave, 2026-10-11 16:23 MST, ruling 4): the deployment's DECLARED
+    # entitlement policy (`product_entitlement:`), registered HERE, at open, by
+    # this composition root under a `Register` minted for exactly its key —
+    # because a door composed over this product decides entitlement before any
+    # question boots. Every boot re-registers the same content (idempotent).
+    _register_declared_entitlement(
+        registry, documents=documents, config=config, declaration=declaration, clock=clock
+    )
+
     # --- the consumer half: producers, then the derived chain ---------------------
     bridge: SyncMcpBridge | None = None
     mcp_skills: McpSkillRegistry | None = None
@@ -1756,6 +1767,56 @@ def _register_declared_producers(
             credential_factory=partial(bearer_client_factory, timeout_seconds=timeout),
         )
     return bridge, mcp_skills
+
+
+def _register_declared_entitlement(
+    registry: ControlPlaneRegistry,
+    *,
+    documents: Mapping[str, Mapping[str, Any]],
+    config: DeploymentConfig,
+    declaration: ProductClassDeclaration,
+    clock: Callable[[], datetime],
+) -> None:
+    """Register the declared ``product_entitlement:`` policy under the composition recipe (G4-F-04).
+
+    Nothing when the deployment declares none — the door then registers its
+    own one-principal policy, as before. A declared policy is held to THIS
+    product: every grant may name only the class this deployment serves, so a
+    deployment cannot entitle a principal to a class its fabric does not serve
+    (the rule the door's own derivation states). Refused by name at open.
+    """
+    if config.product_entitlement is None:
+        return
+    key = product_entitlement_key(tenant_id=config.tenant_id)
+    policy = parse_artifact(documents[key], PRODUCT_ENTITLEMENT_POLICY)
+    for principal_id, grant in policy.principals.items():
+        foreign = sorted(set(grant.permitted_schema_names) - {declaration.schema_name})
+        if foreign:
+            raise ValueError(
+                f"the `product_entitlement:` section grants {principal_id!r}"
+                f" {foreign!r}, and this deployment serves only"
+                f" {declaration.schema_name!r}; a deployment entitles principals to"
+                " the class it serves and no other (G4-F-04)"
+            )
+    event = registry.audit_log.append(
+        action="composition",
+        key=key,
+        version=CompositionRegister.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    registry.register_typed(
+        mint_at_composition(
+            CompositionRegister,
+            tenant=config.tenant_id,
+            principal=COMPOSITION_PRINCIPAL,
+            resource=key,
+            decision_id=content_hash(event),
+        ),
+        policy,
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
 
 
 def _mint_child_question_authority(

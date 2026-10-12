@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2627 entries**, of which **2348** name a public Python surface.
+**2631 entries**, of which **2352** name a public Python surface.
 
 ## Added
 
@@ -20819,7 +20819,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-634 entries — 440 public Python surface, 194 not public Python API.
+635 entries — 441 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28171,6 +28171,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `20261011-01-the-paved-road-honors-a-declared-demonstration-instant.md`.*
 
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `product_entitlement` section; a config naming one was refused as an unrecognized section
+- After: an optional, hash-transparent `product_entitlement: Mapping[str, Any] | None` section, derived as a bare typed `ccf.product-entitlement-policy` entry at `product_entitlement_key(tenant_id)`; a config that does not name it hashes and derives exactly as before
+- Why: G4-F-04; Dave 2026-10-11 16:23 MST ruling 4. Red test: `tests/mcp/test_door_declared_principals.py::test_each_declared_principal_is_served_under_its_own_role`
+- Migration: a deployment whose code registered a `ProductEntitlementPolicy` by hand moves the policy body into `product_entitlement:` and deletes the registration
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31223,7 +31235,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-565 entries — 526 public Python surface, 39 not public Python API.
+568 entries — 529 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -39134,6 +39146,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a binding document whose deployment boots SQLite declares `writer_lease_lock_dir`.
 
 *Recorded by `20261011-01-tuesday-security-refusals.md`.*
+
+#### ccf.deployment.classes.SDK_ARTIFACT_CLASSES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_CLASSES
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.product-entitlement-policy` was not manifest-addressable ("entitles a principal registers that policy programmatically")
+- After: it is manifest-addressable (typed registration), so the `product_entitlement:` section and a manifest entry can name it
+- Why: G4-F-04; programmatic registration is no longer available to a deployment (D-IMPL-353)
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: registered nothing about entitlement at open
+- After: registers the declared `product_entitlement:` policy at open, under an audited composition decision, after refusing a grant that names a class this deployment does not serve
+- Why: G4-F-04; the door decides entitlement before any question boots. Red test: `tests/mcp/test_door_declared_principals.py::test_a_declaration_granting_a_class_this_deployment_does_not_serve_is_refused_at_open`
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: behavior
+- Before: always registered its one-principal entitlement policy, replacing nothing but superseding any earlier version as latest
+- After: registers its one-principal default only when the tenant's entitlement key holds no version; a declared policy is composed over, never replaced. `open_door_with_verifier` shares the composition
+- Why: G4-F-04. Severing proof: forcing the default registration reddens `::test_each_declared_principal_is_served_under_its_own_role` and `::test_a_declared_principal_asking_under_a_role_it_was_not_granted_is_refused`
+- Migration: none
+
+*Recorded by `20261011-02-a-door-serves-several-declared-principals.md`.*
 
 ### Not public Python API
 

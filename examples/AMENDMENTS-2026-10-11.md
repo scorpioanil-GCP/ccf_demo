@@ -81,3 +81,15 @@ assertion changed. The history of each example before this amendment is in git, 
 **Frozen specimens with a diff gate.** cp-03, cp-04, cp-05, cp-06 and cp-13 are pinned by `tests/examples/specimen_base.py`
 gates that require no diff against the branch point (`CFC-G09` and its siblings). The gates are not disabled. They read
 red on a branch carrying these amendments and read the specimen as untouched once the amendment is on `main`.
+
+## SDK round 2, item 1 — several principals on the standard door (G4-F-04), 2026-10-11
+
+Dave, 16:23 MST, ruling 4. `server/serve.py::entitle` registered a three-grant `ProductEntitlementPolicy` by hand,
+which D-IMPL-353 refuses (`CapabilityBypassError`). The SDK now takes the policy as a declared `product_entitlement:`
+section in `ccf_config.yaml`, registered by composition at `open_product`; the standard door composes over it.
+
+| Example | What changed |
+| --- | --- |
+| cp-15 | `ccf_config.yaml` declares `product_entitlement:` with the three grants `entitle()` used to register (PRIN-KYC-004 kyc-analyst, PRIN-COV-001 coverage-banker, PRIN-RES-002 research-analyst — the roles the estate's `ccf_v2.principal.perspective` names); `server/serve.py::entitle` and its two calls are removed. PRIN-TRD-003 stays undeclared (the negative control). Recorded friction: each granted role is now stated in the config AND read from the estate; a disagreement is refused `product-role-ungranted`, never served. |
+
+Other paved-road doors (cp-16..24; cp-07's bespoke door) adopt the same section; not changed in this round.

@@ -316,13 +316,8 @@ _UNCASED: dict[str, dict[str, Any]] = {
             }
         },
     },
-    "ccf.product-entitlement-policy": {
-        "tenant_id": TENANT,
-        "policy_version": "1.0.0",
-        "principals": {
-            "fixture-principal": {"permitted_roles": ["fixture-role"], "permitted_schema_names": ["fixture.product"]}
-        },
-    },
+    # `ccf.product-entitlement-policy` is measured through its round-trip case now
+    # that it is manifest-addressable (G4-F-04, 2026-10-11): `_CASED` below.
     "ccf.product-request-contract": {
         "semver": "1.0.0",
         "schema_name": "fixture.product",

@@ -2001,6 +2001,7 @@
           "policy_constraints": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "producers": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "product_class": "collections.abc.Mapping[str, typing.Any]",
+          "product_entitlement": "collections.abc.Mapping[str, typing.Any] | None",
           "replay": "collections.abc.Mapping[str, typing.Any] | None",
           "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution": "collections.abc.Mapping[str, typing.Any] | None",
