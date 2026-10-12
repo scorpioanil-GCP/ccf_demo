@@ -216,6 +216,19 @@ def connection(backends: dict[str, Any], root: Path) -> dict[str, object]:
     return {"database_path": str(root / name), "writer_lease_lock_dir": os.path.realpath(lock_dir)}
 
 
+def _placed(fabric, key: str) -> str:
+    """``key`` as the loader placed it under the fabric's tenant.
+
+    AMENDED 2026-10-11 (compatibility repair): since `D-IMPL-354` every
+    manifest key is placed under the tenant, and a bare read raises. The bare
+    names stay this deployment's vocabulary; this is the one place they are
+    placed.
+    """
+    from ccf.controlplane.registry import namespaced_key
+
+    return namespaced_key(tenant=fabric.tenant_id, key=key)
+
+
 def boot(root: Path):
     """The fabric, booted from this deployment's own Control Plane document.
 
@@ -313,8 +326,30 @@ def request_contract(config: dict[str, Any]):
     )
 
 
+def serve_instant(config: dict[str, Any]):
+    """The serve instant this run's effective request is resolved at.
+
+    AMENDED 2026-10-11 (compatibility repair; `examples/AMENDMENTS-2026-10-11.md`).
+    `D-IMPL-358` step 5 ruling B moved policy EFFECTIVITY from the question's
+    `asked_at` to the TRUSTED serve instant, and the SDK's
+    `constraints_in_force` / `resolve_effective_request` now require it. The
+    resolver that GOVERNS this question reads its serve clock from the
+    deployment's declaration — `ccf_config.yaml`'s labeled
+    `demonstration_serve_instant:` — so the acquisition-side resolution reads
+    the SAME declaration: one time anchor per run. With no declaration it is
+    the real clock, read once here.
+    """
+    import datetime as _dt
+
+    declared = config.get("demonstration_serve_instant")
+    if declared:
+        return _dt.datetime.fromisoformat(str(declared["serve_instant"]))
+    return _dt.datetime.now(_dt.timezone.utc)
+
+
 def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, Any],
-                      subject: str, intent: str, freshness: str, asked_at):
+                      subject: str, intent: str, freshness: str, asked_at,
+                      served_at=None):
     """Resolve every request parameter through the SDK, with its AUTHORITY.
 
     **This is the whole of the parameter model, and none of it is implemented
@@ -356,6 +391,7 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
     rc = config["request_contract"]
     declared = request_contract(config)
     persp = config["default_perspective"]
+    effective_at = served_at if served_at is not None else serve_instant(config)
 
     request = ProductRequest(
         schema_name=rc["schema_name"],
@@ -387,7 +423,9 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
             identity=f"{rc['class_id']}",
             version=rc.get("semver", "1.0.0"),
         ),
-        constraints=constraints_in_force(registry, asked_at=asked_at),
+        # AMENDED 2026-10-11: effectivity at the serve instant (`D-IMPL-358`
+        # step 5 ruling B; the `asked_at=` keyword no longer exists).
+        constraints=constraints_in_force(registry, served_at=effective_at),
         capabilities=capabilities,
         capability_bindings=dict(declared.capability_bindings),
         # No entitled override is presented. `overridable: false` on the
@@ -397,6 +435,7 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
         verified_overrides=(),
         perspective=Perspective(principal_id=persp["principal_id"], role=persp["role"]),
         tenant=config["tenant_id"],
+        served_at=effective_at,
         class_defaults=dict(declared.defaults),
         class_source=ProvenanceSource(
             kind="artifact", identity=rc["class_id"], version=rc.get("semver", "1.0.0")
@@ -439,7 +478,17 @@ def register_class(*, registry, config: dict[str, Any], ttl: dict[str, Any]):
 
 
 def replay_writers(root: Path):
-    """The file-backed store and the two writers, from `artifacts/replay.yaml`.
+    """The file-backed store and the two record classes, from `artifacts/replay.yaml`.
+
+    AMENDED 2026-10-11 (compatibility repair; `examples/AMENDMENTS-2026-10-11.md`).
+    Returned `(store, ReplayWriter, QueryPinWriter)`. Since `D-IMPL-353` a
+    writer needs an `Authorized[ReplayMint]` only an SDK composition root can
+    mint, and the store must DECLARE which classes the fabric's own writers
+    file into it (`write_kinds`, `D-IMPL-353` §1.2). Nothing in this tree ever
+    spent the two writers — the resolver files the record and the pins — so the
+    function now returns `(store, record_class, query_pin_class)`: the store,
+    declared, and the two classes the resolver writes under it. The original
+    text follows.
 
     **The SAME store and the SAME record class for a served and a withheld
     determination** — `D-IMPL-253` Q13: *"Refusal is itself a decision and
@@ -451,15 +500,22 @@ def replay_writers(root: Path):
     spends it and a withheld determination never reaches that call.
     """
     from ccf.artifacts.file_store import FileArtifactStore
-    from ccf.replay.serve import QueryPinWriter, ReplayWriter
+    from ccf.artifacts.protocol import WriteKinds
+    from ccf.authz.capability import ReplayMint
+    from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
     declared = load(REPLAY)[DECLARATION]
-    store = FileArtifactStore(root=root / declared["store_dirname"])
-    return (
-        store,
-        ReplayWriter(store=store, artifact_class=declared["record_class"]),
-        QueryPinWriter(store=store, artifact_class=declared["query_pin_class"]),
+    store = FileArtifactStore(
+        root=root / declared["store_dirname"],
+        write_kinds=WriteKinds.declare(
+            {
+                declared["record_class"]: (ReplayMint,),
+                declared["query_pin_class"]: (ReplayMint,),
+                ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+            }
+        ),
     )
+    return store, declared["record_class"], declared["query_pin_class"]
 
 
 def envelope_for_node(node: str, lei: str | None, label: str | None, *,
@@ -630,7 +686,7 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
     # parameter-set hashes and therefore two content addresses, so the replay
     # record says WHICH family a decision admitted rather than leaving it to be
     # inferred from the payload.
-    declared_policy = fabric.artifacts["policy.principal-subgraph"]
+    declared_policy = fabric.artifacts[_placed(fabric, "policy.principal-subgraph")]
     bound_policy = declared_policy.model_copy(
         update={"permitted_classifications": frozenset({family})}
     )
@@ -641,7 +697,7 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
         parameters={
             "policy.principal-subgraph": bound_policy,
             "traversal.typed-neighborhood":
-                fabric.artifacts["traversal.typed-neighborhood"],
+                fabric.artifacts[_placed(fabric, "traversal.typed-neighborhood")],
         },
         view=view, pins=fabric.pins, policy_bundle_key=worker.policy_bundle_key,
     )
@@ -734,8 +790,8 @@ def assess_context_debt(*, fabric, balance_observations: list[tuple[str, Any]],
     from ccf.halflife.debt import FreshnessScorer, assess_debt
     from ccf.halflife.decay import Observation
 
-    table = fabric.artifacts["half_life"]
-    profile = fabric.artifacts["debt_profile"]
+    table = fabric.artifacts[_placed(fabric, "half_life")]
+    profile = fabric.artifacts[_placed(fabric, "debt_profile")]
 
     observations = [
         Observation(observation_type="outstanding_balances",

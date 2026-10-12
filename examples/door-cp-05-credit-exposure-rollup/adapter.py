@@ -53,7 +53,9 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import EnvironmentDocument, load_environment_document
 from ccf.products.refusal import GovernedRefusalRaised, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation, refuse_request
-from ccf.products.resolver import ProductNotResolvable, ReplayRefusalRecorder, ResolverOutcome
+from ccf.controlplane.registry import namespaced_key
+from ccf.products.resolver import ProductNotResolvable, ReplayRefusalRecorder, ResolverOutcome, declared_refusal_recorder
+from ccf.replay.record import PolicyBinding
 from ccf.projection.plan import Perspective
 from ccf.replay.record import ResolutionNotApplicable
 from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
@@ -141,6 +143,22 @@ def _text(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
+def _policy_bundle_pin() -> PolicyBinding:
+    """The specimen's `policy` pin, read off one throwaway boot of its own config.
+
+    AMENDED 2026-10-11: what `declared_refusal_recorder` prepends to every
+    record it writes. The version is the content address the boot mints, so it
+    is the pin every question's own boot mints too.
+    """
+    with tempfile.TemporaryDirectory(prefix="cp05-door-pin-") as scratch:
+        fabric, _registry = dep.boot(Path(scratch))
+        try:
+            key = namespaced_key(tenant=fabric.tenant_id, key="policy")
+            return PolicyBinding(key=key, version=fabric.pins.version_for(key))
+        finally:
+            fabric.handle.close()
+
+
 class ExposureProducer:
     """The nine members `ServesProducts` names, held from what frozen cp-05 already holds."""
 
@@ -172,13 +190,22 @@ class ExposureProducer:
         # records under the same root (`replay_root`), and the two
         # pre-assembly refusals below are appended through this recorder.
         self._replay_root = root / "replay"
-        store, _writer, _pins = dep.replay_writers(self._replay_root)
-        self._recorder = ReplayRefusalRecorder(
+        # AMENDED 2026-10-11 (compatibility repair; examples/AMENDMENTS-2026-10-11.md).
+        # `ReplayRefusalRecorder` now writes under an `Authorized[ReplayMint]`
+        # only an SDK composition root mints (`D-IMPL-353`/`D-IMPL-354`), so the
+        # recorder is built by the SDK's own `declared_refusal_recorder` — over
+        # the SAME store and class as before, and over THIS door's Control Plane,
+        # whose disclosure reader is the one the entitlement source above reads.
+        # It requires the bundle pin every record carries; that is the specimen's
+        # own `policy` pin, read off one boot of the specimen's config.
+        store, record_class, _query_pin_class = dep.replay_writers(self._replay_root)
+        self._recorder = declared_refusal_recorder(
+            control_plane=self._control_plane,
             artifact_store=store,
-            replay_record_class=dep.load(dep.REPLAY)[dep.DECLARATION]["record_class"],
+            replay_record_class=record_class,
             tenant_id=str(self._config["tenant_id"]),
             assembly_mode=self._config["product_class"]["assembly_mode"],
-            disclosure_level_for=self._entitlement_source.disclosure_level_for,
+            policy_bundle_pin=_policy_bundle_pin(),
         )
         question = dep.load(dep.QUESTION)[dep.DECLARATION]
         self._pinned_instant = _dt.datetime.fromisoformat(question["asked_at"])
@@ -361,5 +388,10 @@ class ExposureProducer:
         return self._recorder.record(
             envelope, perspective=perspective,
             recorded_at=self._pinned_instant if request is None else request.asked_at,
+            # AMENDED 2026-10-11: the recorder now records the trusted serve
+            # instant beside `recorded_at` (`D-IMPL-358` step 5). The specimen's
+            # own serve instant — its declared demonstration instant — so a
+            # door refusal and an in-resolver one carry one time anchor.
+            served_at=dep.serve_instant(self._config),
             resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
         )

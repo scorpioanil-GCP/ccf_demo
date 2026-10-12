@@ -104,14 +104,14 @@ def _replay_record(governed: Any, *, store_root: pathlib.Path) -> Any:
     :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` — or when the store
     cannot resolve it. Read while the store is still alive; see the call site.
     """
-    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.file_store import FileArtifactStore  # noqa: F401 — see _reading_store
     from ccf.replay.record import DecisionReplayRecord
 
     reference = getattr(governed, "replay_ref", None)
     address = getattr(reference, "content_address", None)
     if address is None:
         return None
-    store = FileArtifactStore(root=store_root)
+    store = _reading_store(store_root)  # AMENDED 2026-10-11 (write_kinds; line count kept)
     try:
         return DecisionReplayRecord.model_validate_json(
             store.get(content_address=address)
@@ -439,7 +439,13 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
     product gate, and the TTL figures the class declares. Everything the SDK
     owns is behind :func:`~ccf.products.resolver.build_governed_resolver`.
     """
+    from ccf.controlplane.registry import namespaced_key
     from ccf.products.resolver import build_governed_resolver
+
+    def placed(key: str) -> str:
+        """AMENDED 2026-10-11: the loader places every manifest key under the
+        tenant (`D-IMPL-354`); the bare names stay this deployment's vocabulary."""
+        return namespaced_key(tenant=fabric.tenant_id, key=key)
 
     def plan_factory(*, required: tuple[str, ...], request: Any) -> Any:
         return proj.ExposureRollupProjection(
@@ -469,16 +475,16 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
     resolver = build_governed_resolver(
         fabric=fabric,
         control_plane=control_plane,
-        product_class_key="product_class",
-        request_contract_key="request_contract",
+        product_class_key=placed("product_class"),
+        request_contract_key=placed("request_contract"),
         operator_parameter_keys=(
-            "policy.principal-subgraph", "traversal.typed-neighborhood",
+            placed("policy.principal-subgraph"), placed("traversal.typed-neighborhood"),
         ),
-        policy_bundle_key="policy",
+        policy_bundle_key=placed("policy"),
         plan_factory=plan_factory,
         debt_scorer=debt_scorer,
         product_gate=product_gate,
-        debt_profile_key="debt_profile",
+        debt_profile_key=placed("debt_profile"),
         artifact_store_root=store_root,
         # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
         erasure_trust=ErasureTrust(authorities={}),
@@ -552,3 +558,23 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
         payload=determination,
     )
 
+
+def _reading_store(store_root: pathlib.Path) -> Any:
+    """The record store, opened to READ, declaring what the resolver files into it.
+
+    AMENDED 2026-10-11 (compatibility repair; `examples/AMENDMENTS-2026-10-11.md`):
+    `FileArtifactStore` requires `write_kinds` (`D-IMPL-353` §1.2). Defined at
+    the end of the module so the line numbers committed documents cite above
+    do not move (the `D-IMPL-374` precedent in this tree's README).
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import WriteKinds
+    from ccf.authz.capability import ReplayMint
+
+    replay = dep.load(dep.REPLAY)[dep.DECLARATION]
+    return FileArtifactStore(
+        root=store_root,
+        write_kinds=WriteKinds.declare(
+            {replay["record_class"]: (ReplayMint,), replay["query_pin_class"]: (ReplayMint,)}
+        ),
+    )

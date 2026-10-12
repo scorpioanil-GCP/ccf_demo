@@ -14,6 +14,15 @@ runs the whole governed path and returns a delivery-minted `ServedProduct` or a 
 structural contract (`ServesProducts`, nine members) so CP-14's exposure slot can reach it
 from another process under the identity CP-14 registers.
 
+> **AMENDED 2026-10-11 — compatibility repair** (`examples/AMENDMENTS-2026-10-11.md`).
+> `adapter.py` builds its refusal recorder through the SDK's
+> `declared_refusal_recorder` (the recorder now writes under a capability only
+> the SDK mints) over the same store and class, pinned to the specimen's own
+> `policy` bundle, and records the specimen's declared serve instant on a door
+> refusal. The door boots and announces `READY`. Its proofs drive it through a
+> paved consumer that declares a skill, and the paved road cannot grant one
+> (`GrantNotInForce`) — recorded as an SDK need, not worked around.
+
 ## What this demonstrates
 
 **The escape hatch, and its measured cost.** `adapter.py` is 190 physical lines, of which

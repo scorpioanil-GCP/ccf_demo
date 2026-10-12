@@ -294,6 +294,46 @@ def test_the_ttl_is_anchored_on_the_decision(
     )
 
 
+def test_a_stale_question_is_refused_by_the_temporal_bound(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AMENDED 2026-10-11 (Dave, ruling 1 of 2026-10-11): the expired-question
+    case, as an ordinary passing test asserting the correct refusal.
+
+    The specimen declares its serve instant at the question's own pin
+    (`demonstration_serve_instant:`). Serve the SAME pinned question five hours
+    later — past the one-hour `temporal_boundary` and past the four-hour
+    `from_decision` TTL — through a config copy that declares only that later
+    instant, and the governed resolver refuses it by name, with a replay
+    reference, rather than answering a question that is no longer current.
+    """
+    import datetime as _dt  # noqa: PLC0415
+
+    import yaml  # noqa: PLC0415
+
+    produce = _load("produce")
+    dep = produce.dep  # the deployment module THIS produce reads its config through
+    document = yaml.safe_load(dep.CONFIG.read_text(encoding="utf-8"))
+    pinned = _dt.datetime.fromisoformat(
+        str(dep.load(dep.QUESTION)[dep.DECLARATION]["asked_at"])
+    )
+    assert document["demonstration_serve_instant"]["serve_instant"] == pinned.isoformat()
+    document["demonstration_serve_instant"] = {
+        "serve_instant": (pinned + _dt.timedelta(hours=5)).isoformat()
+    }
+    later = tmp_path / "ccf_config.yaml"
+    later.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    monkeypatch.setattr(dep, "CONFIG", later)
+
+    _payload, governed, _record = produce.produce_governed(debt_tolerance="1.00")
+
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    assert isinstance(governed, RefusalEnvelope), type(governed)
+    assert governed.reason == "asked-at-outside-temporal-bound", governed.reason
+    assert governed.replay_reference, "a refusal with no decision record"
+
+
 # ---------------------------------------------------------------------------
 # `CP05-F-01` — the four §G.2 criteria that had no test.
 #
