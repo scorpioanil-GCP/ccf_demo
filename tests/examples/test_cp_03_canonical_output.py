@@ -67,7 +67,10 @@ SPECIMEN_AMENDED = frozenset(
     {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py", "run.py",
      "artifacts/question.yaml"}
 )
-SPECIMEN_FROZEN_DIGEST = "3085dd4223a705b33e4861f12ee4e871f9660b9d55131b0a06e1deb95ace1523"
+#: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
+#: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
+#: the previous pin was 3085dd42….
+SPECIMEN_FROZEN_DIGEST = "aabf27396358b8cd7c9ab837dac0b907b9f25128cfc676f728a2a282490647b4"
 
 #: The instant `CP-SPEC-014` asks its children at — held, not tuned (`CP14-F-19`).
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)

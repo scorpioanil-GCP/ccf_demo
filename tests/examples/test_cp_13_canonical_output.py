@@ -649,19 +649,22 @@ def test_the_structural_classifier_reads_this_tree_as_paved() -> None:
 #: specimen checks explicitly"). Every file of the cp-13 specimen not named in
 #: `SPECIMEN_AMENDED` must hold these bytes — recorded from `a280082e`, the
 #: Tuesday baseline, where the specimen was byte-identical to its freeze.
+#: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44): every
+#: entry that moved was checked to equal origin/main 514b36ce's bytes once the 6-line notice
+#: is removed; the previous pins were those bytes' hashes.
 SPECIMEN_FROZEN = {
-    "FINDINGS.md": "439f68a3a016ba087e309519f507f19ff9d2952a9866986aa6370cccd508d915",
-    "acquisition.py": "b63f171446cabb89bc66b29c76b26c9ac59c9c60ac96a1443bb01c7d68fda81f",
-    "artifacts/gates.yaml": "c6b7ce4f70072af978286532a64611bad5b4b0b7eee1aa19100ef3d3d183c760",
-    "artifacts/question.yaml": "18d843c648dba5d23baf9a5e96ac64cd80d66c9feb26fb1ef31140b04adcd394",
-    "artifacts/source-vocabulary.yaml": "dd51ce507324a9681d97fb53ae28fd99b2da06265244ade7fc2f1387eaadef48",
-    "page/build_page.py": "f7a43b4fb816c49c4f2d1f9970cc226b9004beb0442dada710a2497e3f9e76de",
+    "FINDINGS.md": "22ac0b830a4fd7f07c42780e8ac9ab3bfdf6a5eb31c0eb13e2b1f9f7a61f56e0",
+    "acquisition.py": "071f21d04f83d61bea92fa3093a327912d1be07b8a16ae0cf03d32204306c560",
+    "artifacts/gates.yaml": "e930b824a53681fb2aa3b679cd24d4bfa249919517cbcef0dc91389ef871f98b",
+    "artifacts/question.yaml": "14a93cf9a6a499371ce9b94a842853d2553fcc6d31cb892e990ee15b22700bd5",
+    "artifacts/source-vocabulary.yaml": "5aefabe3a40f87597a998f660bbcdfcf40d4051a9b854250077402d83ed406e5",
+    "page/build_page.py": "fa8ddaae2306252bb448ccafce2efb9ba0bc93195f920640429fb250ce67e1c2",
     "page/run-transcript.txt": "caa3b21b2a63c9420336213f0a64485d9fb615fdf5176c4a854bc480cfab6b5e",
-    "page/template.html": "bc2a2dc3774213ce2faa7fa6690091b74d936a7fe0c78f93c62ab89c95906182",
-    "projection.py": "392efa42879f89f8bf484536ea78ab6f5834b1087356c626d6e894e4d8dc2adf",
-    "run.py": "81a313071b6404f1f410f6ddd083a1d938ab6c15c4f4b8b4c4496fcd58c6ea29",
-    "spec/CP-SPEC-013_Covenant_Cross_Reference.md": "1c372ce8955b5ddeed7259432d516f29fb54b6d9c0c641fc3ff6eaaba2d86e17",
-    "summary_explanations.md": "3a77512b3f4ff303fa9a16b8596e41336f9c19d4243e6c228eaf7aa45815ae65",
+    "page/template.html": "8d35200f6b702036b804b6bcf9463f3228758cbd2417522ba562f4d116c38205",
+    "projection.py": "5da99e4e4ac6019b4ea5db8de4c91b4a8393d9667f17e1af1efa26e9d1b1fbfe",
+    "run.py": "11d050d8097df6b3947a65cc66a5ff232f9208648908b5cef9b77b0c3e81ca36",
+    "spec/CP-SPEC-013_Covenant_Cross_Reference.md": "3a1741d905204b5967bb92fe9f30e32cc6956ff83e6568da327b2626644474ce",
+    "summary_explanations.md": "7f8d9049b810219956c16f8ba4e28c023510997f9cf4c0b92fad8b17e6f97aa6",
 }
 
 #: The specimen's files amended by authorized compatibility repairs, and why

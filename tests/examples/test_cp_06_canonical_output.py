@@ -606,15 +606,18 @@ def test_the_structural_classifier_reads_this_tree_as_paved() -> None:
 #: specimen checks explicitly"). Every file of the cp-06 specimen not named in
 #: `SPECIMEN_AMENDED` must hold these bytes — recorded from `a280082e`, the
 #: Tuesday baseline, where the specimen was byte-identical to its freeze.
+#: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44): every
+#: entry that moved was checked to equal origin/main 514b36ce's bytes once the 6-line notice
+#: is removed; the previous pins were those bytes' hashes.
 SPECIMEN_FROZEN = {
-    "FINDINGS.md": "d203ebc0cf0a1e9a10faa676669f6c8f0a4b8c8cd0a57f9bcd0eca21c25b912c",
-    "acquisition.py": "b3888fccab6ee072714196bd6544e8b5e56971d6949aa02f3bd6d5d4af105c41",
-    "artifacts/gates.yaml": "642b32198f818f4a2343e04fe99f0d0a79774a3aae364050dac152e0833e9ce8",
-    "artifacts/projection.yaml": "9a237fd39e6ea71030c43702f41aeb338fa1de60ce497170275950cf86a4fef8",
-    "artifacts/source-vocabulary.yaml": "f6ebc278c0aae65bef32f854605d11470dcddd947c4965b36187cc5d049aacce",
-    "projection.py": "13427c110ba3470e4a6770743dcbea65cb16fc9e22cd6111d8545a71688afb71",
-    "run.py": "d481ef508593dd36b8860fbe910df45612c06c317637f44282ad28d24dc9272d",
-    "spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md": "8c12fab9bf57a351f7cba34f70b7d0704a0ca80b9436f926d7008b8b7293331a",
+    "FINDINGS.md": "f81c5f23846282ce8dd5517d1616ffb45f184d32e26ce859f5a8a84effe428ab",
+    "acquisition.py": "9bc06479fabd98cc7d8f0684d2802e47a73a3d05347882f0d24541efa4d30f3a",
+    "artifacts/gates.yaml": "ffd86b8ac57b169b8dd607f3cd1e5d4989fb5642aca6395608fe90caa620bb0d",
+    "artifacts/projection.yaml": "929d563459fc98e16649f362bfa1b760b2cedb36bd746629be829af7dd58a49b",
+    "artifacts/source-vocabulary.yaml": "5216b1e17b5ade724eccc6e7a852aa94cf0acad944b1b522099b7e3577133314",
+    "projection.py": "6374670779bff4b6b0c8a5a052ba00987f8e789c1db40a5639e8827404f30939",
+    "run.py": "fcecf69577e06ed7df56fe9d8ce690fa57e1a03ee3b42c0c4a12d118c201ce67",
+    "spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md": "c70bfda1d1078557f16abb81dc4aff50ed364e262f814cd6d26d3cac4973adcb",
 }
 
 #: The specimen's files amended by authorized compatibility repairs, and why
