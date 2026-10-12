@@ -248,7 +248,7 @@ contrasted against.
 |---|---|
 | **Schema** | `credit-risk.early-warning` — entities: `LegalEntity`, `WarningSignal`, `SignalSource`, `PriorObservation`; relationships: `signalAbout`, `triggeredBy`, `supersededBy`; measures: composite warning score, contributing signals with class, weight, age, decayed contribution and source |
 | **Freshness SLA** | Event-driven; sweep cadence daily |
-| **TTL** | 6 hours · `ttl_anchor: from_decision` |
+| **TTL** | 6 hours · `ttl_anchor: from_decision` (the shipped demonstration declares 31 days, illustrative — §E.0, amended 2026-10-11) |
 | **Policy binding** | Entitlement scope; signal weights and escalation thresholds bound to `intent` |
 | **Lineage** | `operators_invoked` = the SDK's own set · `policy_bundle_versions` · `graph_snapshot_at` |
 | **Semantic version** | `v1.0.0` |
@@ -556,6 +556,30 @@ not an empty payload.
 
 ## E · Volatility, debt and materialization
 
+### E.0 The temporal boundary and the answer's expiry — amended 2026-10-11
+
+The shipped demonstration declares `temporal_boundary.max_past_seconds` **31 days**
+(2678400) and a `ttl:` binding of **31 days** for both the product TTL and the
+class ceiling — widened from a one-hour window, a six-hour TTL and a one-day
+ceiling (§E.3, which states the product as specified). Dave, 2026-10-11: 18:09 MST
+*"for cp-11 widen as it's just an illustration"*; 20:19 MST ruling 3, option (a),
+*"Widen the illustrative answer expiry as well as the temporal window sufficiently
+to demonstrate the month-long scenario."* `EWS-G25` serves 2026-07-20 and
+2026-08-19 questions on one Control Plane under one declared demonstration serve
+instant (2026-08-19T00:05Z); both figures are as wide as that month-long timeline
+needs and no wider. Under the original values the 2026-07-20 question is refused
+(`asked-at-outside-temporal-bound`, then `ttl-bounds` once only the window is
+widened), and a question outside the widened window is still refused
+`asked-at-outside-temporal-bound`. These are demonstration values, not a
+recommended or bank-approved production policy.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
 ### E.1 Half-life table
 
 > **Illustrative calibration.** This example runs against a point-in-time
@@ -659,7 +683,8 @@ grow without making the gate wrong.
 contradiction — and §0.4 is the harder version of the same point: there is no
 product cache in the SDK to materialize into.
 
-TTL 6 hours, `ttl_anchor: from_decision`, ceiling one day. A request pinned to a
+TTL 6 hours, `ttl_anchor: from_decision`, ceiling one day (the shipped
+demonstration declares 31 days for both, illustrative — §E.0). A request pinned to a
 past `as_of` is a forensic reconstruction and does not decay.
 
 ### E.4 What invalidates a served answer

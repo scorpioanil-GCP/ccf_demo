@@ -392,13 +392,6 @@ class SurveillanceScenario:
     def declared(self) -> Mapping[str, Any]:
         return {"estate": self.estate, "intent": self.asked.intent}
 
-    @property
-    def max_ttl_seconds(self) -> int:
-        return 86400
-
-    @property
-    def product_ttl_seconds(self) -> int:
-        return 21600
 
 
 def measured_completeness(estate: acquisition.Estate) -> Decimal:

@@ -74,7 +74,7 @@ tolerance are **request** parameters, and a build tool is not a request channel.
 2026-08-19T00:00Z; the estate is a historical snapshot. `ccf_config.yaml` therefore
 declares a labelled **demonstration serve instant**, 2026-08-19T00:05Z
 (`demonstration_serve_instant:`, `D-IMPL-378` C1): the deployment serves as if it
-were five minutes after the question, inside its one-hour `temporal_boundary`. It
+were five minutes after the question, inside its `temporal_boundary`. It
 is the run's one time anchor; nothing on a question can move it; the SDK refuses
 it outside its own development substrates; and every replay record written under
 it names the declaration in its Policy Bindings dimension. Delete that section and
@@ -87,6 +87,30 @@ question is refused `asked-at-outside-temporal-bound`. The tests run every dated
 scenario under a test-owned copy of this deployment declaring that scenario's
 anchor (`tests/examples/demonstration_deployment.py`).
 
+**The temporal boundary and the answer's expiry are 31 days, and both are an
+illustration** (amended 2026-10-11 on Dave's rulings: 18:09 MST *"for cp-11 widen
+as it's just an illustration"*; 20:19 MST ruling 3, option (a), *"Widen the
+illustrative answer expiry as well as the temporal window sufficiently to
+demonstrate the month-long scenario"*). `EWS-G25` serves 2026-07-20 and
+2026-08-19 questions on ONE Control Plane under one declared serve instant —
+the cross-product invalidation it proves needs both — so the window
+(`temporal_boundary.max_past_seconds`) and the answer's lifetime (the `ttl:`
+section: class ceiling and product TTL) are each 31 days. The original values
+were a one-hour window, a six-hour product TTL and a one-day ceiling; under them
+the 2026-07-20 question is refused (`asked-at-outside-temporal-bound` by the
+window; `ttl-bounds` by the expiry once only the window is widened), and a
+question more than 31 days before the serve instant is still refused
+`asked-at-outside-temporal-bound` under the widened values — all three are
+ordinary passing tests in `tests/examples/test_cp_11_output.py`. These are
+demonstration values, not a recommended or bank-approved production policy.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
 ```bash
 # the headline: the heaviest-signalled name, reaching the credit-committee band
 make -s example-cp-11
@@ -98,7 +122,7 @@ make -s example-cp-11 LEI=G8NWFN4YP7CR6FOP4886
 make -s example-cp-11 DEBT_TOLERANCE=0.20
 
 # an earlier decision instant: fewer signals, and `as_of` proves it reaches the read
-#   (a different dated instant: first set serve_instant: "2026-07-20T00:05:00+00:00")
+#   (inside the 31-day illustrative window and expiry of the shipped serve instant)
 make -s example-cp-11 AS_OF=2026-07-20T00:00:00+00:00
 ```
 
