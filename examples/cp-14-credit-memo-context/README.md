@@ -58,10 +58,12 @@ export CCF_CP_14_POSTGRES_DSN=postgresql://...   CCF_CP_14_POSTGRES_SCHEMA=ccf_v
 export CCF_CP_14_FLUREE_URL=http://<host>:8090    CCF_CP_14_FLUREE_LEDGER=fibo-v2
 # boot the five producers, each in its own terminal, and export the port each prints:
 .venv/bin/python examples/cp-03-canonical-obligor-financial-spread/run.py --door      # CCF_CP14_SPREAD_URL
-.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py --door         # CCF_CP14_FAMILY_URL
+.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py --door \
+    --config-root examples/cp-14-credit-memo-context/producer-demonstration/cp-04-canonical-corporate-family-tree    # CCF_CP14_FAMILY_URL
 .venv/bin/python examples/door-cp-05-credit-exposure-rollup/run.py --door             # CCF_CP14_EXPOSURE_URL
 .venv/bin/python examples/cp-06-canonical-collateral-and-setoff-coverage/run.py --door # CCF_CP14_COLLATERAL_URL
-.venv/bin/python examples/cp-13-canonical-covenant-cross-reference/run.py --door      # CCF_CP14_COVENANT_URL
+.venv/bin/python examples/cp-13-canonical-covenant-cross-reference/run.py --door \
+    --config-root examples/cp-14-credit-memo-context/producer-demonstration/cp-13-canonical-covenant-cross-reference # CCF_CP14_COVENANT_URL
 export CCF_CP14_SPREAD_URL=http://127.0.0.1:<port>/mcp CCF_CP14_SPREAD_TOKEN=<the door's credential>   # and the other four
 make -s example-cp-14                                       # the governed question: refused, five rows
 make -s example-cp-14 DEBT_TOLERANCE=--debt-tolerance=1.0   # the labeled diagnostic: served
@@ -73,16 +75,38 @@ it mints per boot when that is unset. The v2 namespaces are not in
 `ccf_dataprep/.env`, which names v1. The governed run exits 0 with a refusal: a
 refusal is an answer.
 
-**Development serve instant (amended 2026-10-11, round 3).** The CP-14 instant is
+**Development serve instant (amended 2026-10-11, rounds 3 and 5).** The CP-14 instant is
 2026-09-07T12:00Z, and `ccf_config.yaml` declares this deployment a DEMONSTRATION
 serving at 2026-09-07T12:05Z (`demonstration_serve_instant:`), inside its one-hour
-`temporal_boundary` — the same instant cp-06-canonical serves on. Without it the
-dated question is refused `asked-at-outside-temporal-bound`. **What does not yet
-hold:** one time anchor across the five producers. cp-03-canonical and
-cp-04-canonical serve on the real clock, cp-13-canonical declares 2026-09-13, and
-the exposure child refuses the memo's question `required-absent` on `materiality`
-(an SDK need, CP05-R2-F-01). Measured on this commit, the governed run refuses with
-five rows: collateral admitted, the other four `ineligible`.
+`temporal_boundary`. Without it the dated question is refused by the parent
+`asked-at-outside-temporal-bound`.
+
+**One demonstration time across the parent and its five producers** (Dave,
+2026-10-11 20:19 MST, ruling 2, option (a): *"Run the parent and its five producers
+against the same explicitly declared demonstration time, 2026-09-07. Keep this
+confined to the demonstration configuration; it is not permission for a production
+caller to change the server's clock."*). cp-03-canonical and cp-06-canonical declare
+2026-09-07T12:05Z in their own Control Plane, and frozen cp-05 (behind
+`door-cp-05`) declares 2026-09-07T12:00Z. cp-04-canonical (real clock) and
+cp-13-canonical (2026-09-13T00:05Z, its own spec-dated question) do not, so for
+CP-14's call each is booted with `--config-root` on a **demonstration
+configuration** under `producer-demonstration/<tree>/`: that producer's own two
+documents, byte for byte except one delimited, labelled block declaring
+2026-09-07T12:05Z. The producers' own trees, default questions and clocks are
+unchanged (`tests/examples/test_cp_14_demonstration_clock.py` holds each copy to its
+producer and shows both outcomes: on their own clocks the family and covenant doors
+refuse the memo's question `asked-at-outside-temporal-bound`; on the demonstration
+configuration both children are admitted).
+
+Measured 2026-10-11 (round 5, .76 read-only). Governed question (0.25): refused
+`composite-child-refusal`, five rows — family and collateral ADMITTED; spread and
+covenant withheld by their own doors `tolerance-exceeded`; exposure withheld
+`required-absent` on `materiality`. Diagnostic (1.0): spread, family, collateral and
+covenant ADMITTED; exposure still `required-absent`, so the composite still refuses.
+**What still waits:** the exposure child's `materiality` default (CP05-R2-F-01,
+the SDK round's decimal-defaults item); until it lands the diagnostic cannot serve
+and the governed run shows exposure's reason as `required-absent` rather than
+`tolerance-exceeded`.
 
 > **Illustrative calibration:** This example runs against a point-in-time
 > demonstration estate rather than continuously refreshed production data.

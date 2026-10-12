@@ -135,11 +135,22 @@ def estate() -> None:
         pytest.skip(message)
 
 
+#: CP-14's demonstration configuration for its call to the covenant producer (Dave,
+#: 2026-10-11 20:19 MST, ruling 2, option (a)): cp-13-canonical's own two documents
+#: declaring the shared 2026-09-07T12:05Z demonstration serve instant instead of its
+#: own 2026-09-13 question's. cp-13-canonical's own tree and default are unchanged.
+COVENANT_DEMONSTRATION_ROOT = (
+    REPO_ROOT / "examples" / "cp-14-credit-memo-context" / "producer-demonstration"
+    / "cp-13-canonical-covenant-cross-reference"
+)
+
+
 @contextmanager
-def _door(run: pathlib.Path, token_var: str) -> Iterator[str]:
+def _door(run: pathlib.Path, token_var: str, config_root: pathlib.Path | None = None) -> Iterator[str]:
     """One producer process — a tree's own `run.py --door`, the credential SET through its declared name."""
     env = {**os.environ, token_var: DEV_TOKEN}
-    process = subprocess.Popen([sys.executable, str(run), "--door"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    root = [] if config_root is None else ["--config-root", str(config_root)]
+    process = subprocess.Popen([sys.executable, str(run), "--door", *root], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     try:
         assert process.stdout is not None
         announcement = process.stdout.readline().strip()
@@ -156,8 +167,8 @@ def _door(run: pathlib.Path, token_var: str) -> Iterator[str]:
             process.wait()
 
 
-def covenant_producer() -> Any:
-    return _door(COVENANT_EXAMPLE / "run.py", "CCF_CP_13C_DOOR_TOKEN")
+def covenant_producer(config_root: pathlib.Path | None = COVENANT_DEMONSTRATION_ROOT) -> Any:
+    return _door(COVENANT_EXAMPLE / "run.py", "CCF_CP_13C_DOOR_TOKEN", config_root)
 
 
 def exposure_producer() -> Any:
