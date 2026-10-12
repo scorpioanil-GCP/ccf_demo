@@ -73,7 +73,10 @@ SPECIMEN_AMENDED = frozenset(
 #: byte-identical to the branch point fd902e27 for every file outside it (computed
 #: from `git show fd902e27:<path>`, the same algorithm) — what is still frozen is
 #: still frozen; the round-2 pin was 75c0d4d9….
-SPECIMEN_FROZEN_DIGEST = "d4625cda42596c81ce109b2ce003fed6af1fd3ccdd0050f9adb40320284a17fa"
+#: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
+#: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
+#: the previous pin was d4625cda….
+SPECIMEN_FROZEN_DIGEST = "f88b8400ecb220b13209307901682ef995b5c3af75d4e7255e2397e440d475a6"
 
 #: The family this example demonstrates against, read from the example rather
 #: than restated: a constant here would be this module agreeing with itself.

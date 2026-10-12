@@ -81,7 +81,10 @@ SPECIMEN = REPO_ROOT / "examples" / "cp-05-credit-exposure-rollup"
 SPECIMEN_AMENDED = frozenset(
     {"README.md", "backends.yaml", "ccf_config.yaml", "deployment.py", "produce.py"}
 )
-SPECIMEN_FROZEN_DIGEST = "68d4669f43df4d5072788acc6b81866c61c49ea7a455c150115875ff49f57601"
+#: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
+#: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
+#: the previous pin was 68d4669f….
+SPECIMEN_FROZEN_DIGEST = "168019b3424e4c250f2f6e0f6288af5aa405b17bdd77c9434746821434d51781"
 CONSUMER = pathlib.Path(__file__).resolve().parent / "cp_05_door_paved_consumer"
 RUN = WRAPPER / "run.py"
 
