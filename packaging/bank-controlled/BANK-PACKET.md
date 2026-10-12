@@ -22,8 +22,8 @@ by nobody else.
 
 | item | where |
 |---|---|
-| Source commit | the commit the hosted run in [section 4a](#4a-hosted-ci) ran on: `5fb28b6f` plus the nine type corrections (`cc9e83ab`) and this page. Its SHA, and the wheel built from it, are recorded in section 4a |
-| Wheel and checksums | built from that commit in a clean detached worktree; `SHA256SUMS` sits next to the wheel (section 3) |
+| Source commit | **`2cd96aef8050210c30b177f65f47017fb0a30555`**: the commit the final hosted run ran on, and the commit the wheel was built from. Later commits on `main` change this page and the decision log only |
+| Wheel and checksums | `ccf_sdk-1.0.2.dev1551+g2cd96aef8-py3-none-any.whl`, sha256 `69a9a7a5d9b1e5ee735f4f6ded271c827403940911700f74667d2d91b5677c18`, built from `2cd96aef` in a clean detached worktree; `SHA256SUMS` sits next to the wheel |
 | Tested deployment configuration | `packaging/bank-controlled/`: `launch.sh`, `stop.sh`, `verify.py`, `instance.env.example`, `question.yaml` |
 | Example commands and transcripts | every example's default command and tests, run on the final code commit (section 4) |
 | Installation and security docs | `public/how-to/security-and-deployment.md`, `public/tutorial/`, this page |
@@ -54,7 +54,7 @@ python packaging/bank-controlled/verify.py <instance-root> <sdk-tree>
 packaging/bank-controlled/stop.sh <instance-root>
 ```
 
-**Measured on `c0c43b26`: 16 of 16 checks passed.** The instance served the
+**Measured on `c0c43b26` and again on the final `2cd96aef`: 16 of 16 checks passed.** The instance served the
 demonstration question (content address `611f5dac…03ae`) and refused a
 question for another tenant. Transcript: `bank-launch.txt`,
 `bank-verify.txt`.
@@ -80,18 +80,24 @@ provenance matches the version, and that the CLI runs.
 
 ## 4. Verification on the final code commit
 
-Measured on `c0c43b26`, then re-checked on `5fb28b6f`, which adds only the five
-specimen-digest re-pins the banner required. Every count below is compared by
-test id against the recorded baseline.
+The examples were measured on `c0c43b26`. Everything that the nine type
+corrections (`cc9e83ab`) could affect was measured again on the final code:
+the type check, the full suite, lint, tools tests, product gates, perf
+smoke, the 160 example tests on the changed paths, both tutorials, the wheel
+and the bank configuration. Every count below is compared by test id against
+the recorded baseline.
 
 | check | result |
 |---|---|
-| Full regression suite (`tests/`, local Fluree exported) | 14,365 passed, 22 failed: the 21 carried SEC-020 ids plus the version-stamp test (no tag). No new failure; the seven s1-01 tests now run and pass |
+| `mypy --strict` (the hosted command, `mypy`) | 0 errors in 265 source files (was 9) |
+| Full regression suite (`tests/`, local Fluree exported), on `cc9e83ab` | 14,368 passed, 22 failed: the 21 carried SEC-020 ids plus the version-stamp test (no tag). Identical failing ids to before the correction; the seven s1-01 tests run and pass |
 | Lints (`tools.lints --all`) | 0 violations |
 | Tools tests (lints, docs, publish scan, product gates) | 1,403 passed |
 | Product gates | 30 product trees, 519 declared gates, 519 executing |
 | Performance smoke (`tests/perf_smoke`) | 10 passed, inside the 300 s cap |
-| Bank configuration (`verify.py`) | 16 of 16 checks passed |
+| Bank configuration (`verify.py`), on `2cd96aef` | 16 of 16 checks passed |
+| Both Hello World tutorials, exact commands, on `2cd96aef` | hw1 `a8335bb4…2df4` in-process and over MCP; harness clients `c38d30f2…9197`, three legs MATCH; s1-00 6 of 10; s1-01 `b54bd625…`, `9aa1eac8…`, `512d1856…` |
+| Wheel (`verify_wheel.sh`), from `2cd96aef` | 5 of 5: version names the commit, imports come from the wheel, adapter provenance matches, CLI runs |
 | Example default commands | 37 runnable; **35 serve a product to a client**; 2 refuse as their READMEs promise (below) |
 | Example tests with estate credentials | 1,425 passed; 3 failed and 5 errors remain, all carried (below), after the 3 specimen re-pins (76 passed in those modules) |
 
@@ -134,7 +140,21 @@ minutes, and GitHub rounds each job up). At $0.008 a minute, with October's
 free quota already used, that is about **$0.54**. The previous commit is not
 re-run.
 
-Results are recorded after the run, in the follow-up commit.
+**Run `38264811239` on `2cd96aef`: completed, conclusion failure, on the 21
+carried SEC-020 ids alone.** By job:
+
+| job / step | result |
+|---|---|
+| lint + `mypy --strict` | **pass** (0 type errors) |
+| docs gate (strict build and publish scan) | **pass** |
+| examples suite | **pass** |
+| harness adapter conformance (three legs) | **pass** |
+| Postgres, SEC-013 Postgres lease, Neo4j, MongoDB and Fluree legs | **pass** |
+| quick suite (includes `tests/perf_smoke`, 10 tests) | 13,865 passed; **21 failed, all carried SEC-020** (`tests/products/test_sec020_combined_proof.py::test_a_pin_filed_in_one_deployment_reads_alike_in_both[...]`); no other id |
+
+The badge is red, and that is accurate: SEC-020 is open. No test expectation or
+CI setting was changed to turn it green. Actual billed time was about 44
+minutes (32 + 5 + 5 + 2), about $0.35, under the estimate.
 
 ## 5. Security statement
 
