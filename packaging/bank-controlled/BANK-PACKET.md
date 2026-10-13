@@ -12,7 +12,8 @@ Dave's Tuesday delivery GO (2026-10-11 14:51 MST, item 7) and his 23:44 MST
 ruling, and his 2026-10-12 rulings (07:04 type corrections; 08:45
 improvement-batch GO; about 10:55 merge and hosted-run GO; 12:50
 documentation baseline and follow-ups; 16:03 documentation close-out
-accepted, with the limits below), all recorded verbatim in
+accepted, with the limits below; 16:56 handoff sign-off paperwork removed),
+all recorded verbatim in
 `docs/DECISIONS.md`. What changed for adopters is summarized in
 [`RELEASE-NOTES.md`](RELEASE-NOTES.md). This page covers one
 controlled deployment configuration. **It is not a claim that the SDK's
@@ -560,9 +561,8 @@ break that turns it red), with where each was tested:
 |---|---|
 | Release approval, rulings, PyPI placeholder upload | Dave Castillo |
 | Build, verification and this packet | Claude Code session for the ccf-sdk agent, under Dave's direction |
-| Bank-side service account, host and operations (the operational owner) | **to be named by the bank**, in the record in section 8 |
 
-## 8. Handoff steps and acceptance of the disclosed limits
+## 8. Handoff steps
 
 Dave accepted the documentation close-out on 2026-10-12 at 16:03 MST: the
 source and the wheel stay pinned to `01fc424d`, and `main` supplies the
@@ -579,20 +579,3 @@ What remains, in order:
 3. **The bank verifies under its own service account**: section 3's
    checksum and install steps, then section 2's launch and `verify.py`,
    which ran under the developer account here.
-4. **The bank names its operational owner and records acceptance of the
-   disclosed limits**, in the record below.
-
-**Acceptance record** (completed by the bank; kept beside the sealed folder,
-not inside it, so its manifest stays valid):
-
-| item | entry |
-|---|---|
-| Operational owner (name, role, organization) | |
-| Service account the door runs under | |
-| `sha256sum -c MANIFEST.sha256` and `sha256sum -c SHA256SUMS` passed (date) | |
-| `verify.py` under that service account: checks passed of 16 (date) | |
-| Accepts: the handoff covers the tested configuration in section 2 only | |
-| Accepts: erasure completion over the MCP-backed artifact store is unsupported | |
-| Accepts: mixed-version erasure requests stay disabled during upgrades | |
-| Accepts: the open findings and follow-ups 1 to 6 in section 5 | |
-| Signature and date | |
