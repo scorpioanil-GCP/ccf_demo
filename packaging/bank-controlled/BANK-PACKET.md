@@ -392,17 +392,16 @@ break that turns it red), with where each was tested:
   configuration, a caller who asks about a record it is not entitled to see
   gets the same answer as a caller who asks about a record that does not
   exist: the same status, kind, external reason and fields (`D-IMPL-253` Q27
-  and amendment 2 (4); Dave's ruling of 2026-10-12 22:44 MST). Two things
-  enforce it. The disclosure level is the default, `minimal`: the door
-  registers its one-principal entitlement policy with no level and no
-  per-principal override, and this configuration sets none. And every caller
-  presents the one shared credential, so every caller is the same principal
-  and no per-person setting applies. The decision record keeps the governed
+  and amendment 2 (4); Dave's ruling of 2026-10-12 22:44 MST). The default
+  minimal disclosure policy suppresses the protected distinction. The shared
+  credential means this deployment cannot apply employee-specific disclosure
+  settings. The decision record keeps the governed
   reason; it does not cross to the caller. **A distinct entitlement refusal
   for a named employee on a named information wall is not implemented:** no
   disclosure level states only "not entitled to this restricted class" (the
   `full` level reveals the whole internal record and is not authorized for
-  this configuration), no population can be declared per wall, and the door
+  this configuration), this delivery does not implement the proposed narrow
+  per-wall entitlement explanation, and the door
   judges the calling credential, not an employee an agent acts on behalf of.
   These are named follow-ups 7, 8 and 9 (below), not built. The ways the
   two answers can still be told apart are SEC-020's, below; SEC-020 stays
