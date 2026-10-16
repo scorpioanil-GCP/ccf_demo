@@ -28,7 +28,7 @@ on:
   # trigger surface this workflow had before 15.3-05 widened it. `D-09`'s
   # reasoning survives as the reason to DISPATCH it (12 v4 releases Apr–Jul
   # 2026, and 4.1.3 shipped a documented breaking change INSIDE a minor, so
-  # ci.yml pins `4.1.4` exactly while this pins the floating `4.1`); what does
+  # ci.yml pins `4.2.4` exactly while this pins the floating `4.2`); what does
   # not survive is the unasked-for cadence that billed for it weekly.
   #
   # NO JOB REFERENCED THE REMOVED TRIGGER. `fluree-drift` is the only job here
@@ -49,11 +49,12 @@ jobs:
   # The D-09 upstream-drift detector (plan 15.3-05).
   #
   # This runs the SAME fluree differential leg that ci.yml runs, against a
-  # DIFFERENT image tag: ci.yml pins `4.1.4` exactly, this pins the floating
-  # `4.1`. The pair is the whole mechanism — the exact pin is what makes the
+  # DIFFERENT image tag: ci.yml pins `4.2.4` exactly, this pins the floating
+  # `4.2`. The pair is the whole mechanism — the exact pin is what makes the
   # phase's conformance evidence reproducible, and the floating tag is what
   # notices when upstream moves underneath it. Swapping them would defeat
-  # both, so `4.1.4` must never appear in this file.
+  # both, so the exact pin must never appear in this file. (D-IMPL-384,
+  # 2026-10-15: the pair moved from `4.1.4` / `4.1` to `4.2.4` / `4.2`.)
   #
   # This job is allowed to FAIL LOUDLY, and no non-blocking escape hatch is
   # configured for it anywhere in this file. Phase 4's D-07 forbids that dodge,
@@ -62,16 +63,16 @@ jobs:
   # TWO HONEST LIMITATIONS, recorded as facts rather than as reconsiderations
   # of D-09:
   #
-  #   1. `4.1` resolves to the same image as the exact pin TODAY (4.1.4 is the
-  #      current release as of 2026-08-08). The job is therefore a NO-OP until
-  #      4.1.5 ships, and a first green run proves that the job works — not
-  #      that no drift exists. Read it that way until a 4.1.x lands.
-  #   2. `4.1` tracks the PATCH stream only. A `4.2.0` would pass here
-  #      unnoticed; the `4` tag would have caught it. D-09 says `4.1`, so
-  #      `4.1` is implemented — and the gap is made visible rather than
-  #      assumed away.
+  #   1. `4.2` resolves to the same image as the exact pin TODAY (4.2.4 is the
+  #      current release as of 2026-10-15). The job is therefore a NO-OP until
+  #      4.2.5 ships, and a green run proves that the job works — not that no
+  #      drift exists. Read it that way until a 4.2.x lands.
+  #   2. `4.2` tracks the PATCH stream only. A `4.3.0` would pass here
+  #      unnoticed; the `4` tag would have caught it. D-09 says the floating
+  #      minor, so the floating minor is implemented — and the gap is made
+  #      visible rather than assumed away.
   fluree-drift:
-    name: fluree upstream-drift detector (floating 4.1 — D-09)
+    name: fluree upstream-drift detector (floating 4.2 — D-09)
     runs-on: ubuntu-24.04
     # Generous vs. the leg's real cost (37 tests, seconds): the budget is for
     # the image pull on a cold runner, not for the tests.
@@ -79,7 +80,7 @@ jobs:
 
     services:
       fluree:
-        image: fluree/server:4.1
+        image: fluree/server:4.2
         ports:
           - 8090:8090
         options: >-

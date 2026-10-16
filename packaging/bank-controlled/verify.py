@@ -51,13 +51,15 @@ def secrets() -> dict[str, str]:
 def permissions(account: str) -> None:
     uid = pwd.getpwnam(account).pw_uid
     for path, mode in ((ROOT, 0o700), (ROOT / "secrets" / "instance.env", 0o600),
-                       (ROOT / "scratch", 0o700), (ROOT / "run", 0o700), (ROOT / "logs", 0o700)):
+                       (ROOT / "scratch", 0o700), (ROOT / "run", 0o700), (ROOT / "logs", 0o700),
+                       (ROOT / "evidence", 0o700)):
         st = path.stat()
         check(f"permissions {path.relative_to(ROOT.parent)}",
               st.st_uid == uid and stat.S_IMODE(st.st_mode) == mode,
               f"owner uid {st.st_uid}, mode {oct(stat.S_IMODE(st.st_mode))}, want uid {uid} mode {oct(mode)}")
-    leaked = [str(p) for p in (ROOT / "scratch").rglob("*") if stat.S_IMODE(p.stat().st_mode) & 0o077]
-    check("scratch holds nothing readable by group or others", not leaked, ", ".join(leaked[:5]))
+    for held in ("scratch", "evidence"):  # evidence: the retained replay evidence (D-IMPL-383)
+        leaked = [str(p) for p in (ROOT / held).rglob("*") if stat.S_IMODE(p.stat().st_mode) & 0o077]
+        check(f"{held} holds nothing readable by group or others", not leaked, ", ".join(leaked[:5]))
 
 
 def process(pid: int, account: str) -> None:

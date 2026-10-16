@@ -265,7 +265,7 @@ def mongo_uri() -> str:
 
 
 #: Set by the CI job (GitHub Actions Fluree service container). Env-driven
-#: only: locally run `docker run --rm -p 8090:8090 fluree/server:4.1.4`.
+#: only: locally run `docker run --rm -p 8090:8090 fluree/server:4.2.4`.
 #: The two variables that name the LOCAL DISPOSABLE store every writing test
 #: seeds. CLAUDE.md §9 and `D-IMPL-318`: reads go to the curated estate, writes
 #: go to a throwaway. Fenced together at session scope below.
@@ -344,7 +344,7 @@ def fluree_url() -> str:
     if url:
         return url
     reason = (
-        f"{FLUREE_URL_ENV} is unset; start a fluree/server:4.1.4 container and"
+        f"{FLUREE_URL_ENV} is unset; start a fluree/server:4.2.4 container and"
         " export the base URL to run the fluree leg"
     )
     if os.environ.get(FLUREE_REQUIRED_ENV):

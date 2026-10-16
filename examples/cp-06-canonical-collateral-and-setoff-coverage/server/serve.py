@@ -24,14 +24,28 @@ ephemeral ``127.0.0.1`` port with REAL bearer authentication, reached through
 ``run.py --door``, which prints the ``READY {port}`` line a harness reads).
 The bearer credential is read from the variable the environment document
 names, or minted per boot when it is unset.
+
+**Where the door's scratch lives** (`D-IMPL-383`, Dave, 2026-10-15 20:27). With
+``--evidence-dir`` the scratch is that folder — absolute, a directory, owned by
+the account running the door, mode ``700`` and writable, or the door refuses
+before it opens. The per-question graphs, the replay store and the evidence
+index then outlive the door, so every decision it answered replays after a
+restart (:meth:`~ccf.products.product.OpenedProduct.replay_decision`). Nothing
+deletes them: retained evidence consumes disk and must be backed up. The bank
+launcher (``packaging/bank-controlled/launch.sh``) always passes it. Without it
+the scratch is a temporary directory, deleted when the door stops — the
+development behavior, kept.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
+import stat
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -48,9 +62,41 @@ from ccf_runtime.mcp.product_door import open_door  # noqa: E402
 import produce  # noqa: E402
 
 
-def serve() -> None:
+@contextlib.contextmanager
+def door_scratch(evidence_dir: Path | None) -> Iterator[Path]:
+    """The door's scratch: the private evidence folder, or a temporary directory.
+
+    Raises:
+        SystemExit: ``evidence_dir`` is not absolute, does not exist, is not a
+            directory, is not owned by this account with mode ``700``, or is
+            not writable — refused before anything is opened over it.
+    """
+    if evidence_dir is None:
+        with tempfile.TemporaryDirectory(prefix="cp06c-door-") as scratch:
+            yield Path(scratch)
+        return
+
+    def refuse(why: str) -> SystemExit:
+        return SystemExit(f"REFUSED: the evidence folder {evidence_dir} {why} (D-IMPL-383)")
+
+    if not evidence_dir.is_absolute():
+        raise refuse("must be an absolute path")
+    try:
+        held = evidence_dir.stat()
+    except FileNotFoundError:
+        raise refuse("does not exist") from None
+    if not stat.S_ISDIR(held.st_mode):
+        raise refuse("is not a directory")
+    if held.st_uid != os.geteuid() or stat.S_IMODE(held.st_mode) != 0o700:
+        raise refuse("must be owned by the account running the door, with mode 700")
+    if not os.access(evidence_dir, os.W_OK | os.X_OK):
+        raise refuse("is not writable by the account running the door")
+    yield evidence_dir
+
+
+def serve(*, evidence_dir: Path | None = None) -> None:
     """Open the product, open its door, serve on stdio."""
-    with tempfile.TemporaryDirectory(prefix="cp06c-door-") as scratch, produce.product(Path(scratch)) as opened:
+    with door_scratch(evidence_dir) as scratch, produce.product(scratch) as opened:
         door = open_door(opened)
         door.serve_stdio(
             identity=AuthenticatedUser(
@@ -64,18 +110,22 @@ def serve() -> None:
         )
 
 
-def loopback(*, announce: Callable[[int], None]) -> None:
+def loopback(*, announce: Callable[[int], None], evidence_dir: Path | None = None) -> None:
     """Open the product, open its door on an ephemeral loopback port, announce, serve."""
-    with tempfile.TemporaryDirectory(prefix="cp06c-door-") as scratch, produce.product(Path(scratch)) as opened:
+    with door_scratch(evidence_dir) as scratch, produce.product(scratch) as opened:
         open_door(opened).serve_loopback(announce=announce)
 
 
 def main(argv: list[str] | None = None) -> None:
     """The stdio entry point. The loopback harness mode is ``run.py --door``."""
-    argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description="The canonical credit-risk.collateral-coverage producer's MCP egress door (stdio)."
-    ).parse_args(argv)
-    serve()
+    )
+    parser.add_argument(
+        "--evidence-dir", type=Path, default=None,
+        help="a private (mode 700) folder that keeps every decision's replay evidence across restarts",
+    )
+    serve(evidence_dir=parser.parse_args(argv).evidence_dir)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -148,9 +148,11 @@ jobs:
           --health-interval 10s
           --health-timeout 10s
           --health-retries 15
-      # Plan 15.3: the fluree differential leg's server. The image pins 4.1.4
-      # exactly — the release current at plan time (2026-08-08), and the exact
-      # build every probe (F-A1/F-A4/F-A5/F-A6) was verified against. The v4
+      # Plan 15.3: the fluree differential leg's server. The image pins 4.2.4
+      # exactly (D-IMPL-384, 2026-10-15: bumped from 4.1.4 on Dave's
+      # instruction, after the full fluree leg was re-run against 4.2.4). The
+      # original pin, 4.1.4, was the release current at plan time (2026-08-08)
+      # and the build every probe (F-A1/F-A4/F-A5/F-A6) was verified against. The v4
       # line ships fast (12 releases Apr–Jul 2026) and shipped a documented
       # breaking change INSIDE a minor (4.1.3, SPARQL grammar), so an image
       # bump is a deliberate act requiring a full differential re-run. The
@@ -159,7 +161,7 @@ jobs:
       # default and the container is ephemeral (VOLUME /var/lib/fluree, no
       # mount), so the leg needs no token plumbing and no teardown.
       fluree:
-        image: fluree/server:4.1.4
+        image: fluree/server:4.2.4
         ports:
           - 8090:8090
         options: >-

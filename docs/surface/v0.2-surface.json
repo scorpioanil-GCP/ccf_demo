@@ -9624,6 +9624,77 @@
       }
     }
   },
+  "ccf.replay.evidence": {
+    "__all__": [
+      "EVIDENCE_SCHEMA_VERSION",
+      "EvidenceEntry",
+      "PendingEvidence",
+      "ReplayEvidenceAltered",
+      "ReplayEvidenceIndex",
+      "ReplayEvidenceUnavailable",
+      "file_sha256",
+      "require_record_address"
+    ],
+    "exports": {
+      "EVIDENCE_SCHEMA_VERSION": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "EvidenceEntry": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "decided_at": "<class 'datetime.datetime'>",
+          "graph": "str | None",
+          "graph_required": "<class 'bool'>",
+          "graph_sha256": "str | None",
+          "outcome": "typing.Literal['served', 'refused']",
+          "parameters": "dict[str, JsonValue]",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "record_address": "<class 'str'>",
+          "refusal_reason": "str | None",
+          "schema_version": "typing.Literal[1]",
+          "subject": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "PendingEvidence": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "graph": "<class 'str'>",
+          "parameters": "dict[str, JsonValue]",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "schema_version": "typing.Literal[1]",
+          "started_at": "<class 'datetime.datetime'>",
+          "subject": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ReplayEvidenceAltered": {
+        "kind": "class",
+        "shape": "(*, record_address: 'str', path: 'str', expected_sha256: 'str', found_sha256: 'str') -> 'None'"
+      },
+      "ReplayEvidenceIndex": {
+        "kind": "class",
+        "shape": "(*, evidence_root: 'Path', index_root: 'Path', tenant_id: 'str') -> 'None'"
+      },
+      "ReplayEvidenceUnavailable": {
+        "kind": "class",
+        "shape": "(*, record_address: 'str', detail: 'str', path: 'str | None' = None) -> 'None'"
+      },
+      "file_sha256": {
+        "kind": "function",
+        "shape": "(path: 'Path') -> 'str'"
+      },
+      "require_record_address": {
+        "kind": "function",
+        "shape": "(record_address: 'str') -> 'str'"
+      }
+    }
+  },
   "ccf.replay.provenance": {
     "__all__": [
       "RecordNotFiledByRecordWriter",

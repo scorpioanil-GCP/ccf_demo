@@ -74,11 +74,16 @@ def main(argv: list[str]) -> int:
         help="instead of asking once: boot the MCP egress door on an ephemeral 127.0.0.1"
              " port, print `READY {port}`, and serve questions from other processes until terminated",
     )
+    parser.add_argument(
+        "--evidence-dir", type=Path, default=None,
+        help="with --door: a private (mode 700) folder that keeps every decision's replay evidence"
+        " across restarts (D-IMPL-383); omitted, the door's scratch is temporary",
+    )
     parsed = parser.parse_args(argv[1:])
 
     if parsed.door:
         from server import serve as door  # noqa: PLC0415
-        door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
+        door.loopback(announce=lambda port: print(f"READY {port}", flush=True), evidence_dir=parsed.evidence_dir)
         return 0
 
     parameters: dict[str, Any] = {

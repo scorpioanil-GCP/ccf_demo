@@ -137,7 +137,7 @@ disposable local server — never at a shared or curated one.
 memory-capped local server, removed when you stop it:
 
 ```sh
-docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p 8090:8090 fluree/server:4.1.4
+docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p 8090:8090 fluree/server:4.2.4
 until curl -s -o /dev/null http://localhost:8090/fluree/ledgers; do sleep 1; done   # ready when it answers
 ```
 

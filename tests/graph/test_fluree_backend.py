@@ -22,7 +22,7 @@ runs first cannot be biased by the code that depends on it. Plan 15.2-08's
 mandatory A5 probe falsified its assumption and produced D-IMPL-89 precisely
 because it ran in this order.
 
-Every request is raw :mod:`httpx` against the pinned ``fluree/server:4.1.4``
+Every request is raw :mod:`httpx` against the pinned ``fluree/server:4.2.4``
 container, and every CCF-shaped value travels as an ``xsd:string`` literal
 behind an adapter-minted colonless ``@id`` (15.3-RESEARCH.md §R3, threat
 T-15.3-03) — no artifact-authored string ever occupies an IRI position.
@@ -469,10 +469,10 @@ def test_fa1_container_round_trip(fluree_url: str) -> None:
         assert "status" in payload
         assert "version" in payload
         evidence["health"] = payload
-        # A version that is not 4.1.4 means the pin is not what ran, and every
+        # A version that is not 4.2.4 means the pin is not what ran, and every
         # probe below would be evidence about a different build (D-09).
-        assert payload["version"] == "4.1.4", (
-            f"pin drift: /health reports {payload['version']!r}, expected '4.1.4'"
+        assert payload["version"] == "4.2.4", (
+            f"pin drift: /health reports {payload['version']!r}, expected '4.2.4'"
         )
 
         # (2) API base discovery.
@@ -1376,12 +1376,20 @@ def test_fa3_interposed_walk_primitives(
     assert types == [{"types": ["CCF_LINK", "CCF_LINK"]}], types
 
     # (e) THE BREAK-1 CONFIRMATION. The one relationship-property read in the
-    # tree, here to prove it returns nothing.
-    props = store.post_query(
-        _fa3_walk(2, tail=_FA3_PROPS_RETURN), {**scope, "starts": starts}
+    # tree, here to prove it yields nothing. On 4.1.4 it answered `200` with
+    # `[null, null]` — the silent break the interposed node exists to avoid. On
+    # the 4.2.4 pin (D-IMPL-384, measured 2026-10-15) upstream refuses the same
+    # read at lowering, BY NAME, rather than answering null: still nothing an
+    # adapter could read, now loudly. Either way the layout never asks it.
+    with pytest.raises(httpx.HTTPStatusError) as refused:
+        store.post_query(
+            _fa3_walk(2, tail=_FA3_PROPS_RETURN), {**scope, "starts": starts}
+        )
+    evidence["e_relationship_properties"] = refused.value.response.text
+    assert refused.value.response.status_code == 400, refused.value.response.text
+    assert "reading relationship properties" in refused.value.response.text, (
+        refused.value.response.text
     )
-    evidence["e_relationship_properties"] = props
-    assert props == [{"props": [None, None]}], props
 
     # (f) the scope terms are not decoration, and this is the sub-assertion the
     # plan did not name. D-03 puts every partition in ONE ledger, so a second

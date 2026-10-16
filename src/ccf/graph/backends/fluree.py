@@ -1523,7 +1523,11 @@ _EDGES_RETURN = (
 #
 # Probe **F-A3(e) CONFIRMED the break by measurement** before these fragments
 # were written: projecting a relationship property out of a path's relationship
-# list, over the layout the write path produces, returns `[null, null]`. The
+# list, over the layout the write path produces, returns `[null, null]`. On the
+# 4.2.4 pin (D-IMPL-384, measured 2026-10-15) the same read is refused at
+# lowering instead — `400 err:parse/CypherLower`, "reading relationship
+# properties over `p` is not supported here" — so the break is now loud rather
+# than silent; the rule below, and the layout, are unchanged by it. The
 # executable form of this rule is
 # `tests/graph/test_fluree_backend.py::test_no_relationship_property_is_read`,
 # which greps this module for a path-relationship projection and requires zero.

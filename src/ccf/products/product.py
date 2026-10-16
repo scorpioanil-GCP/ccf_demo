@@ -105,7 +105,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.artifacts.protocol import ArtifactNotFound, ArtifactStoreProtocol, WriteKinds
+from ccf.erasure.errors import ErasedContentRefused
 from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
 from ccf.erasure.store import (
     ErasureCompositionRefused,
@@ -206,7 +207,24 @@ from ccf.products.entitlement import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
-from ccf.replay.engine import ReplayDivergence
+from ccf.replay.engine import (
+    ErasedReplayOutcome,
+    RefusalReplayOutcome,
+    ReplayDivergence,
+    ReplayOutcome,
+    replay,
+    replay_refusal,
+)
+from ccf.replay.evidence import (
+    EVIDENCE_SCHEMA_VERSION,
+    EvidenceEntry,
+    NoGraphRetained,
+    ReplayEvidenceAltered,
+    ReplayEvidenceIndex,
+    ReplayEvidenceUnavailable,
+    file_sha256,
+    require_record_address,
+)
 from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
@@ -658,6 +676,17 @@ class OpenedProduct:
         #: which every resolver and door built over this product composes with.
         self.erasure_trust = erasure_trust
         self.refusal_recorder = refusal_recorder
+        #: `D-IMPL-383`: the decision → retained-graph index. The evidence root
+        #: is ``scratch`` itself — the graphs are minted there and the default
+        #: replay store lives there — so a deployment that hands the paved road
+        #: a persistent scratch has durable, addressable replay evidence, and a
+        #: temporary scratch keeps today's ephemeral behavior. The index sits
+        #: beside the declared store, named from it, never inside it.
+        self.evidence = ReplayEvidenceIndex(
+            evidence_root=scratch,
+            index_root=scratch / f"{replay.store_dirname}-evidence-index",
+            tenant_id=tenant_id,
+        )
         self._invalidation_sink = invalidation_sink
         self.mcp_skills = mcp_skills
         self.agent = agent
@@ -758,11 +787,19 @@ class OpenedProduct:
             request, perspective=chosen, address=(request.schema_name, request.schema_version)
         )
         if isinstance(admitted, RefusalEnvelope):
-            return admitted
-        fabric = self._boot()
+            return self._published(admitted, request=request, graph=None)
+        # `D-IMPL-383`: the pending marker is written BEFORE the graph is
+        # minted, the mapping is published only AFTER the graph is closed, and
+        # the outcome is returned only after that. An interruption anywhere in
+        # between leaves the marker — the explicit incomplete state.
+        minted = self._mint()
+        # Wall-clock instants, never the deployment's clock: evidence must not
+        # change what the decision sees, and a composed clock can tick per read.
+        self.evidence.begin(graph=minted.name, request=admitted, started_at=_utc_now())
+        fabric = self._boot(minted)
         try:
             resolver = build_governed_resolver(**self.build_arguments(fabric))
-            return resolver(
+            outcome = resolver(
                 tenant=self.tenant_id,
                 product_class=self.declaration.schema_name,
                 version=self.declaration.schema_version,
@@ -771,6 +808,7 @@ class OpenedProduct:
             )
         finally:
             fabric.handle.close()
+        return self._published(outcome, request=admitted, graph=minted)
 
     def record_of(self, outcome: ResolverOutcome) -> DecisionReplayRecord:
         """The decision record behind ``outcome``, read from the ONE store.
@@ -831,6 +869,165 @@ class OpenedProduct:
             self.artifact_store, content_address=address, tenant_id=record.tenant_id
         )
         return record
+
+    # --- durable, addressable replay evidence (`D-IMPL-383`) -------------------------
+
+    def _published(
+        self, outcome: ResolverOutcome, *, request: ProductRequest, graph: Path | None
+    ) -> ResolverOutcome:
+        """Publish ``outcome``'s evidence mapping, then return it — the last step of every decision.
+
+        ``graph`` is the question's closed substrate, or ``None`` for a refusal
+        reached before one was minted, which the mapping then states as "no
+        graph required" (the reviewer's instruction 5). A failure to publish
+        propagates: the decision's record exists, its pending marker stays,
+        and the outcome is NOT returned as durably replayable (instruction 3).
+        """
+        if isinstance(outcome, ServedProduct):
+            address = outcome.replay_ref.content_address
+            refusal_reason = None
+        else:
+            address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
+            refusal_reason = outcome.reason
+        self.evidence.publish(
+            EvidenceEntry(
+                schema_version=EVIDENCE_SCHEMA_VERSION,
+                record_address=address,
+                tenant_id=self.tenant_id,
+                outcome="served" if refusal_reason is None else "refused",
+                refusal_reason=refusal_reason,
+                product_class=request.schema_name,
+                product_version=request.schema_version,
+                subject=request.subject,
+                parameters=request.model_dump(mode="json")["parameters"],
+                asked_at=request.asked_at,
+                decided_at=_utc_now(),
+                graph=None if graph is None else graph.name,
+                graph_required=graph is not None,
+                graph_sha256=None if graph is None else file_sha256(graph),
+            )
+        )
+        return outcome
+
+    def replay_decision(
+        self, record_address: str
+    ) -> ReplayOutcome | RefusalReplayOutcome | ErasedReplayOutcome:
+        """Replay the decision recorded at ``record_address`` from its retained evidence.
+
+        SDK-defined (CLAUDE.md §7.4, §8.3; `D-IMPL-383`). Resolves the
+        decision's evidence mapping by its record address, checks the retained
+        graph is present and byte-identical to what the question closed, boots
+        it READ-ONLY through the deployment's own boot path, rebuilds the
+        recorded environment and hands everything to the existing engine —
+        :func:`~ccf.replay.engine.replay` for a served decision,
+        :func:`~ccf.replay.engine.replay_refusal` for a refused one. Every
+        engine check is retained; nothing here re-derives from a source.
+
+        The low-level engine calls, which take an explicit reader, are
+        unchanged; this is a convenience over them.
+
+        **An operator/auditor handle**, as :meth:`record_of` is: its caller
+        holds this product's store.
+
+        Raises:
+            ValueError: ``record_address`` is not a content address.
+            ccf.replay.evidence.ReplayEvidenceUnavailable: no mapping was
+                published (the decision is unknown, or was interrupted before
+                its mapping — reported as incomplete), the retained graph is
+                gone, or the store no longer holds the record.
+            ccf.replay.evidence.ReplayEvidenceAltered: the retained graph's
+                bytes changed after the decision — a divergence, never
+                "missing".
+            ccf.replay.engine.ReplayDivergence: the record's bytes, or the
+                reproduction, disagree with what was recorded.
+        """
+        from ccf.replay.environment import RecordedEnvironment  # noqa: PLC0415 (cycle)
+
+        require_record_address(record_address)
+        entry = self.evidence.entry(record_address)
+        if entry is None:
+            if self.artifact_store.exists(content_address=record_address):
+                detail = (
+                    "the decision record is in the store but its evidence mapping was"
+                    " never published, so the decision is incomplete: it was interrupted"
+                    " between writing its record and publishing its mapping"
+                )
+            else:
+                detail = "neither a decision record nor an evidence mapping exists for this address"
+            pending = self.evidence.incomplete()
+            if pending:
+                detail += f"; {len(pending)} incomplete decision(s) are held in this evidence root"
+            raise ReplayEvidenceUnavailable(record_address=record_address, detail=detail)
+        try:
+            payload: bytes | None = self.artifact_store.get(content_address=record_address)
+        except ErasedContentRefused:
+            # SEC-009 (`D-IMPL-374` (4)): an erasure is a recorded decision, not
+            # an absence. The engine meets the same refusal at its prologue and
+            # returns the disclosure, before it would consult a graph.
+            payload = None
+        except ArtifactNotFound:
+            raise ReplayEvidenceUnavailable(
+                record_address=record_address,
+                detail="the evidence mapping names this decision, and the store no longer holds its record",
+            ) from None
+        if payload is None or entry.graph is None:
+            not_read = NoGraphRetained(record_address)
+            engine = replay if entry.outcome == "served" else replay_refusal
+            return engine(
+                record_address=record_address,
+                store=self.artifact_store,
+                reader=not_read,  # never consulted: see NoGraphRetained
+                control_plane=self.control_plane,
+                environment=not_read,
+            )
+        graph = self.evidence.graph_path(entry)
+        if not graph.is_file():
+            raise ReplayEvidenceUnavailable(
+                record_address=record_address,
+                path=entry.graph,
+                detail="the retained graph this decision read is no longer in the evidence root",
+            )
+        found = file_sha256(graph)
+        assert entry.graph_sha256 is not None  # the entry's own validator holds this
+        if found != entry.graph_sha256:
+            raise ReplayEvidenceAltered(
+                record_address=record_address,
+                path=entry.graph,
+                expected_sha256=entry.graph_sha256,
+                found_sha256=found,
+            )
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != record_address:
+            raise ReplayDivergence(
+                f"the bytes at {record_address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the decision record (D-IMPL-89)"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        fabric = load_config_and_boot(
+            self.config_path,
+            registry=self.control_plane,
+            connection=self._connection(graph),
+            read_only=True,
+        )
+        try:
+            environment = RecordedEnvironment(record=record, opened=self, fabric=fabric)
+            if entry.outcome == "served":
+                return replay(
+                    record_address=record_address,
+                    store=self.artifact_store,
+                    reader=fabric.handle.reader,
+                    control_plane=self.control_plane,
+                    environment=environment,
+                )
+            return replay_refusal(
+                record_address=record_address,
+                store=self.artifact_store,
+                reader=fabric.handle.reader,
+                control_plane=self.control_plane,
+                environment=environment,
+            )
+        finally:
+            fabric.handle.close()
 
     # --- the serve clock (G1-SDK-01) ---------------------------------------------
 
@@ -993,7 +1190,7 @@ class OpenedProduct:
             )
         admitted = self._admit_lane(request, perspective=perspective, address=(product_class, version))
         if isinstance(admitted, RefusalEnvelope):
-            return admitted
+            return self._published(admitted, request=request, graph=None)
         return self.answer(admitted, perspective=perspective)
 
     def _admit_lane(
@@ -1111,8 +1308,12 @@ class OpenedProduct:
 
     # --- the mechanism ------------------------------------------------------------------
 
-    def _boot(self) -> BootedFabric:
+    def _boot(self, minted: Path | None = None) -> BootedFabric:
         """Mint a fresh per-question fabric under ``scratch`` and boot it.
+
+        ``minted`` is the path :meth:`_mint` chose, when the caller needed it
+        before the boot (:meth:`answer` writes the evidence marker first);
+        otherwise one is minted here.
 
         The substrate's SETTING, prefix and suffix are the environment
         document's; the uuid is what makes "per question" true rather than
@@ -1123,17 +1324,24 @@ class OpenedProduct:
         the minted substrate does not exist yet, and the governed call that
         acquires into this fabric claims it for the one question it answers.
         """
-        substrate = self.environment.substrate
-        minted = self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
-        connection: dict[str, object] = {substrate.setting: str(minted)}
-        if self.writer_lock_directory is not None:
-            connection[LOCK_DIRECTORY_SETTING] = self.writer_lock_directory
         return load_config_and_boot(
             self.config_path,
             registry=self.control_plane,
-            connection=connection,
+            connection=self._connection(self._mint() if minted is None else minted),
             for_question=True,
         )
+
+    def _mint(self) -> Path:
+        """The path of a fresh per-question substrate under ``scratch`` (not yet created)."""
+        substrate = self.environment.substrate
+        return self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
+
+    def _connection(self, substrate_path: Path) -> dict[str, object]:
+        """The connection settings that point the declared adapter at ``substrate_path``."""
+        connection: dict[str, object] = {self.environment.substrate.setting: str(substrate_path)}
+        if self.writer_lock_directory is not None:
+            connection[LOCK_DIRECTORY_SETTING] = self.writer_lock_directory
+        return connection
 
     def _acquisition_seam(
         self,
