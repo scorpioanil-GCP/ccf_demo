@@ -2594,10 +2594,12 @@ class _EvidencePublishingRecorder:
     def artifact_store(self) -> ArtifactStoreProtocol:
         return self._inner.artifact_store
 
-    def disclosure_level_for(
-        self, *, tenant: str, principal_id: str
-    ) -> tuple[DisclosureLevel, ProvenanceSource | None]:
-        return self._inner.disclosure_level_for(tenant=tenant, principal_id=principal_id)
+    # The inner recorder's own reader, handed through as the field it is: no
+    # parameter list here, so no principal id is named below the door
+    # (`tests/invariants/test_mcp_role_separation.py`).
+    @property
+    def disclosure_level_for(self) -> Callable[..., tuple[DisclosureLevel, ProvenanceSource | None]]:
+        return self._inner.disclosure_level_for
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
