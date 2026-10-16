@@ -72,6 +72,23 @@ the declaration removed, the demonstration question is refused
 A question at a different dated instant needs a deployment declaring its own anchor: set
 `serve_instant` five minutes after it first.
 
+**Asking the retained evidence** (`D-IMPL-383`, 2026-10-16). With `CCF_REPLAY_EVIDENCE_ROOT`
+set to a private (mode `700`) folder, the door keeps every decision's evidence there, and
+three commands answer from it without serving or asking a new question:
+
+```
+SERVE=examples/cp-06-canonical-collateral-and-setoff-coverage/server/serve.py
+.venv/bin/python $SERVE decisions --involving 2549001IGRCG4F0RLD36 --since 2026-10-13 --until 2026-10-13
+.venv/bin/python $SERVE why <decision>      # why it refused, or the policies, inputs and data it used
+.venv/bin/python $SERVE replay <decision>   # re-executes it from the evidence: REPRODUCED or not
+```
+
+`--involving` takes an identifier (a facility id or a legal-entity identifier), not a
+company name. A bare date covers that whole local day; times print in UTC and local time.
+A decision is named by its record address or a unique prefix of at least 8 characters.
+Opening the product still asks for the four source variables above, though none of the
+three commands reads a source (`CP06C-F-07`).
+
 ## The story
 
 ### 0. Two regions, and the SDK owns the rest

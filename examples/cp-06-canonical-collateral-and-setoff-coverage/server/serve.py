@@ -37,6 +37,13 @@ them: retained evidence consumes disk and must be backed up. The bank launcher
 (``packaging/bank-controlled/launch.sh``) always sets it. Unset, the evidence
 goes with the temporary scratch — the development behavior, kept. This launcher
 is the ONLY reader of the variable; the SDK takes the folder as an argument.
+
+**Asking the retained evidence** (Dave, 2026-10-16). ``serve.py decisions``,
+``serve.py why <decision>`` and ``serve.py replay <decision>`` open the same
+evidence root and answer from it — which decisions were made, when and about
+what; why one refused, and which policies and inputs were in force; whether it
+reproduces — without serving and without asking a new question
+(:mod:`ccf_runtime.cli.evidence`).
 """
 
 from __future__ import annotations
@@ -60,6 +67,7 @@ for _path in (REPO_ROOT / "src", REPO_ROOT / "runtime", EXAMPLE):
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
 from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
 from ccf_runtime.mcp.product_door import open_door  # noqa: E402
+from ccf_runtime.cli import evidence as inspection  # noqa: E402
 
 import produce  # noqa: E402
 
@@ -132,15 +140,38 @@ def loopback(*, announce: Callable[[int], None]) -> None:
         open_door(opened).serve_loopback(announce=announce)
 
 
+def inspect(args: argparse.Namespace) -> int:
+    """Answer ``decisions``, ``why`` or ``replay`` from the retained evidence; asks no new question.
+
+    Opens the product over the configured evidence root exactly as the door
+    does — the same validation, a fresh temporary scratch — and hands it to the
+    SDK's evidence verbs. Without :data:`EVIDENCE_ROOT_VARIABLE` nothing was
+    retained, so there is nothing to inspect, and that is said rather than an
+    empty answer given.
+    """
+    with door_roots() as (scratch, evidence_root):
+        if evidence_root is None:
+            raise SystemExit(
+                f"REFUSED: {EVIDENCE_ROOT_VARIABLE} is not set, so no decision was retained to inspect (D-IMPL-383)"
+            )
+        with produce.product(scratch, evidence_root=evidence_root) as opened:
+            return inspection.run(args, opened, out=sys.stdout)
+
+
 def main(argv: list[str] | None = None) -> None:
-    """The stdio entry point. The loopback harness mode is ``run.py --door``."""
+    """The stdio entry point, and the evidence verbs. The loopback harness mode is ``run.py --door``."""
     parser = argparse.ArgumentParser(
-        description="The canonical credit-risk.collateral-coverage producer's MCP egress door (stdio).",
+        description="The canonical credit-risk.collateral-coverage producer's MCP egress door (stdio)."
+        " With a command, answers from the retained evidence instead of serving.",
         epilog=f"Set {EVIDENCE_ROOT_VARIABLE} to a private (mode 700) folder to keep every decision's"
-        " replay evidence across restarts (D-IMPL-383).",
+        " replay evidence across restarts (D-IMPL-383); the commands read that folder.",
     )
-    parser.parse_args(argv)
-    serve()
+    inspection.register(parser.add_subparsers(dest="command", metavar="{decisions,why,replay}"))
+    args = parser.parse_args(argv)
+    if args.command is None:
+        serve()
+        return
+    raise SystemExit(inspect(args))
 
 
 if __name__ == "__main__":  # pragma: no cover

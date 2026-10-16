@@ -149,3 +149,19 @@ def test_the_flag_is_gone_and_only_the_launcher_reads_the_variable() -> None:
         if VARIABLE in path.read_text(encoding="utf-8")
     ]
     assert readers == [], f"the SDK core must never read {VARIABLE}: {readers}"
+
+
+@pytest.mark.parametrize("command", [["decisions"], ["why", "0" * 64], ["replay", "0" * 64]])
+def test_the_evidence_commands_refuse_when_nothing_was_retained(
+    serve: ModuleType, command: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``decisions``/``why``/``replay`` read the evidence root; unset, they say so rather than answer empty."""
+    monkeypatch.delenv(serve.EVIDENCE_ROOT_VARIABLE, raising=False)
+    with pytest.raises(SystemExit, match=f"{serve.EVIDENCE_ROOT_VARIABLE} is not set"):
+        serve.main(command)
+
+
+def test_the_launcher_offers_exactly_the_sdk_evidence_verbs(serve: ModuleType) -> None:
+    held = pathlib.Path(serve.__file__).read_text(encoding="utf-8")
+    assert "inspection.register(" in held and "inspection.run(" in held
+    assert serve.inspection.VERBS == ("decisions", "why", "replay")

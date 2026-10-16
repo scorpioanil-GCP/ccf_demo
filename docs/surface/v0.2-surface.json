@@ -9695,6 +9695,64 @@
       }
     }
   },
+  "ccf.replay.inspection": {
+    "__all__": [
+      "DecisionExplanation",
+      "ParameterOrigin",
+      "PolicyVersion",
+      "explain_decision"
+    ],
+    "exports": {
+      "DecisionExplanation": {
+        "kind": "contract",
+        "shape": {
+          "as_of": "datetime.datetime | None",
+          "asked_at": "<class 'datetime.datetime'>",
+          "debt": "str | None",
+          "debt_signal": "str | None",
+          "decided_at": "<class 'datetime.datetime'>",
+          "entities_touched": "int | None",
+          "graph_snapshot_id": "str | None",
+          "operators": "tuple[str, ...]",
+          "outcome": "typing.Literal['served', 'refused']",
+          "parameters": "tuple[ccf.replay.inspection.ParameterOrigin, ...]",
+          "policies": "tuple[ccf.replay.inspection.PolicyVersion, ...]",
+          "principal_id": "<class 'str'>",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "read_graph": "<class 'bool'>",
+          "record_address": "<class 'str'>",
+          "refusal_detail": "str | None",
+          "refusal_kind": "str | None",
+          "refusal_reason": "str | None",
+          "relationships_touched": "int | None",
+          "role": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
+      "ParameterOrigin": {
+        "kind": "contract",
+        "shape": {
+          "authority": "<class 'str'>",
+          "name": "<class 'str'>",
+          "source": "<class 'str'>",
+          "source_version": "str | None",
+          "value": "JsonValue"
+        }
+      },
+      "PolicyVersion": {
+        "kind": "contract",
+        "shape": {
+          "key": "<class 'str'>",
+          "version": "<class 'str'>"
+        }
+      },
+      "explain_decision": {
+        "kind": "function",
+        "shape": "(*, store: 'ArtifactStoreProtocol', evidence: 'ReplayEvidenceIndex', record_address: 'str') -> 'DecisionExplanation'"
+      }
+    }
+  },
   "ccf.replay.provenance": {
     "__all__": [
       "RecordNotFiledByRecordWriter",
@@ -12512,6 +12570,27 @@
       "resolve_remote_credential": {
         "kind": "function",
         "shape": "(*, token_env: 'str | None', token_file: 'str | None', environ: 'Mapping[str, str]') -> 'SecretStr'"
+      }
+    }
+  },
+  "ccf_runtime.cli.evidence": {
+    "__all__": [
+      "VERBS",
+      "register",
+      "run"
+    ],
+    "exports": {
+      "VERBS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "register": {
+        "kind": "function",
+        "shape": "(subparsers: \"'argparse._SubParsersAction[argparse.ArgumentParser]'\") -> 'None'"
+      },
+      "run": {
+        "kind": "function",
+        "shape": "(args: 'argparse.Namespace', opened: 'OpenedProduct', *, out: 'TextIO') -> 'int'"
       }
     }
   },
