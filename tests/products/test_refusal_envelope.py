@@ -82,6 +82,7 @@ from ccf.products.refusal import (
     RefusalEvidence,
     RequestIdentity,
     ResourceRequestIdentity,
+    SourceUnavailableRefusal,
     SubjectUnavailableRefusal,
     ErasedContentRefusal,
     envelope_for,
@@ -1291,6 +1292,31 @@ def test_envelope_for_erased_content(
     assert set(envelope.fields) == {"erasure_reason", "erased_at", "erasure_record_address"}
     assert "subject" not in ErasedContentRefusal.model_fields
     with pytest.raises(ValueError, match="ErasedContentRefusal"):
+        envelope_for(refusal, request=request_identity, pre_assembly_lineage=partial_lineage)
+
+
+def test_envelope_for_source_unavailable(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """`CP06C-F-06`: a declared source outage, its own kind and not a subject cause.
+
+    No ``reason`` is declared, so ``reason`` is the kind token; the class's
+    ``error_code`` crosses in ``fields``, and no subject field exists — an
+    outage is a statement about a source, never about the subject. Pre-assembly:
+    met at a seam before any plan, so a lineage offered with it is refused.
+    """
+    refusal = SourceUnavailableRefusal(
+        detail="connection refused", error_code="attribute-leg-unreachable"
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.kind == REFUSAL_KINDS[SourceUnavailableRefusal] == "source-unavailable"
+    assert envelope.reason == "source-unavailable"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert set(envelope.fields) == {"error_code"}
+    assert "subject" not in SourceUnavailableRefusal.model_fields
+    assert "cause" not in SourceUnavailableRefusal.model_fields
+    with pytest.raises(ValueError, match="SourceUnavailableRefusal"):
         envelope_for(refusal, request=request_identity, pre_assembly_lineage=partial_lineage)
 
 

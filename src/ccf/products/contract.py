@@ -278,6 +278,7 @@ __all__ = [
     "ServeObligations",
     "requirements_declaration_is_coherent",
     "RefusalCause",
+    "SeamRefusalCause",
     "SUBJECT_WITHHOLDING_NEVER",
     "SUBJECT_WITHHOLDING_POSSIBLE",
     "SubjectWithholding",
@@ -331,6 +332,19 @@ SUBJECT_WITHHOLDING_NEVER: SubjectWithholding = "never"
 #: failed (`D-IMPL-117`, CLAUDE.md §11 — the SDK owns mechanism, not
 #: vocabularies it enumerates by hand).
 RefusalCause = Literal["nonexistent", "unauthorized", "undisclosed"]
+
+#: What a class may declare an exception at a seam MEANS (`D-IMPL-347` B2):
+#: one of the three subject causes above, or ``source-unavailable``.
+#:
+#: ``source-unavailable`` is not a fourth subject cause — it says nothing about
+#: the subject at all — so it is not in :data:`RefusalCause`, and a
+#: :class:`~ccf.products.refusal.SubjectUnavailableRefusal` can never carry it.
+#: A binding declaring it mints a
+#: :class:`~ccf.products.refusal.SourceUnavailableRefusal` instead (`CP06C-F-06`;
+#: Dave, 2026-10-16 12:11, option B): before it, an outage could only be
+#: refused as *"the requested subject is not available to this principal"*,
+#: which is false for an outage and reads as a missing entitlement.
+SeamRefusalCause = RefusalCause | Literal["source-unavailable"]
 
 
 class ProductClassRegistrationError(ValueError):

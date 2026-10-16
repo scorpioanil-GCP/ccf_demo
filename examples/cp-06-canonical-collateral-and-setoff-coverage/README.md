@@ -89,6 +89,14 @@ A decision is named by its record address or a unique prefix of at least 8 chara
 The commands need none of the four source variables above: they open the product with
 `read_sources=False`, which replays and explains but answers no new question (`CP06C-F-07`).
 
+**A source that cannot be reached is a recorded refusal, not a crash** (`CP06C-F-06`,
+2026-10-16). `ccf_config.yaml` declares the two legs' connection errors under
+`seam_refusals` with `cause: source-unavailable`, so an outage answers `source-unavailable`
+— *"a source this product reads could not be reached … ask again later"* — and is kept,
+listed by `decisions` and explained by `why` like any other decision. The driver's own
+message, which names hosts and ports, stays in the record. Any other failure still
+propagates: only the product can say a failure is an outage rather than a defect.
+
 ## The story
 
 ### 0. Two regions, and the SDK owns the rest

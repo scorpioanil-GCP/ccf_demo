@@ -172,6 +172,7 @@ __all__ = [
     "RefusalEvidence",
     "RequestIdentity",
     "ResourceRequestIdentity",
+    "SourceUnavailableRefusal",
     "SubjectUnavailableRefusal",
     "ErasedContentRefusal",
     "GovernedRefusalRaised",
@@ -301,6 +302,48 @@ class SubjectUnavailableRefusal(CCFContract):
     error_code: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+
+
+class SourceUnavailableRefusal(CCFContract):
+    """A source this product reads could not be reached, so no answer was assembled (`CP06C-F-06`).
+
+    **SDK-defined** (CLAUDE.md §11). Dave, 2026-10-16 12:11, option B. Minted
+    ONLY from a class's own declaration (`D-IMPL-347` B2): a
+    :class:`~ccf.controlplane.artifacts.SeamRefusalBinding` whose ``cause`` is
+    ``source-unavailable`` names an exception type — a driver's connection
+    error, say — and the fabric refuses with this kind when a seam raises it.
+    An exception nobody declared still propagates unchanged, because the SDK
+    cannot tell an outage from a defect; only the product can (`PKG-F-03`).
+
+    **Its own kind, not a fourth cause on** :class:`SubjectUnavailableRefusal`:
+    that kind's one external sentence says the subject *is not available to
+    this principal*, which is false for an outage and tells a caller to look
+    for a missing entitlement. This one says nothing about the subject — an
+    outage is not a statement about any subject — and a caller can tell
+    *ask again later* from *you may not have this*.
+
+    **What a class declares it for is the class's responsibility.** The kind
+    crosses at every disclosure level, so an exception a source raises for SOME
+    subjects and not others would make the kind a statement about the subject.
+    Declare it for failures that do not depend on what was asked — a
+    connection refused, a timeout reaching the host. Under a declared early
+    policy every refusal the subject-keyed phase raises is still recorded as
+    the one constant ``subject-unavailable`` (SEC-020; `D-IMPL-378` repair
+    2.2 (a)), this kind included.
+
+    Attributes:
+        detail: The exception's own message, unedited — the SDK does not
+            paraphrase a failure it did not diagnose. A driver's message can
+            name hosts and ports, so it crosses only at ``full``
+            (:data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL`);
+            below that the kind's one external sentence stands in for it.
+        error_code: The deployment-facing code the class declared beside the
+            exception type, naming which source failed in the product's own
+            words.
+    """
+
+    detail: str
+    error_code: str
 
 
 class ErasedContentRefusal(CCFContract):
@@ -957,6 +1000,14 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # not a substring of any shipped token and none is a substring of it, which
     # the closure gate checks rather than the eye.
     SubjectUnavailableRefusal: "subject-unavailable",
+    # `CP06C-F-06` (Dave, 2026-10-16 12:11, option B): a declared source
+    # outage. Its own kind rather than a cause of `subject-unavailable`, whose
+    # one sentence tells a caller the subject is withheld from them — false for
+    # an outage, and a caller told it would chase an entitlement instead of
+    # asking again. `source-unavailable` and `subject-unavailable` differ in
+    # their first word, and neither is a substring of any shipped token nor
+    # any of it.
+    SourceUnavailableRefusal: "source-unavailable",
     # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.1): an erased address,
     # read at `reasoned` or `full`. Its own kind rather than a reuse of
     # `subject-unavailable`: an erasure is a recorded decision, not an absence,
@@ -1094,6 +1145,8 @@ _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
         ConstraintRefusal,
         PolicyResolutionConflict,
         SubjectUnavailableRefusal,
+        # `CP06C-F-06`: met at a seam before any plan exists.
+        SourceUnavailableRefusal,
         # SEC-009: decided at the read, before any plan exists.
         ErasedContentRefusal,
         # `D-IMPL-358` step 5: judged before acquisition and before the graph

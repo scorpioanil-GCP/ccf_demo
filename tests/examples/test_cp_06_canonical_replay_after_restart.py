@@ -34,8 +34,6 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-import psycopg
 import pytest
 
 from ccf.contracts.canonical import content_hash
@@ -184,14 +182,13 @@ def test_a_live_decision_is_reconstituted_after_a_restart_with_the_sources_unrea
         assert listed == {SERVED_FACILITY}, listed
 
         # Positive control on the offline claim: a NEW question cannot be answered,
-        # so the replays above did not quietly reach a source.
-        # Measured 2026-10-15: today the unreachable source surfaces as the driver's
-        # own connection error rather than a governed refusal; either proves it.
-        try:
-            fresh: object = restarted.answer(_question(restarted, deployment, SERVED_FACILITY, SERVED_SCOPE))
-        except (psycopg.OperationalError, httpx.ConnectError) as unreachable:
-            fresh = unreachable
-        assert not isinstance(fresh, ServedProduct), "the restarted service's sources were reachable"
+        # so the replays above did not quietly reach a source. Since `CP06C-F-06`
+        # closed (2026-10-16) the class declares its legs' connection errors, so
+        # the outage is a recorded `source-unavailable` refusal, never a raw
+        # driver error, and nothing is left incomplete.
+        fresh = restarted.answer(_question(restarted, deployment, SERVED_FACILITY, SERVED_SCOPE))
+        assert isinstance(fresh, RefusalEnvelope) and fresh.kind == "source-unavailable", fresh
+        assert restarted.evidence.incomplete() == []
         served_entry = restarted.evidence.entry(originals["served"][0])
         assert served_entry is not None
         served_graph = restarted.evidence.graph_path(served_entry)

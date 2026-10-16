@@ -2264,7 +2264,7 @@
       "SeamRefusalBinding": {
         "kind": "contract",
         "shape": {
-          "cause": "typing.Literal['nonexistent', 'unauthorized', 'undisclosed']",
+          "cause": "typing.Union[typing.Literal['nonexistent', 'unauthorized', 'undisclosed'], typing.Literal['source-unavailable']]",
           "error_code": "<class 'str'>",
           "exception": "<class 'str'>"
         }
@@ -7763,6 +7763,7 @@
       "RegisteredProductClass",
       "SUBJECT_WITHHOLDING_NEVER",
       "SUBJECT_WITHHOLDING_POSSIBLE",
+      "SeamRefusalCause",
       "ServeObligations",
       "SubjectWithholding",
       "TTLAnchor",
@@ -7935,6 +7936,10 @@
       "SUBJECT_WITHHOLDING_POSSIBLE": {
         "kind": "constant",
         "shape": "str"
+      },
+      "SeamRefusalCause": {
+        "kind": "function",
+        "shape": "typing.Union[typing.Literal['nonexistent', 'unauthorized', 'undisclosed'], typing.Literal['source-unavailable']]"
       },
       "ServeObligations": {
         "kind": "contract",
@@ -8702,6 +8707,7 @@
       "RequestIdentity",
       "ResolvedByTheResolver",
       "ResourceRequestIdentity",
+      "SourceUnavailableRefusal",
       "SubjectUnavailableRefusal",
       "TemporalBoundRefusal",
       "envelope_for",
@@ -8789,6 +8795,13 @@
           "surface": "<class 'str'>",
           "tenant_from": "typing.Optional[typing.Literal['capability']]",
           "tenant_id": "<class 'str'>"
+        }
+      },
+      "SourceUnavailableRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "error_code": "<class 'str'>"
         }
       },
       "SubjectUnavailableRefusal": {

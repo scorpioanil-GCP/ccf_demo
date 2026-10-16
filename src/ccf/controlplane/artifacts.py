@@ -121,7 +121,7 @@ from ccf.operators.params import (
     TraversalNeighborhoodParameters,
 )
 from ccf.products.contract import (
-    RefusalCause,
+    SeamRefusalCause,
     ChildRequirement,
     NO_PAYLOAD_SCHEMA,
     NO_PRODUCT_GATE,
@@ -1443,8 +1443,9 @@ class SeamRefusalBinding(CCFContract):
         exception: The fully qualified ``module.QualName`` of the exception
             type, as Python reports it on the raised value.
         cause: The refusal cause to mint, typed as
-            :data:`~ccf.products.contract.RefusalCause` — **referenced, never
-            restated**. The product's statement about what the failure MEANS,
+            :data:`~ccf.products.contract.SeamRefusalCause` — **referenced, never
+            restated**. A subject cause mints ``subject-unavailable``;
+            ``source-unavailable`` mints ``source-unavailable`` (`CP06C-F-06`). The product's statement about what the failure MEANS,
             which is the half the SDK cannot supply. It was spelled out here
             as a literal once, and that copy read as this module enumerating a
             vocabulary of its own: `artifacts.py` is one of the two roots
@@ -1456,7 +1457,7 @@ class SeamRefusalBinding(CCFContract):
     """
 
     exception: str
-    cause: RefusalCause
+    cause: SeamRefusalCause
     error_code: str
 
 

@@ -47,6 +47,24 @@ product_class:
 
   max_ttl_key: cp-06-canonical/product/collateral-coverage/max-ttl
 
+  # AN UNREACHABLE SOURCE IS A RECORDED REFUSAL, NOT A CRASH (`CP06C-F-06`,
+  # Dave 2026-10-16 option B). Each line is this product's statement that the
+  # named failure means "a source could not be reached" — matched by exact type,
+  # never imported. They are connection failures, which do not depend on what
+  # was asked, so the `source-unavailable` kind says nothing about the subject.
+  # Anything else a leg raises still propagates: an undeclared failure is a
+  # defect, not a determination.
+  seam_refusals:
+    - exception: psycopg.OperationalError
+      cause: source-unavailable
+      error_code: attribute-leg-unreachable
+    - exception: httpx.ConnectError
+      cause: source-unavailable
+      error_code: graph-leg-unreachable
+    - exception: httpx.ConnectTimeout
+      cause: source-unavailable
+      error_code: graph-leg-unreachable
+
   # THE PRODUCT'S OWN FOURTH VALIDATION GATE — §D names it beyond the SDK's
   # three: the sum of allocations against any single asset must not exceed its
   # haircut value.

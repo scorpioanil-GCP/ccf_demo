@@ -178,3 +178,39 @@ def test_the_evidence_commands_need_no_source_setting(
         serve.main(["decisions"])
     assert exited.value.code == 0, capsys.readouterr()
     assert "0 decision(s)" in capsys.readouterr().out
+
+
+def test_an_unreachable_source_is_a_recorded_source_unavailable_refusal(
+    serve: ModuleType, tmp_path: pathlib.Path
+) -> None:
+    """Both legs pointed where nothing listens: a recorded, replayable refusal, never a raw driver error (`CP06C-F-06`).
+
+    Estate-free by construction — nothing is reachable, so nothing is read.
+    """
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+    from ccf.replay.engine import RefusalReplayOutcome  # noqa: PLC0415
+
+    produce = serve.produce
+    deployment = produce.deployment
+    unreachable = {
+        "CCF_CP_06C_FLUREE_URL": "http://127.0.0.1:9",
+        "CCF_CP_06C_FLUREE_LEDGER": "fibo-v2",
+        "CCF_CP_06C_POSTGRES_DSN": "postgresql://nobody@127.0.0.1:9/none?connect_timeout=1",
+        "CCF_CP_06C_POSTGRES_SCHEMA": "ccf_v2",
+    }
+    evidence = _private(tmp_path / "evidence")
+    with produce.product(_private(tmp_path / "scratch"), evidence_root=evidence, environ=unreachable) as opened:
+        outcome = opened.answer(
+            opened.question(
+                subject="FAC-5B8418", asked_at=datetime(2026, 9, 7, 12, 0, tzinfo=UTC),
+                intent="lgd-assessment", freshness="as-filed",
+                parameters={deployment.FACILITY: "FAC-5B8418", deployment.BORROWER_SCOPE: ["2549001IGRCG4F0RLD36"]},
+            )
+        )
+        assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "source-unavailable", outcome
+        assert "127.0.0.1" not in outcome.model_dump_json(), "the driver's text crossed to the caller"
+        assert opened.evidence.incomplete() == [], "an outage is a finished decision"
+        address = opened.artifact_store.resolve_uri(uri=outcome.replay_reference)
+        assert isinstance(opened.replay_decision(address), RefusalReplayOutcome)

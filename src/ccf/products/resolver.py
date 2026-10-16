@@ -287,6 +287,7 @@ from ccf.products.refusal import (
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
+    SourceUnavailableRefusal,
     SubjectUnavailableRefusal,
     envelope_for,
 )
@@ -5970,17 +5971,21 @@ class GovernedResolver:
 
         The cause and the code are the PRODUCT's statement; the detail is the
         exception's own message, unedited — the SDK does not paraphrase a
-        failure it did not diagnose.
+        failure it did not diagnose. A ``source-unavailable`` cause mints a
+        :class:`~ccf.products.refusal.SourceUnavailableRefusal`, which says
+        nothing about the subject; any other cause, a
+        :class:`~ccf.products.refusal.SubjectUnavailableRefusal` (`CP06C-F-06`).
         """
+        detail = str(error) or type(error).__name__
+        refusal: SourceUnavailableRefusal | SubjectUnavailableRefusal
+        if binding.cause == "source-unavailable":
+            refusal = SourceUnavailableRefusal(detail=detail, error_code=binding.error_code)
+        else:
+            refusal = SubjectUnavailableRefusal(
+                cause=binding.cause, detail=detail, error_code=binding.error_code
+            )
         return self._refuse_raised_at_seam(
-            GovernedRefusalRaised(
-                SubjectUnavailableRefusal(
-                    cause=binding.cause,
-                    detail=str(error) or type(error).__name__,
-                    error_code=binding.error_code,
-                ),
-                resolution=RESOLVED_BY_THE_RESOLVER,
-            ),
+            GovernedRefusalRaised(refusal, resolution=RESOLVED_BY_THE_RESOLVER),
             seam=seam,
             request=request,
             identity=identity,

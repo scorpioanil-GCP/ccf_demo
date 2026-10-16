@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2708 entries**, of which **2425** name a public Python surface.
+**2711 entries**, of which **2428** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1423 entries — 1376 public Python surface, 47 not public Python API.
+1425 entries — 1378 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20420,6 +20420,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `383-04-replay-without-source-settings.md`.*
 
+#### ccf.products.refusal.SourceUnavailableRefusal
+
+- Surface: ccf.products.refusal.SourceUnavailableRefusal
+- Public surface: true
+- Change type: added
+- Before: no such kind; a declared outage could only be refused as `subject-unavailable`.
+- After: refusal kind `source-unavailable` with `detail` (the exception's own message) and `error_code` (the class's declared code). Registered in `REFUSAL_KINDS` and the pre-assembly set; its external sentence says a source could not be reached and to ask again later; `detail` is withheld below `full` because a driver's message can name hosts and ports; HTTP status 409 (fulfillment withheld), never a 5xx (`D-IMPL-253` Q18). Under a declared early policy it is still recorded as the one constant `subject-unavailable` (SEC-020).
+- Why: `CP06C-F-06`. Red test: `tests/examples/test_cp_06_canonical_evidence_dir.py::test_an_unreachable_source_is_a_recorded_source_unavailable_refusal` raises `psycopg.OperationalError` with the declaration removed; `tests/products/test_source_unavailable_refusal.py` does not import on `a06b66fc`.
+- Migration: none; nothing mints it unless a class declares `cause: source-unavailable`.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
+
+#### ccf.products.contract.SeamRefusalCause
+
+- Surface: ccf.products.contract.SeamRefusalCause
+- Public surface: true
+- Change type: added
+- Before: a seam binding's cause was typed `RefusalCause` (the three subject causes).
+- After: `RefusalCause | Literal["source-unavailable"]`. `RefusalCause` itself is unchanged, so a `SubjectUnavailableRefusal` can never carry the new value.
+- Why: `CP06C-F-06`.
+- Migration: none.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
+
 #### ccf.graph.leases.LOCK_DIRECTORY_SETTING
 
 - Surface: ccf.graph.leases.LOCK_DIRECTORY_SETTING
@@ -21335,7 +21359,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-648 entries — 452 public Python surface, 196 not public Python API.
+649 entries — 453 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28746,6 +28770,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none; `opened.sources[...]` reads as before on a default opening.
 
 *Recorded by `383-04-replay-without-source-settings.md`.*
+
+#### ccf.controlplane.artifacts.SeamRefusalBinding
+
+- Surface: ccf.controlplane.artifacts.SeamRefusalBinding
+- Public surface: true
+- Change type: reshaped
+- Before: `cause: RefusalCause`; every binding minted `subject-unavailable`.
+- After: `cause: SeamRefusalCause`; `source-unavailable` mints a `SourceUnavailableRefusal`, every other cause mints `subject-unavailable` exactly as before. Matching is unchanged: exact `module.QualName`, never imported, never a subclass.
+- Why: `CP06C-F-06`.
+- Migration: none; every existing binding's cause is still valid and hashes as before.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
 
 #### ccf.products.product.OpenedProduct
 

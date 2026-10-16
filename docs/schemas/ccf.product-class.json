@@ -184,16 +184,24 @@
     },
     "SeamRefusalBinding": {
       "additionalProperties": false,
-      "description": "One exception type this product class treats as a governed refusal.\n\n`D-IMPL-347` B2 (Dave, 2026-09-23): *\"Product class first; deployment may\nnarrow, not widen. The map is a governed value: exception type \u2192 cause /\nerror code.\"*\n\n**Why this is a declared value and not SDK mechanism.** A2 widened the\nSCOPE at which a typed ``GovernedRefusalRaised`` is honored; it deliberately\ndid not widen the TYPE, because the SDK cannot know whether a deployment's\n``ControlRoomUnreachable`` means *the subject is unavailable* or *this\ndeployment is broken*. Only the product knows, so the product says \u2014 in an\nartifact, like every other governed value (CLAUDE.md \u00a711).\n\n**The type is matched, never imported.** :attr:`exception` is compared\nagainst the raised exception's own ``module.QualName``; nothing here\nresolves a dotted path, so a declaration cannot cause an import and a\nmisspelled name simply never matches rather than executing something.\n\nAttributes:\n    exception: The fully qualified ``module.QualName`` of the exception\n        type, as Python reports it on the raised value.\n    cause: The refusal cause to mint, typed as\n        :data:`~ccf.products.contract.RefusalCause` \u2014 **referenced, never\n        restated**. The product's statement about what the failure MEANS,\n        which is the half the SDK cannot supply. It was spelled out here\n        as a literal once, and that copy read as this module enumerating a\n        vocabulary of its own: `artifacts.py` is one of the two roots\n        `tests/invariants/test_no_obligation_vocabulary.py` scans, and the\n        restatement turned that guard from 54 passed to 43 failed\n        (`D-IMPL-117`, CLAUDE.md \u00a711). One declaration, in the module that\n        owns the concept.\n    error_code: The deployment-facing code carried on the minted refusal.",
+      "description": "One exception type this product class treats as a governed refusal.\n\n`D-IMPL-347` B2 (Dave, 2026-09-23): *\"Product class first; deployment may\nnarrow, not widen. The map is a governed value: exception type \u2192 cause /\nerror code.\"*\n\n**Why this is a declared value and not SDK mechanism.** A2 widened the\nSCOPE at which a typed ``GovernedRefusalRaised`` is honored; it deliberately\ndid not widen the TYPE, because the SDK cannot know whether a deployment's\n``ControlRoomUnreachable`` means *the subject is unavailable* or *this\ndeployment is broken*. Only the product knows, so the product says \u2014 in an\nartifact, like every other governed value (CLAUDE.md \u00a711).\n\n**The type is matched, never imported.** :attr:`exception` is compared\nagainst the raised exception's own ``module.QualName``; nothing here\nresolves a dotted path, so a declaration cannot cause an import and a\nmisspelled name simply never matches rather than executing something.\n\nAttributes:\n    exception: The fully qualified ``module.QualName`` of the exception\n        type, as Python reports it on the raised value.\n    cause: The refusal cause to mint, typed as\n        :data:`~ccf.products.contract.SeamRefusalCause` \u2014 **referenced, never\n        restated**. A subject cause mints ``subject-unavailable``;\n        ``source-unavailable`` mints ``source-unavailable`` (`CP06C-F-06`). The product's statement about what the failure MEANS,\n        which is the half the SDK cannot supply. It was spelled out here\n        as a literal once, and that copy read as this module enumerating a\n        vocabulary of its own: `artifacts.py` is one of the two roots\n        `tests/invariants/test_no_obligation_vocabulary.py` scans, and the\n        restatement turned that guard from 54 passed to 43 failed\n        (`D-IMPL-117`, CLAUDE.md \u00a711). One declaration, in the module that\n        owns the concept.\n    error_code: The deployment-facing code carried on the minted refusal.",
       "properties": {
         "cause": {
-          "enum": [
-            "nonexistent",
-            "unauthorized",
-            "undisclosed"
+          "anyOf": [
+            {
+              "enum": [
+                "nonexistent",
+                "unauthorized",
+                "undisclosed"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "source-unavailable",
+              "type": "string"
+            }
           ],
-          "title": "Cause",
-          "type": "string"
+          "title": "Cause"
         },
         "error_code": {
           "title": "Error Code",
