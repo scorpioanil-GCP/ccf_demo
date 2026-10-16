@@ -12,7 +12,9 @@ the per-question SQLite is destroyed after each question? The ruling (Dave,
 each test below holds one of them against the estate-free paved fixture:
 
 1. **Evidence survives a restart.** Decisions answered under one opening replay
-   under a SECOND opening of the same scratch, with acquisition sabotaged so a
+   under a SECOND opening of the same evidence root — over a different, fresh
+   scratch, so nothing could have been read from the first run's working
+   directory — with acquisition sabotaged so a
    re-derivation from sources would fail loudly rather than pass silently.
 2. **A decision reliably finds its evidence.** The decision's record address is
    the index key — no scan, no "last file in the folder" — and two questions
@@ -30,8 +32,10 @@ the refusal's reason.
 from __future__ import annotations
 
 import pathlib
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -81,6 +85,17 @@ def _early_refusal(opened: OpenedProduct) -> RefusalEnvelope:
     return outcome
 
 
+def _open_run(root: pathlib.Path, evidence: pathlib.Path, **overrides: Any) -> OpenedProduct:
+    """One run of the service: a FRESH scratch every opening, the same durable ``evidence`` root.
+
+    Each opening's scratch is new and empty, as a restarted process's temporary
+    directory would be, so a replay that passes read only the evidence root
+    (Dave, 2026-10-16: ``scratch`` stays ephemeral; ``evidence_root`` is durable).
+    """
+    scratch = evidence.parent / f"scratch-{uuid.uuid4().hex}"
+    return _open(root, scratch, evidence_root=evidence, **overrides)
+
+
 @pytest.fixture()
 def tree(tmp_path: pathlib.Path) -> Iterator[tuple[pathlib.Path, pathlib.Path]]:
     yield _write_tree(tmp_path), tmp_path / "evidence-root"
@@ -92,8 +107,8 @@ def tree(tmp_path: pathlib.Path) -> Iterator[tuple[pathlib.Path, pathlib.Path]]:
 def test_every_decision_replays_after_a_restart_with_the_sources_unavailable(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         refused_after_boot = opened.answer(_question(opened, no_such_parameter=1))
         refused_before_boot = _early_refusal(opened)
@@ -105,8 +120,8 @@ def test_every_decision_replays_after_a_restart_with_the_sources_unavailable(
             "before": _address(opened, refused_before_boot),
         }
 
-    # A second opening of the SAME scratch is the restarted service.
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    # A second opening of the SAME evidence root, over a new scratch, is the restarted service.
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         reproduced = restarted.replay_decision(addresses["served"])
         assert isinstance(reproduced, ReplayOutcome), reproduced
         assert reproduced.product_content_address == content_hash(served.product)
@@ -128,8 +143,8 @@ def test_every_decision_replays_after_a_restart_with_the_sources_unavailable(
 def test_two_questions_map_to_two_graphs_and_deleting_one_affects_only_its_decision(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         first = opened.answer(_question(opened))
         second = opened.answer(_question(opened))
         assert isinstance(first, ServedProduct) and isinstance(second, ServedProduct)
@@ -142,9 +157,9 @@ def test_two_questions_map_to_two_graphs_and_deleting_one_affects_only_its_decis
     # Relative to the evidence root, never an absolute path.
     assert not pathlib.PurePath(first_entry.graph).is_absolute()
 
-    (scratch / first_entry.graph).unlink()
+    (evidence / first_entry.graph).unlink()
 
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         with pytest.raises(ReplayEvidenceUnavailable) as missing:
             restarted.replay_decision(_address(restarted, first))
         assert first_entry.graph in str(missing.value)
@@ -159,17 +174,17 @@ def test_two_questions_map_to_two_graphs_and_deleting_one_affects_only_its_decis
 def test_a_graph_whose_bytes_changed_raises_divergence_never_missing(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         assert isinstance(served, ServedProduct)
         address = _address(opened, served)
         entry = opened.evidence.entry(address)
     assert entry is not None and entry.graph is not None
-    with (scratch / entry.graph).open("ab") as graph:
+    with (evidence / entry.graph).open("ab") as graph:
         graph.write(b"\x00")
 
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         with pytest.raises(ReplayEvidenceAltered) as altered:
             restarted.replay_decision(address)
     assert isinstance(altered.value, ReplayDivergence), "corruption keeps the divergence error"
@@ -179,14 +194,14 @@ def test_a_graph_whose_bytes_changed_raises_divergence_never_missing(
 def test_an_interruption_between_the_record_and_its_mapping_is_reported_as_incomplete(
     tree: tuple[pathlib.Path, pathlib.Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root, scratch = tree
+    root, evidence = tree
     interrupted: list[str] = []
 
     def crash(self: ReplayEvidenceIndex, entry: object) -> None:
         interrupted.append(entry.record_address)  # type: ignore[attr-defined]
         raise KeyboardInterrupt("simulated stop between the record and its mapping")
 
-    with _open(root, scratch) as opened:
+    with _open_run(root, evidence) as opened:
         completed = opened.answer(_question(opened))
         assert isinstance(completed, ServedProduct)
         with monkeypatch.context() as patch:
@@ -196,7 +211,7 @@ def test_an_interruption_between_the_record_and_its_mapping_is_reported_as_incom
     assert len(interrupted) == 1
     (orphan,) = interrupted
 
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         # The record exists in the store; its mapping was never published.
         assert restarted.artifact_store.get(content_address=orphan)
         with pytest.raises(ReplayEvidenceUnavailable, match="incomplete") as incomplete:
@@ -212,8 +227,8 @@ def test_an_interruption_between_the_record_and_its_mapping_is_reported_as_incom
 def test_an_unknown_or_malformed_address_is_unavailable_and_never_reaches_the_filesystem(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         with pytest.raises(ReplayEvidenceUnavailable):
             opened.replay_decision("0" * 64)
         with pytest.raises(ValueError, match="content address"):
@@ -226,8 +241,8 @@ def test_an_unknown_or_malformed_address_is_unavailable_and_never_reaches_the_fi
 def test_decisions_are_enumerable_by_time_window_and_by_subject_or_identifier(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened, limit=7))
         refused = opened.answer(_question(opened, no_such_parameter=1))
         early = _early_refusal(opened)
@@ -279,13 +294,13 @@ def test_an_erased_decision_record_is_disclosed_by_the_engine_not_reported_unava
     from ccf.erasure.errors import ErasedContentRefused  # noqa: PLC0415
     from ccf.replay.engine import ErasedReplayOutcome  # noqa: PLC0415
 
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         assert isinstance(served, ServedProduct)
         address = _address(opened, served)
 
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         store = restarted.artifact_store
         original_get = store.get
 
@@ -307,8 +322,8 @@ def test_an_erased_decision_record_is_disclosed_by_the_engine_not_reported_unava
 
 def test_a_lookup_never_returns_another_tenants_mapping(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
     """Instruction 2: the index is scoped to the instance AND the tenant — lookups too, not only listings."""
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         assert isinstance(served, ServedProduct)
         address = _address(opened, served)
@@ -330,8 +345,8 @@ def test_a_refusal_a_door_records_directly_is_mapped_and_replays(tree: tuple[pat
     from ccf.products.request import ProductRequestViolation  # noqa: PLC0415
     from ccf.replay.record import ResolutionNotApplicable  # noqa: PLC0415
 
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         request = _question(opened)
         violation = ProductRequestViolation(
             reason="class-mismatch", key="schema_version",
@@ -355,7 +370,7 @@ def test_a_refusal_a_door_records_directly_is_mapped_and_replays(tree: tuple[pat
         assert entry is not None, "a door-recorded refusal published no evidence mapping"
         assert entry.graph is None and entry.graph_required is False and entry.outcome == "refused"
 
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         assert isinstance(restarted.replay_decision(address), RefusalReplayOutcome)
 
 
@@ -363,8 +378,8 @@ def test_a_mapping_that_disagrees_with_its_record_is_divergence_never_missing(
     tree: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
     """Instruction 4: an altered index is corruption — reported as divergence, not as "unavailable"."""
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         refused = _early_refusal(opened)
         assert isinstance(served, ServedProduct)
@@ -387,7 +402,7 @@ def test_a_mapping_that_disagrees_with_its_record_is_divergence_never_missing(
         "graph_sha256": served_entry.graph_sha256, "graph_required": True,
     })
     (index.index_root / "decisions" / f"{refused_address}.json").write_text(forged.model_dump_json())
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         with pytest.raises(ReplayDivergence) as raised:
             restarted.replay_decision(refused_address)
         assert not isinstance(raised.value, ReplayEvidenceUnavailable)
@@ -395,19 +410,19 @@ def test_a_mapping_that_disagrees_with_its_record_is_divergence_never_missing(
 
 def test_a_retained_graph_replaced_by_a_symlink_is_refused(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
     """Evidence must live under the evidence root: a symlink is not retained evidence, even to identical bytes."""
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         served = opened.answer(_question(opened))
         assert isinstance(served, ServedProduct)
         address = _address(opened, served)
         entry = opened.evidence.entry(address)
         assert entry is not None
         graph = opened.evidence.graph_path(entry)
-    elsewhere = scratch.parent / "elsewhere.sqlite3"
+    elsewhere = evidence.parent / "elsewhere.sqlite3"
     elsewhere.write_bytes(graph.read_bytes())
     graph.unlink()
     graph.symlink_to(elsewhere)
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         with pytest.raises(ReplayDivergence, match="symlink"):
             restarted.replay_decision(address)
 
@@ -426,9 +441,68 @@ def test_a_refusal_before_any_graph_replays_first_after_a_restart(tree: tuple[pa
     served decision first, whose boot registered the deployment, and so hid that
     a pre-graph refusal alone was `ReplayUnresolvable`.
     """
-    root, scratch = tree
-    with _open(root, scratch) as opened:
+    root, evidence = tree
+    with _open_run(root, evidence) as opened:
         address = _address(opened, _early_refusal(opened))
-    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+    with _open_run(root, evidence, acquire=_SourcesUnavailable()) as restarted:
         assert isinstance(restarted.replay_decision(address), RefusalReplayOutcome)
-        assert not list(scratch.glob("*.sqlite3")), "replaying a pre-graph refusal minted no graph in the evidence root"
+        assert not list(evidence.glob("*.sqlite3")), "replaying a pre-graph refusal minted no graph in the evidence root"
+
+
+# --- the evidence root is distinct from scratch (Dave, 2026-10-16) ---------------------------
+
+
+def test_with_an_evidence_root_the_evidence_lives_there_and_nothing_durable_is_left_in_scratch(
+    tree: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    root, evidence = tree
+    scratch = evidence.parent / "the-scratch"
+    with _open(root, scratch, evidence_root=evidence) as opened:
+        served = opened.answer(_question(opened))
+        assert isinstance(served, ServedProduct), served
+        assert opened.evidence.evidence_root == evidence.resolve()
+        store = opened.replay.store_dirname
+    assert list(evidence.glob("*.sqlite3")), "the per-question graph is minted under the evidence root"
+    assert (evidence / store).is_dir(), "the replay store lives under the evidence root"
+    assert (evidence / f"{store}-evidence-index" / "decisions").is_dir(), "so does the evidence index"
+    assert not list(scratch.rglob("*.sqlite3")), "no graph in scratch"
+    assert not (scratch / store).exists(), "no replay store in scratch"
+    assert not (scratch / f"{store}-evidence-index").exists(), "no evidence index in scratch"
+
+
+def test_without_an_evidence_root_everything_stays_under_scratch_as_before(
+    tree: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    root, _ = tree
+    scratch = root.parent / "only-scratch"
+    with _open(root, scratch) as opened:
+        assert isinstance(opened.answer(_question(opened)), ServedProduct)
+        assert opened.evidence_root == scratch.resolve()
+        store = opened.replay.store_dirname
+    assert list(scratch.glob("*.sqlite3"))
+    assert (scratch / store).is_dir()
+    assert (scratch / f"{store}-evidence-index" / "decisions").is_dir()
+
+
+@pytest.mark.parametrize(
+    ("where", "named"),
+    [
+        ("same", "one inside the other"),
+        ("under-scratch", "one inside the other"),
+        ("over-scratch", "one inside the other"),
+        ("in-config", "inside the config root"),
+    ],
+)
+def test_an_evidence_root_that_overlaps_scratch_or_the_config_root_is_refused_at_open(
+    tree: tuple[pathlib.Path, pathlib.Path], where: str, named: str
+) -> None:
+    root, evidence = tree
+    scratch = evidence.parent / "outer" / "scratch"
+    chosen = {
+        "same": scratch,
+        "under-scratch": scratch / "evidence",
+        "over-scratch": scratch.parent,
+        "in-config": root / "evidence",
+    }[where]
+    with pytest.raises(ValueError, match=named):
+        _open(root, scratch, evidence_root=chosen)

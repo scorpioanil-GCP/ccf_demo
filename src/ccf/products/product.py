@@ -41,7 +41,8 @@ an adopter's spine.
 
 What one question does, in order (the mechanism)
 --------------------------------------------------
-1. **Boot.** A fresh dev fabric is minted under the caller's ``scratch`` from
+1. **Boot.** A fresh dev fabric is minted under the evidence root (the
+   caller's ``evidence_root``, or ``scratch`` when none is supplied) from
    the environment's ``substrate:`` (a per-question file, so two questions can
    never share a graph — `CP03C-F-02` cannot recur), and
    :func:`~ccf.deployment.load_config_and_boot` registers the deployment's
@@ -66,7 +67,8 @@ No ``replay:`` or ``ttl:`` section; no ``request_contract`` or
 ``default_perspective``; a declared product gate with no ``gate=`` or a
 ``gate=`` against a class declaring none (`D-IMPL-282` R-11, held here as
 well as at the builder); a class declaring ``requires`` with no child
-resolver; a ``scratch`` inside ``config_root``; an environment variable a
+resolver; a ``scratch`` or ``evidence_root`` inside ``config_root``, or one
+inside the other; an environment variable a
 source names that the process lacks (with the document's own remedy); a
 ``door:`` asserting a tenant other than the deployment's (R-6, refused by the
 loader); a ``substrate:`` setting the declared adapter does not take as a
@@ -181,6 +183,8 @@ from ccf.products.composite import (
 )
 from ccf.products.constraints import PolicyConstraintResolver, TechnicalCapability
 from ccf.products.contract import version_satisfies_floor
+from ccf.products.disclosure import DisclosureLevel
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
@@ -622,6 +626,7 @@ class OpenedProduct:
         config_root: Path,
         config_path: Path,
         scratch: Path,
+        evidence_root: Path,
         config: DeploymentConfig,
         environment: EnvironmentDocument,
         keys: DeploymentKeys,
@@ -656,15 +661,22 @@ class OpenedProduct:
         self.config_root = config_root
         self.config_path = config_path
         self.scratch = scratch
+        #: `D-IMPL-383` (Dave, 2026-10-16): where the durable replay evidence
+        #: lives — the per-question graphs, the default replay store and the
+        #: decision → graph index. ``scratch`` itself when the caller supplied
+        #: no ``evidence_root``, so an undeclared root keeps today's behavior.
+        self.evidence_root = evidence_root
         self.config = config
         # P1 (a) (D-IMPL-378; Tuesday GO item 4): the standard product boot
-        # supplies the SDK-managed identity-lock directory under the scratch
-        # root, computed once at open so an unusable one refuses before any
-        # question. Only for an adapter whose connection contract takes the
-        # lock-directory setting; nothing here names a substrate (CINV-04).
+        # supplies the SDK-managed identity-lock directory, computed once at
+        # open so an unusable one refuses before any question. Only for an
+        # adapter whose connection contract takes the lock-directory setting;
+        # nothing here names a substrate (CINV-04). It sits under the root the
+        # graphs are minted in, so every process writing one of those files
+        # takes the same lock whatever its own scratch is.
         self.writer_lock_directory: str | None = None
         if LOCK_DIRECTORY_SETTING in resolve_backend(config.backend).registration.config_model.model_fields:
-            self.writer_lock_directory = sdk_managed_lock_directory(os.path.realpath(scratch))
+            self.writer_lock_directory = sdk_managed_lock_directory(os.path.realpath(evidence_root))
         self.environment = environment
         self.keys = keys
         self.tenant_id = tenant_id
@@ -684,15 +696,11 @@ class OpenedProduct:
         #: which every resolver and door built over this product composes with.
         self.erasure_trust = erasure_trust
         self._refusal_recorder = refusal_recorder
-        #: `D-IMPL-383`: the decision → retained-graph index. The evidence root
-        #: is ``scratch`` itself — the graphs are minted there and the default
-        #: replay store lives there — so a deployment that hands the paved road
-        #: a persistent scratch has durable, addressable replay evidence, and a
-        #: temporary scratch keeps today's ephemeral behavior. The index sits
-        #: beside the declared store, named from it, never inside it.
+        #: `D-IMPL-383`: the decision → retained-graph index, under the
+        #: evidence root beside the declared store, named from it, never inside it.
         self.evidence = ReplayEvidenceIndex(
-            evidence_root=scratch,
-            index_root=scratch / f"{replay.store_dirname}-evidence-index",
+            evidence_root=evidence_root,
+            index_root=evidence_root / f"{replay.store_dirname}-evidence-index",
             tenant_id=tenant_id,
         )
         self._invalidation_sink = invalidation_sink
@@ -1405,7 +1413,7 @@ class OpenedProduct:
     # --- the mechanism ------------------------------------------------------------------
 
     def _boot(self, minted: Path | None = None) -> BootedFabric:
-        """Mint a fresh per-question fabric under ``scratch`` and boot it.
+        """Mint a fresh per-question fabric under the evidence root and boot it.
 
         ``minted`` is the path :meth:`_mint` chose, when the caller needed it
         before the boot (:meth:`answer` writes the evidence marker first);
@@ -1428,9 +1436,9 @@ class OpenedProduct:
         )
 
     def _mint(self) -> Path:
-        """The path of a fresh per-question substrate under ``scratch`` (not yet created)."""
+        """The path of a fresh per-question substrate under the evidence root (not yet created)."""
         substrate = self.environment.substrate
-        return self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
+        return self.evidence_root / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
 
     def _connection(self, substrate_path: Path) -> dict[str, object]:
         """The connection settings that point the declared adapter at ``substrate_path``."""
@@ -1558,6 +1566,7 @@ def open_product(
     *,
     config_root: Path | str,
     scratch: Path | str,
+    evidence_root: Path | str | None = None,
     acquire: AcquireProtocol,
     project: ProjectionPlanFactoryProtocol,
     assess: AssessProtocol,
@@ -1610,11 +1619,21 @@ def open_product(
 
     Args:
         config_root: The directory holding the two documents. Read-only.
-        scratch: A writable directory: per-question substrate files and the
-            replay store (under the declared ``store_dirname``) live here.
-            Refused inside ``config_root`` by name — a tree that wrote its
-            own fabrics beside its own documents would be one nobody could
-            clean.
+        scratch: The ephemeral working directory. With no ``evidence_root``
+            it is also the evidence root: per-question substrate files, the
+            replay store (under the declared ``store_dirname``) and its
+            evidence index live here. Refused inside ``config_root`` by name
+            — a tree that wrote its own fabrics beside its own documents would
+            be one nobody could clean.
+        evidence_root: The durable directory for replay evidence (`D-IMPL-383`,
+            Dave, 2026-10-16): when supplied, the per-question substrate files,
+            the default replay store and the decision → graph index live here
+            instead of under ``scratch``, so a decision replays by its record
+            address after a restart. ``None`` keeps everything under
+            ``scratch``. Never read from the environment by the SDK: a
+            launcher that takes the location from a variable validates it and
+            passes it here. Refused inside ``config_root``, and refused when it
+            and ``scratch`` lie one inside the other.
         acquire: The deployment's acquisition (:class:`AcquireProtocol`).
         population: The deployment's population phase, when part of
             what it reads does not depend on the subject
@@ -1665,7 +1684,7 @@ def open_product(
         artifact_store: Any :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol`
             (an MCP-backed store, say). Wins under `D-IMPL-282` R-12; the
             declared ``store_dirname`` is then unread. ``None`` builds the
-            file-backed reference store under ``scratch``.
+            file-backed reference store under the evidence root.
         constraint_resolver: A deployment's own
             :class:`~ccf.products.constraints.PolicyConstraintResolver`, or
             ``None`` for the SDK's reference over this registry.
@@ -1694,7 +1713,7 @@ def open_product(
             store; a store already composed through
             :func:`~ccf.erasure.compose_erasure_consult` carries its own, and
             one presented beside it must be the same index by path. ``None``
-            with no supplied store derives the index from the scratch root.
+            with no supplied store derives the index from the evidence root.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
@@ -1723,6 +1742,25 @@ def open_product(
             " per-question fabrics and the replay store are written under"
             " scratch and never beside the deployment's documents (D-IMPL-343)"
         )
+    evidence_dir = scratch_root if evidence_root is None else Path(evidence_root).resolve()
+    if evidence_root is not None:
+        if evidence_dir == root or root in evidence_dir.parents:
+            raise ValueError(
+                f"evidence_root {evidence_dir} lies inside the config root {root};"
+                " retained replay evidence is never written beside the"
+                " deployment's documents (D-IMPL-383, D-IMPL-343)"
+            )
+        if (
+            evidence_dir == scratch_root
+            or scratch_root in evidence_dir.parents
+            or evidence_dir in scratch_root.parents
+        ):
+            raise ValueError(
+                f"evidence_root {evidence_dir} and scratch {scratch_root} lie one"
+                " inside the other; the durable evidence and the ephemeral working"
+                " directory are distinct, so removing one never removes the other"
+                " (D-IMPL-383)"
+            )
     # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two declared
     # acquisition phases is refused at open, before any document is read.
     if population is not None:
@@ -1815,6 +1853,7 @@ def open_product(
     sources = resolve_values(environment.sources, resolved_environ)
 
     scratch_root.mkdir(parents=True, exist_ok=True)
+    evidence_dir.mkdir(parents=True, exist_ok=True)
     # SEC-009 (fix round 4, ruling 5): no fresh-registry fallback. The consult
     # verifies against THIS registry, so it must be the deployment's.
     if control_plane is None:
@@ -1835,7 +1874,7 @@ def open_product(
         # classes, all `ReplayMint`. A caller-supplied store carries its own
         # declaration; the resolver refuses one that omits a class it files.
         else FileArtifactStore(
-            root=scratch_root / replay.store_dirname,
+            root=evidence_dir / replay.store_dirname,
             write_kinds=WriteKinds.declare(
                 {
                     replay.record_class: (ReplayMint,),
@@ -1849,14 +1888,14 @@ def open_product(
     # SEC-009 (`D-IMPL-374` (4), ruling 2; fix round 1 C1, (i)): the erasure
     # consult is composed around whichever store was selected — supplied or
     # default — over the deployment's durable erasure index, which this
-    # in-process site takes from its declared scratch root, scoped to the
+    # in-process site takes from its evidence root, scoped to the
     # tenant it serves, so `record_of` and every resolver read refuse erased
     # content.
     #
     # Fix round 2, N1: the index is the SELECTED store's own. A supplied store
     # already composed carries its index (its tenant scope must be this
     # product's, or none); a raw supplied store must come with its index; only
-    # the default store derives one from the scratch root. Any index presented
+    # the default store derives one from the evidence root. Any index presented
     # alongside must be the same index, by path.
     if isinstance(artifact_store, ErasureConsultingStore):
         if artifact_store.tenant_id not in (None, config.tenant_id):
@@ -1876,7 +1915,7 @@ def open_product(
             )
         own_index = erasure_index
     else:
-        own_index = erasure_index_at(scratch_root / replay.store_dirname)
+        own_index = erasure_index_at(evidence_dir / replay.store_dirname)
     if (
         erasure_index is not None
         and erasure_index is not own_index
@@ -1999,6 +2038,7 @@ def open_product(
         config_root=root,
         config_path=config_path,
         scratch=scratch_root,
+        evidence_root=evidence_dir,
         config=config,
         environment=environment,
         keys=placed,
@@ -2520,7 +2560,7 @@ class _EvidencePublishingRecorder:
     (:func:`~ccf.products.resolver.refuse_incompatible_refusal_recorder`) holds.
     """
 
-    def __init__(self, *, inner: RefusalRecorderProtocol, opened: OpenedProduct) -> None:
+    def __init__(self, *, inner: ReplayRefusalRecorder, opened: OpenedProduct) -> None:
         self._inner = inner
         self._opened = opened
 
@@ -2539,21 +2579,25 @@ class _EvidencePublishingRecorder:
     # The members the delivery boundaries check for by protocol. A runtime
     # protocol check reads the CLASS (static lookup), so these are declared
     # here rather than reached through ``__getattr__`` (close panel fixes,
-    # 2026-10-15: 481 doors refused a wrapper that forwarded them dynamically).
+    # 2026-10-15: 481 doors refused a wrapper that forwarded them dynamically),
+    # each with the inner recorder's own type, so nothing forces a member past
+    # the type checker (D-IMPL-353 §1.5b).
     @property
     def tenant_id(self) -> str:
-        return self._inner.tenant_id  # type: ignore[attr-defined, no-any-return]
+        return self._inner.tenant_id
 
     @property
     def replay_record_class(self) -> str:
-        return self._inner.replay_record_class  # type: ignore[attr-defined, no-any-return]
+        return self._inner.replay_record_class
 
     @property
-    def artifact_store(self) -> Any:
-        return self._inner.artifact_store  # type: ignore[attr-defined]
+    def artifact_store(self) -> ArtifactStoreProtocol:
+        return self._inner.artifact_store
 
-    def disclosure_level_for(self, *args: Any, **kwargs: Any) -> Any:
-        return self._inner.disclosure_level_for(*args, **kwargs)  # type: ignore[attr-defined]
+    def disclosure_level_for(
+        self, *, tenant: str, principal_id: str
+    ) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+        return self._inner.disclosure_level_for(tenant=tenant, principal_id=principal_id)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)

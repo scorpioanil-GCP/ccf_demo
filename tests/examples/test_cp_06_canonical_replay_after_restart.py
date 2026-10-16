@@ -13,9 +13,11 @@ The paved-fixture proof (`tests/replay/test_replay_evidence_383.py`) replaces
 acquisition with a stub. This one does not: the first opening reads the CURATED
 estate (Fluree `fibo-v2`, PostgreSQL `ccf_v2`, read-only, seeding nothing), so the
 graph each question closes was built from real Fluree `4.2.4` answers. The
-second opening of the SAME scratch is the restarted service, and its sources
-point at an address nothing listens on — a replay that reached a source would
-fail to connect, so a passing replay read only the retained evidence.
+second opening of the SAME ``evidence_root`` — over a new, empty scratch, as a
+restarted process's temporary directory would be (Dave, 2026-10-16) — is the
+restarted service, and its sources point at an address nothing listens on — a
+replay that reached a source would fail to connect, so a passing replay read
+only the retained evidence.
 
 Three decisions, one of each kind the reviewer named: served; refused after the
 graph was built (the facility whose freshest valuation is outside the appraisal
@@ -24,10 +26,11 @@ window); refused before any graph (an address this product does not serve).
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -80,9 +83,10 @@ def modules() -> Iterator[dict[str, Any]]:
     try:
         import deployment  # noqa: PLC0415
         import produce  # noqa: PLC0415
+        from server import serve as door  # noqa: PLC0415
 
         assert pathlib.Path(deployment.__file__).parent == EXAMPLE, "the eviction did not hold"
-        yield {"deployment": deployment, "produce": produce}
+        yield {"deployment": deployment, "produce": produce, "door": door}
     finally:
         sys.path.remove(str(EXAMPLE))
         for name in COLLIDING:
@@ -98,6 +102,17 @@ def _question(opened: OpenedProduct, deployment: Any, facility: str, scope: str)
     )
 
 
+@contextlib.contextmanager
+def _service(modules: dict[str, Any], evidence: pathlib.Path, environ: Mapping[str, str]) -> Iterator[tuple[OpenedProduct, pathlib.Path]]:
+    """One run of the bank service: the launcher reads ``CCF_REPLAY_EVIDENCE_ROOT``, validates it and
+    passes it as ``evidence_root=``, over a NEW temporary scratch each run (Dave, 2026-10-16)."""
+    door, produce = modules["door"], modules["produce"]
+    with door.door_roots({door.EVIDENCE_ROOT_VARIABLE: str(evidence)}) as (scratch, evidence_root):
+        assert evidence_root == evidence and scratch != evidence
+        with produce.product(scratch, evidence_root=evidence_root, environ=environ) as opened:
+            yield opened, scratch
+
+
 def _address(opened: OpenedProduct, outcome: ServedProduct | RefusalEnvelope) -> str:
     if isinstance(outcome, ServedProduct):
         return outcome.replay_ref.content_address
@@ -107,12 +122,12 @@ def _address(opened: OpenedProduct, outcome: ServedProduct | RefusalEnvelope) ->
 def test_a_live_decision_is_reconstituted_after_a_restart_with_the_sources_unreachable(
     estate: dict[str, str], modules: dict[str, Any], tmp_path: pathlib.Path
 ) -> None:
-    produce, deployment = modules["produce"], modules["deployment"]
-    scratch = tmp_path / "evidence"
-    scratch.mkdir(mode=0o700)
+    deployment = modules["deployment"]
+    evidence = tmp_path / "evidence"
+    evidence.mkdir(mode=0o700)
 
     # --- the first run of the service: real answers from the live estate ---------------
-    with produce.product(scratch, environ=estate) as opened:
+    with _service(modules, evidence, estate) as (opened, first_scratch):
         served = opened.answer(_question(opened, deployment, SERVED_FACILITY, SERVED_SCOPE))
         assert isinstance(served, ServedProduct), getattr(served, "detail", served)
         refused_after = opened.answer(_question(opened, deployment, EXPIRED_FACILITY, EXPIRED_SCOPE))
@@ -130,17 +145,19 @@ def test_a_live_decision_is_reconstituted_after_a_restart_with_the_sources_unrea
             "before": (_address(opened, refused_before), opened.record_of(refused_before)),
         }
         assert opened.evidence.incomplete() == [], "every decision finished publishing its evidence"
+        assert not list(first_scratch.rglob("*.sqlite3")), "no graph was left in the run's scratch"
 
-    graphs = sorted(p.name for p in scratch.rglob("*.sqlite3"))
+    graphs = sorted(p.name for p in evidence.rglob("*.sqlite3"))
     assert len(graphs) == 2, f"two questions reached a graph, one did not: {graphs}"
+    assert not first_scratch.exists(), "the run's scratch was temporary"
 
-    # --- the restarted service: same scratch, sources unreachable ----------------------
+    # --- the restarted service: same evidence root, new scratch, sources unreachable ---
     offline = {
         **estate,
         "CCF_CP_06C_FLUREE_URL": UNREACHABLE_FLUREE,
         "CCF_CP_06C_POSTGRES_DSN": UNREACHABLE_POSTGRES,
     }
-    with produce.product(scratch, environ=offline) as restarted:
+    with _service(modules, evidence, offline) as (restarted, _):
         for name, (address, original) in originals.items():
             # The record itself, reconstituted from the store by its address alone.
             assert restarted.artifact_store.exists(content_address=address), name
@@ -181,7 +198,7 @@ def test_a_live_decision_is_reconstituted_after_a_restart_with_the_sources_unrea
 
     # Deleting the served decision's graph affects only that decision.
     served_graph.unlink()
-    with produce.product(scratch, environ=offline) as again:
+    with _service(modules, evidence, offline) as (again, _):
         with pytest.raises(ReplayEvidenceUnavailable):
             again.replay_decision(originals["served"][0])
         assert isinstance(again.replay_decision(originals["after"][0]), RefusalReplayOutcome)

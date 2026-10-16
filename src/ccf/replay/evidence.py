@@ -259,10 +259,11 @@ def _durable_write(target: Path, payload: bytes) -> None:
 class ReplayEvidenceIndex:
     """The decision → retained-graph mapping for one evidence root and one tenant.
 
-    The evidence root is the deployment's ``scratch``: the per-question graphs
-    are minted there and the default replay store lives there, so a scratch on
-    a persistent filesystem is all the persistence this needs. The index lives
-    beside them, under ``index_root``. A temporary scratch keeps today's
+    The evidence root is the deployment's ``evidence_root`` (Dave, 2026-10-16),
+    or its ``scratch`` when it declared none: the per-question graphs are
+    minted there and the default replay store lives there, so a root on a
+    persistent filesystem is all the persistence this needs. The index lives
+    beside them, under ``index_root``. A temporary root keeps today's
     ephemeral behavior; the index goes with it.
     """
 

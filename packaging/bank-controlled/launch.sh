@@ -30,8 +30,9 @@ mode_of() { stat -c '%a' "$1"; }; owner_of() { stat -c '%U' "$1"; }
 [[ ! -L "$ROOT/evidence" ]] || refuse "$ROOT/evidence must be a directory under the instance root, not a symlink"
 for d in scratch run logs evidence; do install -d -m 700 "$ROOT/$d"; done
 # 2a. Replay evidence (D-IMPL-383): every question's graph, the replay store and the evidence index are
-#     kept in $ROOT/evidence, outside any temporary directory, so decisions replay after a restart.
-#     Nothing deletes them: they consume disk and must be backed up with the instance root.
+#     kept in $ROOT/evidence (CCF_REPLAY_EVIDENCE_ROOT, below), outside the door's temporary scratch, so
+#     decisions replay after a restart. Nothing deletes them: they consume disk and must be backed up
+#     with the instance root.
 [[ "$(owner_of "$ROOT/evidence")" = "$ACCOUNT" && "$(mode_of "$ROOT/evidence")" = 700 ]] || refuse "$ROOT/evidence must be owned by $ACCOUNT with mode 700"
 
 # 3. Trusted deployment code: the tree is the tested commit, unmodified.
@@ -44,10 +45,10 @@ set -a; source "$SECRETS"; set +a
 EXAMPLE="$TREE/examples/cp-06-canonical-collateral-and-setoff-coverage"
 env -i PATH=/usr/bin:/bin HOME="$ROOT" LANG=C.UTF-8 TMPDIR="$ROOT/scratch" \
     PYTHONPATH="$TREE/src:$TREE/runtime:$EXAMPLE" PYTHONDONTWRITEBYTECODE=1 \
-    CCF_CP_06C_DOOR_TOKEN="$CCF_CP_06C_DOOR_TOKEN" \
+    CCF_CP_06C_DOOR_TOKEN="$CCF_CP_06C_DOOR_TOKEN" CCF_REPLAY_EVIDENCE_ROOT="$ROOT/evidence" \
     CCF_CP_06C_FLUREE_URL="$CCF_CP_06C_FLUREE_URL" CCF_CP_06C_FLUREE_LEDGER="$CCF_CP_06C_FLUREE_LEDGER" \
     CCF_CP_06C_POSTGRES_DSN="$CCF_CP_06C_POSTGRES_DSN" CCF_CP_06C_POSTGRES_SCHEMA="$CCF_CP_06C_POSTGRES_SCHEMA" \
-    setsid "$PY" -B "$EXAMPLE/run.py" --door --evidence-dir "$ROOT/evidence" > "$ROOT/run/door.out" 2> "$ROOT/logs/door.err" < /dev/null &
+    setsid "$PY" -B "$EXAMPLE/run.py" --door > "$ROOT/run/door.out" 2> "$ROOT/logs/door.err" < /dev/null &
 PID=$!
 echo "$PID" > "$ROOT/run/pid"; echo "$COMMIT" > "$ROOT/run/commit"
 

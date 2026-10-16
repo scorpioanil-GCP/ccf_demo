@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2696 entries**, of which **2413** name a public Python surface.
+**2698 entries**, of which **2415** name a public Python surface.
 
 ## Added
 
@@ -21239,7 +21239,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-644 entries — 448 public Python surface, 196 not public Python API.
+646 entries — 450 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28602,6 +28602,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: `scratch` held the per-question graphs, the default file-backed replay store (with its erasure index) and the decision → graph index; a deployment that wanted durable replay evidence had to hand over a persistent `scratch`.
+- After: a keyword `evidence_root: Path | str | None = None`. Supplied, the per-question graphs, the default replay store and its erasure index, the decision → graph index and the SDK-managed writer-lock directory live under it, and `scratch` holds only what need not survive the process. `None` keeps everything under `scratch`, as before. Refused at open with `ValueError`: an `evidence_root` inside `config_root`, or one that and `scratch` lie one inside the other. The SDK never reads an environment variable for it.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/replay/test_replay_evidence_383.py` (18 of its 19 tests red on `c09cdd51`; the one green is a docstring check: `open_product() got an unexpected keyword argument 'evidence_root'`).
+- Migration: none for a caller that passes no `evidence_root`. A deployment that relied on a persistent `scratch` for durable evidence passes that folder as `evidence_root=` and a temporary directory as `scratch`; the layout under the folder is unchanged.
+
+*Recorded by `383-02-a-distinct-evidence-root.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no `evidence_root`; graphs were minted under `scratch` and `evidence` indexed `scratch`.
+- After: an `evidence_root` attribute (the `scratch` path when none was supplied); graphs are minted under it and `evidence` indexes it. `open_product` is the only constructor.
+- Why: `D-IMPL-383`, Dave 2026-10-16.
+- Migration: none.
+
+*Recorded by `383-02-a-distinct-evidence-root.md`.*
 
 #### ccf.products.product.OpenedProduct
 
