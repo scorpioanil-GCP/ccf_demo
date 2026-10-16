@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2711 entries**, of which **2428** name a public Python surface.
+**2716 entries**, of which **2433** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1425 entries — 1378 public Python surface, 47 not public Python API.
+1426 entries — 1379 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20444,6 +20444,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `383-05-source-unavailable-refusal.md`.*
 
+#### ccf.products.composite.AgentConditionedChildResolverProtocol
+
+- Surface: ccf.products.composite.AgentConditionedChildResolverProtocol
+- Public surface: true
+- Change type: added
+- Before: no way for a child resolver to say which agent composed a decision.
+- After: a runtime-checkable capability Protocol, `agent_conditioning(*, perspective) -> PerspectiveConditioning | None`. `GovernedResolver` asks a child resolver that declares it when it writes a decision's record (served or refused) and threads the answer into dimension 4; `None`, or a resolver that does not declare it, keeps the no-agent claims.
+- Why: CLAUDE.md §6.2 — which agent and which skill-set made a decision must be answerable from replay alone. Red test: `tests/products/test_dimension_four_records_the_agent.py` (`'no-agent' == <agent hash>` on `5a3e9b9f`).
+- Migration: none.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
 #### ccf.graph.leases.LOCK_DIRECTORY_SETTING
 
 - Surface: ccf.graph.leases.LOCK_DIRECTORY_SETTING
@@ -21359,7 +21371,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-649 entries — 453 public Python surface, 196 not public Python API.
+653 entries — 457 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28782,6 +28794,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none; every existing binding's cause is still valid and hashes as before.
 
 *Recorded by `383-05-source-unavailable-refusal.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: built from `agent_definition_hash` alone.
+- After: optional `agent: AgentDefinition | None = None`, refused at construction unless its content hash equals `agent_definition_hash`; `agent_conditioning(perspective=...)` returns the caller's principal and role, the agent's hash, versioned URI and archetypes, and the ledger's grant-set hash for that agent read at the call. `QuestionBoundChildResolver` takes the same keyword and delegates.
+- Why: `D-IMPL-385`.
+- Migration: none; without `agent` the resolver records exactly as before.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(...)` took no agent conditioning.
+- After: optional `agent_conditioning: PerspectiveConditioning | None = None`, recorded into dimension 4 (`ReplayRefusalRecorder` passes it to `build_replay_record`). The resolver passes it only for a decision an agent composed, and refuses at construction a recorder that cannot accept it when its child resolver declares `AgentConditionedChildResolverProtocol` (`refuse_incompatible_refusal_recorder(..., keyword="agent_conditioning")`).
+- Why: `D-IMPL-385`.
+- Migration: a deployment's own recorder composed over an agent-conditioned child resolver adds the keyword or takes `**kwargs`.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: built from `agent_definition_hash` alone.
+- After: optional `agent: AgentDefinition | None = None`, handed to the `GrantBoundChildResolver` it wraps; `agent_conditioning(perspective=...)` delegates to it. `open_product` passes the declared agent, so every paved composite's records name it.
+- Why: `D-IMPL-385`.
+- Migration: none.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.resolver.refuse_incompatible_refusal_recorder
+
+- Surface: ccf.products.resolver.refuse_incompatible_refusal_recorder
+- Public surface: true
+- Change type: reshaped
+- Before: checked only that `record` accepts `subject_withholding=`.
+- After: optional `keyword: str = "subject_withholding"`; `GovernedResolver` also checks `agent_conditioning` when its child resolver declares `AgentConditionedChildResolverProtocol`.
+- Why: `D-IMPL-385`.
+- Migration: none; the default is the previous check.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
 
 #### ccf.products.product.OpenedProduct
 

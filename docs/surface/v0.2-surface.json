@@ -7401,7 +7401,7 @@
       },
       "GrantBoundChildResolver": {
         "kind": "class",
-        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_questions: 'ChildQuestions | None' = None) -> 'None'"
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_questions: 'ChildQuestions | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
       },
       "MalformedDoorAnswer": {
         "kind": "class",
@@ -7409,7 +7409,7 @@
       },
       "QuestionBoundChildResolver": {
         "kind": "class",
-        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', authorized: 'Authorized[ReplayMint]', child_questions: 'ChildQuestions', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_arguments: 'ChildArguments | None' = None) -> 'None'"
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', authorized: 'Authorized[ReplayMint]', child_questions: 'ChildQuestions', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_arguments: 'ChildArguments | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
       },
       "QuestionRetentionUnauthorized": {
         "kind": "class",
@@ -7421,6 +7421,7 @@
     "__all__": [
       "ADMITTED_CHILD_CONTRACT_CLASS",
       "AdmittedChild",
+      "AgentConditionedChildResolverProtocol",
       "AmbiguousProducerError",
       "CHILD_QUESTION_CLASS",
       "CHILD_REFUSAL_REASONS",
@@ -7457,6 +7458,10 @@
       "AdmittedChild": {
         "kind": "class",
         "shape": "(candidate: 'ChildCandidate', eligibility_basis: 'str', factors: 'DebtFactors', asked_at: 'datetime', composition_invocation: 'str', verified_address: 'str', evidence: \"'EligibilityEvidence | None'\", admitted_at: 'datetime', token: 'object') -> 'None'"
+      },
+      "AgentConditionedChildResolverProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "AmbiguousProducerError": {
         "kind": "class",
@@ -9251,7 +9256,7 @@
       },
       "refuse_incompatible_refusal_recorder": {
         "kind": "function",
-        "shape": "(recorder: 'object', *, builder: 'str') -> 'None'"
+        "shape": "(recorder: 'object', *, builder: 'str', keyword: 'str' = 'subject_withholding') -> 'None'"
       }
     }
   },

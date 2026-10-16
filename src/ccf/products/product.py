@@ -2599,6 +2599,9 @@ def _derive_consumer_chain(
     return agent, QuestionBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
+        # `D-IMPL-385`: the agent itself, so each decision's record names it and
+        # the skill-set it held in replay dimension 4.
+        agent=agent,
         gate=gate,
         # D-IMPL-354: minted HERE, by the composition root, for the consumer
         # tenant the gate admits for; the resolver holds it and mints nothing.

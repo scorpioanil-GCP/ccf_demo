@@ -137,6 +137,33 @@ def test_the_bank_launcher_always_sets_the_evidence_root_and_passes_no_flag() ->
     assert '-L "$ROOT/evidence"' in script, "the launcher refuses a symlinked evidence folder"
 
 
+def test_the_bank_verifier_admits_exactly_the_environment_the_launcher_passes() -> None:
+    """``verify.py``'s allowlist names every variable ``launch.sh`` hands the door, and no other.
+
+    A real regression this test was added for (2026-10-16): the launcher began passing
+    ``CCF_REPLAY_EVIDENCE_ROOT`` (`D-IMPL-383`) and the bank's own verifier, whose
+    allowlist did not name it, failed its environment check on every healthy instance
+    (found by the SEC-020 measurement, `ccf_saves/2026-10-16-383/sec020-measure`).
+    ``verify.py`` reads its arguments at import, so its allowlist is read from source.
+    """
+    import ast
+    import re
+
+    script = LAUNCH.read_text(encoding="utf-8")
+    block = script[script.index("env -i ") : script.index("setsid ")]
+    passed = set(re.findall(r"(?:^|\s)([A-Z][A-Z0-9_]*)=", block))
+
+    tree = ast.parse((LAUNCH.parent / "verify.py").read_text(encoding="utf-8"))
+    allowed: set[str] = set()
+    for node in ast.walk(tree):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(t, ast.Name) and t.id == "ALLOWED_ENV" for t in targets):
+            allowed = set(ast.literal_eval(node.value))  # type: ignore[arg-type]
+    assert allowed, "verify.py declares no ALLOWED_ENV"
+    assert "CCF_REPLAY_EVIDENCE_ROOT" in passed, "the launcher passes the evidence root"
+    assert passed == allowed, f"launcher only: {sorted(passed - allowed)}; verifier only: {sorted(allowed - passed)}"
+
+
 def test_the_flag_is_gone_and_only_the_launcher_reads_the_variable() -> None:
     """Exactly one setting: no ``--evidence-dir`` anywhere, and the SDK core never reads the variable."""
     repo = EXAMPLE.parents[1]

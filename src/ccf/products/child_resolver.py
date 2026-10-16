@@ -58,7 +58,7 @@ import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ccf.artifacts.protocol import (
     ArtifactRef,
@@ -67,6 +67,7 @@ from ccf.artifacts.protocol import (
     DerivedWrite,
     artifact_uri,
 )
+from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -91,7 +92,7 @@ from ccf.products.contract import (
 from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
 from ccf.products.request import ProductRequest
 from ccf.replay.provenance import require_filed_by_record_writer
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import DecisionReplayRecord, PerspectiveConditioning
 from ccf.replay.serve import _same_string
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import McpProductBinding
@@ -109,6 +110,9 @@ from ccf.skills.dispatch import (
     dispatch_skill,
 )
 from ccf.skills.grants import GrantLedger
+
+if TYPE_CHECKING:
+    from ccf.projection.plan import Perspective
 
 __all__ = [
     "MalformedDoorAnswer",
@@ -378,7 +382,21 @@ class GrantBoundChildResolver:
         peering_skills: PeeringSkillRegistry | None = None,
         peering_gate: PeeringAdmissionGate | None = None,
         child_questions: ChildQuestions | None = None,
+        agent: AgentDefinition | None = None,
     ) -> None:
+        # `D-IMPL-385`: the agent whose grants this resolver resolves, when the
+        # composition root holds it, so the decision record can name it. Bound
+        # by content to ``agent_definition_hash`` here, once: a definition that
+        # is not the one the grants were made to would put one agent's identity
+        # beside another agent's skill-set in replay dimension 4.
+        if agent is not None and content_hash(agent) != agent_definition_hash:
+            raise ValueError(
+                f"agent {agent.name!r} hashes to {content_hash(agent)[:12]}… and"
+                f" this resolver resolves the grants of agent_definition_hash"
+                f" {agent_definition_hash[:12]}…; the agent a record names must be"
+                " the one whose grants composed it (D-IMPL-385)"
+            )
+        self._agent_definition = agent
         self._ledger = ledger
         self._agent = agent_definition_hash
         self._gate = gate
@@ -389,6 +407,38 @@ class GrantBoundChildResolver:
         self._peering = peering_skills
         self._peering_gate = peering_gate
         self._child_questions = child_questions
+
+    def agent_conditioning(self, *, perspective: Perspective) -> PerspectiveConditioning | None:
+        """Dimension 4 for a decision this resolver's agent composed (`D-IMPL-385`).
+
+        :class:`~ccf.products.composite.AgentConditionedChildResolverProtocol`.
+        ``None`` when this resolver was built without the agent definition, which
+        leaves the record's no-agent claims standing. Otherwise the caller's
+        principal and role (replay rebuilds the caller's viewpoint from them),
+        the agent's content hash, its versioned URI and its archetypes, and the
+        ledger's grant-set hash for this agent READ NOW, at the call: a grant or
+        revocation between two decisions shows in the second record and never
+        rewrites the first. Serialized here, as
+        :meth:`ccf.agents.agent.Agent.perspective_conditioning` serializes it, and
+        recorded verbatim by the record builder.
+        """
+        agent = self._agent_definition
+        if agent is None:
+            return None
+        return PerspectiveConditioning(
+            principal_id=perspective.principal_id,
+            role=perspective.role,
+            agent_definition_hash=self._agent,
+            agent_definition_uri=artifact_uri(
+                tenant_id=agent.tenant,
+                artifact_class=AGENT_DEFINITION.class_id,
+                name=agent.name,
+                artifact_version=agent.artifact_version,
+            ),
+            archetype_composition=agent.archetypes,
+            grant_set_hash=self._ledger.grant_set_hash(self._agent),
+            delegation_chain=(perspective.principal_id,),
+        )
 
     def resolve_for(
         self,
@@ -1054,6 +1104,7 @@ class QuestionBoundChildResolver:
         peering_skills: PeeringSkillRegistry | None = None,
         peering_gate: PeeringAdmissionGate | None = None,
         child_arguments: ChildArguments | None = None,
+        agent: AgentDefinition | None = None,
     ) -> None:
         # The capability first: kind, mint and resource by identity, before
         # anything about this resolver exists (D-IMPL-353 §1.5).
@@ -1077,8 +1128,17 @@ class QuestionBoundChildResolver:
             mcp_skills=mcp_skills,
             peering_skills=peering_skills,
             peering_gate=peering_gate,
+            agent=agent,
         )
         self._has_arguments = child_arguments is not None
+
+    def agent_conditioning(self, *, perspective: Perspective) -> PerspectiveConditioning | None:
+        """Dimension 4 for a decision this resolver's agent composed (`D-IMPL-385`).
+
+        Exactly :meth:`GrantBoundChildResolver.agent_conditioning`: one agent,
+        one ledger, held by the grant-bound resolver this one wraps.
+        """
+        return self._legacy.agent_conditioning(perspective=perspective)
 
     def resolve_for(
         self,

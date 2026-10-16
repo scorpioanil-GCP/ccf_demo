@@ -33,6 +33,8 @@ ALLOWED_ENV = {
     "PATH", "HOME", "LANG", "TMPDIR", "PYTHONPATH", "PYTHONDONTWRITEBYTECODE",
     "CCF_CP_06C_DOOR_TOKEN", "CCF_CP_06C_FLUREE_URL", "CCF_CP_06C_FLUREE_LEDGER",
     "CCF_CP_06C_POSTGRES_DSN", "CCF_CP_06C_POSTGRES_SCHEMA",
+    # D-IMPL-383: the private folder the door keeps every decision's replay evidence in.
+    "CCF_REPLAY_EVIDENCE_ROOT",
 }
 #: Tool or resource names that would hand a caller an upload, storage-administration, audit or replay handle.
 FORBIDDEN_SURFACE = re.compile(r"upload|artifact|admin|storage|audit|replay|grant|register|delete|write|put", re.I)
