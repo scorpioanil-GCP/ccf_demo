@@ -144,8 +144,9 @@ def inspect(args: argparse.Namespace) -> int:
     """Answer ``decisions``, ``why`` or ``replay`` from the retained evidence; asks no new question.
 
     Opens the product over the configured evidence root exactly as the door
-    does — the same validation, a fresh temporary scratch — and hands it to the
-    SDK's evidence verbs. Without :data:`EVIDENCE_ROOT_VARIABLE` nothing was
+    does — the same validation, a fresh temporary scratch — but WITHOUT its
+    source settings (``read_sources=False``): an auditor needs no database
+    credential, and the opening cannot answer a question (`CP06C-F-07`). Without :data:`EVIDENCE_ROOT_VARIABLE` nothing was
     retained, so there is nothing to inspect, and that is said rather than an
     empty answer given.
     """
@@ -154,7 +155,7 @@ def inspect(args: argparse.Namespace) -> int:
             raise SystemExit(
                 f"REFUSED: {EVIDENCE_ROOT_VARIABLE} is not set, so no decision was retained to inspect (D-IMPL-383)"
             )
-        with produce.product(scratch, evidence_root=evidence_root) as opened:
+        with produce.product(scratch, evidence_root=evidence_root, read_sources=False) as opened:
             return inspection.run(args, opened, out=sys.stdout)
 
 

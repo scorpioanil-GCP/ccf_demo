@@ -86,8 +86,8 @@ SERVE=examples/cp-06-canonical-collateral-and-setoff-coverage/server/serve.py
 `--involving` takes an identifier (a facility id or a legal-entity identifier), not a
 company name. A bare date covers that whole local day; times print in UTC and local time.
 A decision is named by its record address or a unique prefix of at least 8 characters.
-Opening the product still asks for the four source variables above, though none of the
-three commands reads a source (`CP06C-F-07`).
+The commands need none of the four source variables above: they open the product with
+`read_sources=False`, which replays and explains but answers no new question (`CP06C-F-07`).
 
 ## The story
 

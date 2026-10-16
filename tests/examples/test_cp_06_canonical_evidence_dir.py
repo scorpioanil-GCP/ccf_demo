@@ -165,3 +165,16 @@ def test_the_launcher_offers_exactly_the_sdk_evidence_verbs(serve: ModuleType) -
     held = pathlib.Path(serve.__file__).read_text(encoding="utf-8")
     assert "inspection.register(" in held and "inspection.run(" in held
     assert serve.inspection.VERBS == ("decisions", "why", "replay")
+
+
+def test_the_evidence_commands_need_no_source_setting(
+    serve: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An auditor holding the evidence folder and no database credential can list it (`CP06C-F-07`)."""
+    for name in [n for n in os.environ if n.startswith("CCF_CP_06C_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv(serve.EVIDENCE_ROOT_VARIABLE, str(_private(tmp_path / "evidence")))
+    with pytest.raises(SystemExit) as exited:
+        serve.main(["decisions"])
+    assert exited.value.code == 0, capsys.readouterr()
+    assert "0 decision(s)" in capsys.readouterr().out

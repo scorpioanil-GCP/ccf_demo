@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2705 entries**, of which **2422** name a public Python surface.
+**2708 entries**, of which **2425** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1422 entries — 1375 public Python surface, 47 not public Python API.
+1423 entries — 1376 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20408,6 +20408,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `383-03-asking-the-retained-evidence.md`.*
 
+#### ccf.products.product.SourcesNotRead
+
+- Surface: ccf.products.product.SourcesNotRead
+- Public surface: true
+- Change type: added
+- Before: no such error.
+- After: a `RuntimeError` naming what was attempted, raised by an opening with `read_sources=False` asked to answer or to hand out its source settings.
+- Why: `D-IMPL-383`, `CP06C-F-07`.
+- Migration: none.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
+
 #### ccf.graph.leases.LOCK_DIRECTORY_SETTING
 
 - Surface: ccf.graph.leases.LOCK_DIRECTORY_SETTING
@@ -21323,7 +21335,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-646 entries — 450 public Python surface, 196 not public Python API.
+648 entries — 452 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28710,6 +28722,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none.
 
 *Recorded by `383-02-a-distinct-evidence-root.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: every source setting the environment document names was resolved at open; an unset one raised `EnvironmentMissing`, so an auditor without database credentials could not open the product even to replay.
+- After: a keyword `read_sources: bool = True`. `False` resolves no source setting, so none need be set; every other open-time check still runs. `True` is unchanged.
+- Why: `D-IMPL-383`, `CP06C-F-07`. Red tests: `tests/replay/test_replay_inspection_383.py` (2 new tests fail on `2a5c4de0`) and `tests/examples/test_cp_06_canonical_evidence_dir.py::test_the_evidence_commands_need_no_source_setting` (`EnvironmentMissing`).
+- Migration: none.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: `sources` was a plain attribute, and the acquisition seam read it when the governed resolver was built.
+- After: `sources` is a read-only property that raises `SourcesNotRead` for an opening with `read_sources=False`; `reads_sources` says which kind of opening this is; `answer` and `resolve` raise `SourcesNotRead` before a lane is admitted, a graph minted or a record written. The acquisition seam reads `sources` only when it RUNS, so `replay_decision` — which builds the resolver and never acquires — works without them, and a replay that did reach acquisition would raise rather than read a source.
+- Why: `D-IMPL-383`, `CP06C-F-07`.
+- Migration: none; `opened.sources[...]` reads as before on a default opening.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
 
 #### ccf.products.product.OpenedProduct
 

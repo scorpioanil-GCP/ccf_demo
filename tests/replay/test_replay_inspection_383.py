@@ -182,3 +182,54 @@ def test_why_prints_the_refusal_sentence_and_a_short_prefix_is_refused(retained)
 
     status, printed = _run(opened, "why", addresses["after"][:4])
     assert status == verbs.MALFORMED, printed
+
+
+# --- an auditor needs no source credential (`CP06C-F-07`) -------------------------------------
+
+
+def _held(evidence: pathlib.Path) -> list[str]:
+    return sorted(str(p.relative_to(evidence)) for p in evidence.rglob("*") if p.is_file())
+
+
+def test_an_opening_without_source_settings_replays_and_explains_every_decision(tmp_path: pathlib.Path) -> None:
+    root, evidence = _write_tree(tmp_path), tmp_path / "evidence-root"
+    with _open_run(root, evidence) as opened:
+        served = opened.answer(_question(opened))
+        after = opened.answer(_question(opened, no_such_parameter=1))
+        assert isinstance(served, ServedProduct) and isinstance(after, RefusalEnvelope)
+        addresses = [_address(opened, served), _address(opened, after), _address(opened, _early_refusal(opened))]
+
+    # No source variable at all: the default opening refuses (unchanged), this one does not.
+    with _open_run(root, evidence, environ={}, read_sources=False, acquire=_SourcesUnavailable()) as auditor:
+        assert auditor.reads_sources is False
+        for address in addresses:
+            status, printed = _run(auditor, "replay", address)
+            assert status == verbs.ANSWERED and printed.startswith("REPRODUCED:"), printed
+            assert _run(auditor, "why", address)[0] == verbs.ANSWERED
+
+
+def test_an_opening_without_source_settings_answers_nothing_and_writes_nothing(tmp_path: pathlib.Path) -> None:
+    from ccf.products.product import SourcesNotRead
+
+    root, evidence = _write_tree(tmp_path / "again"), tmp_path / "again" / "evidence-root"
+    with _open_run(root, evidence, environ={}, read_sources=False) as auditor:
+        before = _held(evidence)
+        with pytest.raises(SourcesNotRead):
+            auditor.answer(_question(auditor))
+        with pytest.raises(SourcesNotRead):
+            auditor.resolve(
+                tenant=auditor.tenant_id, product_class="no.such-class", version="1.0.0",
+                perspective=auditor.default_perspective, request=_question(auditor),
+            )
+        with pytest.raises(SourcesNotRead):
+            auditor.sources  # noqa: B018
+        assert _held(evidence) == before, "a refused question minted, marked or recorded nothing"
+        assert auditor.evidence.incomplete() == []
+
+
+def test_the_default_opening_still_requires_every_source_setting(tmp_path: pathlib.Path) -> None:
+    from ccf.deployment.environment import EnvironmentMissing
+
+    root = _write_tree(tmp_path)
+    with pytest.raises(EnvironmentMissing):
+        _open_run(root, tmp_path / "evidence-root", environ={})

@@ -8559,6 +8559,7 @@
       "OpenedProduct",
       "PopulationAcquireProtocol",
       "PopulationAcquisitionContext",
+      "SourcesNotRead",
       "open_product"
     ],
     "exports": {
@@ -8596,7 +8597,7 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', evidence_root: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False, invalidation_sink: 'ControlPlaneInvalidationSink | None' = None) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', evidence_root: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]] | None', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False, invalidation_sink: 'ControlPlaneInvalidationSink | None' = None) -> 'None'"
       },
       "PopulationAcquireProtocol": {
         "kind": "class",
@@ -8606,9 +8607,13 @@
         "kind": "class",
         "shape": "(question: 'PopulationQuestion', perspective: 'Perspective', tenant_id: 'str', sources: 'Mapping[str, Mapping[str, str]]', instant: 'datetime') -> None"
       },
+      "SourcesNotRead": {
+        "kind": "class",
+        "shape": "(what: 'str') -> 'None'"
+      },
       "open_product": {
         "kind": "function",
-        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', evidence_root: 'Path | str | None' = None, acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'OpenedProduct'"
+        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', evidence_root: 'Path | str | None' = None, acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, read_sources: 'bool' = True, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'OpenedProduct'"
       }
     }
   },

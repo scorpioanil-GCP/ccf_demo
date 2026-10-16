@@ -271,8 +271,34 @@ __all__ = [
     "DeclaredGrantRefused",
     "GrantNotInForce",
     "OpenedProduct",
+    "SourcesNotRead",
     "open_product",
 ]
+
+
+class SourcesNotRead(RuntimeError):
+    """This product was opened to inspect and replay retained decisions, and answers no question (`D-IMPL-383`).
+
+    SDK-defined (CLAUDE.md §7.4, §8.3). :func:`open_product` with
+    ``read_sources=False`` resolves none of the environment document's source
+    settings — an auditor reading the evidence root needs no database
+    credential, because replay re-executes over the retained graph and never
+    reaches a source (`CP06C-F-07`, measured). Anything that would acquire —
+    :meth:`OpenedProduct.answer` and :meth:`OpenedProduct.resolve` — raises
+    this BEFORE a lane is admitted, a graph is minted or a record is written,
+    so an inspection opening leaves the evidence root exactly as it found it.
+    :attr:`OpenedProduct.sources` raises it too, and the acquisition seam reads
+    that attribute only when it RUNS: :meth:`OpenedProduct.replay_decision`
+    builds the resolver and never acquires, so it works without them, and a
+    replay that did reach acquisition would raise rather than read a source.
+    """
+
+    def __init__(self, what: str) -> None:
+        super().__init__(
+            f"{what}: this product was opened with read_sources=False, to inspect and"
+            " replay retained decisions, and answers no question; open it with its"
+            " source settings to answer (D-IMPL-383)"
+        )
 
 
 class GrantNotInForce(PermissionError):
@@ -636,7 +662,7 @@ class OpenedProduct:
         ttl: TtlBinding,
         door: EgressDoorBinding | None,
         default_perspective: PerspectiveArtifact,
-        sources: Mapping[str, Mapping[str, str]],
+        sources: Mapping[str, Mapping[str, str]] | None,
         control_plane: ControlPlaneRegistry,
         artifact_store: ArtifactStoreProtocol,
         erasure_index: ErasureIndexProtocol,
@@ -685,7 +711,7 @@ class OpenedProduct:
         self.ttl = ttl
         self.door = door
         self.default_perspective = default_perspective
-        self.sources = sources
+        self._sources = sources
         self.control_plane = control_plane
         self.artifact_store = artifact_store
         #: SEC-009 (`D-IMPL-374` (4), C1): the durable erasure index this
@@ -798,6 +824,7 @@ class OpenedProduct:
         deployment asking as somebody else states that principal's grant on
         the request's own parameters, where the effective request records it.
         """
+        self._refuse_unless_sources_read("answer")
         chosen = perspective if perspective is not None else self.default_perspective
         admitted = self._admit_lane(
             request, perspective=chosen, address=(request.schema_name, request.schema_version)
@@ -1170,6 +1197,26 @@ class OpenedProduct:
 
     # --- the low road, reachable from the paved surface --------------------------
 
+    @property
+    def sources(self) -> Mapping[str, Mapping[str, str]]:
+        """Every source setting the environment document declared, resolved at open.
+
+        Raises:
+            SourcesNotRead: the product was opened with ``read_sources=False``.
+        """
+        if self._sources is None:
+            raise SourcesNotRead("sources")
+        return self._sources
+
+    @property
+    def reads_sources(self) -> bool:
+        """Whether this opening resolved its source settings and can answer (``read_sources=``)."""
+        return self._sources is not None
+
+    def _refuse_unless_sources_read(self, what: str) -> None:
+        if self._sources is None:
+            raise SourcesNotRead(what)
+
     def build_arguments(self, fabric: BootedFabric) -> dict[str, Any]:
         """The exact keyword mapping :meth:`answer` hands :func:`build_governed_resolver`.
 
@@ -1278,6 +1325,7 @@ class OpenedProduct:
                 call carries no request — a broken deployment (this door is
                 tool-only and has no standing answer), never a governed "no".
         """
+        self._refuse_unless_sources_read("resolve")
         if tenant != self.tenant_id:
             raise ProductNotResolvable(
                 f"this product serves tenant {self.tenant_id!r} and was called"
@@ -1476,7 +1524,10 @@ class OpenedProduct:
         """
         worker = fabric.handle.worker
         tenant_id = self.tenant_id
-        sources = self.sources
+        # `D-IMPL-383` (`CP06C-F-07`): the settings are read when acquisition
+        # RUNS, not when the seam is built. Replay builds this resolver and never
+        # acquires, so it needs none; an opening with ``read_sources=False``
+        # that did acquire would raise `SourcesNotRead` here.
         acquire = self._acquire
         # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
         # — the trusted ingress composition — and bound ONCE per seam rather than
@@ -1516,7 +1567,7 @@ class OpenedProduct:
                     question=question,
                     perspective=perspective,
                     tenant_id=tenant_id,
-                    sources=sources,
+                    sources=self.sources,
                     instant=question.asked_at,
                 )
                 ingest(declared(context), asked_at=question.asked_at)
@@ -1528,7 +1579,7 @@ class OpenedProduct:
                 request=request,
                 perspective=perspective,
                 tenant_id=tenant_id,
-                sources=sources,
+                sources=self.sources,
                 instant=request.asked_at,
             )
             ingest(acquire(context), asked_at=request.asked_at)
@@ -1574,6 +1625,7 @@ def open_product(
     questions: ChildQuestions | None = None,
     clock: Callable[[], datetime] = _utc_now,
     environ: Mapping[str, str] | None = None,
+    read_sources: bool = True,
     control_plane: ControlPlaneRegistry,
     erasure_trust: ErasureTrust,
     artifact_store: ArtifactStoreProtocol | None = None,
@@ -1665,6 +1717,14 @@ def open_product(
             producer endpoints and credentials — are resolved from;
             ``os.environ`` when omitted. Passed in rather than reached for,
             so a test supplies a mapping.
+        read_sources: ``False`` opens the product to inspect and replay its
+            retained decisions only (`D-IMPL-383`, `CP06C-F-07`): no source
+            setting is resolved, so none need be set, and
+            :meth:`OpenedProduct.answer` and :meth:`OpenedProduct.resolve`
+            raise :class:`SourcesNotRead` before anything is admitted, minted
+            or recorded, as does :attr:`OpenedProduct.sources` and so the
+            acquisition seam if it ever runs. :meth:`OpenedProduct.replay_decision`
+            works. Every other open-time check still runs. ``True`` (the default) is unchanged.
         control_plane: The DEPLOYMENT's registry, opened INTO. **Required, no
             default and no fresh-registry fallback** (SEC-009, fix round 4,
             ruling 5): the erasure consult verifies every approval's HITL
@@ -1850,7 +1910,7 @@ def open_product(
     )
 
     resolved_environ = os.environ if environ is None else environ
-    sources = resolve_values(environment.sources, resolved_environ)
+    sources = resolve_values(environment.sources, resolved_environ) if read_sources else None
 
     scratch_root.mkdir(parents=True, exist_ok=True)
     evidence_dir.mkdir(parents=True, exist_ok=True)
