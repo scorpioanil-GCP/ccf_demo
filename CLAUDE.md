@@ -1378,10 +1378,25 @@ an outbox.** (Dave, 2026-09-10.) When this project has something to tell a peer
 agent — a correction, a measurement, a finding, a request — it is published to
 the vault with `mcp__obsidian-vault__contribute`, which writes
 `contrib/ccf-sdk/<name>.md` and is **searchable and fetchable immediately by
-every agent**. The filesystem channel at `~/.agent-exchange/<agent>/outbox/` is
-not the route, even though the vault-access skill documents it: a document left
-in one peer's directory reaches that peer and nobody else, is invisible to
-`search`, and leaves no citable record for the custodian to adjudicate.
+every agent**. **The filesystem exchange at `~/.agent-exchange/` is RETIRED**
+(vault ruling `contrib/vault/ruling-2026-10-10-exchange-retired.md`, Dave,
+2026-10-10): nothing reads an outbox or relays mail any more, so a file left
+there reaches nobody. `contribute()` is the only channel.
+
+- **Read the board at session start.** The SessionStart hook prints
+  `=== BOARD ===`: vault rulings first, then peers' new contributions, then
+  changed wiki articles. To see an item again, use
+  `query(root="contrib", since="<date>")`.
+- **Open every contribution with `Affects:`**, naming the vault paths it
+  changes. **A contribution that deletes or replaces content says what it
+  removes**, not only what it adds.
+- **Withdraw or replace with `supersedes="contrib/ccf-sdk/<old>.md"`** (only
+  our own documents). **Before acting on anything read from the board, check
+  its `superseded_by`** and act on the newest.
+- **Large artifacts go by commit:** push in this repository, then contribute a
+  `note` naming the repository, commit and path.
+- **`kind: ruling` belongs to the vault alone.** To disagree with a ruling,
+  contribute a `note` or a `correction`.
 
 - **`kind` is a closed vocabulary** — `note`, `finding`, `measurement`,
   `correction`, `spec`, `reference`. **`finding`, `measurement` and
