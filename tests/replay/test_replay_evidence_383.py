@@ -300,3 +300,135 @@ def test_an_erased_decision_record_is_disclosed_by_the_engine_not_reported_unava
         outcome = restarted.replay_decision(address)
     assert isinstance(outcome, ErasedReplayOutcome), outcome
     assert outcome.record_content_address == address
+
+
+# --- close-panel fixes (Dave, 2026-10-15 22:53: "fix 1-5") ------------------------------------
+
+
+def test_a_lookup_never_returns_another_tenants_mapping(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
+    """Instruction 2: the index is scoped to the instance AND the tenant — lookups too, not only listings."""
+    root, scratch = tree
+    with _open(root, scratch) as opened:
+        served = opened.answer(_question(opened))
+        assert isinstance(served, ServedProduct)
+        address = _address(opened, served)
+        own = opened.evidence
+        assert own.entry(address) is not None
+        foreign = ReplayEvidenceIndex(
+            evidence_root=own.evidence_root, index_root=own.index_root, tenant_id=f"not-{own.tenant_id}"
+        )
+        assert foreign.entry(address) is None, "another tenant's lookup resolved this tenant's mapping"
+
+
+def test_a_refusal_a_door_records_directly_is_mapped_and_replays(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
+    """A door's own denial (its entitlement step) records through ``refusal_recorder``, not ``answer``.
+
+    It must publish a no-graph mapping like every other refusal before a graph,
+    so replay finds it — never reporting a completed decision as interrupted.
+    """
+    from ccf.products.refusal import RequestIdentity, envelope_for  # noqa: PLC0415
+    from ccf.products.request import ProductRequestViolation  # noqa: PLC0415
+    from ccf.replay.record import ResolutionNotApplicable  # noqa: PLC0415
+
+    root, scratch = tree
+    with _open(root, scratch) as opened:
+        request = _question(opened)
+        violation = ProductRequestViolation(
+            reason="class-mismatch", key="schema_version",
+            declared_type="declared@1.0.0", presented_type="presented@9.0.0",
+            declared_keys=frozenset(), presented_keys=frozenset(), detail="a door's own denial",
+        )
+        identity = RequestIdentity(
+            product_id=request.schema_name, product_version=request.schema_version,
+            parameters=request.parameters, temporal_boundary=request.asked_at,
+        )
+        recorded = opened.refusal_recorder.record(
+            envelope_for(violation, request=identity),
+            perspective=opened.default_perspective,
+            recorded_at=request.asked_at,
+            served_at=request.asked_at,
+            request=request,
+            resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+        )
+        address = _address(opened, recorded)
+        entry = opened.evidence.entry(address)
+        assert entry is not None, "a door-recorded refusal published no evidence mapping"
+        assert entry.graph is None and entry.graph_required is False and entry.outcome == "refused"
+
+    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+        assert isinstance(restarted.replay_decision(address), RefusalReplayOutcome)
+
+
+def test_a_mapping_that_disagrees_with_its_record_is_divergence_never_missing(
+    tree: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    """Instruction 4: an altered index is corruption — reported as divergence, not as "unavailable"."""
+    root, scratch = tree
+    with _open(root, scratch) as opened:
+        served = opened.answer(_question(opened))
+        refused = _early_refusal(opened)
+        assert isinstance(served, ServedProduct)
+        served_address, refused_address = _address(opened, served), _address(opened, refused)
+        index = opened.evidence
+
+    # A served decision's mapping cannot claim it needed no graph.
+    entry = index.entry(served_address)
+    assert entry is not None
+    with pytest.raises(ValueError, match="served"):
+        type(entry).model_validate({**entry.model_dump(mode="json"), "graph": None,
+                                    "graph_sha256": None, "graph_required": False})
+
+    # A refusal's mapping rewritten as "served" with the served decision's graph.
+    refused_entry = index.entry(refused_address)
+    served_entry = index.entry(served_address)
+    assert refused_entry is not None and served_entry is not None
+    forged = refused_entry.model_copy(update={
+        "outcome": "served", "refusal_reason": None, "graph": served_entry.graph,
+        "graph_sha256": served_entry.graph_sha256, "graph_required": True,
+    })
+    (index.index_root / "decisions" / f"{refused_address}.json").write_text(forged.model_dump_json())
+    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+        with pytest.raises(ReplayDivergence) as raised:
+            restarted.replay_decision(refused_address)
+        assert not isinstance(raised.value, ReplayEvidenceUnavailable)
+
+
+def test_a_retained_graph_replaced_by_a_symlink_is_refused(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
+    """Evidence must live under the evidence root: a symlink is not retained evidence, even to identical bytes."""
+    root, scratch = tree
+    with _open(root, scratch) as opened:
+        served = opened.answer(_question(opened))
+        assert isinstance(served, ServedProduct)
+        address = _address(opened, served)
+        entry = opened.evidence.entry(address)
+        assert entry is not None
+        graph = opened.evidence.graph_path(entry)
+    elsewhere = scratch.parent / "elsewhere.sqlite3"
+    elsewhere.write_bytes(graph.read_bytes())
+    graph.unlink()
+    graph.symlink_to(elsewhere)
+    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+        with pytest.raises(ReplayDivergence, match="symlink"):
+            restarted.replay_decision(address)
+
+
+def test_decided_at_is_documented_as_the_wall_clock() -> None:
+    from ccf.replay.evidence import EvidenceEntry  # noqa: PLC0415
+
+    doc = EvidenceEntry.__doc__ or ""
+    assert "deployment clock" not in doc, "decided_at is the wall clock, never the deployment's"
+
+
+def test_a_refusal_before_any_graph_replays_first_after_a_restart(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
+    """The restarted service's FIRST replay is a pre-graph refusal: nothing else has registered the Control Plane.
+
+    Found by the close-panel fixes (2026-10-15): every earlier proof replayed a
+    served decision first, whose boot registered the deployment, and so hid that
+    a pre-graph refusal alone was `ReplayUnresolvable`.
+    """
+    root, scratch = tree
+    with _open(root, scratch) as opened:
+        address = _address(opened, _early_refusal(opened))
+    with _open(root, scratch, acquire=_SourcesUnavailable()) as restarted:
+        assert isinstance(restarted.replay_decision(address), RefusalReplayOutcome)
+        assert not list(scratch.glob("*.sqlite3")), "replaying a pre-graph refusal minted no graph in the evidence root"

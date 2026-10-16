@@ -114,3 +114,19 @@ def test_the_bank_launcher_always_hands_the_door_a_private_evidence_folder() -> 
     script = LAUNCH.read_text(encoding="utf-8")
     assert "for d in scratch run logs evidence; do install -d -m 700" in script, "the launcher creates it private"
     assert '--evidence-dir "$ROOT/evidence"' in script, "persistence is mandatory in the bank launcher"
+
+
+def test_a_symlinked_evidence_folder_is_refused_before_the_door_opens(
+    serve: ModuleType, tmp_path: pathlib.Path
+) -> None:
+    """The evidence must be under the instance root: a symlink to a private folder elsewhere is refused."""
+    target = _private(tmp_path / "elsewhere")
+    link = tmp_path / "evidence"
+    link.symlink_to(target)
+    with pytest.raises(SystemExit, match="symlink"):
+        with serve.door_scratch(link):
+            pass
+
+
+def test_the_bank_launcher_refuses_a_symlinked_evidence_folder() -> None:
+    assert '-L "$ROOT/evidence"' in LAUNCH.read_text(encoding="utf-8")

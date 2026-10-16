@@ -67,8 +67,8 @@ def door_scratch(evidence_dir: Path | None) -> Iterator[Path]:
     """The door's scratch: the private evidence folder, or a temporary directory.
 
     Raises:
-        SystemExit: ``evidence_dir`` is not absolute, does not exist, is not a
-            directory, is not owned by this account with mode ``700``, or is
+        SystemExit: ``evidence_dir`` is not absolute, is a symlink, does not
+            exist, is not a directory, is not owned by this account with mode ``700``, or is
             not writable — refused before anything is opened over it.
     """
     if evidence_dir is None:
@@ -81,6 +81,8 @@ def door_scratch(evidence_dir: Path | None) -> Iterator[Path]:
 
     if not evidence_dir.is_absolute():
         raise refuse("must be an absolute path")
+    if evidence_dir.is_symlink():
+        raise refuse("is a symlink; the evidence must live in the folder named, not wherever a link points")
     try:
         held = evidence_dir.stat()
     except FileNotFoundError:

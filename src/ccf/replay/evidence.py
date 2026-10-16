@@ -187,7 +187,8 @@ class EvidenceEntry(CCFContract):
         record_address: The decision record's content address — the index key.
         outcome: ``served`` or ``refused``.
         refusal_reason: The refusal envelope's reason; ``None`` when served.
-        decided_at: The deployment clock when the decision completed.
+        decided_at: The wall-clock instant the decision completed — never the
+            deployment's clock, which a decision may read and must not be moved by.
         graph: The retained graph, relative to the evidence root; ``None`` for
             a refusal reached before any graph was minted.
         graph_required: Whether replay needs a graph. ``False`` states
@@ -219,6 +220,8 @@ class EvidenceEntry(CCFContract):
             raise ValueError("a named graph carries its sha256, and only a named graph does")
         if self.graph is not None:
             _require_graph_name(self.graph)
+        if self.outcome == "served" and self.graph is None:
+            raise ValueError("a served decision read a graph; its mapping must name it")
         if (self.outcome == "refused") != (self.refusal_reason is not None):
             raise ValueError("a refusal carries its reason, and only a refusal does")
         return self
@@ -297,13 +300,18 @@ class ReplayEvidenceIndex:
     # --- reads -------------------------------------------------------------------------
 
     def entry(self, record_address: str) -> EvidenceEntry | None:
-        """The published mapping for ``record_address``, or ``None`` when none was published."""
+        """This tenant's published mapping for ``record_address``, or ``None`` when it has none."""
         path = self._decision_path(require_record_address(record_address))
         try:
             payload = path.read_bytes()
         except FileNotFoundError:
             return None
         entry = EvidenceEntry.model_validate_json(payload)
+        if entry.tenant_id != self.tenant_id:
+            # Instruction 2: scoped to the instance AND the tenant. Another
+            # tenant's mapping is not this tenant's evidence, and its existence
+            # is not disclosed.
+            return None
         if entry.record_address != record_address:
             raise ReplayDivergence(
                 f"the evidence mapping filed under {record_address} names decision"
@@ -383,10 +391,10 @@ class NoGraphRetained:
         self._record_address = record_address
 
     def __getattr__(self, name: str) -> Any:
-        raise ReplayEvidenceUnavailable(
-            record_address=self._record_address,
-            detail=(
-                f"replay asked the graph for {name!r}, and this decision's mapping"
-                " states no graph was required; the record and its mapping disagree"
-            ),
+        # Instruction 4: the record and its mapping disagreeing is corruption,
+        # never "missing".
+        raise ReplayDivergence(
+            f"replay of {self._record_address} asked the graph for {name!r}, and"
+            " this decision's mapping states no graph was required; the record"
+            " and its mapping disagree"
         )

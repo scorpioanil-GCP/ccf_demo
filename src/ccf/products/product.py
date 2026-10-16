@@ -93,7 +93,9 @@ two open release findings `D-IMPL-341` (the entity-freshness expiry) and
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import tempfile
 import uuid
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -188,6 +190,7 @@ from ccf.products.resolver import (
     ProductNotResolvable,
     _refuse_shared_owner,
     ProjectionPlanFactoryProtocol,
+    RefusalRecorderProtocol,
     ReplayRefusalRecorder,
     ResolverOutcome,
     PackagingTraceProtocol,
@@ -226,7 +229,12 @@ from ccf.replay.evidence import (
     require_record_address,
 )
 from ccf.replay.provenance import require_filed_by_record_writer
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
+from ccf.replay.record import (
+    NO_PRODUCT_ADDRESS,
+    DecisionReplayRecord,
+    PolicyBinding,
+    ResolutionNotApplicable,
+)
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import (
     IngressTemporalBound,
@@ -675,7 +683,7 @@ class OpenedProduct:
         #: erasure trust root the store verifies every erasure against — and
         #: which every resolver and door built over this product composes with.
         self.erasure_trust = erasure_trust
-        self.refusal_recorder = refusal_recorder
+        self._refusal_recorder = refusal_recorder
         #: `D-IMPL-383`: the decision → retained-graph index. The evidence root
         #: is ``scratch`` itself — the graphs are minted there and the default
         #: replay store lives there — so a deployment that hands the paved road
@@ -872,6 +880,71 @@ class OpenedProduct:
 
     # --- durable, addressable replay evidence (`D-IMPL-383`) -------------------------
 
+    @property
+    def refusal_recorder(self) -> RefusalRecorderProtocol:
+        """The recorder a DOOR records its own denials through — each one mapped (`D-IMPL-383`).
+
+        A door's entitlement step refuses before :meth:`resolve` runs and
+        records through this seam, never through :meth:`answer`. This recorder
+        appends the record through the product's own one, then publishes the
+        decision's no-graph evidence mapping, so a door-recorded refusal replays
+        like every other refusal reached before a graph (instruction 5) and is
+        never reported as interrupted (close panel, 2026-10-15).
+        """
+        return _EvidencePublishingRecorder(inner=self._refusal_recorder, opened=self)
+
+    def _require_mapping_agrees(self, entry: EvidenceEntry, payload: bytes) -> None:
+        """Raise :class:`ReplayDivergence` where ``entry`` contradicts the record's own bytes."""
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != entry.record_address:
+            raise ReplayDivergence(
+                f"the bytes at {entry.record_address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the decision record (D-IMPL-89)"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        served = record.content_generation_path.product_content_address != NO_PRODUCT_ADDRESS
+        if served != (entry.outcome == "served"):
+            raise ReplayDivergence(
+                f"the evidence mapping for {entry.record_address} says {entry.outcome!r},"
+                f" and the decision record says {'served' if served else 'refused'};"
+                " the index was altered"
+            )
+        if record.tenant_id != entry.tenant_id:
+            raise ReplayDivergence(
+                f"the evidence mapping for {entry.record_address} names tenant"
+                f" {entry.tenant_id!r}, and the decision record names {record.tenant_id!r}"
+            )
+
+    def _published_refusal(
+        self, envelope: RefusalEnvelope, *, request: ProductRequest | None, recorded_at: datetime
+    ) -> None:
+        """Publish the no-graph mapping of a refusal a door recorded directly."""
+        identity = envelope.request
+        self.evidence.publish(
+            EvidenceEntry(
+                schema_version=EVIDENCE_SCHEMA_VERSION,
+                record_address=self.artifact_store.resolve_uri(uri=envelope.replay_reference),
+                tenant_id=self.tenant_id,
+                outcome="refused",
+                refusal_reason=envelope.reason,
+                product_class=request.schema_name if request is not None else identity.product_id,
+                product_version=(
+                    request.schema_version if request is not None else identity.product_version or ""
+                ),
+                subject=request.subject if request is not None else "",
+                parameters=(
+                    request.model_dump(mode="json")["parameters"]
+                    if request is not None
+                    else json.loads(json.dumps(dict(identity.parameters), default=str))
+                ),
+                asked_at=request.asked_at if request is not None else identity.temporal_boundary or recorded_at,
+                decided_at=_utc_now(),
+                graph=None,
+                graph_required=False,
+                graph_sha256=None,
+            )
+        )
+
     def _published(
         self, outcome: ResolverOutcome, *, request: ProductRequest, graph: Path | None
     ) -> ResolverOutcome:
@@ -948,9 +1021,10 @@ class OpenedProduct:
         if entry is None:
             if self.artifact_store.exists(content_address=record_address):
                 detail = (
-                    "the decision record is in the store but its evidence mapping was"
-                    " never published, so the decision is incomplete: it was interrupted"
-                    " between writing its record and publishing its mapping"
+                    "the decision record is in the store but this tenant's evidence index"
+                    " holds no mapping for it: the decision is incomplete (interrupted"
+                    " between writing its record and publishing its mapping) or is not"
+                    " this tenant's"
                 )
             else:
                 detail = "neither a decision record nor an evidence mapping exists for this address"
@@ -970,9 +1044,25 @@ class OpenedProduct:
                 record_address=record_address,
                 detail="the evidence mapping names this decision, and the store no longer holds its record",
             ) from None
+        if payload is not None:
+            # Instruction 4: the content-addressed RECORD is the authority, and a
+            # mutable mapping that disagrees with it is corruption — divergence,
+            # never "missing" (close panel, 2026-10-15).
+            self._require_mapping_agrees(entry, payload)
         if payload is None or entry.graph is None:
             not_read = NoGraphRetained(record_address)
             engine = replay if entry.outcome == "served" else replay_refusal
+            # The record's policy bindings resolve against the Control Plane,
+            # which this deployment registers only as part of a boot. A replay
+            # after a restart that boots no graph would find it empty (close
+            # panel, 2026-10-15: a pre-graph refusal replayed FIRST after a
+            # restart was `ReplayUnresolvable`). So the deployment is booted
+            # once over an empty, throwaway substrate outside the evidence root,
+            # purely to register, and closed; the engine is still handed
+            # `NoGraphRetained`, so no graph is read for this decision.
+            with tempfile.TemporaryDirectory(prefix="ccf-replay-register-") as throwaway:
+                registering = self._boot(Path(throwaway) / self._mint().name)
+                registering.handle.close()
             return engine(
                 record_address=record_address,
                 store=self.artifact_store,
@@ -981,6 +1071,12 @@ class OpenedProduct:
                 environment=not_read,
             )
         graph = self.evidence.graph_path(entry)
+        if graph.is_symlink():
+            raise ReplayDivergence(
+                f"the retained graph {entry.graph!r} for {record_address} is a symlink;"
+                " retained evidence lives under the evidence root, and a link to"
+                " anywhere else is not that evidence, whatever bytes it reaches"
+            )
         if not graph.is_file():
             raise ReplayEvidenceUnavailable(
                 record_address=record_address,
@@ -1108,7 +1204,7 @@ class OpenedProduct:
             "erasure_trust": self.erasure_trust,
             "replay_record_class": self.replay.record_class,
             "query_pin_class": self.replay.query_pin_class,
-            "refusal_recorder": self.refusal_recorder,
+            "refusal_recorder": self._refusal_recorder,
             "acquisition": self._acquisition_seam(fabric),
             # SEC-020 Q7 (`D-IMPL-378`): the declared population phase, stated
             # only when the deployment declared one.
@@ -1275,7 +1371,7 @@ class OpenedProduct:
         # record, and the LIVE instant this door determined at is measured ONCE
         # here and travels as ``served_at`` beside it.
         determined_at = self._clock()
-        return self.refusal_recorder.record(
+        return self._refusal_recorder.record(
             envelope_for(violation, request=identity),
             perspective=perspective,
             recorded_at=request.asked_at,
@@ -2412,3 +2508,52 @@ def _derive_consumer_chain(
         artifact_store=store,
         mcp_skills=mcp_skills,
     )
+
+
+class _EvidencePublishingRecorder:
+    """A :class:`RefusalRecorderProtocol` that maps every refusal it records (`D-IMPL-383`).
+
+    SDK-defined (CLAUDE.md §7.4). Appends through the product's own recorder,
+    then publishes the decision's no-graph evidence mapping; anything else is
+    the inner recorder's. ``**kwargs`` passes every keyword the protocol takes,
+    ``subject_withholding`` included, so the builders' compatibility check
+    (:func:`~ccf.products.resolver.refuse_incompatible_refusal_recorder`) holds.
+    """
+
+    def __init__(self, *, inner: RefusalRecorderProtocol, opened: OpenedProduct) -> None:
+        self._inner = inner
+        self._opened = opened
+
+    def record(
+        self,
+        envelope: RefusalEnvelope,
+        *,
+        recorded_at: datetime,
+        request: ProductRequest | None = None,
+        **kwargs: Any,
+    ) -> RefusalEnvelope:
+        recorded = self._inner.record(envelope, recorded_at=recorded_at, request=request, **kwargs)
+        self._opened._published_refusal(recorded, request=request, recorded_at=recorded_at)
+        return recorded
+
+    # The members the delivery boundaries check for by protocol. A runtime
+    # protocol check reads the CLASS (static lookup), so these are declared
+    # here rather than reached through ``__getattr__`` (close panel fixes,
+    # 2026-10-15: 481 doors refused a wrapper that forwarded them dynamically).
+    @property
+    def tenant_id(self) -> str:
+        return self._inner.tenant_id  # type: ignore[attr-defined, no-any-return]
+
+    @property
+    def replay_record_class(self) -> str:
+        return self._inner.replay_record_class  # type: ignore[attr-defined, no-any-return]
+
+    @property
+    def artifact_store(self) -> Any:
+        return self._inner.artifact_store  # type: ignore[attr-defined]
+
+    def disclosure_level_for(self, *args: Any, **kwargs: Any) -> Any:
+        return self._inner.disclosure_level_for(*args, **kwargs)  # type: ignore[attr-defined]
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)

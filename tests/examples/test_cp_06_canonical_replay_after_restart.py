@@ -148,13 +148,18 @@ def test_a_live_decision_is_reconstituted_after_a_restart_with_the_sources_unrea
             assert entry is not None, f"{name}: no evidence mapping after restart"
             assert entry.graph_required is (name != "before"), name
 
+        # FIRST, the pre-graph refusal: nothing has booted in this opening yet, the
+        # ordering that hid a `ReplayUnresolvable` until the close-panel fixes.
+        first = restarted.replay_decision(originals["before"][0])
+        assert isinstance(first, RefusalReplayOutcome), first
+
         reproduced = restarted.replay_decision(originals["served"][0])
         assert isinstance(reproduced, ReplayOutcome), reproduced
         assert reproduced.record == originals["served"][1], "the reconstituted record is the original"
         assert reproduced.product_content_address == content_hash(served.product)
         assert reproduced.product == served.product, "the reproduced product equals the served one"
 
-        for name in ("after", "before"):
+        for name in ("after",):
             outcome = restarted.replay_decision(originals[name][0])
             assert isinstance(outcome, RefusalReplayOutcome), (name, outcome)
 

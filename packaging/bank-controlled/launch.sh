@@ -27,6 +27,7 @@ ACCOUNT=$(sed -n 's/^CCF_SERVICE_ACCOUNT=//p' "$SECRETS")
 mode_of() { stat -c '%a' "$1"; }; owner_of() { stat -c '%U' "$1"; }
 [[ "$(owner_of "$ROOT")" = "$ACCOUNT" && "$(mode_of "$ROOT")" = 700 ]] || refuse "$ROOT must be owned by $ACCOUNT with mode 700"
 [[ "$(owner_of "$SECRETS")" = "$ACCOUNT" && "$(mode_of "$SECRETS")" = 600 ]] || refuse "$SECRETS must be owned by $ACCOUNT with mode 600"
+[[ ! -L "$ROOT/evidence" ]] || refuse "$ROOT/evidence must be a directory under the instance root, not a symlink"
 for d in scratch run logs evidence; do install -d -m 700 "$ROOT/$d"; done
 # 2a. Replay evidence (D-IMPL-383): every question's graph, the replay store and the evidence index are
 #     kept in $ROOT/evidence, outside any temporary directory, so decisions replay after a restart.
