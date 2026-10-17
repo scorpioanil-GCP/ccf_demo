@@ -1010,6 +1010,28 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # Ruled UP FRONT at Gate 1 rather than discovered at qualification —
         # this is the check that shipped red through two closes at `172f1612`.
         "examples/dr-02-package-a-context-product",
+        # sk-01, the skills example (`77ed0b53`, 2026-10-16) — RULED onto this
+        # roster 2026-10-16 22:36 MST (Grok's ruling, adopted by Dave: *"add the
+        # sk-01 example to the approved exemption list for the two tests in
+        # tests/products/test_gate_two_call_shape.py"*; Dave: *"Add sk-01 to the
+        # approved roster, recording why it qualifies. Preserve the test logic
+        # and assertions"*). It shipped claiming the exemption unruled — the
+        # `172f1612` shape again: its build measured `tests/examples`, and this
+        # gate lives in `tests/products`.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, with the
+        # measurement taken first, before this line existed: the detector's
+        # tree-derived set differed from this roster by exactly this one root;
+        # `_sdk_supplied_operator_set` answers True for `produce.py`'s
+        # `BriefPlanFactory._plan`; no `ccf.projection-requirements` is
+        # registered; row B is empty; `shape_of` reads `"paved"`; and no
+        # `build_governed_resolver` / `build_replay_record` / `run_gates` /
+        # `serve` appears in any of its modules. The named factory hands the
+        # resolver's own `required` tuple straight to
+        # `FacilityCollateralBriefProjection`, which returns it unchanged from
+        # `required_operators()` — nothing to diverge from, the `D-IMPL-141`
+        # condition rather than a property this entry asserts.
+        "examples/sk-01-declare-and-govern-agent-skills",
     }
 )
 
@@ -3967,6 +3989,11 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # same second shape cp-05 took: it reaches `build_governed_resolver`
         # directly rather than through a `binding.yaml`.
         "examples/s1-00-companies-over-revenue",
+        # sk-01, 2026-10-16 — recorded as its OWN assertion for the reason the
+        # cp-11 entry gives: the roster above records what was RULED, this
+        # records what the detector ANSWERS, and it answered before either line
+        # existed.
+        "examples/sk-01-declare-and-govern-agent-skills",
     ], (
         sdk_supplied
     )

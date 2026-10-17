@@ -11,11 +11,15 @@ and are limited to its stated scope and term.
 **Status, 2026-10-16.**
 - **Part 4 has a provisional ruling.** Dave, 15:53 MST: *"Ruling for now: treat borrower
   scope as not a real permission under the current shared-credential configuration."*
-- **Parts 1–3 are BUILT for cp-06C** (Dave's GO, 21:32 MST, with rulings D1–D3; branch
-  `sec-020-parts-1-3`, brief `SEC-020-PARTS-1-3-BRIEF.md`). Measured before and after through
-  the bank's own door; not merged and not closed — that is Dave's ruling. The outcome is
-  recorded in `OPEN-SECURITY-ITEMS.md` item 3 and `docs/DECISIONS.md` (`D-IMPL-387`).
-- **Part 5 stays parked.** Part 4 stays provisional.
+- **Parts 1–3: accepted and closed for the tested cp-06C deployment under the provisional
+  Part 4 framing** (Dave, 22:36 MST): *"The measured response comparisons pass and timing meets
+  the agreed threshold. Residual timing, caller-selected borrower scope, Part 5 and identity
+  work remain open. SEC-020 is not closed SDK-wide."* Built and measured on branch
+  `sec-020-parts-1-3` (brief `SEC-020-PARTS-1-3-BRIEF.md`, `D-IMPL-387`); the outcome is in
+  `OPEN-SECURITY-ITEMS.md` item 3.
+- **Still open:** the residual timing, caller-selected borrower scope (Part 4 stays
+  provisional), Part 5 (parked), the identity work, and every product other than cp-06C. A
+  runtime message leak found during the build is recorded separately as **SEC-030**.
 
 **Why this document exists.**
 - The bank asked, through Dave on 2026-10-15 at 18:09, for *"a detailed breakdown of the
