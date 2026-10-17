@@ -137,6 +137,9 @@ class WorkflowStateRecord(CCFContract):
             execution never continues under a definition it was not started
             with — the thing the URI check already claimed and could not
             deliver (SEC-001, security review 2026-09-23).
+        state_store_identity: The identity of the Control Plane state store
+            that wrote the record (``D-IMPL-391``, design 1.4); ``None`` on a
+            record written before the change.
     """
 
     tenant: str
@@ -157,6 +160,20 @@ class WorkflowStateRecord(CCFContract):
     #: plane, such an in-flight suspension REFUSES at resolution (G5 (a),
     #: fail-closed; see the migration note).
     started_by: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: The identity of the state store that WROTE this record
+    #: (``src/ccf/controlplane/state.py::ConditionalStateStore.identity``),
+    #: stamped by ``WorkflowEngine._record`` on every record (``D-IMPL-391``,
+    #: design 1.4; SEC-001). Because it is inside the record, it is inside the
+    #: content hash every approval request, verdict, gate closure and passage
+    #: names, so an approval counts only in the store that paused the run, and
+    #: nothing about the store is shown on a queued request. Hash-transparent at
+    #: ``None`` (CINV-06; the ``started_by`` pattern): a record written before
+    #: the change keeps its content address, and the engine refuses such a
+    #: ``suspended`` record by name until it is re-paused
+    #: (``WorkflowEngine.rebind_legacy_suspension``).
+    state_store_identity: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -180,8 +197,8 @@ def suspension_left_by(record: WorkflowStateRecord) -> WorkflowStateRecord | Non
     carrying the suspension's trace plus one ``resume`` entry out of the gate
     (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume``). So the
     suspension it left is that record with the gate as its state, ``suspended``
-    as its status and the trace without its last entry, every other field
-    unchanged: the very record whose content hash the gate's closure
+    as its status and the trace without its last entry, every other field —
+    the store identity among them (``D-IMPL-391``) — unchanged: the very record whose content hash the gate's closure
     (``src/ccf/hitl/transport.py::HITLTransportProtocol.close_gate``) and every
     verdict on that suspension name. A finisher, or the erasure door, finds an
     interrupted passage's durable claim through it, without asking which engine
@@ -204,4 +221,5 @@ def suspension_left_by(record: WorkflowStateRecord) -> WorkflowStateRecord | Non
         workflow_definition_uri=record.workflow_definition_uri,
         workflow_definition_hash=record.workflow_definition_hash,
         started_by=record.started_by,
+        state_store_identity=record.state_store_identity,
     )

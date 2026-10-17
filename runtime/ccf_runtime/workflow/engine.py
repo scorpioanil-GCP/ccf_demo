@@ -102,7 +102,9 @@ from ccf.controlplane.state import (
     AuditedStateWriter,
     ConditionalStateStore,
     StateConflict,
+    StateStoreIdentityMissing,
     state_key,
+    state_store_identity_of,
 )
 from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
@@ -171,6 +173,12 @@ _RESUMPTIONS_IN_FLIGHT_LOCK = threading.Lock()
 #: ``shared`` — a durable implementation several processes reach. Mechanism
 #: vocabulary, read by the construction checks; no deployment value.
 _SCOPES: frozenset[str] = frozenset({"process", "shared"})
+
+#: The methods a :class:`~ccf.controlplane.state.ConditionalStateStore` offers
+#: beside its ``scope`` and ``identity`` (``D-IMPL-378``). Read by the first
+#: construction check, so a store missing the conditional write is refused as
+#: such before its identity is asked for (``D-IMPL-391``).
+_CONDITIONAL_STORE_METHODS: tuple[str, ...] = ("get", "put", "items", "get_versioned", "put_if")
 
 #: Each process-scoped HITL transport, mapped to a weak reference to the one
 #: process-scoped state store it was first built with (Tuesday GO item 4). A
@@ -535,14 +543,29 @@ class WorkflowEngine:
         # runs — never discovered at the first resumption.
         store = control_plane.state_store
         store_scope = getattr(store, "scope", None)
-        if not isinstance(store, ConditionalStateStore) or store_scope not in _SCOPES:
-            raise WorkflowWiringError(
-                f"the Control Plane state store {type(store).__name__} is not a"
-                " ConditionalStateStore declaring a scope of 'process' or"
-                " 'shared' (get_versioned, put_if, scope); without a conditional"
-                " write, two resumptions of one suspension, or two starts of one"
-                " execution id, can both commit (D-IMPL-378; SEC-001)"
-            )
+        not_conditional = (
+            f"the Control Plane state store {type(store).__name__} is not a"
+            " ConditionalStateStore declaring a scope of 'process' or"
+            " 'shared' (get_versioned, put_if, scope); without a conditional"
+            " write, two resumptions of one suspension, or two starts of one"
+            " execution id, can both commit (D-IMPL-378; SEC-001)"
+        )
+        if (
+            not all(callable(getattr(store, name, None)) for name in _CONDITIONAL_STORE_METHODS)
+            or store_scope not in _SCOPES
+        ):
+            raise WorkflowWiringError(not_conditional)
+        # D-IMPL-391 (design 1.4; D-IMPL-378 decision 2 (b): "Unsupported
+        # implementations refuse construction"): a store with no well-formed
+        # identity is refused by the identity rule, by name. Asked BEFORE the
+        # runtime-checkable isinstance below, which would refuse a store lacking
+        # `identity` with the generic message above.
+        try:
+            store_identity = state_store_identity_of(store)
+        except StateStoreIdentityMissing as error:
+            raise WorkflowWiringError(str(error)) from error
+        if not isinstance(store, ConditionalStateStore):
+            raise WorkflowWiringError(not_conditional)
         transport_scope = getattr(hitl_transport, "scope", None)
         if (
             not isinstance(hitl_transport, HITLTransportProtocol)
@@ -598,10 +621,33 @@ class WorkflowEngine:
                 " passage and still holds the gate as a conflict (SEC-006;"
                 " D-GATE-357 (2))"
             )
+        # D-IMPL-391, Dave's ruling 2(a) of 2026-10-17: "Stores labeled
+        # single-process get the graph store's lock. A second process is
+        # refused by name." A store or transport declaring "process" holds an
+        # exclusive SEC-013 lease from open to close (the MUST in both Protocol
+        # docstrings) and offers it as writer_lease(); one that offers none is
+        # refused here. The engine sees that the lease is offered, never that it
+        # was taken at open. After the eligibility check and before any binding,
+        # so a refused construction binds nothing. Not a Protocol member: a
+        # "shared" seam is multi-process by declaration and takes no lease.
+        for seam_scope, seam, what in (
+            (store_scope, store, f"the Control Plane state store {type(store).__name__}"),
+            (transport_scope, hitl_transport, f"the HITL transport {type(hitl_transport).__name__}"),
+        ):
+            if seam_scope == "process" and not callable(getattr(seam, "writer_lease", None)):
+                raise WorkflowWiringError(
+                    f"{what} declares scope 'process' but offers no writer_lease:"
+                    " a single-process substrate holds an exclusive SEC-013 lease"
+                    " from open to close, so a second process can neither submit a"
+                    " verdict nor read in-flight state, and is refused by name"
+                    " (SEC-001; D-IMPL-391, ruling 2(a))"
+                )
         if store_scope == "process":
             _bind_transport_to_store(hitl_transport, store)
         bind_eligibility(control_plane)
         self._control_plane = control_plane
+        #: Stamped on every record this engine writes (D-IMPL-391).
+        self._store_identity = store_identity
         self._artifact_store = artifact_store
         self._hitl_transport = hitl_transport
         self._skill_binding = skill_binding
@@ -778,6 +824,13 @@ class WorkflowEngine:
           operator then finds). Detecting and recovering such a passage is
           being designed (``D-IMPL-378``, decision 7 (b)), not built.
 
+        **An approval counts only in the store that paused the run**
+        (``D-IMPL-391``, design 1.4). Every record carries its state store's
+        identity, so the suspension hash every request, verdict, closure and
+        passage names carries the store. A record another store wrote is
+        refused by name, and a run paused before the identity existed is
+        refused by name until :meth:`rebind_legacy_suspension` re-pauses it.
+
         **An interrupted passage is never re-run** (Dave's Q4 and D2 rulings
         on ``D-IMPL-378``). A passage whose commit never landed leaves the
         record ``suspended`` with no step started, so presenting the
@@ -860,6 +913,153 @@ class WorkflowEngine:
         finally:
             _release_resumption(claim)
 
+    def rebind_legacy_suspension(
+        self,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+    ) -> WorkflowOutcome:
+        """Re-pause a run that was paused before the state store identity existed.
+
+        SDK-defined (``D-IMPL-391``, design 1.4; SEC-001). Dave's ruling 1(a) of
+        2026-10-17: *"Pre-upgrade paused runs are refused by name, re-paused with
+        an audit record, and need a fresh approval."* A ``suspended`` record with
+        no ``state_store_identity`` was written by an engine that bound approvals
+        to no store, so :meth:`resume` refuses it by name. This re-pauses it
+        under this engine's store: one version-fenced write of the suspension,
+        stamped with the store's identity (audited ``workflow_suspended``), its
+        trace — the original trace plus one ``suspend`` entry, so the re-pause is
+        on the record — and one new approval request under the SAME event key.
+
+        **A fresh approval is required.** The re-paused record has a new content
+        hash, and every verdict recorded before names the old one, so none of
+        them authorizes anything (Dave's decision 8 (a): *"never manufacture
+        approval"*).
+
+        **The pre-upgrade request is retired first** (Dave, 2026-10-17 15:25
+        MST: *"The re-pause retires the legacy request before enqueueing the
+        fresh one, and audits the retirement."*). ``ApprovalGate.resolve`` takes
+        the oldest pending request under a key, so a pre-upgrade request left in
+        front of the fresh one made the fresh approval fail until someone acted
+        on the stale one (measured). Every pending request under the key bound to
+        the legacy record's hash is taken through the transport's atomic
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.remove`, oldest first,
+        and each retirement is audited ``workflow_request_retired``. A request
+        under the key bound to anything else is given back unchanged and stops
+        the retirement. This departs from DESIGN-2b §6.5, which left the request
+        listed until an operator removed it.
+
+        Runs under the same in-process single-flight claim as :meth:`resume`.
+        Anything other than a legacy ``suspended`` record of this definition is
+        refused, typed and audited, and nothing is written.
+
+        Raises:
+            WorkflowExecutionTypeError: ``workflow`` is not a factory-built
+                handle.
+            CapabilityBypassError: ``authorized`` is fabricated, retargeted,
+                not a ``Resume``, or minted for another definition key.
+            ForeignStateRecordError: the state store returned a record this
+                machine did not write.
+            ExecutionFenced: another writer moved the record after it was read;
+                retired requests stay retired, and the record stays a legacy
+                suspension that can be rebound again.
+        """
+        self._require_handle(workflow)
+        verify(authorized, kind=Resume, resource=workflow.definition_key)
+        tenant = authorized.tenant
+        key = self._key(tenant, execution_id)
+        claim = (id(self._control_plane.state_store), key)
+        if not _claim_resumption(claim):
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} already has a resumption in flight in"
+                    " this process; present the rebind again once it has"
+                    " returned (D-IMPL-377; D-IMPL-391)"
+                ),
+            )
+        try:
+            record, version = self._read_versioned(key)
+            if record is None:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=f"no execution exists under {key!r}",
+                )
+            if not isinstance(record, WorkflowStateRecord):
+                raise ForeignStateRecordError(
+                    f"the Control Plane state store returned a"
+                    f" {type(record).__name__} under workflow state key"
+                    f" {key!r}, not a WorkflowStateRecord; the"
+                    f" {WORKFLOW_STATE!r} record class is the workflow"
+                    " machine's alone (D-IMPL-18/27)"
+                )
+            gate = record.current_state
+            step = next(
+                (s for s in workflow.task_definition.steps if s.name == gate), None
+            )
+            if (
+                record.status != "suspended"
+                or record.state_store_identity is not None
+                or step is None
+                or step.kind != "hitl-gate"
+                or record.workflow_definition_uri != workflow.identity.definition_uri
+                or record.workflow_definition_hash != workflow.identity.definition_hash
+            ):
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} is not a run of this definition paused"
+                        " at a HITL gate before the state store identity existed;"
+                        " there is nothing to rebind (D-IMPL-391)"
+                    ),
+                )
+            event_key = self._event_key(key, gate)
+            legacy = content_hash(record)
+            while True:
+                oldest = next(
+                    (
+                        event
+                        for event in self._hitl_transport.pending(tenant=tenant)
+                        if event.event_key == event_key
+                    ),
+                    None,
+                )
+                if oldest is None or oldest.product_content_hash != legacy:
+                    break
+                taken = self._hitl_transport.remove(tenant=tenant, event_key=event_key)
+                if taken is None:
+                    break
+                if taken.product_content_hash != legacy:
+                    # Another request moved to the front between the read and
+                    # the removal: it is not the legacy one, so it goes back.
+                    self._hitl_transport.enqueue(event=taken)
+                    break
+                self._append(
+                    workflow,
+                    key,
+                    action="workflow_request_retired",
+                    resolved=True,
+                    actor=None,
+                )
+            return self._suspend(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                gate=gate,
+                trace=record.trace,
+                started_by=record.started_by,
+                version=version,
+            )
+        finally:
+            _release_resumption(claim)
+
     async def _resume_claimed(
         self,
         authorized: Authorized[Resume],
@@ -886,6 +1086,37 @@ class WorkflowEngine:
                 f" {key!r}, not a WorkflowStateRecord; the"
                 f" {WORKFLOW_STATE!r} record class is the workflow"
                 " machine's alone (D-IMPL-18/27)"
+            )
+        # D-IMPL-391 (design 1.4; SEC-001): an approval counts only in the
+        # store that paused the run, so a record another store wrote is never
+        # acted on here, and a run paused before the store identity existed is
+        # refused until it is re-paused. Before every status branch, so no
+        # legacy suspension reaches the restore below.
+        if record.state_store_identity is None:
+            if record.status == "suspended":
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} was suspended before the state store"
+                        " identity existed, so its approval request and any verdict"
+                        " on it name no store; it is refused until it is re-paused"
+                        " with WorkflowEngine.rebind_legacy_suspension, after which"
+                        " a fresh approval is required (SEC-001; D-IMPL-391)"
+                    ),
+                )
+        elif record.state_store_identity != self._store_identity:
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} was written by a Control Plane state store"
+                    " other than this engine's; an approval binds the store that"
+                    " paused the run, and this engine acts only on its own store's"
+                    " records (SEC-001; D-IMPL-391, D-IMPL-378 decision 2 (b))"
+                ),
             )
         if record.status == "terminal":
             return self._refuse(
@@ -2208,6 +2439,7 @@ class WorkflowEngine:
             workflow_definition_uri=workflow.identity.definition_uri,
             workflow_definition_hash=workflow.identity.definition_hash,
             started_by=started_by,
+            state_store_identity=self._store_identity,
         )
 
     def _remainder(
@@ -2309,7 +2541,15 @@ class WorkflowEngine:
             != workflow.identity.definition_hash
         ):
             return None
+        # D-IMPL-391 (DESIGN-2b §6.3): only a start this store wrote, or one
+        # written before the store identity existed (which has no approval to
+        # cross-bind), is finished. A legacy suspension is re-paused by
+        # rebind_legacy_suspension, never restored under its legacy hash.
+        if record.state_store_identity not in (None, self._store_identity):
+            return None
         if record.status == "suspended":
+            if record.state_store_identity is None:
+                return None
             return self._restore_request(
                 authorized,
                 workflow,
@@ -2402,17 +2642,17 @@ class WorkflowEngine:
         ``tests/workflow/test_restore_missing_approval_request.py``. Nothing in a
         suspension says whether, or where, its request was filed:
 
-        * **Two identical requests are possible.** The conditional write orders
-          recoveries that read the same version. It does not order a recovery
-          that reads the record after another write landed and before that
-          write's enqueue: the suspension's own passage, still alive and slow at
-          its trace write, or another recovery between its write and its
-          enqueue. Each then files the request. The gate still opens once on one
-          approval: both requests are bound to the one suspension, its closure
-          judges every verdict recorded on it and retires both, and a later
-          verdict is refused ``hitl-gate-closed``. Filing at most one would take
-          an enqueue that is atomic with its own absence check, which is a change
-          to the :class:`~ccf.hitl.transport.HITLTransportProtocol`.
+        * **Two overlapping recoveries file ONE request** (``D-IMPL-391``). The
+          conditional write orders recoveries that read the same version. It
+          does not order a recovery that reads the record after another write
+          landed and before that write's enqueue: the suspension's own passage,
+          still alive and slow at its trace write, or another recovery between
+          its write and its enqueue. Each then files the request, and the
+          transport's ``enqueue``, atomic on the paused run's fingerprint
+          (``(tenant, event_key, product_content_hash)``,
+          :meth:`~ccf.hitl.transport.HITLTransportProtocol.enqueue`), queues it
+          once. Before that contract two identical requests were possible; the
+          gate still opened once on one approval.
         * **A request a gate primitive has claimed and not yet answered is filed
           again.** A claim is not visible through the transport Protocol. The
           enqueue discards the claim, as the Protocol documents, so the

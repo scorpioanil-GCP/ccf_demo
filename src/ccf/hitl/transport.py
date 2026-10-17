@@ -62,7 +62,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Mapping
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import Field, field_validator, model_validator
 
@@ -81,6 +81,9 @@ from ccf.hitl.identity_binding import (
 )
 from ccf.hitl.principal import HumanPrincipalBinding, validate_content_hash
 from ccf.peering.identity import IdentityProvider, JsonWebKey
+
+if TYPE_CHECKING:
+    from ccf.graph.protocols import WriterLease
 from ccf.authz.capability import (
     Authorized,
     HitlQueueRead,
@@ -1014,17 +1017,51 @@ class HITLTransportProtocol(Protocol):
     use without an engine need not offer it. The engine cannot see whether a
     third-party implementation judges what it is bound to judge; the
     reference implementation does.
+
+    **A path-backed transport declaring ``scope = "process"`` MUST hold an
+    exclusive SEC-013 lease on its substrate from open to close**
+    (``D-IMPL-391``; Dave's ruling 2(a) of 2026-10-17 and his answer of 15:25
+    MST: *"Cover the queue as well. A second process must be unable to submit a
+    verdict or read in-flight state."*). The obligation is the one
+    :class:`~ccf.controlplane.state.ConditionalStateStore` states for a
+    single-process state store, word for word: the lease
+    (``src/ccf/graph/leases.py::LockFileWriterLease``, on a lock file inside the
+    queue's own directory) is taken when the transport is OPENED, before any
+    event, verdict or closure is read; a second holder is refused with
+    :class:`~ccf.graph.protocols.WriterLeaseHeld` naming the lock and the rule,
+    logged in the refused process only; the lease is released on close and when
+    the object is collected; and it is offered as ``writer_lease()``, which is
+    not a member of this Protocol (a ``"shared"`` transport takes none) but
+    which :class:`~ccf_runtime.workflow.engine.WorkflowEngine` requires of a
+    ``"process"`` transport, refusing one that offers none by name.
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order.
+        """Queue ``event`` for its tenant, preserving arrival order — once per paused run.
 
-        An enqueue discards any outstanding claim (see :meth:`remove`) for
-        the same ``(tenant, event_key)``: a re-enqueued event is pending
-        again, so nothing has answered it. That is what keeps the
-        primitives' give-the-claim-back rollback honest — a refused
-        authority submission must leave no residue that a later bare
-        submission could inherit as a stamp.
+        **Atomic on ``(tenant, event_key, product_content_hash)``**
+        (``D-IMPL-391``; Dave's ruling 4(a) of 2026-10-17 and his answer of
+        15:25 MST: *"The same paused run's request is filed only once.
+        Third-party transports must meet the contract."*). An event whose
+        triple is already PENDING is not queued again, and the call does
+        nothing else. The absence check and the append are ONE atomic step of
+        the implementation, so of any number of concurrent enqueues of one
+        paused run's request exactly one is queued. The key is the paused run's
+        fingerprint — the content hash of the suspended record, which names the
+        state store that wrote it — so nothing about the store is shown on the
+        request, and two independent stores' requests under one key are both
+        queued (each needs its own approval). This supersedes the "no change"
+        of DESIGN-2b §6.4.
+
+        **A claim is not pending.** An event claimed through :meth:`remove`
+        and not yet answered does not count as present, so the primitives'
+        give-back (``remove`` → refused ``submit`` → ``enqueue``) re-files its
+        event. An enqueue that appends discards any outstanding claim for the
+        same ``(tenant, event_key)``: a re-enqueued event is pending again, so
+        nothing has answered it. That is what keeps the primitives'
+        give-the-claim-back rollback honest — a refused authority submission
+        must leave no residue that a later bare submission could inherit as a
+        stamp.
         """
         ...
 
@@ -1275,6 +1312,16 @@ class InMemoryHitlTransport:
     #: No other process reaches these queues (``D-IMPL-378``).
     scope = "process"
 
+    def writer_lease(self) -> WriterLease:
+        """The ``"process"`` declaration: exact, because no other process can reach this memory.
+
+        ``D-IMPL-391`` (ruling 2(a)). A disclosure, not a lock: there is no
+        substrate a second process could open.
+        """
+        from ccf.graph.protocols import ProcessScopedWriterLease
+
+        return ProcessScopedWriterLease(substrate="in-memory HITL transport")
+
     def bind_approver_eligibility(self, control_plane: ControlPlaneProtocol) -> None:
         """Judge approval-gate verdicts against ``control_plane`` at :meth:`submit`.
 
@@ -1374,15 +1421,28 @@ class InMemoryHitlTransport:
         return None, "missing"
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order.
+        """Queue ``event`` for its tenant, preserving arrival order — once per paused run.
 
-        Any outstanding claim for the same ``(tenant, event_key)`` is
-        discarded: the event is pending again, so nothing has answered it.
-        This is what makes the primitives' rollback path
-        (``remove`` → failed ``submit`` → ``enqueue``) leave no stamp
-        behind for a later bare submission to inherit.
+        ``D-IMPL-391``: an event whose ``(tenant, event_key,
+        product_content_hash)`` is already pending is not queued again, and the
+        call changes nothing. The check and the append run under the one lock
+        every queue mutation takes, so racing enqueues of one paused run's
+        request queue exactly one. A claimed event is not pending, so the
+        primitives' give-back re-files it. When the event is appended, any
+        outstanding claim for the same ``(tenant, event_key)`` is discarded:
+        the event is pending again, so nothing has answered it. This is what
+        makes the primitives' rollback path (``remove`` → failed ``submit`` →
+        ``enqueue``) leave no stamp behind for a later bare submission to
+        inherit.
         """
         with self._lock:
+            queued = self._pending.get(event.tenant)
+            if queued is not None and any(
+                pending.event_key == event.event_key
+                and pending.product_content_hash == event.product_content_hash
+                for pending in queued
+            ):
+                return
             self._claims.pop((event.tenant, event.event_key), None)
             self._pending.setdefault(event.tenant, deque()).append(event)
 

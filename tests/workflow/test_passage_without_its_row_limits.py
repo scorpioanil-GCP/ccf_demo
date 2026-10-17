@@ -117,9 +117,15 @@ def test_limit_nothing_reports_a_passage_whose_row_append_failed(tmp_path: Path)
     asyncio.run(interrupt_inside_the_step())
 
     # The state record is the same in both: running at the step after the gate.
+    # Each names its own store (D-IMPL-391), so the two independent stores'
+    # records are compared with the store identity masked (ruling 3(a)).
     record = state_of(window, key)
+    controlled = state_of(control, key)
     assert (record.status, record.current_state) == ("running", DOWNSTREAM)
-    assert record == state_of(control, key)
+    assert record.state_store_identity == getattr(window.state_store, "identity", None)
+    assert controlled.state_store_identity == getattr(control.state_store, "identity", None)
+    unnamed = {"state_store_identity": None}
+    assert record.model_copy(update=unnamed) == controlled.model_copy(update=unnamed)
 
     # A later resumption is refused the same way in both.
     later = asyncio.run(resume(w_engine, w_workflow))
