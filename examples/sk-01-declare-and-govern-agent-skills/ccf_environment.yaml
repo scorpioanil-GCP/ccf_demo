@@ -28,10 +28,12 @@ sources:
     dsn:
       from_env: CCF_SK_01_POSTGRES_DSN
       remedy: >-
-        export CCF_SK_01_POSTGRES_DSN with a READ-ONLY connection string for
-        the estate holding legal_entity (host from ccf_dataprep/.env; a role
-        with SELECT only). A short DSN such as dbname=... connects as whatever
-        role PGUSER names, so it is read-only only when that role is.
+        export CCF_SK_01_POSTGRES_DSN with a COMPLETE connection string (host,
+        port, dbname, user and password) for the estate holding legal_entity
+        (host from ccf_dataprep/.env), naming a role with SELECT only. A short
+        DSN such as dbname=... is not sufficient: libpq fills the rest from
+        PGHOST, PGUSER and PGPASSWORD, i.e. whatever credentials the shell
+        already holds.
     schema:
       from_env: CCF_SK_01_POSTGRES_SCHEMA
       remedy: >-

@@ -162,12 +162,16 @@ Every example README's **Run it** section carries, in this order:
    but it is also not a success.*
 
 **Connection strings.** `backends.yaml` holds the variable's NAME and nothing
-else. Both libpq spellings work and neither is preferred — a
-`host=… user=… password=…` keyword string and a `postgresql://…` URI. Say so,
-because a reader who hits a quoting problem with one will assume the example is
-broken. Note also that libpq reads `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD` from
-the environment on its own, so the variable's contents can be as short as
-`dbname=<database>`.
+else. The README names every environment variable the example requires, and
+says that each connection string must be **complete**: it names the host, port,
+database, user and password itself. Both libpq spellings work and neither is
+preferred — a `host=… port=… dbname=… user=… password=…` keyword string and a
+`postgresql://user:password@host:port/database` URI. Say so, because a reader
+who hits a quoting problem with one will assume the example is broken. **Say
+also that a short value such as `dbname=<database>` is not sufficient.** libpq
+fills anything the string leaves out from `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`
+in the shell, so a short value quietly connects with whatever credentials the
+shell already holds, which nobody chose for the example.
 
 **The seven README headings are gated** by
 `tests/examples/test_cp_readme_template.py`. Do not invent an eighth or rename

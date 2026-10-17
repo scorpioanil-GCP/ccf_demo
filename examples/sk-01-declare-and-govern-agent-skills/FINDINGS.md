@@ -399,19 +399,25 @@ of new findings stops at F-04.
   through, and Π prints the declared `NOT_EVALUABLE`.
 - **The estate tests could print the DSN.** Before this round a failure while
   asking would have rendered psycopg's connection arguments, password included.
-  Fixed in `test_sk_01_estate.py` (the `asked` fixture). The same class stands
-  in frozen estate tests — `tests/examples/test_cp_14_first_slice.py` and
-  `test_cp_14_second_slice.py` — which are not changed here (`D-IMPL-261`).
-- **The spawned door kept evidence on local disk.** It inherited
-  `CCF_REPLAY_EVIDENCE_ROOT` from the operator's shell; `test_sk_01_estate.py`
-  now strips it. The same one-line fix applies to
-  `tests/examples/test_cp_14_third_slice.py` and
-  `test_cp_06_canonical_output.py`, which need a ruling to change.
+  Fixed here in `test_sk_01_estate.py` (the `asked` fixture). Measured across
+  every example test module afterwards (2026-10-16, every estate variable at a
+  closed loopback port with a marker password): **28 modules printed it**, most
+  of them frozen specimens' tests. Dave ruled the correction in (2026-10-16
+  18:35, ruling 3); it lives in `tests/examples/conftest.py`, so no frozen test
+  file changed, and the count is now 0 (`test_example_test_output_safety.py`).
+- **A spawned collateral door wrote into the operator's evidence folder.** It
+  inherited `CCF_REPLAY_EVIDENCE_ROOT` from the shell; `test_sk_01_estate.py`
+  strips it. Measured across every example test module: **4 modules** did it
+  (`test_cp_06_canonical_output.py`, `test_cp_14_third_slice.py`,
+  `test_cp_14_fourth_slice.py`, `test_dr_02_packaging.py`). Same ruling, same
+  place: the variable is removed for the test session; now 0.
 - **The DSN guidance.** The recipe's "Connection strings" paragraph
-  (`public/reference/specifications/example_delivery.md`) says a DSN can be as
-  short as `dbname=<database>`; such a DSN connects as whatever role `PGUSER`
-  names. This example's README and environment remedy now say so; the recipe
-  itself and the frozen specimens carrying the same text are unchanged. A
-  client-side read-only session (`connection.read_only = True`) was not added:
-  it touches the area of Dave's 2026-10-10 ruling on read-only enforcement and
-  needs his confirmation first.
+  (`public/reference/specifications/example_delivery.md`) said a DSN could be as
+  short as `dbname=<database>`, which connects with whatever credentials the
+  shell holds. Dave ruled it reworded (2026-10-16 18:35, ruling 1): the recipe,
+  this README and this example's environment remedy now require a complete
+  connection string and say a short one is not sufficient. The frozen specimens
+  that repeat the old sentence (cp-01, cp-02, cp-03, cp-04, cp-09) are unchanged:
+  the same ruling said not to otherwise alter frozen examples. A client-side
+  read-only session was **not** added: Dave ruled no (ruling 2), because it
+  touches his 2026-10-10 ruling on read-only enforcement.

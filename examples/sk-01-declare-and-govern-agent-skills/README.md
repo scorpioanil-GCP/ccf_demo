@@ -136,14 +136,18 @@ prints. Run it to see the real text.
    .venv/bin/python examples/cp-06-canonical-collateral-and-setoff-coverage/run.py --door
    ```
 
-3. **Export this example's four variables.** The DSN must be **read-only**:
-   nothing this example runs writes to the store it reads, and a role that could
-   write would make that a promise rather than a guarantee. Both libpq spellings
-   work (`host=… user=… password=…` and `postgresql://…`); libpq also reads
-   `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD` itself, so the DSN can be as short as
-   `dbname=<database>`. A short DSN connects as whatever role `PGUSER` names, so
-   it meets the read-only requirement only when that role is itself read-only;
-   this example sets no read-only session of its own. The schema is the v2
+3. **Export this example's four variables** — all four are required:
+   `CCF_SK_01_POSTGRES_DSN`, `CCF_SK_01_POSTGRES_SCHEMA`,
+   `CCF_SK_01_COLLATERAL_URL` and `CCF_SK_01_COLLATERAL_TOKEN`. The DSN must be
+   **complete** — host, port, database, user and password, in either libpq
+   spelling (`host=… port=… dbname=… user=… password=…` or
+   `postgresql://user:password@host:port/database`) — and should name a
+   **read-only** role: nothing this example runs writes to the store it reads,
+   and a role that could write would make that a promise rather than a
+   guarantee. This example sets no read-only session of its own. **A short DSN
+   such as `dbname=<database>` is not sufficient:** libpq fills what it leaves
+   out from `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`, so it would connect with
+   whatever credentials the shell already holds. The schema is the v2
    namespace, `ccf_v2` — not the v1 namespace `ccf_dataprep/.env` names.
 
    ```sh
