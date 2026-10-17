@@ -57,7 +57,7 @@ make venv
 #
 #    Both libpq spellings work and neither is preferred:
 #      export CCF_CP_02_POSTGRES_DSN='host=… port=… dbname=… user=… password=…'
-#      export CCF_CP_02_POSTGRES_DSN='postgresql://user:pass@host:5432/dbname'
+#      export CCF_CP_02_POSTGRES_DSN='postgresql://user:pass@host:<port>/dbname'
 #    CCF_CP_02_POSTGRES_DSN is the one variable this example requires, and it
 #    must be complete: host, port, database, user and password. A short form
 #    such as `dbname=<database>` is not sufficient: libpq fills what it leaves

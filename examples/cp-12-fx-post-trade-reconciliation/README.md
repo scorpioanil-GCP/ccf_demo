@@ -59,9 +59,9 @@ instant the source *recorded*.
 ## Run it
 
 ```bash
-export CCF_CP_12_POSTGRES_DSN='postgresql://USER:PASSWORD@HOST:5432/DATABASE'
+export CCF_CP_12_POSTGRES_DSN='postgresql://USER:PASSWORD@HOST:<port>/DATABASE'
 export CCF_CP_12_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_12_FLUREE_URL=http://HOST:8090
+export CCF_CP_12_FLUREE_URL=http://HOST:<port>
 export CCF_CP_12_FLUREE_LEDGER=fibo-v2
 
 make -s example-cp-12

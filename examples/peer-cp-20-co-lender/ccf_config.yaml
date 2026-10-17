@@ -11,7 +11,7 @@
 # [ADAPT] every value. [MECHANISM] none: this is a declaration, not a program.
 #
 # This tree is Bank of America's, not ours. It reads the peer estate on
-# `192.168.4.76:8091` / `bofa_syndicated` and serves ONE Context Product
+# `192.168.4.76:<port>` / `bofa_syndicated` and serves ONE Context Product
 # (`cb.co-lender-position`) behind the standard door. Its `tenant_id` is its
 # own and is never equal to the consumer's — that inequality is what
 # `CLD-G01` asserts, and what `D-IMPL-340`'s admission holds every answer to.

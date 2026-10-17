@@ -54,7 +54,7 @@ make venv
 # Credentials and host come from the estate's environment; THE NAMESPACES DO
 # NOT — .env names the v1 estate (CLAUDE.md §9).
 set -a; source /home/parkave/ccf_dataprep/.env; set +a
-export CCF_CP_06_FLUREE_URL="http://192.168.4.76:8090"
+export CCF_CP_06_FLUREE_URL="http://192.168.4.76:<port>"
 export CCF_CP_06_FLUREE_LEDGER="fibo-v2"            # v2, NOT fibo:main
 export CCF_CP_06_POSTGRES_DSN="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
 export CCF_CP_06_POSTGRES_SCHEMA="ccf_v2"           # v2, NOT public

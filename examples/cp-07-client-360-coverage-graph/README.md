@@ -104,9 +104,9 @@ different and the product makes both.
 ## Run it
 
 ```bash
-export CCF_CP_07_FLUREE_URL=http://<host>:8090
+export CCF_CP_07_FLUREE_URL=http://<host>:<port>
 export CCF_CP_07_FLUREE_LEDGER=fibo-v2          # the v2 namespace, never fibo:main
-export CCF_CP_07_POSTGRES_DSN=postgresql://<user>@<host>:5432/<db>
+export CCF_CP_07_POSTGRES_DSN=postgresql://<user>@<host>:<port>/<db>
 export CCF_CP_07_POSTGRES_SCHEMA=ccf_v2         # never public
 
 make example-cp-07                                       # the truncated anchor

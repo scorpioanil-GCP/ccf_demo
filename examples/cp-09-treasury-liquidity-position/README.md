@@ -49,7 +49,7 @@ write there is permanent.
 ```bash
 export CCF_CP_09_POSTGRES_DSN='host=… user=… password=… dbname=…'
 export CCF_CP_09_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_09_FLUREE_URL=http://…:8090
+export CCF_CP_09_FLUREE_URL=http://…:<port>
 export CCF_CP_09_FLUREE_LEDGER=fibo-v2
 ```
 

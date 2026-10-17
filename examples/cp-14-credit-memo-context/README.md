@@ -63,7 +63,7 @@ along its recorded path with the admitted children's evidence intact.
 
 ```
 export CCF_CP_14_POSTGRES_DSN=postgresql://...   CCF_CP_14_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_14_FLUREE_URL=http://<host>:8090    CCF_CP_14_FLUREE_LEDGER=fibo-v2
+export CCF_CP_14_FLUREE_URL=http://<host>:<port>    CCF_CP_14_FLUREE_LEDGER=fibo-v2
 # boot the five producers, each in its own terminal, and export the port each prints:
 .venv/bin/python examples/cp-03-canonical-obligor-financial-spread/run.py --door      # CCF_CP14_SPREAD_URL
 .venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py --door \

@@ -51,11 +51,11 @@ Seeding on `ex:Covenant` — the typed, plausible choice — reaches depth 3 on
 ## Run it
 
 ```bash
-export CCF_CP_13_POSTGRES_DSN='postgresql://USER:PASSWORD@HOST:5432/DATABASE'
+export CCF_CP_13_POSTGRES_DSN='postgresql://USER:PASSWORD@HOST:<port>/DATABASE'
 export CCF_CP_13_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_13_FLUREE_URL=http://HOST:8090
+export CCF_CP_13_FLUREE_URL=http://HOST:<port>
 export CCF_CP_13_FLUREE_LEDGER=fibo-v2
-export CCF_CP_13_MONGO_URI=mongodb://HOST:27017
+export CCF_CP_13_MONGO_URI=mongodb://HOST:<port>
 export CCF_CP_13_MONGO_DB=fibo_v2
 
 make -s example-cp-13

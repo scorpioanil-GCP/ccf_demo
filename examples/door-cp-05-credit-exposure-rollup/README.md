@@ -69,7 +69,7 @@ coincides with the pin; the coincidence is disclosed, not relied on silently.
 ## Run it
 
 ```
-export CCF_CP_05_FLUREE_URL=http://<host>:8090   CCF_CP_05_FLUREE_LEDGER=fibo-v2
+export CCF_CP_05_FLUREE_URL=http://<host>:<port>   CCF_CP_05_FLUREE_LEDGER=fibo-v2
 export CCF_CP_05_POSTGRES_DSN=postgresql://...     CCF_CP_05_POSTGRES_SCHEMA=ccf_v2
 make example-door-cp-05                              # prints `READY {port}` and serves
 .venv/bin/python examples/door-cp-05-credit-exposure-rollup/run.py --door
