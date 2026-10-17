@@ -55,15 +55,20 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from ccf.controlplane.artifacts import ProductClassDeclaration
 from ccf.deployment import build_operator_registry
-from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.products.composite import ChildContractView
+from ccf.products.composition import compose_expiry, compose_lineage
+from ccf.products.contract import ContextProductContract, MaxTTL, ProductLineage
 from ccf.products.provenance import EffectiveRequest
-from ccf.products.resolver import build_governed_resolver
-from ccf.replay.record import DecisionReplayRecord
+from ccf.products.resolver import (
+    CompositePlanFactoryProtocol,
+    build_governed_resolver,
+)
+from ccf.replay.record import CHILD_ADMITTED, ChildResolution, DecisionReplayRecord
 
 if TYPE_CHECKING:
     from ccf.deployment import BootedFabric
@@ -85,7 +90,12 @@ class RecordedEnvironmentUnbuildable(ValueError):
 
 
 class RecordedEnvironment:
-    """A :class:`~ccf.replay.engine.ReplayEnvironment` built from one record.
+    """A :class:`~ccf.replay.engine.CompositeReplayEnvironment` built from one record.
+
+    It answers both plan seams: :meth:`resolve_plan` for a decision that
+    admitted no child, and :meth:`resolve_composite_plan` for one that did
+    (`D-IMPL-389`, gap 3). A composite is rebuilt from its record and the
+    children's contracts retained by content address; no producer is asked.
 
     **The supported way to replay from a process that did not answer the
     question** (`D-IMPL-378` R-A2 (a)). Opening a product boots nothing, so its
@@ -162,7 +172,11 @@ class RecordedEnvironment:
         self._declaration = declaration
         self._plan_factory = resolver.plan_factory
         self._policy_key = resolver.policy_bundle_key
-        self._window = timedelta(seconds=int(resolver.product_ttl_seconds))
+        # The class window, kept as the integer the serve passed to
+        # `MaxTTL` (`compose_children`'s `max_ttl`), so a composite's floor is
+        # recomputed against the same ceiling rather than a converted one.
+        self._product_ttl_seconds = int(resolver.product_ttl_seconds)
+        self._window = timedelta(seconds=self._product_ttl_seconds)
         self._request = path.request.model_copy(
             update={"parameters": dict(effective.values())}
         )
@@ -186,6 +200,45 @@ class RecordedEnvironment:
         """The deployment's own plan factory, over the recorded operator set."""
         return self._plan_factory(required=self._required, request=self._request)
 
+    def resolve_composite_plan(
+        self, *, plan_id: str, children: ChildContractView
+    ) -> Any:
+        """The deployment's own plan factory over the RETAINED children, called as the serve called it.
+
+        `D-IMPL-389` (gap 3; Dave, 2026-10-17 01:46 MST), on `D-IMPL-339`'s
+        two-seams precedent. :func:`~ccf.replay.engine.replay` and the
+        post-projection half of :func:`~ccf.replay.engine.replay_refusal`
+        call this INSTEAD OF :meth:`resolve_plan` for a record that admitted
+        at least one child; an environment without it is refused by name
+        (``src/ccf/replay/engine.py::CompositeReplayEnvironment``), which is
+        what made every composite decision unreplayable through
+        :meth:`~ccf.products.product.OpenedProduct.replay_decision`.
+
+        ``children`` is the view the engine rebuilt from the contracts the
+        deciding fabric RETAINED by content address, each re-hashed against
+        its row. Nothing here asks a producer, reads a provider or resolves
+        a latest version.
+
+        The factory is called exactly as
+        ``src/ccf/products/resolver.py::GovernedResolver.__call__`` called it
+        at decision time: ``build_with_children`` when it implements
+        :class:`~ccf.products.resolver.CompositePlanFactoryProtocol`, decided
+        structurally and never by probing a signature; the plain call
+        otherwise. A factory without the capability is NOT refused: its
+        serve built the plan without the children, which contributed
+        governance only, so the plain call is the faithful one.
+
+        As in :meth:`resolve_plan`, ``required`` is the recorded operator plan
+        and ``plan_id`` is not consulted. Nothing is taken on trust: the
+        engine holds the rebuilt plan to the recorded step sequence, query
+        pins and content address, so a wrong plan diverges rather than passes.
+        """
+        if isinstance(self._plan_factory, CompositePlanFactoryProtocol):
+            return self._plan_factory.build_with_children(
+                required=self._required, request=self._request, children=children
+            )
+        return self._plan_factory(required=self._required, request=self._request)
+
     def resolve_operators(self, *, operator_keys: tuple[str, ...]) -> Any:
         """The registry built at the recorded temporal boundary."""
         return self._operators
@@ -200,6 +253,20 @@ class RecordedEnvironment:
         obligation and the empty finding come off dimension 5 unchanged. That
         split is the contract this method keeps: what the operators produced is
         reproduced, and what the fabric decided is retained.
+
+        **A composite's lineage and expiry are rebuilt the way the serve built
+        them** (`D-IMPL-336` F14), from members the record already carries on
+        each ADMITTED child row (`R5`: ``child_operators_invoked``,
+        ``child_policy_bundle_versions``, ``child_graph_snapshot_at`` and
+        ``child_expires_at``): the lineage is the N-way union over the
+        composite's own and every admitted child's
+        (:func:`~ccf.products.composition.compose_lineage`), and the expiry is
+        floored by the stalest admitted child
+        (:func:`~ccf.products.composition.compose_expiry`), exactly as
+        ``src/ccf/products/composite.py::compose_children`` composed them. A
+        decision that admitted no child keeps its own lineage and window, as
+        the serve did. An admitted row missing any of the four is refused
+        (:class:`RecordedEnvironmentUnbuildable`), never defaulted.
         """
         path, snapshot = record.content_generation_path, record.context_fabric_snapshot
         policy_versions = frozenset(
@@ -207,21 +274,33 @@ class RecordedEnvironment:
             for binding in record.policy_bindings.bindings
             if binding.key == self._policy_key
         )
+        anchor = path.ttl_anchor_at or snapshot.temporal_boundary
+        lineage = ProductLineage(
+            operators_invoked=frozenset(path.operator_plan),
+            policy_bundle_versions=policy_versions,
+            graph_snapshot_at=snapshot.temporal_boundary,
+        )
+        expires_at = anchor + self._window
+        admitted = tuple(
+            row for row in path.child_resolutions if row.outcome_status == CHILD_ADMITTED
+        )
+        if admitted:
+            lineage = compose_lineage([lineage, *(_child_lineage(row) for row in admitted)])
+            expires_at = compose_expiry(
+                constituent_validities=[_child_expiry(row) for row in admitted],
+                max_ttl=MaxTTL(seconds=self._product_ttl_seconds),
+                ttl_anchor_at=anchor,
+            )
         return ContextProductContract(
             schema_name=self._declaration.schema_name,
             schema_version=self._declaration.schema_version,
             plan_id=projection.plan_id,
             tenant_id=record.tenant_id,
             temporal_boundary=snapshot.temporal_boundary,
-            expires_at=(path.ttl_anchor_at or snapshot.temporal_boundary)
-            + self._window,
+            expires_at=expires_at,
             ttl_anchor=self._declaration.ttl_anchor,
             ttl_anchor_at=path.ttl_anchor_at,
-            lineage=ProductLineage(
-                operators_invoked=frozenset(path.operator_plan),
-                policy_bundle_versions=policy_versions,
-                graph_snapshot_at=snapshot.temporal_boundary,
-            ),
+            lineage=lineage,
             payload=projection.payload,
             debt=path.debt,
             debt_evidence=path.debt_evidence,
@@ -232,3 +311,34 @@ class RecordedEnvironment:
             # which for a withheld subject is the real read, not the masked one.
             computed_empty=path.computed_empty,
         )
+
+
+def _unrecorded(row: ChildResolution, member: str) -> RecordedEnvironmentUnbuildable:
+    """The refusal for an admitted row that does not carry what `R5` added."""
+    return RecordedEnvironmentUnbuildable(
+        f"the admitted child row for {row.required_product_class!r} carries no"
+        f" `{member}`, so this composite's lineage and expiry cannot be rebuilt"
+        " from its record (`D-IMPL-336` R5)"
+    )
+
+
+def _child_lineage(row: ChildResolution) -> ProductLineage:
+    """One admitted child's lineage, as its row recorded it (`R5`)."""
+    if row.child_operators_invoked is None:
+        raise _unrecorded(row, "child_operators_invoked")
+    if row.child_policy_bundle_versions is None:
+        raise _unrecorded(row, "child_policy_bundle_versions")
+    if row.child_graph_snapshot_at is None:
+        raise _unrecorded(row, "child_graph_snapshot_at")
+    return ProductLineage(
+        operators_invoked=row.child_operators_invoked,
+        policy_bundle_versions=row.child_policy_bundle_versions,
+        graph_snapshot_at=row.child_graph_snapshot_at,
+    )
+
+
+def _child_expiry(row: ChildResolution) -> datetime:
+    """One admitted child's own expiry, as its row recorded it (`R5`)."""
+    if row.child_expires_at is None:
+        raise _unrecorded(row, "child_expires_at")
+    return row.child_expires_at

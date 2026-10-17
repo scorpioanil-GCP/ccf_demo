@@ -148,7 +148,10 @@ held to the row's address, calling nothing.
 
 For a **composite**, the environment also answers `resolve_composite_plan`
 over the reconstructed children; the fourth CP-14 slice's suite carries the
-reference form.
+reference form. The supported environment,
+`ccf.replay.environment.RecordedEnvironment` — the one
+`OpenedProduct.replay_decision` builds — answers it too, and rebuilds a
+composite's lineage and expiry from its admitted child rows (`D-IMPL-389`).
 
 ## One private dependency
 

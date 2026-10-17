@@ -14,9 +14,10 @@ the skills example, option A RULED 2026-10-16 16:58 MST". Dave, verbatim:
 *"Gaps 1, 3 and 4, and the new findings F-01 through F-04, stay recorded and
 parked. The three-issue cap is already exceeded; do not start additional SDK
 work for the example."* (Gap 1 is granting or revoking a skill while a product
-runs; gap 3, replaying a composite decision through `replay_decision`; gap 4, an
-agent that holds grants outside a product. On 2026-10-17 01:46 MST Dave ruled
-that gap 3 be fixed in the SDK; gaps 1 and 4 stay parked.) So every finding below
+runs; gap 3, replaying a composite decision through `replay_decision`, since
+fixed in the SDK under `D-IMPL-389` (Dave's ruling of 2026-10-17 01:46 MST); gap
+4, an agent that holds grants outside a product. Gaps 1 and 4 stay parked.) So
+every finding below
 is **PARKED** (Dave, 2026-10-16
 16:58): recorded, classified as proposed, and not worked on. Nothing in `src/`
 or `runtime/` was changed for this example. Each finding was classified under
@@ -46,7 +47,8 @@ Only what a gate in this repository, or a recorded measurement, shows.
 | **refuse correctly** | **Exercised with findings, not proven.** A question outside the temporal boundary is refused as data (`RefusalEnvelope`, `asked-at-outside-temporal-bound`) with a record. On the estate, the expired-evidence facility is refused `composite-child-refusal`, the child row `ineligible` with the producer's `ttl-refusal` / `ttl-bounds`. A refused *open* raises `DeclaredGrantRefused` and leaves no replay record (SK01-F-04). | `test_o6_…`; E3 on the estate; `test_o1_…` |
 | **preserve sufficient refusal evidence** | **Exercised with findings, not proven.** A refused question's record names the agent and its skill-set, on the estate too. A child row that was not admitted omits the skill and grant: measured on the estate for the `ineligible` row, which does carry the producer's refusal kind and reason (see "Observed while building"). | `test_o6_…`; E3 on the estate; the live `run.py` output |
 | **compose; local and remote boundaries** | **Exercised on the estate.** The brief admitted cp-06-canonical's product from that producer's own door in another process, and the child row names the producer registration. | E2 on the estate; the live `run.py` output |
-| **replay and reconstruct; tenant/product/provider identity** | **Not measured in this build.** Composite replay through `replay_decision` is gap 3, ruled for fixing in the SDK on 2026-10-17. | — |
+| **replay and reconstruct** | **Not exercised by this example.** The SDK replays a composite decision from its record and the retained child, with the producer stopped (`D-IMPL-389`); no gate in this repository replays this example's own decisions. | `tests/replay/test_composite_replay_decision.py` (SDK-level, not this example) |
+| **tenant/product/provider identity** | **Not measured in this build.** | — |
 
 **Dimension 4 names the composing agent (`D-IMPL-385`), bound by this example.**
 `test_o6_a_refused_decision_names_the_declared_agent_and_its_audited_skill_set`
@@ -190,8 +192,8 @@ The parked findings, each recorded in full below:
 
 Gaps 1 (a run-time grant/revoke door) and 4 (an agent outside a product) stay
 parked (`D-IMPL-385` and the sk-01 ruling). Gap 3 (composite replay through
-`replay_decision`) was ruled for fixing in the SDK on 2026-10-17 01:46 MST; this
-example does not run a replay.
+`replay_decision`) was fixed in the SDK under `D-IMPL-389` (Dave's ruling of
+2026-10-17 01:46 MST); this example does not run a replay.
 
 ## 5 · Estate / example limitations
 

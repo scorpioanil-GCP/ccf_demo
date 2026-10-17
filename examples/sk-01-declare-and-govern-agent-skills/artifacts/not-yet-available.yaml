@@ -10,8 +10,9 @@
 # `run.py` and explained in the README's "What this does not show". Each item
 # says in plain words what cannot be shown and why; `recorded_as`, where present,
 # names the parked finding in FINDINGS.md. Dave, 2026-10-16 16:58 MST: these stay
-# recorded and parked; no SDK work is started for them. Dave, 2026-10-17 01:46
-# MST: the composite-replay item is to be fixed in the SDK.
+# recorded and parked; no SDK work is started for them. The composite-replay
+# item was removed when the SDK fix Dave ruled on 2026-10-17 01:46 MST landed
+# (`D-IMPL-389`); this example does not run a replay.
 
 semver: "1.0.0"
 class_id: sk-01.not-yet-available
@@ -23,8 +24,6 @@ declaration:
       recorded_as: SK01-F-01
     - what: granting or revoking a skill while the product runs
       status: not yet available — every grant here is declared in ccf_config.yaml and put in force when the product opens; the SDK offers an example no authorized way to grant or revoke one afterwards
-    - what: replaying this decision through the SDK's one-step replay
-      status: not yet available — the one-step replay cannot yet rebuild a decision that admitted another product's answer
     - what: an agent that holds grants and asks another product on its own, without a product of its own around it
       status: not yet available — today such an agent exists only inside a product built from other products, which is why this example wraps collateral-analyst in a small facility collateral brief
       recorded_as: SK01-F-05

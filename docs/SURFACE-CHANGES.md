@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2716 entries**, of which **2433** name a public Python surface.
+**2717 entries**, of which **2434** name a public Python surface.
 
 ## Added
 
@@ -32003,7 +32003,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-589 entries — 549 public Python surface, 40 not public Python API.
+590 entries — 550 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -39926,6 +39926,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for existing callers. `scratch` now also holds `<store_dirname>-evidence-index/`; a deployment that wants replay to survive a restart passes a persistent `scratch`.
 
 *Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: implemented `ReplayEnvironment` only (`resolve_plan`, `resolve_operators`, `rehydrate_product`); `rehydrate_product` rebuilt every product with its own lineage and its own window, which is not what a composite was served with.
+- After: also implements `CompositeReplayEnvironment`. `resolve_composite_plan(*, plan_id, children)` calls the deployment's plan factory exactly as the serve did — `build_with_children` over the children the engine rebuilt from the retained contracts when the factory implements `CompositePlanFactoryProtocol`, the plain call otherwise. `rehydrate_product` composes a composite's lineage (`compose_lineage`) and expiry (`compose_expiry`) from the members each ADMITTED child row already records (`child_operators_invoked`, `child_policy_bundle_versions`, `child_graph_snapshot_at`, `child_expires_at`), as `compose_children` did at decision time; an admitted row missing one of them raises `RecordedEnvironmentUnbuildable`. A decision that admitted no child is rebuilt exactly as before. No producer is asked.
+- Why: a governed composite decision must be reconstructable from its record and the store (`docs/EXAMPLE-EVALUATION-CRITERIA.md` §D, "replay and reconstruct"). With the plan seam alone, served composites still diverged on their content address (lineage and expiry), measured. Red tests: `tests/replay/test_composite_replay_decision.py` (6 failed on `d467d73d`, each on `ReplayUnresolvable`).
+- Migration: none. The record format and the replay engine are unchanged. Not covered: a composite that admitted NO child under a child-aware plan factory still diverges on replay (the serve handed the factory an empty view; replay makes the plain call) — held `xfail(strict=True)` pending Dave's ruling.
+
+*Recorded by `389-01-composite-replay-from-the-record.md`.*
 
 #### ccf.products.product.open_product
 

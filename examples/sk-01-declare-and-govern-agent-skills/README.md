@@ -171,7 +171,7 @@ One command, five movements:
 | **2 · The record names who decided and what they held** | After one real question, the decision record's dimension 4 names the agent (content hash, versioned URI, archetypes) and the identity of its skill-set; the child row in dimension 5 names the skill and the grant it was asked under, when the child was admitted. `run.py` holds both to the audit log from movement 1 and prints `yes` or `NO` for each check. | `run.py::movement_two` |
 | **3 · What a model would see** | The agent is handed to the Claude Agent SDK adapter. **No model is called** and nothing is spawned. The tool list is **empty, and that is correct**: a "go ask another product" skill is never a tool a model calls — the product asks, and admits the answer under its own admission checks. | `tool_surface.py` (glue — SK01-F-02) |
 | **4 · An over-reaching grant is refused at start-up, and audited** | A second deployment ships version 1.1.0 of the skill, which also wants `collateral-ledger.write`. The regime permits reading only, so the product **refuses to open** (`DeclaredGrantRefused`, check `tier-1-policy-compatibility`). The audit log shows `grant_requested` followed by `grant_refused`. | `variants/over-reach/` |
-| **5 · Not yet available** | The first four items under "What this does not show", printed in plain words from `artifacts/not-yet-available.yaml`, each naming the finding that records it where there is one. | |
+| **5 · Not yet available** | The first three items under "What this does not show", printed in plain words from `artifacts/not-yet-available.yaml`, each naming the finding that records it where there is one. | |
 
 **The skill chain is five declarations**, and the regime, the catalog entry and
 the grant agree **by construction at open**, not by care: the SDK derives the
@@ -217,18 +217,18 @@ not list it, not because anything here could write a ledger.
   lists would be empty.
   `tests/examples/test_sk_01_offline.py` asserts the refusal as shipped, so it
   turns red the day this becomes possible.
-- **Replaying this decision through the SDK's one-step replay.** The record
-  names the agent, its version, its skill-set and the grant behind the child.
-  But the SDK's one-step replay (`replay_decision`) cannot yet rebuild a decision
-  that admitted another product's answer: it stops with a refusal that names the
-  missing step. Today such a decision can be replayed only in tests that build
-  the replay setup by hand. Dave ruled on 2026-10-17 that the SDK be fixed; until
-  it is, this example does not replay its decisions.
 - **An agent on its own.** Today an agent that holds grants and asks another
   product exists only inside a product built from other products. The small
   product around `collateral-analyst` — its own identity lookup, its debt rule,
   its presentation step (Π) — exists for that reason, not because the brief
   needs it (a parked SDK gap; its cost is measured in FINDINGS.md, SK01-F-05).
+- **Replaying this decision.** Not run by this example. The SDK's one-step
+  replay (`replay_decision`) now rebuilds a decision that admitted another
+  product's answer from its record and the retained copy of that answer, without
+  asking the producer again (`D-IMPL-389`; held by
+  `tests/replay/test_composite_replay_decision.py`, which stops the producer
+  before it replays). No gate in this repository replays this example's own
+  decisions.
 - **A model call.** No model is called. The tool list comes from the adapter
   alone, with no network.
 - **Reading the skills back from the record alone.** The record carries the
@@ -397,7 +397,7 @@ the finding in FINDINGS.md that records each where there is one.
 | `produce.py` | One `open_product` call, and the named plan factory. |
 | `tool_surface.py` | **Glue (SK01-F-02).** The only file allowed `GrantLedger(`, `SkillCatalog(` and `AgentFactory(`. |
 | `run.py` | The five movements and their checks. |
-| `FINDINGS.md` | SK01-F-01 … F-05, the observed friction, and the SDK gaps this example met (granting or revoking a skill while a product runs; replaying a decision that admitted another product's answer through `replay_decision`; an agent outside a product), in the six close-report sections. |
+| `FINDINGS.md` | SK01-F-01 … F-05, the observed friction, and the two parked SDK gaps (granting or revoking a skill while a product runs; an agent outside a product) and the composite-replay gap since fixed in the SDK (`D-IMPL-389`), in the six close-report sections. |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
