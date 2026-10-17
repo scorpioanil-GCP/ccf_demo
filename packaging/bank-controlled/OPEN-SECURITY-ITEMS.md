@@ -22,7 +22,8 @@ bank's installation is still `01fc424d`, which contains neither.
 
 This is the 16-item list shown to Dave on 2026-10-13 09:40 MST and sent to the
 bank; the numbers are the ones the bank's answer uses. Item 17 (SEC-030) was added on
-2026-10-16, after the list was sent, and numbered 17 so that 1–16 keep their meaning. Token estimates are left
+2026-10-16, after the list was sent, and numbered 17 so that 1–16 keep their meaning. Item 18 (the evidence
+name-index race, `D-IMPL-390`) was added 2026-10-17 on the same terms. Token estimates are left
 out on purpose: Dave ruled them unvalidated (2026-10-13 03:53 MST).
 
 ## The bank's answer (2026-10-15 18:09 MST, relayed by Dave)
@@ -68,6 +69,7 @@ SEC-030 (item 17) was added 2026-10-16 and closed 2026-10-17 (`D-IMPL-388`). SEC
 | 14 | Follow-up 5 | No conformance test that a third-party approval transport checks eligibility; MCP "cannot verify" timing not measured. | Not rated | No |
 | 15 | R-1, R-2, R-3 | Test-harness process-id reuse; the wrong message for an empty tenant id; a check that can never run. | LOW | No |
 | 16 | Follow-ups 3, 4; MCP door argument | 27 stale docstrings; the 403 row in the authoring Standard v0.3; a request argument a model cannot work out. | Docs and usability | No |
+| 18 | **Evidence name-index race** (new, 2026-10-17; `D-IMPL-390`) | The file-based artifact store updates its name index (`.artifact-names.json`) by an unlocked read-modify-write (`src/ccf/artifacts/file_store.py::FileArtifactStore._register_name`, `_write_index`), on every `put`. Two writers can both read the index, each add an entry, and each replace the file, so one entry is lost. The artifact files themselves are written; the name-to-address entry is what goes missing. Measured on `3f914416`: two processes, 40 workflow cycles each, one store root — 2 of the 160 version entries lost in each of 2 of 4 runs, none in the other 2. Nothing locks it between threads of one process either, and those threads share one staging file name (code reading, not measured). The code is unchanged since the delivered build `01fc424d`. Found while scoping item 1; not part of it. | Not rated | Possibly: the bank's door builds one `FileArtifactStore` for its replay evidence (measured). Whether that door writes concurrently was not measured. **Ordered fixed** (Dave, 2026-10-17 13:13 MST): a lock or equivalent exclusive access around the name-index update, and a test that fails when two writers race and passes with the lock. Counts against the three-issue cap. |
 
 ## C. Deferred by ruling (Dave, 2026-10-12 22:44 and 2026-10-13 03:53 MST)
 
