@@ -1202,14 +1202,22 @@ produce an **SDK finding**, not an example fix.
   remediation phase.** After the SDK phase closes, affected examples
   are rerun against the resulting SDK as a separate validation step,
   and only then republished if necessary.
-- **Shipped examples are frozen specimens** at different points on the
-  capability ladder (cp-00 through cp-04 as of D-GATE-24.6). Earlier
-  specimens are not rewritten to look like the latest SDK; a
-  difference between two rungs is evidence about the SDK's evolution.
+- **The freeze on the `cp-*` examples is LIFTED** (`D-IMPL-386`, Dave,
+  2026-10-16: *"lift the freeze on all cp examples from now on"*). They
+  were frozen specimens at different points on the capability ladder;
+  they may now be corrected. The rules above still apply: a failing
+  example is SDK evidence first, never something to edit until it
+  passes. The specimen checks (`tests/examples/specimen_base.py`,
+  `tests/examples/specimen_content.py`) treat every Markdown file as
+  documentation outside the pins, so a README, summary, findings or
+  spec correction is never a violation; a deliberate change to a pinned
+  specimen's code, configuration or artifact is named in that pin's
+  amended set.
 
-The full ruling, the freeze, and the gap-ledger charter (OPEN /
-FIXED-<phase> / ESTATE-LIMITATION / NOT-A-GAP) are in `docs/DECISIONS.md`
-under `D-IMPL-261`.
+The full ruling and the gap-ledger charter (OPEN / FIXED-<phase> /
+ESTATE-LIMITATION / NOT-A-GAP) are in `docs/DECISIONS.md` under
+`D-IMPL-261`; the freeze it set is superseded for every `cp-*` example
+by `D-IMPL-386`.
 
 ### The v0 suite - ARCHIVED AND USED FOR REFERENCE ONLY - DO NOT WRITE TESTS AGAINST v0
 
