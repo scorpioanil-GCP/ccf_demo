@@ -198,6 +198,23 @@ class RecordedEnvironment:
 
     def resolve_plan(self, *, plan_id: str) -> Any:
         """The deployment's own plan factory, over the recorded operator set."""
+        # `D-IMPL-389` (c), Dave 2026-10-17 09:41 MST. The engine calls this for
+        # every record that admitted no child. For a COMPOSITE whose
+        # requirements were walked and none admitted (an optional child
+        # honestly absent), the serve still handed a child-aware factory an
+        # EMPTY view (`src/ccf/products/resolver.py::GovernedResolver.__call__`),
+        # so the same call is made here. A record with no child row, or a
+        # factory without the capability, gets the plain call it always got.
+        # The docstring above stays one line:
+        # `tests/replay/test_step6_recorded_time.py` anchors a severing on it.
+        if self._record.content_generation_path.child_resolutions and isinstance(
+            self._plan_factory, CompositePlanFactoryProtocol
+        ):
+            return self._plan_factory.build_with_children(
+                required=self._required,
+                request=self._request,
+                children=ChildContractView({}),
+            )
         return self._plan_factory(required=self._required, request=self._request)
 
     def resolve_composite_plan(

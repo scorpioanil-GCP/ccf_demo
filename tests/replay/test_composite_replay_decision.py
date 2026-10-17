@@ -266,11 +266,6 @@ def test_the_replay_verb_reproduces_a_composite_after_a_restart(tmp_path: pathli
 # --- 4. a composite whose optional child was absent, under a child-aware factory (option (c)) ---
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="option (c), a composite that admitted no child under a child-aware factory, awaits Dave's ruling"
-    " (`D-IMPL-389`); until then this decision diverges on replay",
-)
 def test_a_composite_that_admitted_no_child_replays_through_the_seam_the_serve_used(
     tmp_path: pathlib.Path,
 ) -> None:
