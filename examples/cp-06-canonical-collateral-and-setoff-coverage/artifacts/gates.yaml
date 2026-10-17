@@ -143,7 +143,11 @@ declaration:
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_a_scope_the_caller_does_not_hold_is_refused_at_acquisition_and_the_record_keeps_why
     sabotage: make the acquisition scope check admit any scope (S6)
-    observed_red: null
+    observed_red:
+      result: >-
+        RED, under its own id, on an assertion: the out-of-scope ask came back ttl-anchor-refusal after a full read. Also red: CSCC-G26, CSCC-G25 on both routes, the replay check and verify.py. S7 (one error code for both bindings) and S8 (the borrower's LEI in the message) each turned this gate red ALONE while the bank door stayed green — the code and the detail are withheld from the caller and only the record shows them. Throwaway worktrees, never pushed.
+      date: "2026-10-16"
+      commit: "0b57fa7e (the candidate; S6 on 19ba1756, S7 on 6a1951aa, S8 on 29244ce0)"
   - id: CSCC-G21
     statement: the door and the in-process run serve one content address
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
@@ -177,10 +181,18 @@ declaration:
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_bank_door.py::test_an_unknown_facility_and_one_outside_the_requested_scope_get_one_answer_through_the_bank_door
     sabotage: restore the undeclared LookupError for an unknown facility (S1)
-    observed_red: null
+    observed_red:
+      result: >-
+        RED, under its own id, on both routes, on an assertion: tool route FAIL at isError (False vs True), template route FAIL at result-versus-error. The served control stayed green. S4 (the out-of-scope class renamed, its binding not) turned it red the same way — bindings match by exact name. Throwaway worktrees, never pushed.
+      date: "2026-10-16"
+      commit: "0b57fa7e (the candidate; S1 on b4aebff0, S4 on 439bea30)"
   - id: CSCC-G26
     statement: an out-of-scope ask makes the same source calls as an unknown facility — one facility lookup, then the refusal; no policy, debtor, graph-walk, watermark or enrichment read (SEC-020 Part 2; the row an existing facility's lookup returns is a stated residual)
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_an_out_of_scope_ask_makes_the_same_source_calls_as_an_unknown_facility
     sabotage: move the scope check after the graph walks and the enrichment (S2)
-    observed_red: null
+    observed_red:
+      result: >-
+        RED, alone, on an assertion: the out-of-scope ask made seven reads past the lookup. The bank door's byte checks stayed green (5 of 5) — the bytes cannot see Part 2 — and verify.py --timing failed T1 at +34.7 ms with its control valid. Throwaway worktree, never pushed.
+      date: "2026-10-16"
+      commit: "0b57fa7e (the candidate; S2 on 27a1b922)"

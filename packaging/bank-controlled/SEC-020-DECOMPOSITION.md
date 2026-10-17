@@ -11,8 +11,11 @@ and are limited to its stated scope and term.
 **Status, 2026-10-16.**
 - **Part 4 has a provisional ruling.** Dave, 15:53 MST: *"Ruling for now: treat borrower
   scope as not a real permission under the current shared-credential configuration."*
-- **Parts 1, 2, 3 and 5 are proposals** for Dave and Grok. Nothing is built.
-- **No SEC-020 code moves** until Dave confirms the Part 4 framing.
+- **Parts 1–3 are BUILT for cp-06C** (Dave's GO, 21:32 MST, with rulings D1–D3; branch
+  `sec-020-parts-1-3`, brief `SEC-020-PARTS-1-3-BRIEF.md`). Measured before and after through
+  the bank's own door; not merged and not closed — that is Dave's ruling. The outcome is
+  recorded in `OPEN-SECURITY-ITEMS.md` item 3 and `docs/DECISIONS.md` (`D-IMPL-387`).
+- **Part 5 stays parked.** Part 4 stays provisional.
 
 **Why this document exists.**
 - The bank asked, through Dave on 2026-10-15 at 18:09, for *"a detailed breakdown of the

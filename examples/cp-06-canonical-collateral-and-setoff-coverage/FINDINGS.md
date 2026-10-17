@@ -169,6 +169,24 @@ before commit; the roster's `observed_red` names the ones that ran.
 | S16 — one specimen file edited | the specimen's README | `CSCC-G16` alone | the other 25 |
 | S17 — the SDK's S1: `resolve_ttl_anchor` returns the decision instant (2026-09-18, `D-IMPL-341` validation pass) | `src/ccf/products/expiry.py` | `CSCC-G23`; the two CP-14-instant refusal controls (the coverage serves again, decision-anchored) | the other 27 |
 
+**SEC-020 Parts 1-3 (2026-10-16),** each on its own throwaway worktree and commit, never
+pushed, `__pycache__` purged, `python -B`; every red below is an assertion, never an error.
+Candidate `0b57fa7e`. "Door" is `test_cp_06_canonical_bank_door.py` through the bank's own
+`launch.sh`; "timing" is `verify.py --timing` by the rule fixed before the fix ran.
+
+| break | applied to | red | green |
+|---|---|---|---|
+| S1 — the undeclared `LookupError` restored | `acquisition.py` | `CSCC-G20`; `CSCC-G25` (tool: `isError`; template: result vs error); the replay check; `verify.py` | the served control; `G26`; the policy-step check; the own-borrower control |
+| S2 — the scope check moved after the walks and the enrichment | `acquisition.py` | **`CSCC-G26` alone**; timing T1 at **+34.7 ms** (control valid) | the door, 5 of 5 — the bytes cannot see Part 2 |
+| S3 — `refusal.kind` added to the mask | `door_checks.py` | the comparator's `refusal.kind` case | the other 49 |
+| S4 — the out-of-scope class renamed, its binding not | `acquisition.py` | `CSCC-G20`; `CSCC-G25` both routes; the replay check; `verify.py` | the served control. **Also showed an adjacent runtime finding**: the undeclared exception's own message reached the caller on both routes (see `packaging/bank-controlled/OPEN-SECURITY-ITEMS.md` item 3) |
+| S5 — +40 ms on the out-of-scope branch | `acquisition.py` | timing T1 at **+41.2 ms** | the door, 5 of 5; every timed pair's bytes identical |
+| S5 — +20 ms (characterization only) | `acquisition.py` | timing T1 at +21.4 ms | — |
+| S6 — the scope check admits any scope | `acquisition.py` | `CSCC-G20`, `CSCC-G26`, `CSCC-G25` both routes, the replay check, `verify.py` | the served control; the policy-step check |
+| S7 — one error code for both bindings | `ccf_config.yaml` | **`CSCC-G20` alone** | the door, 5 of 5 (codes are withheld at `minimal`) |
+| S8 — the borrower's LEI in the message | `acquisition.py` | **`CSCC-G20` alone** | the door, 5 of 5 (the detail is withheld at `minimal`) |
+| S9 — either half of the timing rule dropped | `door_checks.py` | the matching judge case (`proportion-0.8-only` / `median-25-only`) | the other 49 |
+
 Restored tree after the sweep: 26 passed, 1 xfailed (`CSCC-G23`, as declared); the
 (2026-09-18, after `D-IMPL-341` and the calibration ruling: 29 passed, 0 xfailed —
 `CSCC-G23` live at the CP-14 instant, `CSCC-G24` holding the expiry refusal on a
