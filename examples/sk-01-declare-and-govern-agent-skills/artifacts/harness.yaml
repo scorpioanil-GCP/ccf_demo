@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+#
+# WHAT THE CLAUDE AGENT SDK ADAPTER IS CONSTRUCTED WITH in movement 3 — values,
+# never code (`tool_surface.py` reads them).
+#
+# NO MODEL IS CALLED. Movement 3 asks the adapter for the agent's tool list and
+# for its harness-native carrier (`ClaudeAgentOptions`), and starts no session:
+# no `ClaudeSDKClient`, no `query`, no subprocess, no socket. `model` is a
+# disclosed placeholder because the constructor requires a value; it names no
+# real model. `tool_surface.py` passes it to the adapter, which places it on the
+# carrier (`ClaudeAgentOptions.model`); the carrier is never handed to a client,
+# so the value never reaches a model.
+
+semver: "1.0.0"
+class_id: sk-01.harness
+
+declaration:
+  #: Placeholder — no model is called (see above).
+  model: no-model-is-called
+  #: The in-process MCP server's name; tool names would read mcp__<name>__<skill>.
+  mcp_server_name: ccf
+  mcp_server_version: "1.0.0"
+  #: This agent emits nothing through a harness, so effect capture is declared
+  #: unsupported rather than claimed.
+  effects: unsupported

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+#
+# Π'S DECLARED VALUES — which members of the admitted child's own payload the
+# brief prints. Each row is a path into the child's payload; nothing is computed
+# from the child's figures. A member the child does not carry prints
+# `NOT_EVALUABLE`. The paths are cp-14's collateral section (read off
+# cp-06-canonical's served payload).
+
+semver: "1.0.0"
+class_id: sk-01.projection
+
+declaration:
+  #: The entity class the parent's own leg writes, and which Π reads back.
+  obligor_class: obligor
+  #: The word printed for a member the child does not carry.
+  not_evaluable: NOT_EVALUABLE
+  #: The child class whose payload the brief summarizes.
+  child_class: credit-risk.collateral-coverage
+  #: printed name -> path into the child's payload.
+  child_fields:
+    facility: [facility]
+    commitment: [commitment]
+    coverage_ratio: [coverage, coverage_ratio]
+    collateral_after_haircuts: [coverage, collateral_value]
+    setoff_value: [coverage, setoff_value]
+    total_coverage: [coverage, total]
+    shortfall: [coverage, shortfall]
