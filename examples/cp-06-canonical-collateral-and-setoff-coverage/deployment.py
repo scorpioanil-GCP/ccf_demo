@@ -118,13 +118,20 @@ def acquire(context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
     caller omitted it, the caller's value where it is in bounds — handed here
     by the resolver through the declared seam (`D-IMPL-343` R-4), so the
     deposits a refused request never gets to see are never read and never
-    enter the debt denominator. A refused request never reaches this
-    function, by the seam's ordering rather than by a check here.
+    enter the debt denominator. A request the contract refuses never reaches
+    this function, by the seam's ordering rather than by a check here.
+
+    ``borrower_scope`` is handed on too (SEC-020, 2026-10-16): acquisition
+    refuses an unknown facility, and one outside that scope, after the facility
+    lookup and before anything else is read — two declared seam refusals with
+    one external answer (`acquisition.FacilityNotHeld`,
+    `acquisition.FacilityOutsideRequestedScope`).
     """
     effective = context.request.parameters
     coverage = acquisition.acquire(
         facility_id=str(effective[FACILITY]),
         include_setoff=bool(effective[INCLUDE_SETOFF]),
+        borrower_scope=frozenset(effective[BORROWER_SCOPE]),
         graph=context.sources[SOURCE_GRAPH],
         attributes=context.sources[SOURCE_ATTRIBUTES],
     )
@@ -193,7 +200,7 @@ def _edge(subject: str, predicate: str, obj: str, *, tenant_id: str,
 def envelopes(coverage: acquisition.Coverage, *, tenant_id: str,
               at: datetime) -> tuple[SignalEnvelope, ...]:
     """Every edge, then every node — one tuple, in the order the road ingests."""
-    scope = coverage.borrower_lei or coverage.facility_id
+    scope = acquisition.scope_stamp(coverage.borrower_lei, coverage.facility_id)
     edges: list[SignalEnvelope] = []
     nodes: list[SignalEnvelope] = []
 
@@ -346,10 +353,11 @@ def coverage_gate(*, candidate: Any, evidence: object = None) -> str | None:
     """Two refusals in one governed verdict, stamped with the declared gate identity.
 
     * **no commitment** — Π found no facility node for the anchor in the
-      admitted view, or one with no commitment. The anchor resolved to
-      nothing, to a facility the source does not size, or to one the policy
-      envelope suppressed (a scope the caller does not hold yields an EMPTY
-      graph, never a redacted one); the text is the same for all three.
+      admitted view, or one with no commitment: a facility the source does not
+      size, or one the policy envelope suppressed (a scope the caller does not
+      hold yields an EMPTY graph, never a redacted one). An unknown facility,
+      and since SEC-020 (2026-10-16) one outside the requested scope, is
+      refused at acquisition and never reaches this gate.
     * **over-allocation** — §D's fourth validation gate: the sum of
       allocations against any single asset must not exceed its haircut value.
       Π computes the breach; this gate decides what it means, which is why the

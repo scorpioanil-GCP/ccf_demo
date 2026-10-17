@@ -59,8 +59,14 @@ in code or in a third document.
 | `CP06C-F-05` | **Truthful timestamps expire the demonstration, and the class's window and anchor name different evidence.** With `expires_at` anchored on the freshest valuation and the product window one day (the deposit-balance half-life), `FAC-5B8418` (valued `2025-12-20`) is refused `ttl-refusal` / `ttl-bounds` at the CP-14 instant, `FAC-044206` (`2026-08-15`) likewise, and no facility on this estate serves after `2026-08-21`. The refusal is the correct answer under the declarations and is asserted as the intentional correction; the serving tests ask each facility on its valuation day as the positive control; CP-14's collateral slot is `ineligible` for the same reason and the memo for BGC serves at no instant. The precise mismatch: the window follows the DEPOSIT clock (a balance the estate does not date — `ccf_v2.deposit_account` carries no as-of column) while the anchor can only read the VALUATION clock (the one dated evidence), so the declaration as written mixes two cadences. Two honest resolutions, both rulings rather than this tree's call: declare `from_decision` (the fast-moving evidence carries no source instant; per-asset staleness stays in the payload), or keep the evidence anchor with a window matched to the valuation cadence under `D-IMPL-323`'s illustrative-calibration rule. Also measured: the frozen specimen — same anchor declared, no λ_c table the SDK can read — is refused `ttl-anchor-unresolvable` on every question since 341; its suites are quarantined `xfail(strict=True)` (`D-IMPL-261`), the specimen untouched, and `CSCC-G13` is held to the recorded payload addresses | 1 · product contract | **RULED and APPLIED 2026-09-18 (Dave):** keep evidence anchoring; align the window with the valuation cadence. `ttl.product_ttl_seconds` and `ttl.max_ttl_seconds` are now `half_life.real_property_appraisal` (31536000 s, ~365 days) from 86400 s, declared illustrative under `D-IMPL-323` with the deposit limitation stated at every site. Measured after: 47 of 50 collateralized facilities serve at the CP-14 instant, 3 refuse `ttl-bounds`, both demonstrations serve, and the ten CP-14 memo quarantines converted to passing tests. The window makes NO claim about the undated deposit balances |
 | `CP06C-F-06` | **An unreachable source escapes `OpenedProduct.answer` as the driver's own error.** Measured 2026-10-15 and again 2026-10-16 (the `D-IMPL-383` acceptance run's positive control): with the attribute leg pointed at an address nothing listens on, `answer` raises `psycopg.OperationalError` out of this tree's `acquisition.acquire` rather than returning a governed refusal; the restarted-service test (`tests/examples/test_cp_06_canonical_replay_after_restart.py`) catches the raw driver error to make its offline proof. The question also leaves a graph and a pending marker in the evidence root, which `incomplete()` reports | SDK gap — **CLOSED 2026-10-16** (Dave, 12:11, option B). **The row's first diagnosis was wrong, and is corrected rather than erased:** the paved road HAS the seam — a class may declare exception types in `product_class.seam_refusals` (`D-IMPL-347` B2), measured to turn an outage into a recorded, replayable refusal — and an undeclared one propagating is the ruled behavior (`PKG-F-03`). The real gap: every declared exception could only be refused as `subject-unavailable`, *"the requested subject is not available to this principal"*, false for an outage | The SDK adds the `source-unavailable` refusal kind, minted from `cause: source-unavailable` (its own sentence, `detail` withheld below `full`, HTTP 409). This tree declares its two legs' connection errors (`psycopg.OperationalError`, `httpx.ConnectError`, `httpx.ConnectTimeout`) in `ccf_config.yaml`. Measured: with both legs unreachable a question is a recorded `source-unavailable` refusal that replays, and nothing is left incomplete; with the declaration removed it is the raw `psycopg.OperationalError` again |
 | `CP06C-F-07` | **Opening a product to inspect or replay retained evidence demands every source setting.** `decisions`, `why` and `replay` (`server/serve.py`, 2026-10-16) never read a source — measured: every retained decision replays identically with both sources pointed at an address nothing listens on and the ledger and schema names wrong — yet `open_product` refuses unless all four source variables are set, so an auditor without database credentials cannot run them | SDK friction (open for answering and for replaying are one call) — **CLOSED 2026-10-16** (Dave, 10:23: *"fix it"*) | `open_product(..., read_sources=False)` resolves no source setting; such an opening answers nothing (`SourcesNotRead`, before anything is minted or recorded) and the acquisition seam reads the settings only when it runs, so replay needs none. The three commands open that way: measured, all run in an environment holding no `CCF_CP_06C_*` variable |
+| `CP06C-F-08` | **An unknown facility raised instead of refusing, and the answer told a caller whether a facility existed** (SEC-020, measured 2026-10-16 through the bank's own door on `5a3e9b9f` and the delivered `01fc424d`). `acquisition._resolve_facility` raised an undeclared `LookupError`, which the door turned into an opaque `ccf-runtime-failure` with no record, while an existing facility outside the stated `borrower_scope` was read in full — collateral, set-off, register — and then refused `ttl-anchor-refusal` over the empty view: 59 of 59 out-of-scope facilities against 40 of 40 absent ids, medians 634 ms against 211 ms. The tree contradicted its own contract ("an unresolvable facility is a refusal", `ccf_config.yaml`) and Dave's `CP14-F-21` ruling | 4 · the example's own design — the SDK had the seam (`D-IMPL-347` B2; `CP06C-F-06` is the precedent). Fixing it by adding a governed binding is allowed under `D-IMPL-261` and `CP14-F-21`; §B.4's "never fixed by tuning governed values" is read as aimed at data limitations (Dave, D2, 2026-10-16 21:32) | **CLOSED 2026-10-16** (SEC-020 Parts 1-3 GO). One lookup decides: `acquisition.FacilityNotHeld` (cause `nonexistent`, code `facility-not-held`) and `acquisition.FacilityOutsideRequestedScope` (cause `undisclosed`, code `outside-requested-borrower-scope` — Dave's D1: no permission claimed) are declared `seam_refusals`; both are one `subject-unavailable` answer through the bank door (`CSCC-G25`), both make one source call (`CSCC-G26`), and an out-of-scope ask is refused at acquisition (`CSCC-G20`, restated). **The trade, accepted (D2):** ten facilities refused `ttl-anchor-refusal` under their own borrower used to look identical to an out-of-scope ask; now they do not, so the borrower-relationship oracle grows from 50 facilities to 60 while the existence oracle for unknown ids closes |
+| `CP06C-F-09` | **The scope rule is stated twice, because the SDK applies the policy step only after acquisition.** `policy.principal-subgraph` admits a node by exact membership of its `borrower_scope` stamp in the request's `borrower_scope`, but it runs over L3 after every source was read; nothing the SDK offers lets that declared rule stop the reads. Removing the extra acquisition (SEC-020 Part 2) therefore meant restating the rule in `acquisition._outside_requested_scope` (`scope_stamp` keeps the stamp one definition; the membership rule is still two). The SDK's early policy decides only from subject, principal and role lists and cannot express a request-parameter scope | 2 · **candidate launch ergonomics blocker — RAISED, not ruled a blocker** (Dave, D3, 2026-10-16 21:32: *"raise it as a candidate SDK ease-of-use blocker, not a silent backlog item … Do not fix it in this round."*). §C step 1: yes; step 2: yes — §B.2's own example, "a value that must be stated in two authorities that can drift apart"; the §I record is in §4 | Kept visible: `test_the_policy_step_alone_keeps_an_out_of_scope_facility_from_being_read` is `xfail(strict=True)` and goes green — and strict-fails — the day the SDK applies policy before acquisition; the example's check is then deleted, not moved. Break S6 (the check admits any scope) is the guard on the copy meanwhile |
+| `CP06C-F-10` | **The SDK's own sentence about `undisclosed` is now incomplete, and it has no cause for "outside the caller's stated scope".** `src/ccf/products/refusal.py::SubjectUnavailableRefusal` says `undisclosed` is recorded as a determination "in two places only" (the two SDK constants); a declared seam binding with `cause: undisclosed` — this tree's out-of-scope refusal — is a third. `undisclosed` is the nearest true value: `unauthorized` would record an entitlement claim the Part 4 ruling says is untrue, `nonexistent` is false for a facility that exists | 3 · post-launch enhancement (documentation, and a possible cause value) | Recorded; `src/` is not edited (Dave's GO: "No SDK change beyond the optional docstring" — option (a1) taken, leave it and log it) |
 
 ## 3 · Launch blockers
+
+None ruled. `CP06C-F-09` is RAISED as a candidate launch ergonomics blocker (Dave's D3,
+2026-10-16) and is not a blocker until ruled one; its §I record is in §4.
 
 None raised by this tree at Gate 1. `D-IMPL-341` (the expiry anchor) was inherited and
 OPEN — `CSCC-G23` quarantined `xfail(strict=True)` evidence — until 2026-09-18, when the
@@ -70,6 +76,40 @@ live, `CSCC-G24` was added as the calibration's own negative control, and nothin
 carried open here.
 
 ## 4 · Backlog candidates (§I)
+
+**Policy that can stop acquisition — `CP06C-F-09`, an UNRULED candidate launch ergonomics
+blocker** (Dave's D3, 2026-10-16). *capability:* the SDK applies a product's declared
+request-bound policy envelope before acquisition reads any source — or hands acquisition
+an admit predicate derived from that same declaration — so a request whose scope admits
+nothing is refused before any read, with the rule stated once. *evidence:* `CP06C-F-09`
+(this tree, SEC-020 Part 2): an out-of-scope ask made seven source reads after the facility
+lookup — the policy and enforceability tables, the debtor crosswalk, three graph walks, the
+ledger watermark and the enrichment — and its answer took a median 634 ms against an
+unknown id's 211 ms (measured 2026-10-16 through the bank's own door). One rung; no other
+rung was checked (§H). *current supported path:* restate the admit rule in acquisition and
+raise a declared seam refusal (this tree, ~25 lines and a strict expected failure); the
+SDK's early policy cannot express a request-parameter scope. *friction:* one rule in two
+authorities — the operator declaration and the acquisition code — kept aligned by a shared
+stamp function and a break that proves the copy is guarded; nothing in the SDK says the
+policy step runs after acquisition. *adoption impact:* every product whose policy envelope
+depends on a request parameter and whose sources are costly to read, or whose answer
+timing must not reveal what exists. *launch necessity:* §C step 1 yes — nothing
+inadmissible reaches the view; step 2 yes — §B.2's own example, and the alternative leaks
+existence by timing; raised for a ruling, not a blocker until ruled one. *scope/risk:* the
+resolver's phase order or a policy-derived acquisition predicate, at every paved
+product's acquisition seam; risk to products whose acquisition legitimately needs more
+than the admitted subgraph. *recommended release:* before launch if ruled a blocker;
+otherwise when a second product needs request-scoped policy ahead of its source reads.
+
+**The `undisclosed` sentence and a scope cause — `CP06C-F-10`.** *capability:* the
+`SubjectUnavailableRefusal` documentation names every way `undisclosed` is recorded,
+including a declared seam binding, and the SDK decides whether "outside the caller's stated
+scope" deserves its own cause. *evidence:* `CP06C-F-10`. *current supported path:* cause
+`undisclosed` plus a specific `error_code`, which keeps the record's truth. *friction:* a
+reader of the SDK docstring is told something no longer complete. *adoption impact:* every
+product with a caller-stated scope. *launch necessity:* §C step 1 yes; step 2 no. *scope/
+risk:* one docstring, optionally one cause value; none to the served path. *recommended
+release:* with the next SDK documentation pass.
 
 **A reference replay environment for paved products.** *capability:* an SDK-supplied
 `ReplayEnvironment` derived from an opened product's two documents — Π from the recorded
@@ -102,6 +142,14 @@ allocated senior, `D_c` 0.3769. A consumer can rely on: the two legs reported
 separately, the priority per (facility, asset), the valuation date per asset, the
 released liens the register reports. A consumer cannot rely on: the served `expires_at`
 as a freshness claim (`D-IMPL-341`), and legal UCC priority (`D-IMPL-321`).
+
+**Since SEC-020 (2026-10-16):** an unknown facility and a facility outside the stated
+borrower scope get one governed `subject-unavailable` answer through the bank's own door,
+each a recorded decision that replays; a consumer cannot use this product to learn whether
+a facility exists unless it names the facility's own borrower (the scope is the caller's
+statement, not a permission — SEC-020 Part 4, provisional). An existing facility's lookup
+still returns one row where an unknown one returns none; `verify.py --timing` reports what
+that costs against a rule fixed before the fix ran.
 
 ## Sabotage record
 

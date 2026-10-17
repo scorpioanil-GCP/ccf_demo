@@ -64,6 +64,21 @@ product_class:
     - exception: httpx.ConnectTimeout
       cause: source-unavailable
       error_code: graph-leg-unreachable
+    # ONE ANSWER FOR "NO SUCH FACILITY" AND "NOT IN YOUR STATED SCOPE" (SEC-020
+    # Parts 1-2, Dave 2026-10-16 21:32 GO; `CP06C-F-08`). Acquisition looks the
+    # facility up once and refuses either case there, before any collateral is
+    # read. Both become `subject-unavailable`, and at the default `minimal`
+    # disclosure the caller sees the same answer for both; the record keeps the
+    # cause and code. Out of scope is `undisclosed`, never `unauthorized` (Dave's
+    # D1): `borrower_scope` is the caller's statement, not an entitlement under
+    # the shared credential (SEC-020 Part 4, provisional), so the record claims
+    # no permission.
+    - exception: acquisition.FacilityNotHeld
+      cause: nonexistent
+      error_code: facility-not-held
+    - exception: acquisition.FacilityOutsideRequestedScope
+      cause: undisclosed
+      error_code: outside-requested-borrower-scope
 
   # THE PRODUCT'S OWN FOURTH VALIDATION GATE — §D names it beyond the SDK's
   # three: the sum of allocations against any single asset must not exceed its
@@ -115,17 +130,23 @@ product_class:
   # and the resolver refuses by name any answer that withholds under it. Without
   # the affirmation, ruling P6 (a)'s probe would refuse every question that
   # reaches acquisition: `deployment.py::acquire` reads the request's
-  # `facility_id` and `include_setoff`, never its subject, so it acquires the
-  # same content for the probe's identifier as for the question's
-  # (`PopulationReadInSubjectKeyedPhase`).
+  # `facility_id`, `include_setoff` and `borrower_scope`, never its subject, so
+  # it acquires the same content for the probe's identifier as for the
+  # question's (`PopulationReadInSubjectKeyedPhase`).
   subject_withholding: never
 
 operators:
   # --- Policy runs BEFORE anything reads graph state. ------------------------
   #
-  # The admitted axis is the borrower this request resolved to. A pledge, an
-  # asset or a deposit reachable from another borrower is never materialized,
-  # so the entitlement is formative rather than a filter applied afterwards.
+  # The admitted axis is the borrower scope the request states. A pledge, an
+  # asset or a deposit reachable from another borrower is never materialized
+  # into the view. The SDK applies this step after acquisition, so the SOURCES
+  # would still be read for a scope that admits nothing; acquisition therefore
+  # restates this one rule and refuses such a request after the facility
+  # lookup (`acquisition._outside_requested_scope`, SEC-020 Part 2) — two
+  # statements of one rule, recorded as `CP06C-F-09`, a candidate SDK
+  # ease-of-use blocker (Dave's D3), kept until the SDK can apply policy
+  # before acquisition.
   policy.principal-subgraph:
     classification_attribute_by_class:
       collateral_node: borrower_scope

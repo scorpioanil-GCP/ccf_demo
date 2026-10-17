@@ -100,7 +100,8 @@ what a reader sees:
   on the day the estate was loaded. `D_c` therefore moves with the calendar.
 - **A scope the caller does not hold is now REFUSED** (`ttl-anchor-unresolvable`:
   the empty graph holds no valuation to anchor on) where the specimen served a
-  coverage of zero — the outcome cp-06-canonical already gives (`CSCC-G20`).
+  coverage of zero. (cp-06-canonical gave this same refusal until SEC-020, 2026-10-16; it now
+  refuses a scope the caller does not hold at acquisition, `subject-unavailable` — `CSCC-G20`.)
 
 The original evidence is in git, and `FINDINGS.md` is left as it was.
 `examples/AMENDMENTS-2026-10-11.md` lists every file changed.

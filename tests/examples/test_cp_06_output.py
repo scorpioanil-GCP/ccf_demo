@@ -414,7 +414,8 @@ def test_the_policy_operator_discriminates_rather_than_passing_through(
     # The specimen used to SERVE a coverage of zero over the empty graph. Its
     # expiry now runs from the freshest valuation the graph holds, and an empty
     # graph holds none, so the same question is REFUSED by name — the outcome
-    # cp-06-canonical already gives (`CSCC-G20`). The claim this test exists for
+    # cp-06-canonical gave until SEC-020 (2026-10-16), when it began refusing such
+    # a scope at acquisition instead (`CSCC-G20`). The claim this test exists for
     # still holds, and is read off the refusal: the scope admitted NOTHING
     # (no asset carried a valuation into the view), not a redacted subset.
     assert isinstance(denied, RefusalEnvelope), getattr(denied, "product", denied)
