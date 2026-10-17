@@ -66,9 +66,9 @@ The example reads the live estate. Four variables, and **the namespaces are the
 v2 ones, which are not in the estate's own `.env`** — that file names v1:
 
 ```bash
-export CCF_CP_11_POSTGRES_DSN='postgresql://<user>:<pw>@192.168.4.76:5432/parkavedb'
+export CCF_CP_11_POSTGRES_DSN='postgresql://<user>:<pw>@192.168.4.76:<port>/parkavedb'
 export CCF_CP_11_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_11_FLUREE_URL=http://192.168.4.76:8090
+export CCF_CP_11_FLUREE_URL=http://192.168.4.76:<port>
 export CCF_CP_11_FLUREE_LEDGER=fibo-v2
 
 make -s example-cp-11

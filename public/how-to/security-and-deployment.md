@@ -587,14 +587,14 @@ userinfo and the scheme dropped — plus the ledger or database and the
 partition. Writers of one graph that declare the same directory contend for
 the same file only if they spell the server identically, so **declare one
 spelling of the server address across every writer of a graph** (FW-4,
-D-IMPL-374). On Fluree, `http://localhost:8090` and `http://127.0.0.1:8090` are
+D-IMPL-374). On Fluree, `http://localhost:<port>` and `http://127.0.0.1:<port>` are
 two identities, two lock files and two writers on one ledger; so are a hostname
 and its IP address, or two names for one load balancer, on MongoDB and Neo4j
 alike. A MongoDB multi-host or replica-set URI is identified by its host list
 as written: list the same hosts in the same order in every writer (a different
 order, a subset, or a `mongodb+srv://` seed name against its expanded host list
 is a different identity). A host list with a port on any host but the last —
-the usual replica-set form `mongodb://h1:27017,h2:27017,h3:27017/?replicaSet=rs0`
+the usual replica-set form `mongodb://h1:<port>,h2:<port>,h3:<port>/?replicaSet=rs0`
 included — does not parse as an identity at all, and the store refuses it with
 a `ValueError` when it is constructed; that is a limit of the identity
 derivation, carried, not a lease rule. A Neo4j cluster is identified by the

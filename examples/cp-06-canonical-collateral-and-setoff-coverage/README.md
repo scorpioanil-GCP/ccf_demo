@@ -44,7 +44,7 @@ allocation basis, per-asset valuation dates, and a lien the register says was re
 ## Run it
 
 ```
-export CCF_CP_06C_FLUREE_URL=http://<host>:8090   CCF_CP_06C_FLUREE_LEDGER=fibo-v2
+export CCF_CP_06C_FLUREE_URL=http://<host>:<port>   CCF_CP_06C_FLUREE_LEDGER=fibo-v2
 export CCF_CP_06C_POSTGRES_DSN=postgresql://...     CCF_CP_06C_POSTGRES_SCHEMA=ccf_v2
 make example-cp-06-canonical
 make example-cp-06-canonical FACILITY=--facility=FAC-044206 SCOPE=--scope=529900E95812SYWMCE44

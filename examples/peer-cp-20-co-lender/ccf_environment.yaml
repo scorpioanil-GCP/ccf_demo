@@ -11,7 +11,7 @@
 # host it lives in `~/.bashrc`, which returns early for non-interactive
 # shells. Peer work therefore runs under `bash -ic` (spec §C.1). Note also
 # that `ccf_dataprep/.env.example` documents a peer at `192.168.4.77` that
-# DOES NOT EXIST — the provisioned peer is on `.76`, Fluree port 8091.
+# DOES NOT EXIST — the provisioned peer is on `.76`, on its own Fluree port.
 #
 # `CLD-G20` asserts the consequence of this file: no peer address and no peer
 # credential appears anywhere in the example's code, and the CONSUMER tree
@@ -48,8 +48,8 @@ sources:
       from_env: CCF_CP_20_PEER_FLUREE_URL
       remedy: >-
         export CCF_CP_20_PEER_FLUREE_URL with the base URL of the co-lender's
-        READ-ONLY Fluree server (the provisioned peer is port 8091, ours is
-        8090 — they differ ONLY by port, which is why the isolation is a
+        READ-ONLY Fluree server (the provisioned peer and ours share a host
+        and differ ONLY by port, which is why the isolation is a
         software property and `CLD-G20` is a real gate rather than a nicety).
         This example issues only `/v1/fluree/query`.
     ledger:

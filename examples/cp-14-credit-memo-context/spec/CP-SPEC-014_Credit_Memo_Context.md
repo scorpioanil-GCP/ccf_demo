@@ -1674,9 +1674,9 @@ estate and this product reads v2:
 ```
 CCF_CP_14_POSTGRES_DSN      (host/credentials from ccf_dataprep/.env)
 CCF_CP_14_POSTGRES_SCHEMA=ccf_v2
-CCF_CP_14_FLUREE_URL=http://192.168.4.76:8090
+CCF_CP_14_FLUREE_URL=http://192.168.4.76:<port>
 CCF_CP_14_FLUREE_LEDGER=fibo-v2
-CCF_CP_14_MONGO_URI=mongodb://192.168.4.76:27017
+CCF_CP_14_MONGO_URI=mongodb://192.168.4.76:<port>
 CCF_CP_14_MONGO_DB=fibo_v2
 ```
 

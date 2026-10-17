@@ -34,7 +34,7 @@ syndicated facility*, at **the precision that member discloses at**:
 * a position with **no attestation record** behind it is **refused**, not
   served with a caveat and not discounted by Context Debt.
 
-Its own stores are its own: Fluree on port `8091` (ledger `bofa/syndicate`)
+Its own stores are its own: Fluree on its own port (`<port>`, ledger `bofa/syndicate`)
 and Postgres schema `colender` in database `bofa_syndicated`. The consumer
 never touches either — it reaches this deployment at one endpoint, through the
 door below.

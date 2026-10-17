@@ -267,7 +267,7 @@ the measurement wins.
 
 | | Primary (ours — JPMorgan Chase Bank, N.A.) | Peer (Bank of America, N.A.) |
 |---|---|---|
-| Fluree | `:8090`, ledger `fibo-v2` | `:8091`, ledger `bofa/syndicate` |
+| Fluree | `:<port>`, ledger `fibo-v2` | `:<port>`, ledger `bofa/syndicate` |
 | Postgres | schema `ccf_v2` in `parkavedb` | schema `colender` in `bofa_syndicated` |
 | MongoDB | `fibo_v2` | `bofa_syndicated` — **empty by design** |
 

@@ -253,9 +253,9 @@ replay record — those are all behind `produce.py::produce_governed`.
 
 ```bash
 make venv
-export CCF_CP_05_FLUREE_URL=http://<host>:8090
+export CCF_CP_05_FLUREE_URL=http://<host>:<port>
 export CCF_CP_05_FLUREE_LEDGER=fibo-v2
-export CCF_CP_05_POSTGRES_DSN='host=<host> port=5432 dbname=<db> user=<user> password=<pw>'
+export CCF_CP_05_POSTGRES_DSN='host=<host> port=<port> dbname=<db> user=<user> password=<pw>'
 export CCF_CP_05_POSTGRES_SCHEMA=ccf_v2
 
 make example-cp-05

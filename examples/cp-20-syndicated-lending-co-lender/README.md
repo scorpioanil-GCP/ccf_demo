@@ -57,7 +57,7 @@ so **everything here runs under `bash -ic`**.
 # our own estate
 export CCF_CP_20_POSTGRES_DSN='host=… port=… dbname=… user=… password=…'
 export CCF_CP_20_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_20_FLUREE_URL=http://192.168.4.76:8090
+export CCF_CP_20_FLUREE_URL=http://192.168.4.76:<port>
 export CCF_CP_20_FLUREE_LEDGER=fibo-v2           # NOT `fibo:main` — that is v1
 
 # the co-lender's estate (the peer's own deployment reads these, we never do)

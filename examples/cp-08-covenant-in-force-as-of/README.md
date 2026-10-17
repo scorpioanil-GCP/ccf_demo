@@ -82,9 +82,9 @@ The estate lives on `192.168.4.76`. Connection material comes from
 this example reads v2.
 
 ```bash
-export CCF_CP_08_FLUREE_URL=http://192.168.4.76:8090
+export CCF_CP_08_FLUREE_URL=http://192.168.4.76:<port>
 export CCF_CP_08_FLUREE_LEDGER=fibo-v2
-export CCF_CP_08_POSTGRES_DSN='postgresql://<user>:<pw>@192.168.4.76:5432/<db>'
+export CCF_CP_08_POSTGRES_DSN='postgresql://<user>:<pw>@192.168.4.76:<port>/<db>'
 export CCF_CP_08_POSTGRES_SCHEMA=ccf_v2
 
 PYTHONPATH=src:runtime:examples/cp-08-covenant-in-force-as-of \

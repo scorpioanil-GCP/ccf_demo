@@ -63,13 +63,13 @@ make venv
 *name* and nothing else — no host, no port, no credential ever enters the tree.
 
 ```
-export CCF_CP_03_POSTGRES_DSN='host=… port=5432 dbname=… user=… password=…'
+export CCF_CP_03_POSTGRES_DSN='host=… port=<port> dbname=… user=… password=…'
 ```
 
 **The role must be read-only.** Nothing this example runs writes to the store it
 reads, and a role that *could* write would make that a promise rather than a
 guarantee. Both libpq spellings work and neither is preferred — the keyword
-string above, or a `postgresql://user:pass@host:5432/dbname` URI.
+string above, or a `postgresql://user:pass@host:<port>/dbname` URI.
 `CCF_CP_03_POSTGRES_DSN` is the one variable this example requires, and it must
 be complete: host, port, database, user and password. A short value such as
 `dbname=<database>` is not sufficient: libpq fills what it leaves out from

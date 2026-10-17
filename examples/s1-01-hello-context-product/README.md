@@ -41,7 +41,7 @@ from [Run it](#run-it) up and `CCF_TEST_FLUREE_URL` exported):
 
 ```sh
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-CCF_TEST_FLUREE_URL=http://localhost:8090 PYTHONPATH=src:runtime \
+CCF_TEST_FLUREE_URL=http://localhost:<port> PYTHONPATH=src:runtime \
   .venv/bin/python examples/s1-01-hello-context-product/run.py \
   --subject http://example.org/fibo/GammaBank \
   --as-of "$NOW" \
@@ -127,7 +127,7 @@ before plan 15.5-13.
 
 **Prerequisites.** `make venv` (creates `.venv` from the hash-verified lock;
 there is no `python` on this repository's PATH, so every command below names
-`.venv/bin/python`), Docker, and port 8090 free. **A reachable Fluree server.**
+`.venv/bin/python`), Docker, and a free local port (`<port>`) for Fluree. **A reachable Fluree server.**
 `artifacts/manifest.yaml` declares `backend: fluree`, and a run that cannot
 reach one **refuses** rather than falling back to anything. The example
 **writes** Fluree transactions (a fresh graph per run), so point it only at a
@@ -137,8 +137,8 @@ disposable local server — never at a shared or curated one.
 memory-capped local server, removed when you stop it:
 
 ```sh
-docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p 8090:8090 fluree/server:4.2.4
-until curl -s -o /dev/null http://localhost:8090/fluree/ledgers; do sleep 1; done   # ready when it answers
+docker run -d --rm --name ccf-s1-01-fluree --memory 4g -p <port>:8090 fluree/server:4.2.4   # <port>: a free local port; 8090 is Fluree's port inside its image
+until curl -s -o /dev/null http://localhost:<port>/fluree/ledgers; do sleep 1; done   # ready when it answers
 ```
 
 ```sh
@@ -148,14 +148,14 @@ make example-s1-01                       # the three declared questions
 or, directly:
 
 ```sh
-CCF_TEST_FLUREE_URL=http://localhost:8090 \
+CCF_TEST_FLUREE_URL=http://localhost:<port> \
   PYTHONPATH=src:runtime .venv/bin/python examples/s1-01-hello-context-product/run.py
 ```
 
 and the correctness legs (the example's own tests, then every Fluree-marked test):
 
 ```sh
-CCF_TEST_FLUREE_URL=http://localhost:8090 CCF_REQUIRE_FLUREE=1 PYTHONPATH=src:runtime:. \
+CCF_TEST_FLUREE_URL=http://localhost:<port> CCF_REQUIRE_FLUREE=1 PYTHONPATH=src:runtime:. \
   .venv/bin/python -m pytest -q tests/examples -k s1_01      # measured 2026-10-11: 48 passed
 make leg-fluree
 ```
@@ -200,7 +200,7 @@ served at their declared service periods (`artifacts/questions.yaml`,
 
 `CCF_TEST_FLUREE_URL` is the variable `artifacts/backends.yaml` names — the same
 one `tests/conftest.py` gates the Fluree test leg on, so one export configures
-both. `make example-s1-01` defaults it to `http://localhost:8090`. Unset it and
+both. `make example-s1-01` defaults it to the local address the `Makefile` declares (`CCF_TEST_FLUREE_URL ?=`). Unset it and
 the run stops with a message naming the variable and the container to start.
 
 **Dated note, 2026-10-06 (D-IMPL-374 (1), SEC-013).** The Fluree store now

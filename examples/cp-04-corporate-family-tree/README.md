@@ -131,9 +131,9 @@ default**, which was measured rather than assumed: unset the schema and the run
 refuses by name.
 
 ```
-export CCF_CP_04_FLUREE_URL='http://…:8090'
+export CCF_CP_04_FLUREE_URL='http://…:<port>'
 export CCF_CP_04_FLUREE_LEDGER='fibo-v2'
-export CCF_CP_04_POSTGRES_DSN='host=… port=5432 dbname=… user=… password=…'
+export CCF_CP_04_POSTGRES_DSN='host=… port=<port> dbname=… user=… password=…'
 export CCF_CP_04_POSTGRES_SCHEMA='ccf_v2'
 ```
 
@@ -145,7 +145,7 @@ no `CREATE`. On the Fluree side the example issues only `/v1/fluree/query`; it
 never creates, updates or deletes a ledger.
 
 Both libpq spellings work for the DSN and neither is preferred — the keyword
-string above, or a `postgresql://user:pass@host:5432/dbname` URI. The DSN must
+string above, or a `postgresql://user:pass@host:<port>/dbname` URI. The DSN must
 be complete: host, port, database, user and password. A short value such as
 `dbname=<database>` is not sufficient: libpq fills what it leaves out from
 `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD`, so it would quietly use whatever

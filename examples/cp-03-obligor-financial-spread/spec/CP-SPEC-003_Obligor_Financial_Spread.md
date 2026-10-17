@@ -1252,11 +1252,11 @@ than an answer about the one it uses. Every store was checked on 2026-08-29;
 
 | Store | Owns (Q019 §3) | Checked | Verdict for this product |
 |---|---|---|---|
-| **PostgreSQL `ccf_v2`** @ `192.168.4.76:5432`, db `parkavedb`, read-only | **`E`, policy reference** | yes | **THE ONLY STORE READ.** All ten §C.1 elements |
-| **Fluree `fibo-v2`** @ `:8090` | `R`, `T`, lineage, policy binding | **yes — queried, not assumed** | **not read.** 87,162 triples · 11,906 subjects · **171 predicates** · 91 classes; **zero tagged financial facts**, and nodes carry LEI and label only |
-| **MongoDB `fibo_v2`** @ `:27017` | passage-level lineage | yes | **not read.** Filing *text* and passages; this product reads filing *facts*. Passage lineage arrives at rung 13 |
+| **PostgreSQL `ccf_v2`** @ `192.168.4.76:<port>`, db `parkavedb`, read-only | **`E`, policy reference** | yes | **THE ONLY STORE READ.** All ten §C.1 elements |
+| **Fluree `fibo-v2`** @ `:<port>` | `R`, `T`, lineage, policy binding | **yes — queried, not assumed** | **not read.** 87,162 triples · 11,906 subjects · **171 predicates** · 91 classes; **zero tagged financial facts**, and nodes carry LEI and label only |
+| **MongoDB `fibo_v2`** @ `:<port>` | passage-level lineage | yes | **not read.** Filing *text* and passages; this product reads filing *facts*. Passage lineage arrives at rung 13 |
 | **SQLite** `data/departmental.sqlite` | departmental | yes | **not read.** 148 rows total; nothing financial-reporting |
-| **Neo4j** @ `:7687` | optional | yes | **not read.** 14 nodes — the v1 hello-world sample, not v2 data |
+| **Neo4j** @ `:<port>` | optional | yes | **not read.** 14 nodes — the v1 hello-world sample, not v2 data |
 
 **One store read, four excluded — a measured verdict, not a tier convention.**
 Gate `OFS-G05` asserts the negative half of this table at runtime: **no store

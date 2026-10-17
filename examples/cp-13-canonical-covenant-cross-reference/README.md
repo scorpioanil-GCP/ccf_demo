@@ -56,7 +56,7 @@ unembedded memorandum `not-evaluable` rather than "no result".
 
 ```
 export CCF_CP_13C_POSTGRES_DSN=postgresql://...   CCF_CP_13C_POSTGRES_SCHEMA=ccf_v2
-export CCF_CP_13C_FLUREE_URL=http://<host>:8090    CCF_CP_13C_FLUREE_LEDGER=fibo-v2
+export CCF_CP_13C_FLUREE_URL=http://<host>:<port>    CCF_CP_13C_FLUREE_LEDGER=fibo-v2
 export CCF_CP_13C_MONGO_URI=mongodb://...          CCF_CP_13C_MONGO_DB=fibo_v2
 make -s example-cp-13-canonical
 make -s example-cp-13-canonical ROLE=--role=control-room CORPUS_SCOPE=--corpus-scope=filed-and-internal
