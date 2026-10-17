@@ -6,7 +6,7 @@
 # Rights under that interim license begin only upon its execution
 # and are limited to its stated scope and term.
 #
-# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G24`.
+# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G26`.
 #
 # `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage. The
 # acceptance authority for every gate below is `CP-SPEC-006C` §G.1
@@ -139,10 +139,10 @@ declaration:
     sabotage: drop `discovery.intents`
     observed_red: null
   - id: CSCC-G20
-    statement: a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload — the SDK's anchor gate speaks first on the empty view (ttl-anchor-unresolvable, D-IMPL-341); the product gate's no-commitment half is held directly
+    statement: RESTATED 2026-10-16 (SEC-020) — a scope the caller does not hold is refused subject-unavailable at acquisition, with no operator step and no graph, never a redacted payload; the record keeps outside-requested-borrower-scope beside an unknown facility's facility-not-held and names no borrower; the product gate's no-commitment half is held directly
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
-    test: tests/examples/test_cp_06_canonical_output.py::test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal
-    sabotage: serve a coverage ratio of zero over the empty view
+    test: tests/examples/test_cp_06_canonical_output.py::test_a_scope_the_caller_does_not_hold_is_refused_at_acquisition_and_the_record_keeps_why
+    sabotage: make the acquisition scope check admit any scope (S6)
     observed_red: null
   - id: CSCC-G21
     statement: the door and the in-process run serve one content address
@@ -171,4 +171,16 @@ declaration:
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_evidence_older_than_the_declared_window_is_refused_by_the_expiry_gate
     sabotage: return the decision instant from `resolve_ttl_anchor` (the SDK's S1), or widen the declared window past the evidence's age
+    observed_red: null
+  - id: CSCC-G25
+    statement: an unknown facility and an existing one outside the requested scope get one answer through the bank's own door (launch.sh), on the product tool and on the address-form template — identical after masking only the replay digest and the echoed facility id — and both are recorded decisions that replay (SEC-020 Parts 1 and 3)
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_bank_door.py::test_an_unknown_facility_and_one_outside_the_requested_scope_get_one_answer_through_the_bank_door
+    sabotage: restore the undeclared LookupError for an unknown facility (S1)
+    observed_red: null
+  - id: CSCC-G26
+    statement: an out-of-scope ask makes the same source calls as an unknown facility — one facility lookup, then the refusal; no policy, debtor, graph-walk, watermark or enrichment read (SEC-020 Part 2; the row an existing facility's lookup returns is a stated residual)
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_an_out_of_scope_ask_makes_the_same_source_calls_as_an_unknown_facility
+    sabotage: move the scope check after the graph walks and the enrichment (S2)
     observed_red: null
