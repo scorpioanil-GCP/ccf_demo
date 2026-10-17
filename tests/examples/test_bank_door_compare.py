@@ -278,6 +278,49 @@ def test_two_runtime_failures_never_compare_equal() -> None:
     assert not dc.compare(first, first).ok, "an unmaskable answer is never a PASS, even against itself"
 
 
+_UNMASKABLE_TEXT = json.dumps({"refusal": {"kind": "subject-unavailable"}, "replay_ref": None})
+
+
+def _unmaskable_pairs() -> list[tuple[Any, Any]]:
+    """The focused pre-merge review's counterexamples (2026-10-16): answers `compare` fails, which the first
+    `signature` summarized by their text alone and therefore called equal."""
+    structured = (
+        dc.Answer("tool", W, {"content": [{"type": "text", "text": _UNMASKABLE_TEXT}],
+                              "structuredContent": {"result": f"{W} exists but is outside your scope"}, "isError": False}),
+        dc.Answer("tool", A, {"content": [{"type": "text", "text": _UNMASKABLE_TEXT}],
+                              "structuredContent": {"result": "no such facility"}, "isError": False}),
+    )
+    meta = (
+        dc.Answer("tool", W, {"content": [{"type": "text", "text": _UNMASKABLE_TEXT}], "meta": {"exists": True}, "isError": False}),
+        dc.Answer("tool", A, {"content": [{"type": "text", "text": _UNMASKABLE_TEXT}], "meta": {"exists": False}, "isError": False}),
+    )
+    address = (
+        _template(W, _refusal_text(W, DIGEST_W), address=f"ccf-product://elsewhere/{W}"),
+        _template(A, _refusal_text(A, DIGEST_A), address=f"ccf-product://elsewhere/{A}"),
+    )
+    address = tuple(dc.Answer("template", x.facility_id, x.result, None, "the-address-asked-for") for x in address)
+    errors = (dc.Answer("tool", W, None, "McpError: boom"), dc.Answer("tool", A, None, "McpError: boom"))
+    return [structured, meta, address, errors]
+
+
+@pytest.mark.parametrize("pair", _unmaskable_pairs(), ids=["structured-content", "meta", "template-address", "errors"])
+def test_a_signature_never_matches_where_compare_fails(pair: tuple[Any, Any]) -> None:
+    first, second = pair
+    assert not dc.compare(first, second).ok
+    assert dc.signature(first) != dc.signature(second)
+    assert dc.signature(first) != dc.signature(first), "an answer compare fails against itself must not match itself"
+
+
+def test_a_timed_pair_of_unmaskable_answers_is_a_part_one_mismatch() -> None:
+    first, second = _unmaskable_pairs()[1]
+    rows = _rows("T0", ("first", "second"), _symmetric())
+    for index, d in enumerate(_symmetric()):
+        rows.append(dc.TimingRow("T1", index, "existing", W, 200.0 + d, 0.0, dc.signature(first)))
+        rows.append(dc.TimingRow("T1", index, "unknown", A, 200.0, 0.0, dc.signature(second)))
+    run = dc.judge_run(rows, RULE, control="T0", judged=["T1"])
+    assert len(run.signature_mismatches.get("T1", [])) == len(_symmetric())
+
+
 @pytest.mark.parametrize("garbage", [None, "not json", "[]", '{"refusal": 1}'])
 def test_garbage_is_a_fail_and_never_a_raise(garbage: str | None) -> None:
     outside, _ = _pair()

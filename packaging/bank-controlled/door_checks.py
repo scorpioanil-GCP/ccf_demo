@@ -21,6 +21,7 @@ from ``question.yaml`` and their hashes are recorded before the baseline run.
 
 from __future__ import annotations
 
+import itertools
 import json
 import random
 import re
@@ -222,18 +223,33 @@ def compare(a: Answer, b: Answer) -> Verdict:
         return _fail("comparator", f"{type(error).__name__}: {error}")
 
 
+#: Numbers every signature that must match nothing, so two of them are never equal.
+_UNMATCHABLE = itertools.count()
+
+
 def signature(answer: Answer) -> str:
-    """The masked form of one answer, for timing rows: equal for two answers exactly when ``compare`` would PASS."""
+    """The masked form of one answer, for timing rows: equal for two answers only when ``compare`` would PASS.
+
+    An answer ``compare`` could never pass — a transport error, an answer that cannot be masked, a template answer
+    not at the address asked for — gets a numbered signature no other answer shares (not even itself on a second
+    call), exactly as ``compare`` fails such an answer even against itself. Corrected 2026-10-16 after the focused
+    pre-merge review: the first version summarized such answers by their text alone, so two differing only in
+    ``structuredContent``, ``meta`` or the template address could share one.
+    """
     try:
         if answer.result is None:
-            return f"error {answer.route}: {answer.error}"
+            return f"error #{next(_UNMATCHABLE)} {answer.route}: {answer.error}"
         problem = _copies_agree(answer)
+        if problem is None and answer.route == "template":
+            items = answer.result.get("contents") or []
+            if not items or items[0].get("uri") != answer.address:
+                problem = _fail("template: contents[0].uri", "not the address asked for")
         masked, unmaskable = _masked_text(answer) if problem is None else (None, problem)
         if masked is None:
-            return f"unmaskable {(unmaskable or Verdict(False)).field}: {answer.result.get('isError')} {answer.text()}"
+            return f"unmaskable #{next(_UNMATCHABLE)} {(unmaskable or Verdict(False)).field}"
         return json.dumps(_outer(answer, masked))
     except Exception as error:  # noqa: BLE001
-        return f"unmaskable comparator: {type(error).__name__}: {error}"
+        return f"unmaskable #{next(_UNMATCHABLE)} comparator: {type(error).__name__}: {error}"
 
 
 # --------------------------------------------------------------------------------------------------------------------
