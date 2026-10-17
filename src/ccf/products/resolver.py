@@ -212,6 +212,7 @@ from ccf.products.composite import (
     ChildAdmissionRefusal,
     ChildContractView,
     CompositeChildResolverProtocol,
+    AgentConditionedChildResolverProtocol,
     RequestAwareChildResolverProtocol,
     CompositionOutcome,
     GATE_CHILD_ADMISSION,
@@ -287,6 +288,7 @@ from ccf.products.refusal import (
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
+    SourceUnavailableRefusal,
     SubjectUnavailableRefusal,
     envelope_for,
 )
@@ -308,6 +310,7 @@ from ccf.replay.record import (
     REFUSAL_SEAMS,
     ChildResolution,
     PackagingTrace,
+    PerspectiveConditioning,
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
@@ -2496,6 +2499,7 @@ class RefusalRecorderProtocol(Protocol):
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
         subject_withholding: str | None = None,
+        agent_conditioning: PerspectiveConditioning | None = None,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -2597,7 +2601,9 @@ class IncompatibleRefusalRecorder(TypeError):
     """
 
 
-def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> None:
+def refuse_incompatible_refusal_recorder(
+    recorder: object, *, builder: str, keyword: str = "subject_withholding"
+) -> None:
     """Refuse, where it is built, a recorder whose ``record`` cannot be passed ``subject_withholding=``.
 
     Dave's E2 (iii) (``D-IMPL-378``; :class:`IncompatibleRefusalRecorder`).
@@ -2612,6 +2618,9 @@ def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> N
     Args:
         recorder: What the builder was handed.
         builder: The builder's own name, so the message names where to fix it.
+        keyword: The keyword ``record`` must accept; ``subject_withholding`` by
+            default, ``agent_conditioning`` for a resolver composed over an
+            agent-conditioned child resolver (`D-IMPL-385`).
 
     Raises:
         IncompatibleRefusalRecorder: ``recorder`` has no callable ``record``,
@@ -2636,11 +2645,18 @@ def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> N
         ) from unreadable
     if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
         return
-    named = parameters.get("subject_withholding")
+    named = parameters.get(keyword)
     if named is None or named.kind not in (
         inspect.Parameter.KEYWORD_ONLY,
         inspect.Parameter.POSITIONAL_OR_KEYWORD,
     ):
+        if keyword != "subject_withholding":
+            raise IncompatibleRefusalRecorder(
+                f"{where} cannot be passed {keyword}=: the governed resolver passes"
+                " it on every refusal its composing agent's decisions record. Add"
+                f" `{keyword}: PerspectiveConditioning | None = None` to `record`"
+                " (RefusalRecorderProtocol), or take **kwargs (D-IMPL-385)"
+            )
         raise IncompatibleRefusalRecorder(
             f"{where} cannot be passed subject_withholding=: the governed"
             " resolver passes it on every refusal it records, so this recorder"
@@ -2987,6 +3003,7 @@ class ReplayRefusalRecorder:
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
         subject_withholding: str | None = None,
+        agent_conditioning: PerspectiveConditioning | None = None,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -3088,6 +3105,11 @@ class ReplayRefusalRecorder:
             issuance=new_issuance() if request is not None else None,
             # Dave's Q12 (`D-IMPL-378`): what the deciding class affirms.
             subject_withholding=subject_withholding,
+            # `D-IMPL-385`: the composing agent and its in-force skill-set, as
+            # the resolver's child resolver serialized them; `None` keeps the
+            # no-agent claims, which is the true claim for every decision no
+            # agent composed.
+            agent_conditioning=agent_conditioning,
         )
         reference = record_refusal(
             record=record,
@@ -3722,6 +3744,14 @@ class GovernedResolver:
         # Dave's E2 (iii) (`D-IMPL-378`): a recorder `_record_refusal` could not
         # pass `subject_withholding=` is refused here, not at the first refusal.
         refuse_incompatible_refusal_recorder(self.refusal_recorder, builder="GovernedResolver")
+        # `D-IMPL-385`: a recorder that cannot be passed the composing agent's
+        # conditioning is refused here when the child resolver can supply one,
+        # rather than raising at the first refusal an agent composed.
+        children: object = self.composite_children
+        if isinstance(children, AgentConditionedChildResolverProtocol):
+            refuse_incompatible_refusal_recorder(
+                self.refusal_recorder, builder="GovernedResolver", keyword="agent_conditioning"
+            )
         # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
         # declared acquisition phases is refused here, at construction.
         if self.population_acquisition is not None and self.acquisition is not None:
@@ -5572,6 +5602,10 @@ class GovernedResolver:
             # what keeps those records byte-identical to the ones written
             # before this surface existed.
             child_resolutions=child_rows,
+            # `D-IMPL-385`: dimension 4 names the composing agent and the
+            # skill-set it held; `None` (the no-agent claims) for a decision no
+            # agent composed.
+            agent_conditioning=self._agent_conditioning(perspective),
             # 24.6-03: what was resolved, and on whose authority — dimension 2,
             # beside the versions it was resolved from (`D-IMPL-254`).
             resolution=effective,
@@ -5970,17 +6004,21 @@ class GovernedResolver:
 
         The cause and the code are the PRODUCT's statement; the detail is the
         exception's own message, unedited — the SDK does not paraphrase a
-        failure it did not diagnose.
+        failure it did not diagnose. A ``source-unavailable`` cause mints a
+        :class:`~ccf.products.refusal.SourceUnavailableRefusal`, which says
+        nothing about the subject; any other cause, a
+        :class:`~ccf.products.refusal.SubjectUnavailableRefusal` (`CP06C-F-06`).
         """
+        detail = str(error) or type(error).__name__
+        refusal: SourceUnavailableRefusal | SubjectUnavailableRefusal
+        if binding.cause == "source-unavailable":
+            refusal = SourceUnavailableRefusal(detail=detail, error_code=binding.error_code)
+        else:
+            refusal = SubjectUnavailableRefusal(
+                cause=binding.cause, detail=detail, error_code=binding.error_code
+            )
         return self._refuse_raised_at_seam(
-            GovernedRefusalRaised(
-                SubjectUnavailableRefusal(
-                    cause=binding.cause,
-                    detail=str(error) or type(error).__name__,
-                    error_code=binding.error_code,
-                ),
-                resolution=RESOLVED_BY_THE_RESOLVER,
-            ),
+            GovernedRefusalRaised(refusal, resolution=RESOLVED_BY_THE_RESOLVER),
             seam=seam,
             request=request,
             identity=identity,
@@ -6133,7 +6171,39 @@ class GovernedResolver:
             # that cannot take it fails on every refusal alike, never only on
             # one about a withheld subject.
             subject_withholding=self._declaration().subject_withholding,
+            # `D-IMPL-385`: passed only when an agent composed this decision, so
+            # a recorder written before the keyword existed is unaffected on
+            # every decision no agent composed (it is refused at construction
+            # when composed over an agent-conditioned child resolver).
+            **self._agent_conditioning_keyword(perspective),
         )
+
+    def _agent_conditioning_keyword(self, perspective: Perspective) -> dict[str, PerspectiveConditioning]:
+        """``{"agent_conditioning": ...}`` when an agent composed this decision, else ``{}`` (`D-IMPL-385`).
+
+        Asked of the child resolver when it declares
+        :class:`~ccf.products.composite.AgentConditionedChildResolverProtocol`,
+        at the moment the decision's record is written: the ledger's grant set
+        is read then, so a grant or revocation between two questions shows in
+        the second record and never rewrites the first.
+        """
+        conditioning = self._agent_conditioning(perspective)
+        return {} if conditioning is None else {"agent_conditioning": conditioning}
+
+    def _agent_conditioning(self, perspective: Perspective) -> PerspectiveConditioning | None:
+        """The composing agent's dimension-4 conditioning, or ``None`` (`D-IMPL-385`).
+
+        Read off the child resolver when it declares
+        :class:`~ccf.products.composite.AgentConditionedChildResolverProtocol`;
+        ``None`` for every resolver that does not, and every decision no agent
+        composed.
+        """
+        # Typed as `object`: the field's declared Protocols do not name this
+        # capability, which a resolver declares structurally, beside them.
+        children: object = self.composite_children
+        if not isinstance(children, AgentConditionedChildResolverProtocol):
+            return None
+        return children.agent_conditioning(perspective=perspective)
 
     def _demonstration_pins(self) -> tuple[PolicyBinding, ...]:
         """The declared demonstration serve instant's pin, or nothing (`D-IMPL-378` C1).

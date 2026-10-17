@@ -78,6 +78,27 @@ def branch_point(repo_root: pathlib.Path) -> str:
 # removed, or when an amended file is no longer where the pin names it.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# AMENDED 2026-10-16 — the freeze on the cp-* examples is LIFTED (`D-IMPL-386`;
+# Dave, 2026-10-16 19:11 MST: "Adjust the frozen-specimen checks so they no
+# longer treat ordinary documentation or safety corrections in the cp-*
+# examples as violations. The checks may remain for true specimen drift if that
+# is still useful"). Documentation — every Markdown file: a README, a summary,
+# a findings record, a specification — is outside every pin BY CONSTRUCTION, so
+# correcting, adding or removing one is never a violation and needs no
+# amendment entry. Code, configuration and artifacts stay pinned: changing one
+# names it in the pin's amended set, so the change is deliberate and recorded
+# rather than silent drift.
+# ---------------------------------------------------------------------------
+
+#: The suffixes a pin never covers: documentation.
+DOCUMENTATION_SUFFIXES = (".md",)
+
+
+def is_documentation(relative: str) -> bool:
+    """Whether a specimen file is documentation, which no pin covers (`D-IMPL-386`)."""
+    return relative.endswith(DOCUMENTATION_SUFFIXES)
+
 
 
 def tracked_files(repo_root: pathlib.Path, specimen: pathlib.Path) -> tuple[str, ...]:
@@ -102,7 +123,7 @@ def tracked_files(repo_root: pathlib.Path, specimen: pathlib.Path) -> tuple[str,
 def frozen_digest(
     repo_root: pathlib.Path, specimen: pathlib.Path, *, amended: frozenset[str]
 ) -> str:
-    """SHA-256 over the specimen's tracked files OUTSIDE ``amended``.
+    """SHA-256 over the specimen's tracked files OUTSIDE ``amended`` and outside documentation.
 
     Each file contributes its relative path and the SHA-256 of its bytes, in
     sorted path order, so an added, removed or renamed file moves the digest as
@@ -120,7 +141,7 @@ def frozen_digest(
     )
     digest = hashlib.sha256()
     for relative in files:
-        if relative in amended:
+        if relative in amended or is_documentation(relative):
             continue
         body = (specimen / relative).read_bytes()
         digest.update(relative.encode("utf-8") + b"\0")

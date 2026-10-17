@@ -1,0 +1,243 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+"""cp-06C's door keeps its replay evidence in a private persistent folder (`D-IMPL-383`).
+
+Dave, 2026-10-16: *"introduce a distinct ``evidence_root`` parameter. Do not
+reuse ``scratch`` for durable evidence."* Only the bank launcher reads
+``CCF_REPLAY_EVIDENCE_ROOT``; set, it validates the folder and passes it as
+``evidence_root=``, and still supplies a temporary directory as ``scratch``.
+Unset, it omits ``evidence_root`` and keeps today's temporary behavior. The
+``--evidence-dir`` flag is gone, so there is exactly one setting.
+
+Estate-free: these tests exercise only the folders the door resolves, never the
+product. The live door is ``test_cp_06_mcp_door.py``'s.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import os
+import pathlib
+import sys
+from types import ModuleType
+
+import pytest
+
+EXAMPLE = pathlib.Path(__file__).resolve().parents[2] / "examples" / "cp-06-canonical-collateral-and-setoff-coverage"
+LAUNCH = pathlib.Path(__file__).resolve().parents[2] / "packaging" / "bank-controlled" / "launch.sh"
+
+
+@pytest.fixture()
+def serve() -> ModuleType:
+    saved = {name: sys.modules.pop(name, None) for name in ("produce", "deployment", "acquisition", "projection")}
+    try:
+        spec = importlib.util.spec_from_file_location("cp06c_server_serve", EXAMPLE / "server" / "serve.py")
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        for name, value in saved.items():
+            sys.modules.pop(name, None)
+            if value is not None:
+                sys.modules[name] = value
+
+
+def _private(path: pathlib.Path) -> pathlib.Path:
+    path.mkdir(mode=0o700)
+    path.chmod(0o700)
+    return path
+
+
+def _world_readable(path: pathlib.Path) -> pathlib.Path:
+    path.mkdir()
+    path.chmod(0o755)
+    return path
+
+
+VARIABLE = "CCF_REPLAY_EVIDENCE_ROOT"
+
+
+def test_a_configured_evidence_root_is_the_folder_named_and_scratch_is_still_temporary(
+    serve: ModuleType, tmp_path: pathlib.Path
+) -> None:
+    folder = _private(tmp_path / "evidence")
+    with serve.door_roots({VARIABLE: str(folder)}) as (scratch, evidence_root):
+        assert evidence_root == folder
+        assert scratch != folder and folder not in scratch.parents and scratch not in folder.parents
+        held = scratch
+        (evidence_root / "kept.sqlite3").write_bytes(b"graph")
+    assert not held.exists(), "the scratch is temporary even when the evidence root is configured"
+    assert (folder / "kept.sqlite3").read_bytes() == b"graph", "nothing deletes retained evidence"
+
+
+def test_without_the_variable_there_is_no_evidence_root_and_scratch_is_temporary(serve: ModuleType) -> None:
+    with serve.door_roots({}) as (scratch, evidence_root):
+        assert evidence_root is None
+        held = pathlib.Path(scratch)
+        assert held.is_dir()
+    assert not held.exists(), "the development door's scratch is still temporary"
+
+
+@pytest.mark.parametrize(
+    ("prepare", "named"),
+    [
+        (lambda tmp: tmp / "absent", "does not exist"),
+        (lambda tmp: (tmp / "afile").write_bytes(b"") or tmp / "afile", "not a directory"),
+        (lambda tmp: _world_readable(tmp / "open"), "mode 700"),
+        (lambda tmp: pathlib.Path("relative/evidence"), "absolute"),
+        (lambda tmp: pathlib.Path(""), "absolute"),
+    ],
+)
+def test_an_unusable_evidence_root_is_refused_before_the_door_opens(
+    serve: ModuleType, tmp_path: pathlib.Path, prepare: object, named: str
+) -> None:
+    folder = prepare(tmp_path)  # type: ignore[operator]
+    with pytest.raises(SystemExit, match=named):
+        with serve.door_roots({VARIABLE: str(folder) if str(folder) != "." else ""}):
+            pytest.fail("the door opened over an unusable evidence folder")
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can write anywhere; the check is meaningful only unprivileged")
+def test_a_read_only_folder_is_refused(serve: ModuleType, tmp_path: pathlib.Path) -> None:
+    """A folder the account cannot write is refused. Mode 500 trips the mode-700 check first;
+    the separate writable check covers what a mode cannot show (a read-only mount), and needs
+    privileges to stage, so it is not exercised here."""
+    folder = _private(tmp_path / "readonly")
+    folder.chmod(0o500)
+    try:
+        with pytest.raises(SystemExit, match="mode 700"):
+            with serve.door_roots({VARIABLE: str(folder)}):
+                pytest.fail("the door opened over a folder it cannot write")
+    finally:
+        folder.chmod(0o700)
+
+
+def test_a_symlinked_evidence_root_is_refused_before_the_door_opens(
+    serve: ModuleType, tmp_path: pathlib.Path
+) -> None:
+    """The evidence must be in the folder named: a symlink to a private folder elsewhere is refused."""
+    target = _private(tmp_path / "elsewhere")
+    link = tmp_path / "evidence"
+    link.symlink_to(target)
+    with pytest.raises(SystemExit, match="symlink"):
+        with serve.door_roots({VARIABLE: str(link)}):
+            pass
+
+
+def test_the_bank_launcher_always_sets_the_evidence_root_and_passes_no_flag() -> None:
+    script = LAUNCH.read_text(encoding="utf-8")
+    assert "for d in scratch run logs evidence; do install -d -m 700" in script, "the launcher creates it private"
+    assert 'CCF_REPLAY_EVIDENCE_ROOT="$ROOT/evidence"' in script, "persistence is mandatory in the bank launcher"
+    assert "--evidence-dir" not in script, "one setting, not two"
+    assert '-L "$ROOT/evidence"' in script, "the launcher refuses a symlinked evidence folder"
+
+
+def test_the_bank_verifier_admits_exactly_the_environment_the_launcher_passes() -> None:
+    """``verify.py``'s allowlist names every variable ``launch.sh`` hands the door, and no other.
+
+    A real regression this test was added for (2026-10-16): the launcher began passing
+    ``CCF_REPLAY_EVIDENCE_ROOT`` (`D-IMPL-383`) and the bank's own verifier, whose
+    allowlist did not name it, failed its environment check on every healthy instance
+    (found by the SEC-020 measurement, `ccf_saves/2026-10-16-383/sec020-measure`).
+    ``verify.py`` reads its arguments at import, so its allowlist is read from source.
+    """
+    import ast
+    import re
+
+    script = LAUNCH.read_text(encoding="utf-8")
+    block = script[script.index("env -i ") : script.index("setsid ")]
+    passed = set(re.findall(r"(?:^|\s)([A-Z][A-Z0-9_]*)=", block))
+
+    tree = ast.parse((LAUNCH.parent / "verify.py").read_text(encoding="utf-8"))
+    allowed: set[str] = set()
+    for node in ast.walk(tree):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(t, ast.Name) and t.id == "ALLOWED_ENV" for t in targets):
+            allowed = set(ast.literal_eval(node.value))  # type: ignore[arg-type]
+    assert allowed, "verify.py declares no ALLOWED_ENV"
+    assert "CCF_REPLAY_EVIDENCE_ROOT" in passed, "the launcher passes the evidence root"
+    assert passed == allowed, f"launcher only: {sorted(passed - allowed)}; verifier only: {sorted(allowed - passed)}"
+
+
+def test_the_flag_is_gone_and_only_the_launcher_reads_the_variable() -> None:
+    """Exactly one setting: no ``--evidence-dir`` anywhere, and the SDK core never reads the variable."""
+    repo = EXAMPLE.parents[1]
+    for launcher in (EXAMPLE / "run.py", EXAMPLE / "server" / "serve.py"):
+        assert "--evidence-dir" not in launcher.read_text(encoding="utf-8"), launcher
+    readers = [
+        str(path.relative_to(repo))
+        for top in ("src", "runtime")
+        for path in (repo / top).rglob("*.py")
+        if VARIABLE in path.read_text(encoding="utf-8")
+    ]
+    assert readers == [], f"the SDK core must never read {VARIABLE}: {readers}"
+
+
+@pytest.mark.parametrize("command", [["decisions"], ["why", "0" * 64], ["replay", "0" * 64]])
+def test_the_evidence_commands_refuse_when_nothing_was_retained(
+    serve: ModuleType, command: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``decisions``/``why``/``replay`` read the evidence root; unset, they say so rather than answer empty."""
+    monkeypatch.delenv(serve.EVIDENCE_ROOT_VARIABLE, raising=False)
+    with pytest.raises(SystemExit, match=f"{serve.EVIDENCE_ROOT_VARIABLE} is not set"):
+        serve.main(command)
+
+
+def test_the_launcher_offers_exactly_the_sdk_evidence_verbs(serve: ModuleType) -> None:
+    held = pathlib.Path(serve.__file__).read_text(encoding="utf-8")
+    assert "inspection.register(" in held and "inspection.run(" in held
+    assert serve.inspection.VERBS == ("decisions", "why", "replay")
+
+
+def test_the_evidence_commands_need_no_source_setting(
+    serve: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An auditor holding the evidence folder and no database credential can list it (`CP06C-F-07`)."""
+    for name in [n for n in os.environ if n.startswith("CCF_CP_06C_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv(serve.EVIDENCE_ROOT_VARIABLE, str(_private(tmp_path / "evidence")))
+    with pytest.raises(SystemExit) as exited:
+        serve.main(["decisions"])
+    assert exited.value.code == 0, capsys.readouterr()
+    assert "0 decision(s)" in capsys.readouterr().out
+
+
+def test_an_unreachable_source_is_a_recorded_source_unavailable_refusal(
+    serve: ModuleType, tmp_path: pathlib.Path
+) -> None:
+    """Both legs pointed where nothing listens: a recorded, replayable refusal, never a raw driver error (`CP06C-F-06`).
+
+    Estate-free by construction — nothing is reachable, so nothing is read.
+    """
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+    from ccf.replay.engine import RefusalReplayOutcome  # noqa: PLC0415
+
+    produce = serve.produce
+    deployment = produce.deployment
+    unreachable = {
+        "CCF_CP_06C_FLUREE_URL": "http://127.0.0.1:9",
+        "CCF_CP_06C_FLUREE_LEDGER": "fibo-v2",
+        "CCF_CP_06C_POSTGRES_DSN": "postgresql://nobody@127.0.0.1:9/none?connect_timeout=1",
+        "CCF_CP_06C_POSTGRES_SCHEMA": "ccf_v2",
+    }
+    evidence = _private(tmp_path / "evidence")
+    with produce.product(_private(tmp_path / "scratch"), evidence_root=evidence, environ=unreachable) as opened:
+        outcome = opened.answer(
+            opened.question(
+                subject="FAC-5B8418", asked_at=datetime(2026, 9, 7, 12, 0, tzinfo=UTC),
+                intent="lgd-assessment", freshness="as-filed",
+                parameters={deployment.FACILITY: "FAC-5B8418", deployment.BORROWER_SCOPE: ["2549001IGRCG4F0RLD36"]},
+            )
+        )
+        assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "source-unavailable", outcome
+        assert "127.0.0.1" not in outcome.model_dump_json(), "the driver's text crossed to the caller"
+        assert opened.evidence.incomplete() == [], "an outage is a finished decision"
+        address = opened.artifact_store.resolve_uri(uri=outcome.replay_reference)
+        assert isinstance(opened.replay_decision(address), RefusalReplayOutcome)

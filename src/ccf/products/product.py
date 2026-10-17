@@ -41,7 +41,8 @@ an adopter's spine.
 
 What one question does, in order (the mechanism)
 --------------------------------------------------
-1. **Boot.** A fresh dev fabric is minted under the caller's ``scratch`` from
+1. **Boot.** A fresh dev fabric is minted under the evidence root (the
+   caller's ``evidence_root``, or ``scratch`` when none is supplied) from
    the environment's ``substrate:`` (a per-question file, so two questions can
    never share a graph — `CP03C-F-02` cannot recur), and
    :func:`~ccf.deployment.load_config_and_boot` registers the deployment's
@@ -66,7 +67,8 @@ No ``replay:`` or ``ttl:`` section; no ``request_contract`` or
 ``default_perspective``; a declared product gate with no ``gate=`` or a
 ``gate=`` against a class declaring none (`D-IMPL-282` R-11, held here as
 well as at the builder); a class declaring ``requires`` with no child
-resolver; a ``scratch`` inside ``config_root``; an environment variable a
+resolver; a ``scratch`` or ``evidence_root`` inside ``config_root``, or one
+inside the other; an environment variable a
 source names that the process lacks (with the document's own remedy); a
 ``door:`` asserting a tenant other than the deployment's (R-6, refused by the
 loader); a ``substrate:`` setting the declared adapter does not take as a
@@ -93,7 +95,9 @@ two open release findings `D-IMPL-341` (the entity-freshness expiry) and
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import tempfile
 import uuid
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -105,7 +109,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.artifacts.protocol import ArtifactNotFound, ArtifactStoreProtocol, WriteKinds
+from ccf.erasure.errors import ErasedContentRefused
 from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
 from ccf.erasure.store import (
     ErasureCompositionRefused,
@@ -178,6 +183,8 @@ from ccf.products.composite import (
 )
 from ccf.products.constraints import PolicyConstraintResolver, TechnicalCapability
 from ccf.products.contract import version_satisfies_floor
+from ccf.products.disclosure import DisclosureLevel
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
@@ -187,6 +194,7 @@ from ccf.products.resolver import (
     ProductNotResolvable,
     _refuse_shared_owner,
     ProjectionPlanFactoryProtocol,
+    RefusalRecorderProtocol,
     ReplayRefusalRecorder,
     ResolverOutcome,
     PackagingTraceProtocol,
@@ -206,9 +214,31 @@ from ccf.products.entitlement import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
-from ccf.replay.engine import ReplayDivergence
+from ccf.replay.engine import (
+    ErasedReplayOutcome,
+    RefusalReplayOutcome,
+    ReplayDivergence,
+    ReplayOutcome,
+    replay,
+    replay_refusal,
+)
+from ccf.replay.evidence import (
+    EVIDENCE_SCHEMA_VERSION,
+    EvidenceEntry,
+    NoGraphRetained,
+    ReplayEvidenceAltered,
+    ReplayEvidenceIndex,
+    ReplayEvidenceUnavailable,
+    file_sha256,
+    require_record_address,
+)
 from ccf.replay.provenance import require_filed_by_record_writer
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
+from ccf.replay.record import (
+    NO_PRODUCT_ADDRESS,
+    DecisionReplayRecord,
+    PolicyBinding,
+    ResolutionNotApplicable,
+)
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import (
     IngressTemporalBound,
@@ -241,8 +271,34 @@ __all__ = [
     "DeclaredGrantRefused",
     "GrantNotInForce",
     "OpenedProduct",
+    "SourcesNotRead",
     "open_product",
 ]
+
+
+class SourcesNotRead(RuntimeError):
+    """This product was opened to inspect and replay retained decisions, and answers no question (`D-IMPL-383`).
+
+    SDK-defined (CLAUDE.md §7.4, §8.3). :func:`open_product` with
+    ``read_sources=False`` resolves none of the environment document's source
+    settings — an auditor reading the evidence root needs no database
+    credential, because replay re-executes over the retained graph and never
+    reaches a source (`CP06C-F-07`, measured). Anything that would acquire —
+    :meth:`OpenedProduct.answer` and :meth:`OpenedProduct.resolve` — raises
+    this BEFORE a lane is admitted, a graph is minted or a record is written,
+    so an inspection opening leaves the evidence root exactly as it found it.
+    :attr:`OpenedProduct.sources` raises it too, and the acquisition seam reads
+    that attribute only when it RUNS: :meth:`OpenedProduct.replay_decision`
+    builds the resolver and never acquires, so it works without them, and a
+    replay that did reach acquisition would raise rather than read a source.
+    """
+
+    def __init__(self, what: str) -> None:
+        super().__init__(
+            f"{what}: this product was opened with read_sources=False, to inspect and"
+            " replay retained decisions, and answers no question; open it with its"
+            " source settings to answer (D-IMPL-383)"
+        )
 
 
 class GrantNotInForce(PermissionError):
@@ -596,6 +652,7 @@ class OpenedProduct:
         config_root: Path,
         config_path: Path,
         scratch: Path,
+        evidence_root: Path,
         config: DeploymentConfig,
         environment: EnvironmentDocument,
         keys: DeploymentKeys,
@@ -605,7 +662,7 @@ class OpenedProduct:
         ttl: TtlBinding,
         door: EgressDoorBinding | None,
         default_perspective: PerspectiveArtifact,
-        sources: Mapping[str, Mapping[str, str]],
+        sources: Mapping[str, Mapping[str, str]] | None,
         control_plane: ControlPlaneRegistry,
         artifact_store: ArtifactStoreProtocol,
         erasure_index: ErasureIndexProtocol,
@@ -630,15 +687,22 @@ class OpenedProduct:
         self.config_root = config_root
         self.config_path = config_path
         self.scratch = scratch
+        #: `D-IMPL-383` (Dave, 2026-10-16): where the durable replay evidence
+        #: lives — the per-question graphs, the default replay store and the
+        #: decision → graph index. ``scratch`` itself when the caller supplied
+        #: no ``evidence_root``, so an undeclared root keeps today's behavior.
+        self.evidence_root = evidence_root
         self.config = config
         # P1 (a) (D-IMPL-378; Tuesday GO item 4): the standard product boot
-        # supplies the SDK-managed identity-lock directory under the scratch
-        # root, computed once at open so an unusable one refuses before any
-        # question. Only for an adapter whose connection contract takes the
-        # lock-directory setting; nothing here names a substrate (CINV-04).
+        # supplies the SDK-managed identity-lock directory, computed once at
+        # open so an unusable one refuses before any question. Only for an
+        # adapter whose connection contract takes the lock-directory setting;
+        # nothing here names a substrate (CINV-04). It sits under the root the
+        # graphs are minted in, so every process writing one of those files
+        # takes the same lock whatever its own scratch is.
         self.writer_lock_directory: str | None = None
         if LOCK_DIRECTORY_SETTING in resolve_backend(config.backend).registration.config_model.model_fields:
-            self.writer_lock_directory = sdk_managed_lock_directory(os.path.realpath(scratch))
+            self.writer_lock_directory = sdk_managed_lock_directory(os.path.realpath(evidence_root))
         self.environment = environment
         self.keys = keys
         self.tenant_id = tenant_id
@@ -647,7 +711,7 @@ class OpenedProduct:
         self.ttl = ttl
         self.door = door
         self.default_perspective = default_perspective
-        self.sources = sources
+        self._sources = sources
         self.control_plane = control_plane
         self.artifact_store = artifact_store
         #: SEC-009 (`D-IMPL-374` (4), C1): the durable erasure index this
@@ -657,7 +721,14 @@ class OpenedProduct:
         #: erasure trust root the store verifies every erasure against — and
         #: which every resolver and door built over this product composes with.
         self.erasure_trust = erasure_trust
-        self.refusal_recorder = refusal_recorder
+        self._refusal_recorder = refusal_recorder
+        #: `D-IMPL-383`: the decision → retained-graph index, under the
+        #: evidence root beside the declared store, named from it, never inside it.
+        self.evidence = ReplayEvidenceIndex(
+            evidence_root=evidence_root,
+            index_root=evidence_root / f"{replay.store_dirname}-evidence-index",
+            tenant_id=tenant_id,
+        )
         self._invalidation_sink = invalidation_sink
         self.mcp_skills = mcp_skills
         self.agent = agent
@@ -753,16 +824,25 @@ class OpenedProduct:
         deployment asking as somebody else states that principal's grant on
         the request's own parameters, where the effective request records it.
         """
+        self._refuse_unless_sources_read("answer")
         chosen = perspective if perspective is not None else self.default_perspective
         admitted = self._admit_lane(
             request, perspective=chosen, address=(request.schema_name, request.schema_version)
         )
         if isinstance(admitted, RefusalEnvelope):
-            return admitted
-        fabric = self._boot()
+            return self._published(admitted, request=request, graph=None)
+        # `D-IMPL-383`: the pending marker is written BEFORE the graph is
+        # minted, the mapping is published only AFTER the graph is closed, and
+        # the outcome is returned only after that. An interruption anywhere in
+        # between leaves the marker — the explicit incomplete state.
+        minted = self._mint()
+        # Wall-clock instants, never the deployment's clock: evidence must not
+        # change what the decision sees, and a composed clock can tick per read.
+        self.evidence.begin(graph=minted.name, request=admitted, started_at=_utc_now())
+        fabric = self._boot(minted)
         try:
             resolver = build_governed_resolver(**self.build_arguments(fabric))
-            return resolver(
+            outcome = resolver(
                 tenant=self.tenant_id,
                 product_class=self.declaration.schema_name,
                 version=self.declaration.schema_version,
@@ -771,6 +851,7 @@ class OpenedProduct:
             )
         finally:
             fabric.handle.close()
+        return self._published(outcome, request=admitted, graph=minted)
 
     def record_of(self, outcome: ResolverOutcome) -> DecisionReplayRecord:
         """The decision record behind ``outcome``, read from the ONE store.
@@ -832,6 +913,253 @@ class OpenedProduct:
         )
         return record
 
+    # --- durable, addressable replay evidence (`D-IMPL-383`) -------------------------
+
+    @property
+    def refusal_recorder(self) -> RefusalRecorderProtocol:
+        """The recorder a DOOR records its own denials through — each one mapped (`D-IMPL-383`).
+
+        A door's entitlement step refuses before :meth:`resolve` runs and
+        records through this seam, never through :meth:`answer`. This recorder
+        appends the record through the product's own one, then publishes the
+        decision's no-graph evidence mapping, so a door-recorded refusal replays
+        like every other refusal reached before a graph (instruction 5) and is
+        never reported as interrupted (close panel, 2026-10-15).
+        """
+        return _EvidencePublishingRecorder(inner=self._refusal_recorder, opened=self)
+
+    def _require_mapping_agrees(self, entry: EvidenceEntry, payload: bytes) -> None:
+        """Raise :class:`ReplayDivergence` where ``entry`` contradicts the record's own bytes."""
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != entry.record_address:
+            raise ReplayDivergence(
+                f"the bytes at {entry.record_address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the decision record (D-IMPL-89)"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        served = record.content_generation_path.product_content_address != NO_PRODUCT_ADDRESS
+        if served != (entry.outcome == "served"):
+            raise ReplayDivergence(
+                f"the evidence mapping for {entry.record_address} says {entry.outcome!r},"
+                f" and the decision record says {'served' if served else 'refused'};"
+                " the index was altered"
+            )
+        if record.tenant_id != entry.tenant_id:
+            raise ReplayDivergence(
+                f"the evidence mapping for {entry.record_address} names tenant"
+                f" {entry.tenant_id!r}, and the decision record names {record.tenant_id!r}"
+            )
+
+    def _published_refusal(
+        self, envelope: RefusalEnvelope, *, request: ProductRequest | None, recorded_at: datetime
+    ) -> None:
+        """Publish the no-graph mapping of a refusal a door recorded directly."""
+        identity = envelope.request
+        self.evidence.publish(
+            EvidenceEntry(
+                schema_version=EVIDENCE_SCHEMA_VERSION,
+                record_address=self.artifact_store.resolve_uri(uri=envelope.replay_reference),
+                tenant_id=self.tenant_id,
+                outcome="refused",
+                refusal_reason=envelope.reason,
+                product_class=request.schema_name if request is not None else identity.product_id,
+                product_version=(
+                    request.schema_version if request is not None else identity.product_version or ""
+                ),
+                subject=request.subject if request is not None else "",
+                parameters=(
+                    request.model_dump(mode="json")["parameters"]
+                    if request is not None
+                    else json.loads(json.dumps(dict(identity.parameters), default=str))
+                ),
+                asked_at=request.asked_at if request is not None else identity.temporal_boundary or recorded_at,
+                decided_at=_utc_now(),
+                graph=None,
+                graph_required=False,
+                graph_sha256=None,
+            )
+        )
+
+    def _published(
+        self, outcome: ResolverOutcome, *, request: ProductRequest, graph: Path | None
+    ) -> ResolverOutcome:
+        """Publish ``outcome``'s evidence mapping, then return it — the last step of every decision.
+
+        ``graph`` is the question's closed substrate, or ``None`` for a refusal
+        reached before one was minted, which the mapping then states as "no
+        graph required" (the reviewer's instruction 5). A failure to publish
+        propagates: the decision's record exists, its pending marker stays,
+        and the outcome is NOT returned as durably replayable (instruction 3).
+        """
+        if isinstance(outcome, ServedProduct):
+            address = outcome.replay_ref.content_address
+            refusal_reason = None
+        else:
+            address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
+            refusal_reason = outcome.reason
+        self.evidence.publish(
+            EvidenceEntry(
+                schema_version=EVIDENCE_SCHEMA_VERSION,
+                record_address=address,
+                tenant_id=self.tenant_id,
+                outcome="served" if refusal_reason is None else "refused",
+                refusal_reason=refusal_reason,
+                product_class=request.schema_name,
+                product_version=request.schema_version,
+                subject=request.subject,
+                parameters=request.model_dump(mode="json")["parameters"],
+                asked_at=request.asked_at,
+                decided_at=_utc_now(),
+                graph=None if graph is None else graph.name,
+                graph_required=graph is not None,
+                graph_sha256=None if graph is None else file_sha256(graph),
+            )
+        )
+        return outcome
+
+    def replay_decision(
+        self, record_address: str
+    ) -> ReplayOutcome | RefusalReplayOutcome | ErasedReplayOutcome:
+        """Replay the decision recorded at ``record_address`` from its retained evidence.
+
+        SDK-defined (CLAUDE.md §7.4, §8.3; `D-IMPL-383`). Resolves the
+        decision's evidence mapping by its record address, checks the retained
+        graph is present and byte-identical to what the question closed, boots
+        it READ-ONLY through the deployment's own boot path, rebuilds the
+        recorded environment and hands everything to the existing engine —
+        :func:`~ccf.replay.engine.replay` for a served decision,
+        :func:`~ccf.replay.engine.replay_refusal` for a refused one. Every
+        engine check is retained; nothing here re-derives from a source.
+
+        The low-level engine calls, which take an explicit reader, are
+        unchanged; this is a convenience over them.
+
+        **An operator/auditor handle**, as :meth:`record_of` is: its caller
+        holds this product's store.
+
+        Raises:
+            ValueError: ``record_address`` is not a content address.
+            ccf.replay.evidence.ReplayEvidenceUnavailable: no mapping was
+                published (the decision is unknown, or was interrupted before
+                its mapping — reported as incomplete), the retained graph is
+                gone, or the store no longer holds the record.
+            ccf.replay.evidence.ReplayEvidenceAltered: the retained graph's
+                bytes changed after the decision — a divergence, never
+                "missing".
+            ccf.replay.engine.ReplayDivergence: the record's bytes, or the
+                reproduction, disagree with what was recorded.
+        """
+        from ccf.replay.environment import RecordedEnvironment  # noqa: PLC0415 (cycle)
+
+        require_record_address(record_address)
+        entry = self.evidence.entry(record_address)
+        if entry is None:
+            if self.artifact_store.exists(content_address=record_address):
+                detail = (
+                    "the decision record is in the store but this tenant's evidence index"
+                    " holds no mapping for it: the decision is incomplete (interrupted"
+                    " between writing its record and publishing its mapping) or is not"
+                    " this tenant's"
+                )
+            else:
+                detail = "neither a decision record nor an evidence mapping exists for this address"
+            pending = self.evidence.incomplete()
+            if pending:
+                detail += f"; {len(pending)} incomplete decision(s) are held in this evidence root"
+            raise ReplayEvidenceUnavailable(record_address=record_address, detail=detail)
+        try:
+            payload: bytes | None = self.artifact_store.get(content_address=record_address)
+        except ErasedContentRefused:
+            # SEC-009 (`D-IMPL-374` (4)): an erasure is a recorded decision, not
+            # an absence. The engine meets the same refusal at its prologue and
+            # returns the disclosure, before it would consult a graph.
+            payload = None
+        except ArtifactNotFound:
+            raise ReplayEvidenceUnavailable(
+                record_address=record_address,
+                detail="the evidence mapping names this decision, and the store no longer holds its record",
+            ) from None
+        if payload is not None:
+            # Instruction 4: the content-addressed RECORD is the authority, and a
+            # mutable mapping that disagrees with it is corruption — divergence,
+            # never "missing" (close panel, 2026-10-15).
+            self._require_mapping_agrees(entry, payload)
+        if payload is None or entry.graph is None:
+            not_read = NoGraphRetained(record_address)
+            engine = replay if entry.outcome == "served" else replay_refusal
+            # The record's policy bindings resolve against the Control Plane,
+            # which this deployment registers only as part of a boot. A replay
+            # after a restart that boots no graph would find it empty (close
+            # panel, 2026-10-15: a pre-graph refusal replayed FIRST after a
+            # restart was `ReplayUnresolvable`). So the deployment is booted
+            # once over an empty, throwaway substrate outside the evidence root,
+            # purely to register, and closed; the engine is still handed
+            # `NoGraphRetained`, so no graph is read for this decision.
+            with tempfile.TemporaryDirectory(prefix="ccf-replay-register-") as throwaway:
+                registering = self._boot(Path(throwaway) / self._mint().name)
+                registering.handle.close()
+            return engine(
+                record_address=record_address,
+                store=self.artifact_store,
+                reader=not_read,  # never consulted: see NoGraphRetained
+                control_plane=self.control_plane,
+                environment=not_read,
+            )
+        graph = self.evidence.graph_path(entry)
+        if graph.is_symlink():
+            raise ReplayDivergence(
+                f"the retained graph {entry.graph!r} for {record_address} is a symlink;"
+                " retained evidence lives under the evidence root, and a link to"
+                " anywhere else is not that evidence, whatever bytes it reaches"
+            )
+        if not graph.is_file():
+            raise ReplayEvidenceUnavailable(
+                record_address=record_address,
+                path=entry.graph,
+                detail="the retained graph this decision read is no longer in the evidence root",
+            )
+        found = file_sha256(graph)
+        assert entry.graph_sha256 is not None  # the entry's own validator holds this
+        if found != entry.graph_sha256:
+            raise ReplayEvidenceAltered(
+                record_address=record_address,
+                path=entry.graph,
+                expected_sha256=entry.graph_sha256,
+                found_sha256=found,
+            )
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != record_address:
+            raise ReplayDivergence(
+                f"the bytes at {record_address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the decision record (D-IMPL-89)"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
+        fabric = load_config_and_boot(
+            self.config_path,
+            registry=self.control_plane,
+            connection=self._connection(graph),
+            read_only=True,
+        )
+        try:
+            environment = RecordedEnvironment(record=record, opened=self, fabric=fabric)
+            if entry.outcome == "served":
+                return replay(
+                    record_address=record_address,
+                    store=self.artifact_store,
+                    reader=fabric.handle.reader,
+                    control_plane=self.control_plane,
+                    environment=environment,
+                )
+            return replay_refusal(
+                record_address=record_address,
+                store=self.artifact_store,
+                reader=fabric.handle.reader,
+                control_plane=self.control_plane,
+                environment=environment,
+            )
+        finally:
+            fabric.handle.close()
+
     # --- the serve clock (G1-SDK-01) ---------------------------------------------
 
     def _admission_clock(self) -> Callable[[], datetime]:
@@ -868,6 +1196,26 @@ class OpenedProduct:
         )
 
     # --- the low road, reachable from the paved surface --------------------------
+
+    @property
+    def sources(self) -> Mapping[str, Mapping[str, str]]:
+        """Every source setting the environment document declared, resolved at open.
+
+        Raises:
+            SourcesNotRead: the product was opened with ``read_sources=False``.
+        """
+        if self._sources is None:
+            raise SourcesNotRead("sources")
+        return self._sources
+
+    @property
+    def reads_sources(self) -> bool:
+        """Whether this opening resolved its source settings and can answer (``read_sources=``)."""
+        return self._sources is not None
+
+    def _refuse_unless_sources_read(self, what: str) -> None:
+        if self._sources is None:
+            raise SourcesNotRead(what)
 
     def build_arguments(self, fabric: BootedFabric) -> dict[str, Any]:
         """The exact keyword mapping :meth:`answer` hands :func:`build_governed_resolver`.
@@ -911,7 +1259,7 @@ class OpenedProduct:
             "erasure_trust": self.erasure_trust,
             "replay_record_class": self.replay.record_class,
             "query_pin_class": self.replay.query_pin_class,
-            "refusal_recorder": self.refusal_recorder,
+            "refusal_recorder": self._refusal_recorder,
             "acquisition": self._acquisition_seam(fabric),
             # SEC-020 Q7 (`D-IMPL-378`): the declared population phase, stated
             # only when the deployment declared one.
@@ -977,6 +1325,7 @@ class OpenedProduct:
                 call carries no request — a broken deployment (this door is
                 tool-only and has no standing answer), never a governed "no".
         """
+        self._refuse_unless_sources_read("resolve")
         if tenant != self.tenant_id:
             raise ProductNotResolvable(
                 f"this product serves tenant {self.tenant_id!r} and was called"
@@ -993,7 +1342,7 @@ class OpenedProduct:
             )
         admitted = self._admit_lane(request, perspective=perspective, address=(product_class, version))
         if isinstance(admitted, RefusalEnvelope):
-            return admitted
+            return self._published(admitted, request=request, graph=None)
         return self.answer(admitted, perspective=perspective)
 
     def _admit_lane(
@@ -1078,7 +1427,7 @@ class OpenedProduct:
         # record, and the LIVE instant this door determined at is measured ONCE
         # here and travels as ``served_at`` beside it.
         determined_at = self._clock()
-        return self.refusal_recorder.record(
+        return self._refusal_recorder.record(
             envelope_for(violation, request=identity),
             perspective=perspective,
             recorded_at=request.asked_at,
@@ -1111,8 +1460,12 @@ class OpenedProduct:
 
     # --- the mechanism ------------------------------------------------------------------
 
-    def _boot(self) -> BootedFabric:
-        """Mint a fresh per-question fabric under ``scratch`` and boot it.
+    def _boot(self, minted: Path | None = None) -> BootedFabric:
+        """Mint a fresh per-question fabric under the evidence root and boot it.
+
+        ``minted`` is the path :meth:`_mint` chose, when the caller needed it
+        before the boot (:meth:`answer` writes the evidence marker first);
+        otherwise one is minted here.
 
         The substrate's SETTING, prefix and suffix are the environment
         document's; the uuid is what makes "per question" true rather than
@@ -1123,17 +1476,24 @@ class OpenedProduct:
         the minted substrate does not exist yet, and the governed call that
         acquires into this fabric claims it for the one question it answers.
         """
-        substrate = self.environment.substrate
-        minted = self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
-        connection: dict[str, object] = {substrate.setting: str(minted)}
-        if self.writer_lock_directory is not None:
-            connection[LOCK_DIRECTORY_SETTING] = self.writer_lock_directory
         return load_config_and_boot(
             self.config_path,
             registry=self.control_plane,
-            connection=connection,
+            connection=self._connection(self._mint() if minted is None else minted),
             for_question=True,
         )
+
+    def _mint(self) -> Path:
+        """The path of a fresh per-question substrate under the evidence root (not yet created)."""
+        substrate = self.environment.substrate
+        return self.evidence_root / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
+
+    def _connection(self, substrate_path: Path) -> dict[str, object]:
+        """The connection settings that point the declared adapter at ``substrate_path``."""
+        connection: dict[str, object] = {self.environment.substrate.setting: str(substrate_path)}
+        if self.writer_lock_directory is not None:
+            connection[LOCK_DIRECTORY_SETTING] = self.writer_lock_directory
+        return connection
 
     def _acquisition_seam(
         self,
@@ -1164,7 +1524,10 @@ class OpenedProduct:
         """
         worker = fabric.handle.worker
         tenant_id = self.tenant_id
-        sources = self.sources
+        # `D-IMPL-383` (`CP06C-F-07`): the settings are read when acquisition
+        # RUNS, not when the seam is built. Replay builds this resolver and never
+        # acquires, so it needs none; an opening with ``read_sources=False``
+        # that did acquire would raise `SourcesNotRead` here.
         acquire = self._acquire
         # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
         # — the trusted ingress composition — and bound ONCE per seam rather than
@@ -1204,7 +1567,7 @@ class OpenedProduct:
                     question=question,
                     perspective=perspective,
                     tenant_id=tenant_id,
-                    sources=sources,
+                    sources=self.sources,
                     instant=question.asked_at,
                 )
                 ingest(declared(context), asked_at=question.asked_at)
@@ -1216,7 +1579,7 @@ class OpenedProduct:
                 request=request,
                 perspective=perspective,
                 tenant_id=tenant_id,
-                sources=sources,
+                sources=self.sources,
                 instant=request.asked_at,
             )
             ingest(acquire(context), asked_at=request.asked_at)
@@ -1254,6 +1617,7 @@ def open_product(
     *,
     config_root: Path | str,
     scratch: Path | str,
+    evidence_root: Path | str | None = None,
     acquire: AcquireProtocol,
     project: ProjectionPlanFactoryProtocol,
     assess: AssessProtocol,
@@ -1261,6 +1625,7 @@ def open_product(
     questions: ChildQuestions | None = None,
     clock: Callable[[], datetime] = _utc_now,
     environ: Mapping[str, str] | None = None,
+    read_sources: bool = True,
     control_plane: ControlPlaneRegistry,
     erasure_trust: ErasureTrust,
     artifact_store: ArtifactStoreProtocol | None = None,
@@ -1306,11 +1671,21 @@ def open_product(
 
     Args:
         config_root: The directory holding the two documents. Read-only.
-        scratch: A writable directory: per-question substrate files and the
-            replay store (under the declared ``store_dirname``) live here.
-            Refused inside ``config_root`` by name — a tree that wrote its
-            own fabrics beside its own documents would be one nobody could
-            clean.
+        scratch: The ephemeral working directory. With no ``evidence_root``
+            it is also the evidence root: per-question substrate files, the
+            replay store (under the declared ``store_dirname``) and its
+            evidence index live here. Refused inside ``config_root`` by name
+            — a tree that wrote its own fabrics beside its own documents would
+            be one nobody could clean.
+        evidence_root: The durable directory for replay evidence (`D-IMPL-383`,
+            Dave, 2026-10-16): when supplied, the per-question substrate files,
+            the default replay store and the decision → graph index live here
+            instead of under ``scratch``, so a decision replays by its record
+            address after a restart. ``None`` keeps everything under
+            ``scratch``. Never read from the environment by the SDK: a
+            launcher that takes the location from a variable validates it and
+            passes it here. Refused inside ``config_root``, and refused when it
+            and ``scratch`` lie one inside the other.
         acquire: The deployment's acquisition (:class:`AcquireProtocol`).
         population: The deployment's population phase, when part of
             what it reads does not depend on the subject
@@ -1342,6 +1717,14 @@ def open_product(
             producer endpoints and credentials — are resolved from;
             ``os.environ`` when omitted. Passed in rather than reached for,
             so a test supplies a mapping.
+        read_sources: ``False`` opens the product to inspect and replay its
+            retained decisions only (`D-IMPL-383`, `CP06C-F-07`): no source
+            setting is resolved, so none need be set, and
+            :meth:`OpenedProduct.answer` and :meth:`OpenedProduct.resolve`
+            raise :class:`SourcesNotRead` before anything is admitted, minted
+            or recorded, as does :attr:`OpenedProduct.sources` and so the
+            acquisition seam if it ever runs. :meth:`OpenedProduct.replay_decision`
+            works. Every other open-time check still runs. ``True`` (the default) is unchanged.
         control_plane: The DEPLOYMENT's registry, opened INTO. **Required, no
             default and no fresh-registry fallback** (SEC-009, fix round 4,
             ruling 5): the erasure consult verifies every approval's HITL
@@ -1361,7 +1744,7 @@ def open_product(
         artifact_store: Any :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol`
             (an MCP-backed store, say). Wins under `D-IMPL-282` R-12; the
             declared ``store_dirname`` is then unread. ``None`` builds the
-            file-backed reference store under ``scratch``.
+            file-backed reference store under the evidence root.
         constraint_resolver: A deployment's own
             :class:`~ccf.products.constraints.PolicyConstraintResolver`, or
             ``None`` for the SDK's reference over this registry.
@@ -1390,7 +1773,7 @@ def open_product(
             store; a store already composed through
             :func:`~ccf.erasure.compose_erasure_consult` carries its own, and
             one presented beside it must be the same index by path. ``None``
-            with no supplied store derives the index from the scratch root.
+            with no supplied store derives the index from the evidence root.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
@@ -1419,6 +1802,25 @@ def open_product(
             " per-question fabrics and the replay store are written under"
             " scratch and never beside the deployment's documents (D-IMPL-343)"
         )
+    evidence_dir = scratch_root if evidence_root is None else Path(evidence_root).resolve()
+    if evidence_root is not None:
+        if evidence_dir == root or root in evidence_dir.parents:
+            raise ValueError(
+                f"evidence_root {evidence_dir} lies inside the config root {root};"
+                " retained replay evidence is never written beside the"
+                " deployment's documents (D-IMPL-383, D-IMPL-343)"
+            )
+        if (
+            evidence_dir == scratch_root
+            or scratch_root in evidence_dir.parents
+            or evidence_dir in scratch_root.parents
+        ):
+            raise ValueError(
+                f"evidence_root {evidence_dir} and scratch {scratch_root} lie one"
+                " inside the other; the durable evidence and the ephemeral working"
+                " directory are distinct, so removing one never removes the other"
+                " (D-IMPL-383)"
+            )
     # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two declared
     # acquisition phases is refused at open, before any document is read.
     if population is not None:
@@ -1508,9 +1910,10 @@ def open_product(
     )
 
     resolved_environ = os.environ if environ is None else environ
-    sources = resolve_values(environment.sources, resolved_environ)
+    sources = resolve_values(environment.sources, resolved_environ) if read_sources else None
 
     scratch_root.mkdir(parents=True, exist_ok=True)
+    evidence_dir.mkdir(parents=True, exist_ok=True)
     # SEC-009 (fix round 4, ruling 5): no fresh-registry fallback. The consult
     # verifies against THIS registry, so it must be the deployment's.
     if control_plane is None:
@@ -1531,7 +1934,7 @@ def open_product(
         # classes, all `ReplayMint`. A caller-supplied store carries its own
         # declaration; the resolver refuses one that omits a class it files.
         else FileArtifactStore(
-            root=scratch_root / replay.store_dirname,
+            root=evidence_dir / replay.store_dirname,
             write_kinds=WriteKinds.declare(
                 {
                     replay.record_class: (ReplayMint,),
@@ -1545,14 +1948,14 @@ def open_product(
     # SEC-009 (`D-IMPL-374` (4), ruling 2; fix round 1 C1, (i)): the erasure
     # consult is composed around whichever store was selected — supplied or
     # default — over the deployment's durable erasure index, which this
-    # in-process site takes from its declared scratch root, scoped to the
+    # in-process site takes from its evidence root, scoped to the
     # tenant it serves, so `record_of` and every resolver read refuse erased
     # content.
     #
     # Fix round 2, N1: the index is the SELECTED store's own. A supplied store
     # already composed carries its index (its tenant scope must be this
     # product's, or none); a raw supplied store must come with its index; only
-    # the default store derives one from the scratch root. Any index presented
+    # the default store derives one from the evidence root. Any index presented
     # alongside must be the same index, by path.
     if isinstance(artifact_store, ErasureConsultingStore):
         if artifact_store.tenant_id not in (None, config.tenant_id):
@@ -1572,7 +1975,7 @@ def open_product(
             )
         own_index = erasure_index
     else:
-        own_index = erasure_index_at(scratch_root / replay.store_dirname)
+        own_index = erasure_index_at(evidence_dir / replay.store_dirname)
     if (
         erasure_index is not None
         and erasure_index is not own_index
@@ -1695,6 +2098,7 @@ def open_product(
         config_root=root,
         config_path=config_path,
         scratch=scratch_root,
+        evidence_root=evidence_dir,
         config=config,
         environment=environment,
         keys=placed,
@@ -2195,6 +2599,9 @@ def _derive_consumer_chain(
     return agent, QuestionBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
+        # `D-IMPL-385`: the agent itself, so each decision's record names it and
+        # the skill-set it held in replay dimension 4.
+        agent=agent,
         gate=gate,
         # D-IMPL-354: minted HERE, by the composition root, for the consumer
         # tenant the gate admits for; the resolver holds it and mints nothing.
@@ -2204,3 +2611,58 @@ def _derive_consumer_chain(
         artifact_store=store,
         mcp_skills=mcp_skills,
     )
+
+
+class _EvidencePublishingRecorder:
+    """A :class:`RefusalRecorderProtocol` that maps every refusal it records (`D-IMPL-383`).
+
+    SDK-defined (CLAUDE.md §7.4). Appends through the product's own recorder,
+    then publishes the decision's no-graph evidence mapping; anything else is
+    the inner recorder's. ``**kwargs`` passes every keyword the protocol takes,
+    ``subject_withholding`` included, so the builders' compatibility check
+    (:func:`~ccf.products.resolver.refuse_incompatible_refusal_recorder`) holds.
+    """
+
+    def __init__(self, *, inner: ReplayRefusalRecorder, opened: OpenedProduct) -> None:
+        self._inner = inner
+        self._opened = opened
+
+    def record(
+        self,
+        envelope: RefusalEnvelope,
+        *,
+        recorded_at: datetime,
+        request: ProductRequest | None = None,
+        **kwargs: Any,
+    ) -> RefusalEnvelope:
+        recorded = self._inner.record(envelope, recorded_at=recorded_at, request=request, **kwargs)
+        self._opened._published_refusal(recorded, request=request, recorded_at=recorded_at)
+        return recorded
+
+    # The members the delivery boundaries check for by protocol. A runtime
+    # protocol check reads the CLASS (static lookup), so these are declared
+    # here rather than reached through ``__getattr__`` (close panel fixes,
+    # 2026-10-15: 481 doors refused a wrapper that forwarded them dynamically),
+    # each with the inner recorder's own type, so nothing forces a member past
+    # the type checker (D-IMPL-353 §1.5b).
+    @property
+    def tenant_id(self) -> str:
+        return self._inner.tenant_id
+
+    @property
+    def replay_record_class(self) -> str:
+        return self._inner.replay_record_class
+
+    @property
+    def artifact_store(self) -> ArtifactStoreProtocol:
+        return self._inner.artifact_store
+
+    # The inner recorder's own reader, handed through as the field it is: no
+    # parameter list here, so no principal id is named below the door
+    # (`tests/invariants/test_mcp_role_separation.py`).
+    @property
+    def disclosure_level_for(self) -> Callable[..., tuple[DisclosureLevel, ProvenanceSource | None]]:
+        return self._inner.disclosure_level_for
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)

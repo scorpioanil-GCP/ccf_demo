@@ -1,0 +1,46 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`). It holds the NAMES connection values are read from and the
+# remedy an unset name raises with. NO CONNECTION VALUE APPEARS HERE.
+#
+# The producer's endpoint and credential names are declared in
+# `ccf_config.yaml`'s `producers:` (CCF_SK_01_COLLATERAL_URL and
+# CCF_SK_01_COLLATERAL_TOKEN) and valued only in the process environment.
+
+config: ccf_config.yaml
+
+# The fabric's own L3 — minted fresh under the caller's scratch for every question.
+substrate:
+  setting: database_path
+  prefix: sk01_brief
+  suffix: .sqlite3
+
+sources:
+  # THE PARENT'S OWN LEG — the obligor's identity row in `legal_entity`, one
+  # SELECT per question. The v2 namespace is a variable, not a literal
+  # (CLAUDE.md §9, the namespace trap).
+  identity:
+    dsn:
+      from_env: CCF_SK_01_POSTGRES_DSN
+      remedy: >-
+        export CCF_SK_01_POSTGRES_DSN with a COMPLETE connection string (host,
+        port, dbname, user and password) for the estate holding legal_entity
+        (host from ccf_dataprep/.env), naming a role with SELECT only. A short
+        DSN such as dbname=... is not sufficient: libpq fills the rest from
+        PGHOST, PGUSER and PGPASSWORD, i.e. whatever credentials the shell
+        already holds.
+    schema:
+      from_env: CCF_SK_01_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_SK_01_POSTGRES_SCHEMA with the namespace holding the
+        legal_entity table (the v2 estate reads `ccf_v2`; ccf_dataprep/.env
+        names v1).
+
+# The one deadline the producer call is held to.
+remote:
+  call_timeout_seconds: 120

@@ -72,6 +72,31 @@ the declaration removed, the demonstration question is refused
 A question at a different dated instant needs a deployment declaring its own anchor: set
 `serve_instant` five minutes after it first.
 
+**Asking the retained evidence** (`D-IMPL-383`, 2026-10-16). With `CCF_REPLAY_EVIDENCE_ROOT`
+set to a private (mode `700`) folder, the door keeps every decision's evidence there, and
+three commands answer from it without serving or asking a new question:
+
+```
+SERVE=examples/cp-06-canonical-collateral-and-setoff-coverage/server/serve.py
+.venv/bin/python $SERVE decisions --involving 2549001IGRCG4F0RLD36 --since 2026-10-13 --until 2026-10-13
+.venv/bin/python $SERVE why <decision>      # why it refused, or the policies, inputs and data it used
+.venv/bin/python $SERVE replay <decision>   # re-executes it from the evidence: REPRODUCED or not
+```
+
+`--involving` takes an identifier (a facility id or a legal-entity identifier), not a
+company name. A bare date covers that whole local day; times print in UTC and local time.
+A decision is named by its record address or a unique prefix of at least 8 characters.
+The commands need none of the four source variables above: they open the product with
+`read_sources=False`, which replays and explains but answers no new question (`CP06C-F-07`).
+
+**A source that cannot be reached is a recorded refusal, not a crash** (`CP06C-F-06`,
+2026-10-16). `ccf_config.yaml` declares the two legs' connection errors under
+`seam_refusals` with `cause: source-unavailable`, so an outage answers `source-unavailable`
+— *"a source this product reads could not be reached … ask again later"* — and is kept,
+listed by `decisions` and explained by `why` like any other decision. The driver's own
+message, which names hosts and ports, stays in the record. Any other failure still
+propagates: only the product can say a failure is an outage rather than a defect.
+
 ## The story
 
 ### 0. Two regions, and the SDK owns the rest
@@ -98,10 +123,32 @@ specimen is the control, run in-process by the same test against the same estate
 ### 3. Two governed axes the specimen left open
 
 `intent` is judged on the declared discovery set (`CSCC-G19`; the specimen accepts any
-intent), and a scope the caller does not hold yields an empty graph **and a refusal**
-(`CSCC-G20`; the specimen serves a coverage of zero over it). Both are deliberate
-differences, recorded in `CP-SPEC-006C` §G.3 and in `FINDINGS.md`, never averaged into
-the lane comparison.
+intent), and a scope the caller does not hold is **refused** (`CSCC-G20`; the specimen
+serves a coverage of zero over it). Both are deliberate differences, recorded in
+`CP-SPEC-006C` §G.3 and in `FINDINGS.md`, never averaged into the lane comparison.
+
+### 4. "No such facility" and "not in your scope" are one answer
+
+Acquisition looks the facility up once. If there is no such facility, or its borrower is
+not in the `borrower_scope` the caller stated, it refuses right there — before any
+collateral, set-off or register read — through two refusals declared in `ccf_config.yaml`
+`seam_refusals`. At the default disclosure level both come back as the same
+`subject-unavailable` answer, byte for byte apart from the fresh replay digest and the
+echoed facility id, through the bank's own door on both routes (`CSCC-G25`), and both make
+the same source calls (`CSCC-G26`). The record keeps which it was: `facility-not-held` or
+`outside-requested-borrower-scope`, never the borrower's identifier. Before this
+(SEC-020, measured 2026-10-16), an unknown facility escaped as an opaque runtime failure
+with no record while an out-of-scope one was fully read and then refused — so the answer,
+and the time it took, told a caller whether the facility existed.
+
+What remains, stated rather than hidden: an existing facility's lookup still returns one
+row where an unknown one returns none (`verify.py --timing` measures it against a rule
+fixed beforehand); a caller who names the right borrower, or every borrower, still learns
+the facility exists, because `borrower_scope` is the caller's statement and not a
+permission (SEC-020 Part 4, provisional); and the scope rule is now stated twice — in the
+policy step and in acquisition — because the SDK applies the policy step only after
+acquisition (`CP06C-F-09`, a candidate SDK ease-of-use blocker, kept visible by a strict
+expected failure).
 
 ## Artifact-by-artifact
 
@@ -111,11 +158,11 @@ the lane comparison.
 | `ccf_environment.yaml` | the NAMES the two sources and the door's credential are read from; no value |
 | `artifacts/source-vocabulary.yaml` | every IRI, table and column the two legs read |
 | `artifacts/projection.yaml` | Π's declared values: seniority ranks, the unknown rank, the lien-priority basis note, the sharing roster cap |
-| `artifacts/gates.yaml` | the twenty-three declared product gates and the tests that claim them |
+| `artifacts/gates.yaml` | the twenty-six declared product gates and the tests that claim them |
 | `spec/CP-SPEC-006C_…md` | the successor's specification, Gate 1 approved 2026-09-16 |
 | `produce.py` | the spine: `boot` and `answer` |
 | `deployment.py` | `acquire`, the envelopes (edges first), `assess`, the gate |
-| `acquisition.py` | the two legs, unchanged from the specimen except that the road hands it its settings |
+| `acquisition.py` | the two legs, unchanged from the specimen except that the road hands it its settings, and that one facility lookup now decides whether anything else is read (SEC-020) |
 | `projection.py` | Π, unchanged except that the commitment comes off the view |
 | `server/serve.py` | the standard door launcher, stdio or loopback |
 | `run.py` | presentation only |
@@ -145,8 +192,9 @@ dates (`G07`); serve fabric URIs (`G09`); hand Π the commitment through a closu
 module constant instead of the view (`G14`); compose the resolver beside the opened
 product (`G15`); edit one specimen file or reuse its tenant (`G16`); take the producer
 identity from the answer rather than the registration (`G18`); drop `discovery.intents`
-(`G19`); serve a coverage of zero over an empty view (`G20`); mint the substrate once per
-opened product (`G22`). `CSCC-G23` is live since `D-IMPL-341` (validation pass
+(`G19`); let a scope the caller does not hold past the facility lookup (`G20`); let an
+unknown facility raise instead of refusing (`G25`); check the scope only after the graph
+walks (`G26`); mint the substrate once per opened product (`G22`). `CSCC-G23` is live since `D-IMPL-341` (validation pass
 2026-09-18): the served `expires_at` runs from the freshest asset valuation date the
 admitted view carries, and the contract records that instant as `ttl_anchor_at`.
 

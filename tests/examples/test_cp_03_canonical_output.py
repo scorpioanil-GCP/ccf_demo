@@ -70,7 +70,11 @@ SPECIMEN_AMENDED = frozenset(
 #: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
 #: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
 #: the previous pin was 3085dd42….
-SPECIMEN_FROZEN_DIGEST = "aabf27396358b8cd7c9ab837dac0b907b9f25128cfc676f728a2a282490647b4"
+#: Re-pinned 2026-10-16 (`D-IMPL-386`, the freeze on cp-* lifted): documentation is
+#: outside every pin by construction, so README.md, spec/CP-SPEC-003_Obligor_Financial_Spread.md and summary_explanations.md left the digest.
+#: The previous pin, aabf2739…, held on this tree immediately before the change,
+#: so every other file still holds its frozen bytes.
+SPECIMEN_FROZEN_DIGEST = "bbecfd329dd4148a3b144fc0133fb9f8e66935fe10bb63bf2450977f0f120976"
 
 #: The instant `CP-SPEC-014` asks its children at — held, not tuned (`CP14-F-19`).
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)

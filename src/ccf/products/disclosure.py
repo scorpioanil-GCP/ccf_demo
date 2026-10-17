@@ -347,6 +347,12 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     # door answers with its not-found rendering there, U11); stated so
     # `disclose` stays total over the kinds.
     "erased-content": "the requested content was erased and is not served",
+    # `CP06C-F-06`: true of every declared outage, names no source, and tells
+    # the caller the one thing it can do.
+    "source-unavailable": (
+        "a source this product reads could not be reached, so no answer was"
+        " assembled; ask again later"
+    ),
 }
 
 
@@ -478,6 +484,9 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     "subject-unavailable": frozenset(),
     # SEC-009: nothing at `minimal` — the erasure itself is not disclosed there.
     "erased-content": frozenset(),
+    # `CP06C-F-06`: which source failed (`error_code`) is deployment state; the
+    # kind and its sentence already say what the caller can do.
+    "source-unavailable": frozenset(),
 }
 
 
@@ -531,6 +540,10 @@ INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
     # erasure record's address is withheld — `reasoned` discloses the reason
     # and the instant, `full` the record an examiner can dereference.
     "erased-content": frozenset({"erasure_record_address"}),
+    # `CP06C-F-06`: the detail is the driver's own message, which can name a
+    # host, a port or a database — infrastructure no caller below `full` is
+    # entitled to. The class's `error_code` crosses at `reasoned`.
+    "source-unavailable": frozenset({"detail"}),
 }
 
 #: Per kind, per ``fields`` key, the SUB-MEMBERS of a rendered value that are

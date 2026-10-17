@@ -125,6 +125,7 @@ from ccf.products.payload import PayloadSchemaViolation
 from ccf.products.refusal import (
     REFUSAL_KINDS,
     ErasedContentRefusal,
+    SourceUnavailableRefusal,
     SubjectUnavailableRefusal,
     TemporalBoundRefusal,
 )
@@ -235,6 +236,12 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         PolicyBindingRefusal: STATUS_FULFILLMENT_WITHHELD,
         LineageContinuityRefusal: STATUS_FULFILLMENT_WITHHELD,
         ProductMountRefusal: STATUS_FULFILLMENT_WITHHELD,
+        # `CP06C-F-06`: a source the product reads could not be reached, so the
+        # fabric could not construct an answer to a well-posed request — the
+        # class rule. Not 404: nothing is absent, and `subject-unavailable`'s
+        # status must stay that kind's alone. Not a 5xx: `D-IMPL-253` Q18 holds
+        # every known governed refusal off the server-fault range.
+        SourceUnavailableRefusal: STATUS_FULFILLMENT_WITHHELD,
     }
 )
 

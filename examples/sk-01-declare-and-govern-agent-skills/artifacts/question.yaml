@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+#
+# THE QUESTIONS THIS EXAMPLE ASKS — the brief's own vocabulary, and the
+# question its one required child is asked. `run.py` and `deployment.py` read
+# this file; neither spells a subject, an instant, an intent or a parameter
+# name of its own (CLAUDE.md §6.4).
+#
+# THE DEMONSTRATION QUESTION is CP-14's: BGC Group, Inc. and its facility
+# FAC-5B8418, asked at 2026-09-07T12:00Z. cp-14 measured cp-06-canonical
+# ADMITTING this collateral child on 2026-10-11, and sk-01 measured it admitted
+# again on 2026-10-16 (read-only).
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+#
+# The asked-at instant is a pin, held to the producer's own declared
+# demonstration serve instant (2026-09-07T12:05Z, five minutes later, inside the
+# one-hour temporal boundary both deployments declare).
+
+semver: "1.0.0"
+class_id: sk-01.question
+
+declaration:
+  #: The brief's own question.
+  brief:
+    intent: collateral-brief
+    freshness: decision-scoped
+    #: The request-contract argument naming the facility.
+    facility_parameter: facility_id
+  #: The demonstration question `run.py` asks when no flag overrides it.
+  demonstration:
+    subject: 2549001IGRCG4F0RLD36
+    facility: FAC-5B8418
+    asked_at: "2026-09-07T12:00:00+00:00"
+  #: What the one required child is asked, in the producer's own vocabulary
+  #: (cp-06-canonical's request contract): the facility is the child's subject
+  #: and its `facility_id`; the obligor is its one-element borrower scope; no
+  #: tolerance is invented, because the child's contract takes none.
+  child:
+    intent: lgd-assessment
+    freshness: as-filed
+    facility_parameter: facility_id
+    borrower_scope_parameter: borrower_scope

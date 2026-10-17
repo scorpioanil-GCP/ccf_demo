@@ -46,7 +46,7 @@ goes unnoticed, and the answer looks fine without it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -165,6 +165,51 @@ class Coverage:
     unresolved_debtors: tuple[str, ...] = field(default_factory=tuple)
 
 
+# ---------------------------------------------------------------------------
+# The two questions acquisition refuses, before any collateral is read.
+#
+# SEC-020 Parts 1-2 (Dave, 2026-10-16 21:32 GO). Each is declared under
+# `product_class.seam_refusals` in `ccf_config.yaml`, matched by its exact
+# `acquisition.<Name>`, and becomes the SAME governed `subject-unavailable`
+# answer at the default disclosure level, so a caller cannot use this product
+# to learn whether a facility exists. The record keeps which one it was.
+# ---------------------------------------------------------------------------
+
+
+class FacilityNotHeld(LookupError):
+    """No facility row for the id asked. Declared cause `nonexistent`, code `facility-not-held`."""
+
+
+class FacilityOutsideRequestedScope(Exception):
+    """The facility's borrower is not in the `borrower_scope` the caller stated.
+
+    Declared cause `undisclosed`, code `outside-requested-borrower-scope` (Dave's D1): the scope is the caller's
+    own statement, not an entitlement (SEC-020 Part 4, provisional), so the record claims no permission.
+    """
+
+
+def scope_stamp(borrower_lei: str | None, facility_id: str) -> str:
+    """The `borrower_scope` value every node of this facility's graph carries — the one the policy step admits on.
+
+    `deployment.envelopes` stamps it on every node, and the policy operator admits a node only if its stamp is in
+    the request's `borrower_scope`. One definition, used by both.
+    """
+    return borrower_lei or facility_id
+
+
+def _outside_requested_scope(borrower_lei: str | None, facility_id: str,
+                             borrower_scope: Collection[str]) -> bool:
+    """Whether the policy step would admit nothing of this facility's graph — decided BEFORE anything is read.
+
+    **The policy step's own rule, restated here** (`CP06C-F-09`): `policy.principal-subgraph` admits a node by
+    exact membership of its stamp in `borrower_scope` (`ccf_config.yaml`), and every node carries the one stamp
+    `scope_stamp` returns, so its view is all or nothing — and nothing exactly when this returns True. The SDK
+    applies that step only after acquisition; until it can apply it before, this check is what keeps an
+    out-of-scope facility's collateral from being read (SEC-020 Part 2). When the SDK can, this is deleted.
+    """
+    return scope_stamp(borrower_lei, facility_id) not in borrower_scope
+
+
 def nothing_acquired(facility_id: str) -> Coverage:
     """What a read that was never taken returns.
 
@@ -240,7 +285,7 @@ def _local(uri: str) -> str:
 
 def _resolve_facility(cur: Any, schema: str, vocab: Mapping[str, Any],
                       facility_id: str) -> tuple[str | None, str | None, Decimal | None]:
-    """Step 1 — the anchor. An unknown facility raises rather than serving empty."""
+    """Step 1 — the anchor. An unknown facility is refused (`FacilityNotHeld`) rather than served empty."""
     table = vocab["attribute_leg"]["facility_table"]
     cur.execute(
         f'SELECT f.borrower_lei, e.legal_name, f.commitment_amount '
@@ -251,7 +296,7 @@ def _resolve_facility(cur: Any, schema: str, vocab: Mapping[str, Any],
     )
     row = cur.fetchone()
     if row is None:
-        raise LookupError(
+        raise FacilityNotHeld(
             f"facility {facility_id!r} resolves to no row in {schema}.{table};"
             " an unknown facility is a claim about the request, not about the world"
         )
@@ -479,9 +524,16 @@ def _debtor_names(cur: Any, schema: str, vocab: Mapping[str, Any],
     return mine, unresolved
 
 
-def acquire(*, facility_id: str, include_setoff: bool,
+def acquire(*, facility_id: str, include_setoff: bool, borrower_scope: Collection[str],
             graph: Mapping[str, str], attributes: Mapping[str, str]) -> Coverage:
     """Open both stores and read what secures this facility.
+
+    **One lookup decides whether anything else is read** (SEC-020 Parts 1-2,
+    2026-10-16). An unknown facility raises `FacilityNotHeld`; a facility whose
+    borrower is not in ``borrower_scope`` raises `FacilityOutsideRequestedScope`
+    on the same connection, before the policy tables, the debtor crosswalk, the
+    graph walks or the enrichment. Both are declared seam refusals, so the
+    caller gets one governed answer for either.
 
     Args:
         facility_id: The anchor, as the caller named it.
@@ -489,6 +541,9 @@ def acquire(*, facility_id: str, include_setoff: bool,
             default and any policy bound by `resolve_effective_request`. This
             function applies no default of its own; a second default would be a
             second authority for one value.
+        borrower_scope: The EFFECTIVE scope — the same value the policy step
+            admits on. A caller's statement, not an entitlement (SEC-020 Part 4,
+            provisional).
         graph: The Fluree source's settings — ``url`` and ``ledger`` — as the
             paved road resolved them from the names ``ccf_environment.yaml``
             declares (`D-IMPL-343`). This module reads no environment and no
@@ -502,6 +557,13 @@ def acquire(*, facility_id: str, include_setoff: bool,
         with db.cursor() as cur:
             borrower_lei, borrower_name, commitment = _resolve_facility(
                 cur, schema, vocab, facility_id)
+            if _outside_requested_scope(borrower_lei, facility_id, borrower_scope):
+                # The facility only, never the borrower: the record keeps this
+                # sentence, and naming the LEI would say whose facility it is.
+                raise FacilityOutsideRequestedScope(
+                    f"facility {facility_id!r} is outside the requested borrower_scope;"
+                    " nothing was read past the facility lookup"
+                )
             haircuts, enforceable = _policy(cur, schema, vocab)
             filed_names, unresolved = _debtor_names(cur, schema, vocab, borrower_lei)
 

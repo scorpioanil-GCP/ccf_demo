@@ -83,7 +83,7 @@ declaration:
             `/v1/fluree/query`; it never creates, updates or deletes a ledger,
             and the estate it reads is read-only to this repository. See the
             example README's "Run it" section for the local
-            `fluree/server:4.1.4` container the test leg uses instead.
+            `fluree/server:4.2.4` container the test leg uses instead.
         ledger:
           from_env: CCF_CP_04_FLUREE_LEDGER
           remedy: >-

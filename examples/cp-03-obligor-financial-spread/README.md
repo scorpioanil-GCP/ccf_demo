@@ -69,9 +69,12 @@ export CCF_CP_03_POSTGRES_DSN='host=… port=5432 dbname=… user=… password=�
 **The role must be read-only.** Nothing this example runs writes to the store it
 reads, and a role that *could* write would make that a promise rather than a
 guarantee. Both libpq spellings work and neither is preferred — the keyword
-string above, or a `postgresql://user:pass@host:5432/dbname` URI. libpq also
-reads `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` from the environment on its
-own, so the variable's contents can be as short as `dbname=<database>`.
+string above, or a `postgresql://user:pass@host:5432/dbname` URI.
+`CCF_CP_03_POSTGRES_DSN` is the one variable this example requires, and it must
+be complete: host, port, database, user and password. A short value such as
+`dbname=<database>` is not sufficient: libpq fills what it leaves out from
+`PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD`, so it would quietly use whatever
+login the shell already has.
 
 **3 · Run the demonstration question.**
 

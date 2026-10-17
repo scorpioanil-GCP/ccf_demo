@@ -76,7 +76,11 @@ SPECIMEN_AMENDED = frozenset(
 #: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
 #: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
 #: the previous pin was d4625cda….
-SPECIMEN_FROZEN_DIGEST = "f88b8400ecb220b13209307901682ef995b5c3af75d4e7255e2397e440d475a6"
+#: Re-pinned 2026-10-16 (`D-IMPL-386`, the freeze on cp-* lifted): documentation is
+#: outside every pin by construction, so README.md, spec/CP-SPEC-004_Corporate_Family_Tree.md and summary_explanations.md left the digest.
+#: The previous pin, f88b8400…, held on this tree immediately before the change,
+#: so every other file still holds its frozen bytes.
+SPECIMEN_FROZEN_DIGEST = "e217d5fc6a8c62074515c727e598fc65fd9a059b2faaf22287068bf5f38f0217"
 
 #: The family this example demonstrates against, read from the example rather
 #: than restated: a constant here would be this module agreeing with itself.

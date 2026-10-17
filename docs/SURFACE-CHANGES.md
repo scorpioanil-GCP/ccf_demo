@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2686 entries**, of which **2404** name a public Python surface.
+**2716 entries**, of which **2433** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1407 entries — 1360 public Python surface, 47 not public Python API.
+1426 entries — 1379 public Python surface, 47 not public Python API.
 
 ### Public Python surface
 
@@ -20228,6 +20228,234 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
+#### ccf.replay.evidence.ReplayEvidenceIndex
+
+- Surface: ccf.replay.evidence.ReplayEvidenceIndex
+- Public surface: true
+- Change type: added
+- Before: no mapping from a decision to the graph it read; replay callers located a graph themselves.
+- After: a file index under the evidence root keyed by the decision's record address (`decisions/<address>.json`), with a `pending/<graph>.json` marker as the explicit incomplete state; `entry(address)`, `decisions(since=, until=, involving=)`, `incomplete()`, `graph_path(entry)`; writes are staged, `fsync`-ed and renamed.
+- Why: `D-IMPL-383` instructions 2 and 3, and the bank front-end's listing by time and company.
+- Migration: none. Reached as `OpenedProduct.evidence`.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.EvidenceEntry
+
+- Surface: ccf.replay.evidence.EvidenceEntry
+- Public surface: true
+- Change type: added
+- Before: no such contract.
+- After: one decision's published mapping: record address, tenant, served or refused, refusal reason, product class and lane, subject, request parameters, `asked_at`, `decided_at`, the graph relative to the evidence root, `graph_required` (false, explicitly, for a refusal before any graph) and the graph's sha256 when its question closed it.
+- Why: `D-IMPL-383` instructions 2 and 5.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.PendingEvidence
+
+- Surface: ccf.replay.evidence.PendingEvidence
+- Public surface: true
+- Change type: added
+- Before: no such contract.
+- After: the incomplete-state marker written before a question's graph is minted and removed only after its mapping is durable.
+- Why: `D-IMPL-383` instruction 3.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.ReplayEvidenceUnavailable
+
+- Surface: ccf.replay.evidence.ReplayEvidenceUnavailable
+- Public surface: true
+- Change type: added
+- Before: no such error.
+- After: a `ReplayError` carrying `record_address` and, when one file is missing, its `path`; raised for no mapping (unknown, or incomplete), a missing graph, or a record the store no longer holds.
+- Why: `D-IMPL-383` instruction 4.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.ReplayEvidenceAltered
+
+- Surface: ccf.replay.evidence.ReplayEvidenceAltered
+- Public surface: true
+- Change type: added
+- Before: no such error.
+- After: a `ReplayDivergence` raised when a retained graph exists but its bytes are not those its question closed.
+- Why: `D-IMPL-383` instruction 4 — corruption is never collapsed into "missing".
+- Migration: none; a caller that treats `ReplayDivergence` as a finding treats this identically.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.EVIDENCE_SCHEMA_VERSION
+
+- Surface: ccf.replay.evidence.EVIDENCE_SCHEMA_VERSION
+- Public surface: true
+- Change type: added
+- Before: no such constant.
+- After: `1`, the index document schema.
+- Why: `D-IMPL-383`.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.file_sha256
+
+- Surface: ccf.replay.evidence.file_sha256
+- Public surface: true
+- Change type: added
+- Before: no such function.
+- After: `file_sha256(path) -> str`, the chunked sha256 of a file.
+- Why: `D-IMPL-383` — the graph's bytes are held to what its question closed.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.evidence.require_record_address
+
+- Surface: ccf.replay.evidence.require_record_address
+- Public surface: true
+- Change type: added
+- Before: no such function.
+- After: returns a content address unchanged or raises `ValueError`, before any index path is built from it.
+- Why: `D-IMPL-383` — lookup never reaches the filesystem through a non-address.
+- Migration: none.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
+#### ccf.replay.inspection.explain_decision
+
+- Surface: ccf.replay.inspection.explain_decision
+- Public surface: true
+- Change type: added
+- Before: a decision's reasons were reachable only as raw record JSON (`OpenedProduct.record_of`), and only for an outcome object the caller still held.
+- After: `explain_decision(*, store, evidence, record_address)` reads the record at its exact address and returns a `DecisionExplanation`: served or refused; the refusal's kind, reason code and the `detail` sentence the refusal envelope wrote when it refused; every policy binding in force at its pinned version; every resolved request input with its authority (caller or default) and source version; and, when a graph was read, its snapshot id, as-of instant, entity and relationship counts, operator plan and Context Debt. Every value is copied from the record. It needs no retained graph. Raises `ReplayEvidenceUnavailable` for an address the index does not hold, or whose record the store no longer holds.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/replay/test_replay_inspection_383.py` (all 11 fail on `3dbd7ef8`: `No module named 'ccf.replay.inspection'`).
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf.replay.inspection.DecisionExplanation
+
+- Surface: ccf.replay.inspection.DecisionExplanation
+- Public surface: true
+- Change type: added
+- Before: no such contract.
+- After: the explanation above. An operator/auditor handle, as `record_of` is: the refusal detail is the internal one, which a caller at a minimal disclosure level was not shown.
+- Why: `D-IMPL-383`.
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf.replay.inspection.ParameterOrigin
+
+- Surface: ccf.replay.inspection.ParameterOrigin
+- Public surface: true
+- Change type: added
+- Before: no such contract; a resolved input's authority and source were reachable only by parsing dimension 2's `request_resolution` string.
+- After: one resolved request input: name, value, authority (`caller` or where the value came from), source and source version.
+- Why: `D-IMPL-383` ("which policies and data supported this answer").
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf.replay.inspection.PolicyVersion
+
+- Surface: ccf.replay.inspection.PolicyVersion
+- Public surface: true
+- Change type: added
+- Before: no such contract.
+- After: one Control Plane binding in force, by key and pinned version.
+- Why: `D-IMPL-383`.
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf_runtime.cli.evidence.register
+
+- Surface: ccf_runtime.cli.evidence.register
+- Public surface: true
+- Change type: added
+- Before: no command answered from retained evidence; the `ccf` CLI's `replay` noun queries a running HTTP server.
+- After: `register(subparsers)` adds `decisions [--involving ID] [--since WHEN] [--until WHEN] [--json]`, `why <decision> [--json]` and `replay <decision>` to a launcher's commands. A decision may be named by a unique prefix of at least 8 characters; a bare date covers the whole local day; times print in UTC and local time. cp-06C's launcher (`server/serve.py`) is the first to offer them.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/examples/test_cp_06_canonical_evidence_dir.py` (4 of 15 fail on `3dbd7ef8`).
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf_runtime.cli.evidence.run
+
+- Surface: ccf_runtime.cli.evidence.run
+- Public surface: true
+- Change type: added
+- Before: no such function.
+- After: `run(args, opened, *, out)` answers one verb against an opened product's evidence index and store and returns its exit status: `0` answered, `2` malformed, `3` evidence unavailable, `4` did not reproduce.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/examples/test_cp_06_canonical_evidence_dir.py` (4 of 15 fail on `3dbd7ef8`).
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf_runtime.cli.evidence.VERBS
+
+- Surface: ccf_runtime.cli.evidence.VERBS
+- Public surface: true
+- Change type: added
+- Before: no such name.
+- After: the tuple of verbs `register` adds: `decisions`, `why`, `replay`.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/examples/test_cp_06_canonical_evidence_dir.py` (4 of 15 fail on `3dbd7ef8`).
+- Migration: none.
+
+*Recorded by `383-03-asking-the-retained-evidence.md`.*
+
+#### ccf.products.product.SourcesNotRead
+
+- Surface: ccf.products.product.SourcesNotRead
+- Public surface: true
+- Change type: added
+- Before: no such error.
+- After: a `RuntimeError` naming what was attempted, raised by an opening with `read_sources=False` asked to answer or to hand out its source settings.
+- Why: `D-IMPL-383`, `CP06C-F-07`.
+- Migration: none.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
+
+#### ccf.products.refusal.SourceUnavailableRefusal
+
+- Surface: ccf.products.refusal.SourceUnavailableRefusal
+- Public surface: true
+- Change type: added
+- Before: no such kind; a declared outage could only be refused as `subject-unavailable`.
+- After: refusal kind `source-unavailable` with `detail` (the exception's own message) and `error_code` (the class's declared code). Registered in `REFUSAL_KINDS` and the pre-assembly set; its external sentence says a source could not be reached and to ask again later; `detail` is withheld below `full` because a driver's message can name hosts and ports; HTTP status 409 (fulfillment withheld), never a 5xx (`D-IMPL-253` Q18). Under a declared early policy it is still recorded as the one constant `subject-unavailable` (SEC-020).
+- Why: `CP06C-F-06`. Red test: `tests/examples/test_cp_06_canonical_evidence_dir.py::test_an_unreachable_source_is_a_recorded_source_unavailable_refusal` raises `psycopg.OperationalError` with the declaration removed; `tests/products/test_source_unavailable_refusal.py` does not import on `a06b66fc`.
+- Migration: none; nothing mints it unless a class declares `cause: source-unavailable`.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
+
+#### ccf.products.contract.SeamRefusalCause
+
+- Surface: ccf.products.contract.SeamRefusalCause
+- Public surface: true
+- Change type: added
+- Before: a seam binding's cause was typed `RefusalCause` (the three subject causes).
+- After: `RefusalCause | Literal["source-unavailable"]`. `RefusalCause` itself is unchanged, so a `SubjectUnavailableRefusal` can never carry the new value.
+- Why: `CP06C-F-06`.
+- Migration: none.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
+
+#### ccf.products.composite.AgentConditionedChildResolverProtocol
+
+- Surface: ccf.products.composite.AgentConditionedChildResolverProtocol
+- Public surface: true
+- Change type: added
+- Before: no way for a child resolver to say which agent composed a decision.
+- After: a runtime-checkable capability Protocol, `agent_conditioning(*, perspective) -> PerspectiveConditioning | None`. `GovernedResolver` asks a child resolver that declares it when it writes a decision's record (served or refused) and threads the answer into dimension 4; `None`, or a resolver that does not declare it, keeps the no-agent claims.
+- Why: CLAUDE.md §6.2 — which agent and which skill-set made a decision must be answerable from replay alone. Red test: `tests/products/test_dimension_four_records_the_agent.py` (`'no-agent' == <agent hash>` on `5a3e9b9f`).
+- Migration: none.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
 #### ccf.graph.leases.LOCK_DIRECTORY_SETTING
 
 - Surface: ccf.graph.leases.LOCK_DIRECTORY_SETTING
@@ -21143,7 +21371,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-644 entries — 448 public Python surface, 196 not public Python API.
+653 entries — 457 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28507,6 +28735,114 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
 
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: `scratch` held the per-question graphs, the default file-backed replay store (with its erasure index) and the decision → graph index; a deployment that wanted durable replay evidence had to hand over a persistent `scratch`.
+- After: a keyword `evidence_root: Path | str | None = None`. Supplied, the per-question graphs, the default replay store and its erasure index, the decision → graph index and the SDK-managed writer-lock directory live under it, and `scratch` holds only what need not survive the process. `None` keeps everything under `scratch`, as before. Refused at open with `ValueError`: an `evidence_root` inside `config_root`, or one that and `scratch` lie one inside the other. The SDK never reads an environment variable for it.
+- Why: `D-IMPL-383`, Dave 2026-10-16. Red tests: `tests/replay/test_replay_evidence_383.py` (18 of its 19 tests red on `c09cdd51`; the one green is a docstring check: `open_product() got an unexpected keyword argument 'evidence_root'`).
+- Migration: none for a caller that passes no `evidence_root`. A deployment that relied on a persistent `scratch` for durable evidence passes that folder as `evidence_root=` and a temporary directory as `scratch`; the layout under the folder is unchanged.
+
+*Recorded by `383-02-a-distinct-evidence-root.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no `evidence_root`; graphs were minted under `scratch` and `evidence` indexed `scratch`.
+- After: an `evidence_root` attribute (the `scratch` path when none was supplied); graphs are minted under it and `evidence` indexes it. `open_product` is the only constructor.
+- Why: `D-IMPL-383`, Dave 2026-10-16.
+- Migration: none.
+
+*Recorded by `383-02-a-distinct-evidence-root.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: every source setting the environment document names was resolved at open; an unset one raised `EnvironmentMissing`, so an auditor without database credentials could not open the product even to replay.
+- After: a keyword `read_sources: bool = True`. `False` resolves no source setting, so none need be set; every other open-time check still runs. `True` is unchanged.
+- Why: `D-IMPL-383`, `CP06C-F-07`. Red tests: `tests/replay/test_replay_inspection_383.py` (2 new tests fail on `2a5c4de0`) and `tests/examples/test_cp_06_canonical_evidence_dir.py::test_the_evidence_commands_need_no_source_setting` (`EnvironmentMissing`).
+- Migration: none.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: `sources` was a plain attribute, and the acquisition seam read it when the governed resolver was built.
+- After: `sources` is a read-only property that raises `SourcesNotRead` for an opening with `read_sources=False`; `reads_sources` says which kind of opening this is; `answer` and `resolve` raise `SourcesNotRead` before a lane is admitted, a graph minted or a record written. The acquisition seam reads `sources` only when it RUNS, so `replay_decision` — which builds the resolver and never acquires — works without them, and a replay that did reach acquisition would raise rather than read a source.
+- Why: `D-IMPL-383`, `CP06C-F-07`.
+- Migration: none; `opened.sources[...]` reads as before on a default opening.
+
+*Recorded by `383-04-replay-without-source-settings.md`.*
+
+#### ccf.controlplane.artifacts.SeamRefusalBinding
+
+- Surface: ccf.controlplane.artifacts.SeamRefusalBinding
+- Public surface: true
+- Change type: reshaped
+- Before: `cause: RefusalCause`; every binding minted `subject-unavailable`.
+- After: `cause: SeamRefusalCause`; `source-unavailable` mints a `SourceUnavailableRefusal`, every other cause mints `subject-unavailable` exactly as before. Matching is unchanged: exact `module.QualName`, never imported, never a subclass.
+- Why: `CP06C-F-06`.
+- Migration: none; every existing binding's cause is still valid and hashes as before.
+
+*Recorded by `383-05-source-unavailable-refusal.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: built from `agent_definition_hash` alone.
+- After: optional `agent: AgentDefinition | None = None`, refused at construction unless its content hash equals `agent_definition_hash`; `agent_conditioning(perspective=...)` returns the caller's principal and role, the agent's hash, versioned URI and archetypes, and the ledger's grant-set hash for that agent read at the call. `QuestionBoundChildResolver` takes the same keyword and delegates.
+- Why: `D-IMPL-385`.
+- Migration: none; without `agent` the resolver records exactly as before.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(...)` took no agent conditioning.
+- After: optional `agent_conditioning: PerspectiveConditioning | None = None`, recorded into dimension 4 (`ReplayRefusalRecorder` passes it to `build_replay_record`). The resolver passes it only for a decision an agent composed, and refuses at construction a recorder that cannot accept it when its child resolver declares `AgentConditionedChildResolverProtocol` (`refuse_incompatible_refusal_recorder(..., keyword="agent_conditioning")`).
+- Why: `D-IMPL-385`.
+- Migration: a deployment's own recorder composed over an agent-conditioned child resolver adds the keyword or takes `**kwargs`.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: built from `agent_definition_hash` alone.
+- After: optional `agent: AgentDefinition | None = None`, handed to the `GrantBoundChildResolver` it wraps; `agent_conditioning(perspective=...)` delegates to it. `open_product` passes the declared agent, so every paved composite's records name it.
+- Why: `D-IMPL-385`.
+- Migration: none.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
+#### ccf.products.resolver.refuse_incompatible_refusal_recorder
+
+- Surface: ccf.products.resolver.refuse_incompatible_refusal_recorder
+- Public surface: true
+- Change type: reshaped
+- Before: checked only that `record` accepts `subject_withholding=`.
+- After: optional `keyword: str = "subject_withholding"`; `GovernedResolver` also checks `agent_conditioning` when its child resolver declares `AgentConditionedChildResolverProtocol`.
+- Why: `D-IMPL-385`.
+- Migration: none; the default is the previous check.
+
+*Recorded by `385-01-dimension-four-names-the-agent.md`.*
+
 #### ccf.products.product.OpenedProduct
 
 - Surface: ccf.products.product.OpenedProduct
@@ -31667,7 +32003,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-587 entries — 548 public Python surface, 39 not public Python API.
+589 entries — 549 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -39579,6 +39915,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `382-01-one-invalidation-record-per-entity.md`.*
 
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: behavior
+- Before: `answer` and `resolve` returned the governed outcome with no record of which graph it read; replay needed the caller to boot the right graph and supply the reader.
+- After: every decision publishes its evidence mapping under `scratch` before it returns (a pending marker first, the mapping after the graph is closed); a failure to publish propagates rather than returning an outcome as durably replayable. New: `evidence` (the decision's `ReplayEvidenceIndex`) and `replay_decision(record_address)`, which resolves the mapping, checks the graph is present and byte-identical, boots it read-only and hands the existing engine the reader and a `RecordedEnvironment`; an erased record is handed to the engine, which discloses it.
+- Why: `D-IMPL-383`.
+- Migration: none for existing callers. `scratch` now also holds `<store_dirname>-evidence-index/`; a deployment that wants replay to survive a restart passes a persistent `scratch`.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*
+
 #### ccf.products.product.open_product
 
 - Surface: ccf.products.product.open_product
@@ -40789,3 +41137,15 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. An operator follows the new wording; anything that matched the old text matches `force-reinstall`, which the SDK's remedy still contains.
 
 *Recorded by `377-03-sec-027-distribution-name.md`.*
+
+#### Fluree server pin (CI)
+
+- Surface: Fluree server pin (CI)
+- Public surface: false
+- Change type: behavior
+- Before: `ci.yml` pinned `fluree/server:4.1.4`; the drift job tracked the floating `4.1`.
+- After: `ci.yml` pins `4.2.4`; the drift job tracks `4.2`. `4.2.4` refuses a relationship-property read over an undirected variable-length path with `400 err:parse/CypherLower` where `4.1.4` answered `[null, null]`; the SDK never issues that read.
+- Why: `D-IMPL-384`, Dave, 2026-10-15 21:54.
+- Migration: run the Fluree leg and any local Fluree container on `fluree/server:4.2.4`.
+
+*Recorded by `383-01-durable-addressable-replay-evidence.md`.*

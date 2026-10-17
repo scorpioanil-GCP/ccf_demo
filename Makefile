@@ -64,6 +64,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
 	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-cp-15 example-cp-17 example-cp-18 example-cp-19 example-door-cp-05 \
+	example-sk-01 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -666,6 +667,13 @@ example-cp-14: ## Run examples/cp-14-credit-memo-context (LEI, FACILITY, ASKED_A
 	PYTHONPATH=src:runtime:examples/cp-14-credit-memo-context \
 		$(PYTHON) examples/cp-14-credit-memo-context/run.py \
 		$(LEI) $(FACILITY) $(ASKED_AT) $(AS_OF) $(DEBT_TOLERANCE) $(MEMO_TYPE)
+
+# sk-01 — declare and govern an agent's skills (Dave, 2026-10-16 16:58, option A).
+# Reads the obligor's legal_entity row directly (CCF_SK_01_POSTGRES_DSN/SCHEMA, read-only) and the collateral figures through a running cp-06-canonical door; not in `examples:` (networked).
+example-sk-01: ## Run examples/sk-01-declare-and-govern-agent-skills (LEI, FACILITY, ASKED_AT optional; needs CCF_SK_01_POSTGRES_DSN/SCHEMA and CCF_SK_01_COLLATERAL_URL/_TOKEN from a running cp-06-canonical door)
+	PYTHONPATH=src:runtime:examples/sk-01-declare-and-govern-agent-skills \
+		$(PYTHON) examples/sk-01-declare-and-govern-agent-skills/run.py \
+		$(LEI) $(FACILITY) $(ASKED_AT)
 
 # door-cp-05 — frozen cp-05's exposure rollup reached through the SDK's standard
 # door (CP-14 completion GO, exposure option 3). A door only: asks nothing itself.

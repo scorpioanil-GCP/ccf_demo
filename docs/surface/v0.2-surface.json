@@ -2264,7 +2264,7 @@
       "SeamRefusalBinding": {
         "kind": "contract",
         "shape": {
-          "cause": "typing.Literal['nonexistent', 'unauthorized', 'undisclosed']",
+          "cause": "typing.Union[typing.Literal['nonexistent', 'unauthorized', 'undisclosed'], typing.Literal['source-unavailable']]",
           "error_code": "<class 'str'>",
           "exception": "<class 'str'>"
         }
@@ -7401,7 +7401,7 @@
       },
       "GrantBoundChildResolver": {
         "kind": "class",
-        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_questions: 'ChildQuestions | None' = None) -> 'None'"
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_questions: 'ChildQuestions | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
       },
       "MalformedDoorAnswer": {
         "kind": "class",
@@ -7409,7 +7409,7 @@
       },
       "QuestionBoundChildResolver": {
         "kind": "class",
-        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', authorized: 'Authorized[ReplayMint]', child_questions: 'ChildQuestions', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_arguments: 'ChildArguments | None' = None) -> 'None'"
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', authorized: 'Authorized[ReplayMint]', child_questions: 'ChildQuestions', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_arguments: 'ChildArguments | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
       },
       "QuestionRetentionUnauthorized": {
         "kind": "class",
@@ -7421,6 +7421,7 @@
     "__all__": [
       "ADMITTED_CHILD_CONTRACT_CLASS",
       "AdmittedChild",
+      "AgentConditionedChildResolverProtocol",
       "AmbiguousProducerError",
       "CHILD_QUESTION_CLASS",
       "CHILD_REFUSAL_REASONS",
@@ -7457,6 +7458,10 @@
       "AdmittedChild": {
         "kind": "class",
         "shape": "(candidate: 'ChildCandidate', eligibility_basis: 'str', factors: 'DebtFactors', asked_at: 'datetime', composition_invocation: 'str', verified_address: 'str', evidence: \"'EligibilityEvidence | None'\", admitted_at: 'datetime', token: 'object') -> 'None'"
+      },
+      "AgentConditionedChildResolverProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "AmbiguousProducerError": {
         "kind": "class",
@@ -7763,6 +7768,7 @@
       "RegisteredProductClass",
       "SUBJECT_WITHHOLDING_NEVER",
       "SUBJECT_WITHHOLDING_POSSIBLE",
+      "SeamRefusalCause",
       "ServeObligations",
       "SubjectWithholding",
       "TTLAnchor",
@@ -7935,6 +7941,10 @@
       "SUBJECT_WITHHOLDING_POSSIBLE": {
         "kind": "constant",
         "shape": "str"
+      },
+      "SeamRefusalCause": {
+        "kind": "function",
+        "shape": "typing.Union[typing.Literal['nonexistent', 'unauthorized', 'undisclosed'], typing.Literal['source-unavailable']]"
       },
       "ServeObligations": {
         "kind": "contract",
@@ -8559,6 +8569,7 @@
       "OpenedProduct",
       "PopulationAcquireProtocol",
       "PopulationAcquisitionContext",
+      "SourcesNotRead",
       "open_product"
     ],
     "exports": {
@@ -8596,7 +8607,7 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False, invalidation_sink: 'ControlPlaneInvalidationSink | None' = None) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', evidence_root: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]] | None', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None, honors_demonstration_serve_instant: 'bool' = False, invalidation_sink: 'ControlPlaneInvalidationSink | None' = None) -> 'None'"
       },
       "PopulationAcquireProtocol": {
         "kind": "class",
@@ -8606,9 +8617,13 @@
         "kind": "class",
         "shape": "(question: 'PopulationQuestion', perspective: 'Perspective', tenant_id: 'str', sources: 'Mapping[str, Mapping[str, str]]', instant: 'datetime') -> None"
       },
+      "SourcesNotRead": {
+        "kind": "class",
+        "shape": "(what: 'str') -> 'None'"
+      },
       "open_product": {
         "kind": "function",
-        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'OpenedProduct'"
+        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', evidence_root: 'Path | str | None' = None, acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, read_sources: 'bool' = True, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'OpenedProduct'"
       }
     }
   },
@@ -8697,6 +8712,7 @@
       "RequestIdentity",
       "ResolvedByTheResolver",
       "ResourceRequestIdentity",
+      "SourceUnavailableRefusal",
       "SubjectUnavailableRefusal",
       "TemporalBoundRefusal",
       "envelope_for",
@@ -8784,6 +8800,13 @@
           "surface": "<class 'str'>",
           "tenant_from": "typing.Optional[typing.Literal['capability']]",
           "tenant_id": "<class 'str'>"
+        }
+      },
+      "SourceUnavailableRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "error_code": "<class 'str'>"
         }
       },
       "SubjectUnavailableRefusal": {
@@ -9233,7 +9256,7 @@
       },
       "refuse_incompatible_refusal_recorder": {
         "kind": "function",
-        "shape": "(recorder: 'object', *, builder: 'str') -> 'None'"
+        "shape": "(recorder: 'object', *, builder: 'str', keyword: 'str' = 'subject_withholding') -> 'None'"
       }
     }
   },
@@ -9621,6 +9644,135 @@
       "RecordedEnvironmentUnbuildable": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.replay.evidence": {
+    "__all__": [
+      "EVIDENCE_SCHEMA_VERSION",
+      "EvidenceEntry",
+      "PendingEvidence",
+      "ReplayEvidenceAltered",
+      "ReplayEvidenceIndex",
+      "ReplayEvidenceUnavailable",
+      "file_sha256",
+      "require_record_address"
+    ],
+    "exports": {
+      "EVIDENCE_SCHEMA_VERSION": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "EvidenceEntry": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "decided_at": "<class 'datetime.datetime'>",
+          "graph": "str | None",
+          "graph_required": "<class 'bool'>",
+          "graph_sha256": "str | None",
+          "outcome": "typing.Literal['served', 'refused']",
+          "parameters": "dict[str, JsonValue]",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "record_address": "<class 'str'>",
+          "refusal_reason": "str | None",
+          "schema_version": "typing.Literal[1]",
+          "subject": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "PendingEvidence": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "graph": "<class 'str'>",
+          "parameters": "dict[str, JsonValue]",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "schema_version": "typing.Literal[1]",
+          "started_at": "<class 'datetime.datetime'>",
+          "subject": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ReplayEvidenceAltered": {
+        "kind": "class",
+        "shape": "(*, record_address: 'str', path: 'str', expected_sha256: 'str', found_sha256: 'str') -> 'None'"
+      },
+      "ReplayEvidenceIndex": {
+        "kind": "class",
+        "shape": "(*, evidence_root: 'Path', index_root: 'Path', tenant_id: 'str') -> 'None'"
+      },
+      "ReplayEvidenceUnavailable": {
+        "kind": "class",
+        "shape": "(*, record_address: 'str', detail: 'str', path: 'str | None' = None) -> 'None'"
+      },
+      "file_sha256": {
+        "kind": "function",
+        "shape": "(path: 'Path') -> 'str'"
+      },
+      "require_record_address": {
+        "kind": "function",
+        "shape": "(record_address: 'str') -> 'str'"
+      }
+    }
+  },
+  "ccf.replay.inspection": {
+    "__all__": [
+      "DecisionExplanation",
+      "ParameterOrigin",
+      "PolicyVersion",
+      "explain_decision"
+    ],
+    "exports": {
+      "DecisionExplanation": {
+        "kind": "contract",
+        "shape": {
+          "as_of": "datetime.datetime | None",
+          "asked_at": "<class 'datetime.datetime'>",
+          "debt": "str | None",
+          "debt_signal": "str | None",
+          "decided_at": "<class 'datetime.datetime'>",
+          "entities_touched": "int | None",
+          "graph_snapshot_id": "str | None",
+          "operators": "tuple[str, ...]",
+          "outcome": "typing.Literal['served', 'refused']",
+          "parameters": "tuple[ccf.replay.inspection.ParameterOrigin, ...]",
+          "policies": "tuple[ccf.replay.inspection.PolicyVersion, ...]",
+          "principal_id": "<class 'str'>",
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "read_graph": "<class 'bool'>",
+          "record_address": "<class 'str'>",
+          "refusal_detail": "str | None",
+          "refusal_kind": "str | None",
+          "refusal_reason": "str | None",
+          "relationships_touched": "int | None",
+          "role": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
+      "ParameterOrigin": {
+        "kind": "contract",
+        "shape": {
+          "authority": "<class 'str'>",
+          "name": "<class 'str'>",
+          "source": "<class 'str'>",
+          "source_version": "str | None",
+          "value": "JsonValue"
+        }
+      },
+      "PolicyVersion": {
+        "kind": "contract",
+        "shape": {
+          "key": "<class 'str'>",
+          "version": "<class 'str'>"
+        }
+      },
+      "explain_decision": {
+        "kind": "function",
+        "shape": "(*, store: 'ArtifactStoreProtocol', evidence: 'ReplayEvidenceIndex', record_address: 'str') -> 'DecisionExplanation'"
       }
     }
   },
@@ -12441,6 +12593,27 @@
       "resolve_remote_credential": {
         "kind": "function",
         "shape": "(*, token_env: 'str | None', token_file: 'str | None', environ: 'Mapping[str, str]') -> 'SecretStr'"
+      }
+    }
+  },
+  "ccf_runtime.cli.evidence": {
+    "__all__": [
+      "VERBS",
+      "register",
+      "run"
+    ],
+    "exports": {
+      "VERBS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "register": {
+        "kind": "function",
+        "shape": "(subparsers: \"'argparse._SubParsersAction[argparse.ArgumentParser]'\") -> 'None'"
+      },
+      "run": {
+        "kind": "function",
+        "shape": "(args: 'argparse.Namespace', opened: 'OpenedProduct', *, out: 'TextIO') -> 'int'"
       }
     }
   },

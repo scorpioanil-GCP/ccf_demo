@@ -111,9 +111,10 @@ The facility, the borrower scope the caller holds, the instant, the four
 declared bases. *What does a `SELECT` not give you?* The priority the graph
 reifies on the (facility, asset) pair, the set-off rights that live in a
 different system, the debt in force, the content address, the record that
-authorized it. *What is refused?* A facility the caller's scope may not walk
-(an empty graph, never a redacted one), an unresolvable facility, an
-over-allocated asset, an intent the class does not serve, `as_of`.
+authorized it. *What is refused?* A facility outside the borrower scope the
+caller states, and an unresolvable facility — with ONE answer, so the caller
+cannot tell which (§A.3); an over-allocated asset, an intent the class does
+not serve, `as_of`.
 
 ## A · Decision frame
 
@@ -163,7 +164,24 @@ was tuned to change that.
 
 Every "no" this product says is returned as data with a replay reference —
 the over-allocation gate, the contract, the intent set, a scope the caller does
-not hold. Nothing raises for a question that merely has no answer.
+not hold, a facility that does not exist. Nothing raises for a question that
+merely has no answer.
+
+**An unknown facility and a facility outside the stated scope get one answer**
+(SEC-020 Parts 1-3; Dave, 2026-10-16 21:32 GO). Acquisition looks the facility
+up once; if no row comes back, or the facility's borrower is not in
+`borrower_scope`, it refuses there — before any collateral, set-off or register
+read — through two declared seam refusals (`ccf_config.yaml`
+`seam_refusals`). At the default disclosure level both are the same
+`subject-unavailable` answer, byte for byte apart from the fresh replay digest
+and the echoed facility id (`CSCC-G25`), and both make the same source calls
+(`CSCC-G26`). The record keeps the truth: `facility-not-held` (cause
+`nonexistent`) or `outside-requested-borrower-scope` (cause `undisclosed` —
+the scope is the caller's statement, not an entitlement, so the record claims
+none). The residual is stated: an existing facility's lookup returns one row
+and an unknown one's none; a caller who names the right borrower, or every
+borrower, still learns the facility exists (SEC-020 Part 4, provisional:
+`borrower_scope` is not a permission under the shared credential).
 
 ## B · Contract
 
@@ -185,8 +203,8 @@ not hold. Nothing raises for a question that merely has no answer.
 
 | parameter | type | default | domain | note |
 |---|---|---|---|---|
-| `facility_id` | string | — | — | **required**; the anchor; unresolvable ⇒ refusal, never an empty payload |
-| `borrower_scope` | array of string | — | — | **required**; what the policy operator admits on; a scope the caller does not hold yields an empty graph |
+| `facility_id` | string | — | — | **required**; the anchor; unresolvable ⇒ refusal (`subject-unavailable`, the same answer as an out-of-scope facility — §A.3), never an empty payload |
+| `borrower_scope` | array of string | — | — | **required**; what the policy operator admits on, and what acquisition checks after the facility lookup: a scope not holding the facility's borrower is refused there, before any collateral read (§A.3). Caller-stated, not an entitlement (SEC-020 Part 4, provisional) |
 | `apply_haircuts` | boolean | true | — | at Π; changes the conclusion |
 | `include_setoff` | boolean | true | — | widens `R` at acquisition |
 | `jurisdiction_basis` | string | `enforceable` | `contractual` \| `enforceable` | at Π, off each deposit's own attributes |
@@ -240,9 +258,10 @@ every outcome; a consumer registers `producer_id`
 product's own `gate` to the two documents) and `answer` (one governed
 question). No registry, boot call, effective-request re-derivation, ingest
 loop, builder call, store or record readback exists in the tree.
-`acquire(context)` reads the effective `include_setoff` off the request the
-road hands it, opens the two sources the environment document names, and
-returns the specimen's envelopes — **edges first, attributed nodes last** —
+`acquire(context)` reads the effective `include_setoff` and `borrower_scope`
+off the request the road hands it, looks the facility up, refuses an unknown
+facility or one outside the scope there (§A.3), and otherwise opens the two
+sources the environment document names and returns the specimen's envelopes — **edges first, attributed nodes last** —
 with one addition: the facility node's `commitment`. `project(required,
 request)` builds the specimen's Π from the effective request alone; the
 anchor is the subject. `assess(context)` is the specimen's `D_c` over the
@@ -327,6 +346,11 @@ and disclosed (closed 2026-09-18; the migration it took and its consequence
 for the demonstration are `CP06C-F-04` / `CP06C-F-05`); and whether the road's refusal to pass acquisition values to Π
 is friction or the correct shape is recorded as a measurement (`§E` of the
 criteria) — this specification's position is that it is the correct shape.
+SEC-020 (2026-10-16) adds two: `CP06C-F-08`, the unknown facility that raised
+instead of refusing (this tree's own defect), and `CP06C-F-09`, the admit rule
+restated in acquisition because the SDK applies the policy step after
+acquisition (a candidate SDK ease-of-use blocker, Dave's D3, not fixed in this
+round).
 
 ## G · Operate and govern
 
@@ -359,11 +383,13 @@ properties under the successor's ids; the twelfth replaces the specimen's
 | `CSCC-G17` | the CP-14-shaped question is answered by the producer **in another process** and admitted under `provider-controls` |
 | `CSCC-G18` | the expected producer identity and tenant come from the registration — wrong id and wrong tenant refuse independently |
 | `CSCC-G19` | an unknown intent is refused on the declared discovery set — the specimen accepts it |
-| `CSCC-G20` | a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload |
+| `CSCC-G20` | **restated 2026-10-16 (SEC-020):** a scope the caller does not hold is refused `subject-unavailable` at acquisition — no operator step, no graph, never a redacted payload — and the record keeps `outside-requested-borrower-scope` beside an unknown facility's `facility-not-held`, naming no borrower. With the scope check bypassed, the policy step still empties the view (a test beside the gate holds it) |
 | `CSCC-G21` | the door and the in-process run serve **one** content address |
 | `CSCC-G22` | a fresh fabric per run; two facilities under one root hash to their own addresses |
 | `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341` (was quarantined evidence) |
 | `CSCC-G24` | evidence older than the declared window is refused by the expiry gate, on a facility this estate really holds — the calibration's own negative control (2026-09-18) |
+| `CSCC-G25` | **an unknown facility and an existing one outside the requested scope get one answer through the bank's own door** (`packaging/bank-controlled/launch.sh`), on the product tool and on the address-form template — identical after masking only the replay digest and the echoed facility id — and both are recorded decisions that replay (SEC-020 Parts 1 and 3, 2026-10-16) |
+| `CSCC-G26` | **an out-of-scope ask makes the same source calls as an unknown facility**: one facility lookup, then the refusal — no policy, debtor, graph-walk or enrichment read. The one row an existing facility's lookup returns is a stated residual (SEC-020 Part 2, 2026-10-16) |
 
 **All directional, structural or relational. No estate figure is pinned in a
 gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
@@ -404,7 +430,7 @@ proceeds, and the successor's `F` and expiry now run from the valuation date
 | `lineage.policy_bundle_versions` | the specimen's policy artifact hash | the successor's | the class id on the policy document differs; the regime and rules do not |
 | replay dimension 1 | facility node without `commitment` | facility node **with** `commitment` | the commitment is fabric state (`CSCC-G14`); the snapshot id differs accordingly |
 | an unknown `intent` | served | **refused** on `discovery.intents` (`CSCC-G19`) | a governed axis the specimen left open — deliberate |
-| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** — since `D-IMPL-341` by the SDK's own anchor gate (`ttl-anchor-refusal` / `ttl-anchor-unresolvable`: an empty view carries no evidence instant), which runs before the product's gate; the product's `no facility commitment in the admitted view` half is held directly on the candidate (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
+| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** — since SEC-020 (2026-10-16) at acquisition, `subject-unavailable`, the same answer an unknown facility gets (`CSCC-G20`, `CSCC-G25`); from `D-IMPL-341` until then by the SDK's own anchor gate over the empty view (`ttl-anchor-refusal` / `ttl-anchor-unresolvable`), which still happens if the scope check is bypassed; the product's `no facility commitment in the admitted view` half is held directly on the candidate | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
 | the door | 150 lines and a `door.yaml` naming a `module:callable` (`CSC-G12`) | a 27-line launcher over the SDK's standard door (`CSCC-G12`) | `D-IMPL-343` |
 | documents | four (`ccf_config`, `backends`, `server/door`, gates) | two (`ccf_config`, `ccf_environment`) | one authority per value |
 

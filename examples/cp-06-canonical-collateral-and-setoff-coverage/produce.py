@@ -100,7 +100,12 @@ plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-d
 
 # --8<-- [start:boot]
 def product(
-    scratch: Path, *, environ: Mapping[str, str] | None = None, config_root: Path = HERE
+    scratch: Path,
+    *,
+    evidence_root: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    config_root: Path = HERE,
+    read_sources: bool = True,
 ) -> OpenedProduct:
     """Open the product: one call binds this deployment's callables to its two documents.
 
@@ -113,18 +118,24 @@ def product(
     DEPLOYMENT — this tree, unless a deployer (a test) opens a copy of the two
     documents declaring a different demonstration serve instant
     (`tests/examples/demonstration_deployment.py`); nothing on a question can
-    move the serve clock.
+    move the serve clock. ``scratch`` is the ephemeral working directory;
+    ``evidence_root``, when supplied, is the durable directory every decision's
+    replay evidence is kept in, so it replays after a restart (`D-IMPL-383`).
+    ``read_sources=False`` opens it only to inspect and replay that evidence:
+    no source setting need be set, and it answers no question.
     """
     return open_product(
         erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=config_root,
         scratch=scratch,
+        evidence_root=evidence_root,
         acquire=deployment.acquire,
         project=plan_factory,
         assess=deployment.assess,
         gate=deployment.coverage_gate,
         environ=environ,
+        read_sources=read_sources,
     )
 # --8<-- [end:boot]
 

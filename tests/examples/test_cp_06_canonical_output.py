@@ -4,7 +4,10 @@
 # in the repository-root LICENSE.md and any controlling signed agreement.
 # Rights under that interim license begin only upon its execution
 # and are limited to its stated scope and term.
-"""What `examples/cp-06-canonical-collateral-and-setoff-coverage` actually serves — `CSCC-G01`…`CSCC-G23`.
+"""What `examples/cp-06-canonical-collateral-and-setoff-coverage` actually serves — `CSCC-G01`…`CSCC-G26`.
+
+`CSCC-G25` — one answer for an unknown facility and an out-of-scope one, through the bank's own door — is held
+in `test_cp_06_canonical_bank_door.py`; every other gate is held here.
 
 The canonical rung-6 successor on the paved producer road (`CP-SPEC-006C`,
 Gate 1 approved 2026-09-16; CP-14 Gate 2 slice 3). Every figure below is
@@ -42,13 +45,16 @@ fixture and must be rewritten rather than re-pinned.
 from __future__ import annotations
 
 import ast
+import collections
 import importlib.util
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -129,6 +135,17 @@ MASTEC_FACILITY, MASTEC_SCOPE = "FAC-102496", "549300TMDIT8WREDOF45"
 #: never re-pinned to whatever the successor happens to serve.
 LANE_BASELINE = {"FAC-5B8418": "d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c", "FAC-044206": "8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63"}
 SCOPE_NOBODY_HOLDS = "A-SCOPE-NOBODY-HOLDS"
+#: SEC-020 (Dave, 2026-10-16 21:32 GO). An id that is NOT a facility in this estate — measured absent on
+#: 2026-10-16 by a keyed SELECT, and re-confirmed by `_held` before every use, so a facility later created under
+#: this id reds the precondition rather than the property.
+ABSENT_FACILITY = "FAC-01A702"
+#: A facility refused under its OWN borrower after projection (`ttl-anchor-unresolvable`, measured 2026-10-16):
+#: the control that the scope check refuses nothing the policy step would have admitted.
+OWN_SCOPE_REFUSED_FACILITY, OWN_SCOPE_REFUSED_SCOPE = "FAC-08D5BB", "5299001XWB5V3B5IPN93"
+#: The shape of a Legal Entity Identifier: a refusal's recorded detail names the facility, never a borrower.
+LEI_SHAPE = re.compile(r"\b[0-9A-Z]{18}[0-9]{2}\b")
+#: The source reads `acquisition.acquire` makes after the facility lookup — none may run for a refused scope.
+COLLATERAL_READS = ("_policy", "_debtor_names", "_walk_collateral", "_walk_setoff", "_walk_ucc", "watermark", "_enrich")
 
 ESTATE_VARIABLES = (
     "CCF_CP_06C_FLUREE_URL", "CCF_CP_06C_FLUREE_LEDGER",
@@ -251,6 +268,69 @@ def _answer(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> 
 def _ratio(answer: Any) -> Decimal:
     product = answer.product if hasattr(answer, "product") else answer
     return Decimal(product.payload["coverage"]["coverage_ratio"])
+
+
+def _held(modules: dict[str, Any], facility: str) -> bool:
+    """Whether the attribute leg holds ``facility`` — one keyed, read-only SELECT against the curated estate."""
+    import psycopg  # noqa: PLC0415
+
+    table = modules["acquisition"].vocabulary()["attribute_leg"]["facility_table"]
+    schema = os.environ["CCF_CP_06C_POSTGRES_SCHEMA"]
+    with psycopg.connect(os.environ["CCF_CP_06C_POSTGRES_DSN"]) as db, db.cursor() as cur:
+        cur.execute(f'SELECT 1 FROM "{schema}".{table} WHERE facility_id = %s', (facility,))
+        return cur.fetchone() is not None
+
+
+def _settle(run: Callable[[], Any]) -> Any:
+    """The outcome, or what was raised: a test that must fail on an ASSERTION when the defect is present."""
+    try:
+        return run()
+    except Exception as raised:  # noqa: BLE001 — returned so the assertion names it
+        return raised
+
+
+def _source_calls(modules: dict[str, Any], run: Callable[[], Any]) -> tuple[collections.Counter[str], Any]:
+    """Which of `acquisition`'s source reads ``run`` made, counted by a profiler (nothing patched), and its outcome."""
+    acquisition = modules["acquisition"]
+    watched = {getattr(acquisition, name).__code__: name for name in ("_resolve_facility", *COLLATERAL_READS)
+               if name != "watermark"}
+    watched[acquisition._GraphLeg.watermark.__code__] = "watermark"
+    counts: collections.Counter[str] = collections.Counter()
+
+    def profile(frame: Any, event: str, _arg: Any) -> None:
+        if event == "call" and frame.f_code in watched:
+            counts[watched[frame.f_code]] += 1
+
+    sys.setprofile(profile)
+    threading.setprofile(profile)
+    try:
+        outcome = _settle(run)
+    finally:
+        sys.setprofile(None)
+        threading.setprofile(None)
+    return counts, outcome
+
+
+def _outcome_and_record(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> tuple[Any, Any]:
+    """One question's outcome — or what it raised — and, for a refusal, its persisted record."""
+    with _opened(modules, scratch, question) as opened:
+        outcome = _settle(lambda: opened.answer(_question(opened, modules["deployment"], **question)))
+        record = opened.record_of(outcome) if isinstance(outcome, RefusalEnvelope) else None
+    return outcome, record
+
+
+def _internal(record: DecisionReplayRecord) -> dict[str, Any]:
+    """The refusal as the fabric determined it — the record's own copy, before disclosure."""
+    retained: dict[str, Any] = json.loads(record.content_generation_path.assembly_refusal)
+    return retained
+
+
+def _without_the_per_answer_values(envelope: RefusalEnvelope, facility: str) -> str:
+    """The disclosed shell with the fresh replay digest and the echoed facility masked, nothing else."""
+    text = envelope.model_dump_json()
+    digests = set(re.findall(r"ccf\.replay-record/([0-9a-f]{64})@\1", text))
+    assert len(digests) == 1, f"one replay digest expected per answer, found {len(digests)}"
+    return text.replace(digests.pop(), "<digest>").replace(facility, "<facility>")
 
 
 @pytest.fixture(scope="module")
@@ -412,7 +492,9 @@ def test_the_over_allocation_gate_is_declared_identified_and_runs_on_the_governe
     **The trigger moved on 2026-09-18 (`D-IMPL-341`).** It was "a scope nobody
     holds" — an EMPTY view — and since the SDK's TTL-anchor gate runs before
     the product's, an empty view is refused `ttl-anchor-unresolvable` first
-    (`CSCC-G20` holds that precedence). Reaching this gate on the real path
+    (held by `test_with_the_scope_check_bypassed_the_policy_step_still_empties_the_view`;
+    since SEC-020 a scope the caller does not hold is refused at acquisition and
+    never reaches a view at all). Reaching this gate on the real path
     now takes a view WITH evidence to anchor on and WITHOUT a commitment:
     `FAC-3DF1D5`, asked on its valuation day.
 
@@ -853,35 +935,135 @@ def test_an_unknown_intent_is_refused_on_the_declared_discovery_set(estate: None
     assert not isinstance(specimen, RefusalEnvelope), specimen
 
 
-def test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal(
+def test_a_scope_the_caller_does_not_hold_is_refused_at_acquisition_and_the_record_keeps_why(
     estate: None, modules: dict[str, Any], served: _Answer, tmp_path: pathlib.Path
 ) -> None:
-    """The policy operator yields an EMPTY graph — never a redacted one — and
-    the product refuses rather than serving a coverage of zero over a facility
-    the view does not hold. The specimen serves the zero (`CP-SPEC-006C`
-    §G.3, a deliberate difference).
+    """RESTATED 2026-10-16 (SEC-020 Parts 1-3; Dave, 21:32 GO, D2). A facility asked under a borrower scope that
+    does not hold it is refused `subject-unavailable` AT ACQUISITION — after the one facility lookup, before any
+    collateral read, with no operator step and no graph — and an unknown facility is refused the same way. The
+    caller cannot tell the two apart; the RECORD can: the out-of-scope ask carries `outside-requested-borrower-scope`
+    (cause `undisclosed`, Dave's D1), the unknown one `facility-not-held` (cause `nonexistent`), and neither names
+    the borrower. The product never serves a coverage of zero over a facility the caller's scope does not hold;
+    the specimen does (`CP-SPEC-006C` §G.3, a deliberate difference).
+
+    Until 2026-10-16 the policy step emptied the view after a full acquisition and the SDK's anchor gate refused
+    it `ttl-anchor-unresolvable`, while an unknown facility escaped as a runtime failure: the existence oracle
+    SEC-020 names. With the scope check bypassed the policy step still empties the view —
+    `test_with_the_scope_check_bypassed_the_policy_step_still_empties_the_view` holds that.
 
     Declared product gate `CSCC-G20` (`CP-SPEC-006C` §G.1).
     """
-    assert served.product.payload["assets"], "the entitled read returned nothing"
+    assert served.product.payload["assets"], "the permitted read returned nothing"
+    assert not _held(modules, ABSENT_FACILITY), f"precondition: {ABSENT_FACILITY} is now a facility; choose another absent id"
+    outside, outside_record = _outcome_and_record(modules, tmp_path / "outside", facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS)
+    unknown, unknown_record = _outcome_and_record(modules, tmp_path / "unknown", facility=ABSENT_FACILITY, scope=SCOPE_NOBODY_HOLDS)
+    assert isinstance(outside, RefusalEnvelope), outside
+    assert (outside.kind, outside.reason) == ("subject-unavailable", "subject-unavailable"), (outside.kind, outside.reason)
+    assert isinstance(unknown, RefusalEnvelope), f"an unknown facility was not a governed refusal: {unknown!r}"
+    for record in (outside_record, unknown_record):
+        path = record.content_generation_path
+        assert path.refusal_seam == "acquisition" and not path.steps, (path.refusal_seam, path.steps)
+        assert path.product_content_address == NO_PRODUCT_ADDRESS
+        assert not record.context_fabric_snapshot.touched_entities
+    # ONE external answer: the disclosed shells, masked of the fresh replay digest and the echoed id only.
+    assert _without_the_per_answer_values(outside, CP14_FACILITY) == _without_the_per_answer_values(unknown, ABSENT_FACILITY)
+    # TWO recorded truths, and neither names the borrower.
+    held_outside, held_unknown = _internal(outside_record), _internal(unknown_record)
+    assert {k: json.loads(v) for k, v in held_outside["fields"].items()} == {
+        "cause": "undisclosed", "error_code": "outside-requested-borrower-scope"}, held_outside["fields"]
+    assert {k: json.loads(v) for k, v in held_unknown["fields"].items()} == {
+        "cause": "nonexistent", "error_code": "facility-not-held"}, held_unknown["fields"]
+    for held in (held_outside, held_unknown):
+        assert not LEI_SHAPE.search(held["detail"]) and CP14_SCOPE not in held["detail"], held["detail"]
+    # The product gate's own no-commitment half, held directly on the shape it
+    # would see: a served candidate whose commitment is absent.
+    unsized = served.product.model_copy(update={"payload": {**served.product.payload, "commitment": None}})
+    assert modules["deployment"].coverage_gate(candidate=unsized) == modules["deployment"].NO_COMMITMENT
+
+
+def _scope_check_bypassed(modules: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    """The example's scope check made to admit everything — what the SDK alone would do. ``raising=False``: before
+    the check existed, there is nothing to bypass, and the policy step was already the only scope control."""
+    monkeypatch.setattr(modules["acquisition"], "_outside_requested_scope", lambda *_a, **_k: False, raising=False)
+
+
+def test_with_the_scope_check_bypassed_the_policy_step_still_empties_the_view(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The policy operator's own denial, kept executable now the real path refuses before it (SEC-020, 2026-10-16).
+
+    With the example's scope check bypassed, a scope the caller does not hold still yields an EMPTY graph — never
+    a redacted one — and the SDK's TTL-anchor gate refuses it before the product's own gate can
+    (`ttl-anchor-refusal` / `ttl-anchor-unresolvable`, the precedence since `D-IMPL-341`). This was the restated
+    gate's whole content until 2026-10-16.
+    """
+    _scope_check_bypassed(modules, monkeypatch)
     with modules["produce"].product(tmp_path) as opened:
         denied = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS))
         assert isinstance(denied, RefusalEnvelope), denied
         record = opened.record_of(denied)
-    # PRECEDENCE, since `D-IMPL-341` (2026-09-18): an empty view carries no
-    # evidence instant, and the SDK's TTL-anchor gate refuses it before the
-    # product's own gate can — `ttl-anchor-refusal` / `ttl-anchor-unresolvable`,
-    # where until 341 this refusal named `cp-06-canonical.over-allocation-guard`.
-    # The empty-graph properties are unchanged.
     assert (denied.kind, denied.reason) == ("ttl-anchor-refusal", "ttl-anchor-unresolvable"), (denied.kind, denied.reason)
     path = record.content_generation_path
     assert "no evidence instant" in path.assembly_refusal
     assert path.steps and path.product_content_address == NO_PRODUCT_ADDRESS
     assert not record.context_fabric_snapshot.touched_entities
-    # The product gate's own no-commitment half, held directly on the shape it
-    # would see: a served candidate whose commitment is absent.
-    unsized = served.product.model_copy(update={"payload": {**served.product.payload, "commitment": None}})
-    assert modules["deployment"].coverage_gate(candidate=unsized) == modules["deployment"].NO_COMMITMENT
+
+
+@pytest.mark.xfail(
+    strict=True, raises=AssertionError,
+    reason="CP06C-F-09 (Dave, 2026-10-16 21:32: raised as a candidate SDK ease-of-use blocker, not fixed this round)."
+    " The SDK applies the policy step after acquisition, so without the example's own scope check every collateral"
+    " source is read for a scope the caller does not hold, and the admit rule must be restated in example code.",
+)
+def test_the_policy_step_alone_keeps_an_out_of_scope_facility_from_being_read(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The SDK gap SEC-020 Part 2 works around, kept visible: with only the SDK's policy step deciding scope, the
+    out-of-scope facility's collateral should not be read. It is, so this fails until the SDK can apply the policy
+    step before acquisition — and the example's check is then deleted, not moved."""
+    _scope_check_bypassed(modules, monkeypatch)
+    with modules["produce"].product(tmp_path) as opened:
+        counts, outcome = _source_calls(modules, lambda: opened.answer(
+            _question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS)))
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert counts["_resolve_facility"] == 1, f"the profiler saw no facility lookup: {dict(counts)}"
+    read = {name: counts[name] for name in COLLATERAL_READS if counts[name]}
+    assert not read, f"collateral was read for a scope the caller does not hold: {read}"
+
+
+def test_an_out_of_scope_ask_makes_the_same_source_calls_as_an_unknown_facility(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
+) -> None:
+    """SEC-020 Part 2 (Dave, 2026-10-16 21:32 GO). An existing facility asked under another borrower's scope makes
+    exactly the source calls an unknown facility makes — one facility lookup, then the refusal — and no policy,
+    debtor, graph-walk, watermark or enrichment read. Counted by a profiler over the real acquisition; nothing is
+    patched. The residual is stated, not hidden: an existing facility's lookup returns one row and an unknown
+    one's returns none (measured through the bank door by `verify.py --timing`).
+
+    Declared product gate `CSCC-G26` (`CP-SPEC-006C` §G.1).
+    """
+    assert not _held(modules, ABSENT_FACILITY), f"precondition: {ABSENT_FACILITY} is now a facility; choose another absent id"
+    calls = {}
+    for label, facility in (("outside", CP14_FACILITY), ("unknown", ABSENT_FACILITY)):
+        with modules["produce"].product(tmp_path / label) as opened:
+            counts, _ = _source_calls(modules, lambda: opened.answer(
+                _question(opened, modules["deployment"], facility=facility, scope=SPECIMEN_SCOPE)))
+        calls[label] = dict(counts)
+    assert calls["unknown"] == {"_resolve_facility": 1}, calls
+    assert calls["outside"] == {"_resolve_facility": 1}, calls
+
+
+def test_a_facility_refused_under_its_own_borrower_is_still_refused_after_projection(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
+) -> None:
+    """The control that the scope check refuses nothing the policy step admits (SEC-020, 2026-10-16): a facility
+    asked under its OWN borrower whose answer was a post-projection refusal stays exactly that refusal — it reached
+    the operators, and was not turned into `subject-unavailable` at acquisition."""
+    refused, record = _outcome_and_record(
+        modules, tmp_path, facility=OWN_SCOPE_REFUSED_FACILITY, scope=OWN_SCOPE_REFUSED_SCOPE)
+    assert isinstance(refused, RefusalEnvelope), refused
+    assert (refused.kind, refused.reason) == ("ttl-anchor-refusal", "ttl-anchor-unresolvable"), (refused.kind, refused.reason)
+    assert record.content_generation_path.steps, "refused before the operators ran"
 
 
 # --- G22–G23: a fresh fabric per run; the expiry anchor --------------------------------
@@ -1091,15 +1273,18 @@ def test_replay_reproduces_the_served_product_from_the_recorded_graph_inputs(
 def test_a_refused_determination_reconstructs_through_the_344_path_without_a_product(
     estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
 ) -> None:
-    """The gate refusal (a scope nobody holds) is a post-projection refusal:
+    """The product gate's refusal (a facility the source does not size) is a post-projection refusal:
     `replay_refusal` re-executes the recorded operator path over the recorded
     snapshot, holds the refusal's evidence to it, and never rehydrates a
     product; `replay()` refuses the same record by name (`D-IMPL-344`).
+
+    RE-POINTED 2026-10-16 (SEC-020): this used a scope nobody holds, which is now refused at acquisition with no
+    operator path to re-execute; the no-commitment facility is the real path's post-projection refusal.
     """
     from ccf.replay.engine import RefusalReplayOutcome, ReplayRecordKindMismatch, replay, replay_refusal  # noqa: PLC0415
 
     with modules["produce"].product(tmp_path) as opened:
-        denied = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS))
+        denied = opened.answer(_question(opened, modules["deployment"], facility=NO_COMMITMENT_FACILITY, scope=NO_COMMITMENT_SCOPE))
         assert isinstance(denied, RefusalEnvelope), denied
         record = opened.record_of(denied)
         store = opened.artifact_store

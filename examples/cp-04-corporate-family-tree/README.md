@@ -145,9 +145,11 @@ no `CREATE`. On the Fluree side the example issues only `/v1/fluree/query`; it
 never creates, updates or deletes a ledger.
 
 Both libpq spellings work for the DSN and neither is preferred — the keyword
-string above, or a `postgresql://user:pass@host:5432/dbname` URI. libpq also
-reads `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` from the environment on its
-own, so the variable's contents can be as short as `dbname=<database>`.
+string above, or a `postgresql://user:pass@host:5432/dbname` URI. The DSN must
+be complete: host, port, database, user and password. A short value such as
+`dbname=<database>` is not sufficient: libpq fills what it leaves out from
+`PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD`, so it would quietly use whatever
+login the shell already has.
 
 **The ledger name and the schema name are variables rather than defaults on
 purpose.** Each selects *which* namespace of a store the product reads, and a

@@ -79,7 +79,7 @@ declaration:
         url:
           from_env: CCF_TEST_FLUREE_URL
           remedy: >-
-            start a fluree/server:4.1.4 container and export the base URL
+            start a fluree/server:4.2.4 container and export the base URL
         # WHICH GRAPH IN THE CCF-OWNED LEDGER this run attaches to. A fresh
         # one per run, so a shared server does not let one run observe
         # another's. `D-03` keeps one CCF-owned ledger, so repeated runs

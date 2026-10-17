@@ -140,6 +140,7 @@ from ccf.replay.record import (
     CHILD_ADMITTED,
     ChildResolution,
     DecisionReplayRecord,
+    PerspectiveConditioning,
 )
 from ccf.products.producer import ProducerAssertion
 from ccf.products.request import ProductRequest
@@ -150,6 +151,7 @@ from ccf.skills.grants import BoundSkillView
 if TYPE_CHECKING:  # the door imports the refusal module, which imports this one
     from ccf.products.child_resolver import ChildQuestion
     from ccf.products.door import AnsweredQuestion, WireRequest
+    from ccf.projection.plan import Perspective
 
 __ccf_mode__ = "algorithmic"
 
@@ -177,6 +179,7 @@ __all__ = [
     "CompositeAdmissionGate",
     "CompositeChildResolverProtocol",
     "RequestAwareChildResolverProtocol",
+    "AgentConditionedChildResolverProtocol",
     "CompositionOutcome",
     "compose_children",
     "invocation_from_dispatch",
@@ -405,6 +408,7 @@ def signed_question(
     # Imported here: the door imports the refusal module, which imports this
     # one (see the TYPE_CHECKING import above).
     from ccf.products.door import AnsweredQuestion, WireRequest
+    from ccf.projection.plan import Perspective
 
     issuance = admission.issuance if admission is not None else None
     if issuance is None:
@@ -1779,6 +1783,30 @@ class RequestAwareChildResolverProtocol(Protocol):
         composition_invocation: str,
         consumer_lineage: ProductLineage,
     ) -> Mapping[str, object]: ...
+
+
+@runtime_checkable
+class AgentConditionedChildResolverProtocol(Protocol):
+    """A child resolver that knows the agent whose grants it resolves (`D-IMPL-385`).
+
+    A **capability** Protocol, on :class:`RequestAwareChildResolverProtocol`'s
+    precedent: a child resolver resolves every child through ONE agent's grants,
+    so it is the one collaborator that can say which agent composed a decision
+    and which skill-set that agent held. :class:`~ccf.products.resolver.GovernedResolver`
+    asks a resolver that declares it, when it writes the decision's record, and
+    threads the answer into replay dimension 4 (CLAUDE.md §6.2: *"which agent,
+    which version, which configuration, which skill-set made this decision is
+    answerable from replay alone"*). A resolver that does not declare it, or
+    returns ``None``, leaves dimension 4's no-agent claims standing.
+
+    ``perspective`` is the CALLER's: the returned conditioning carries its
+    principal and role unchanged, because replay rebuilds the caller's
+    viewpoint from them; the agent's identity and the in-force grant-set hash
+    are added beside them.
+    """
+
+    def agent_conditioning(self, *, perspective: Perspective) -> PerspectiveConditioning | None: ...
+
 
 @dataclass(frozen=True)
 class CompositionOutcome:

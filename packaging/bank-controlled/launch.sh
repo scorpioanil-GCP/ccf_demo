@@ -27,7 +27,13 @@ ACCOUNT=$(sed -n 's/^CCF_SERVICE_ACCOUNT=//p' "$SECRETS")
 mode_of() { stat -c '%a' "$1"; }; owner_of() { stat -c '%U' "$1"; }
 [[ "$(owner_of "$ROOT")" = "$ACCOUNT" && "$(mode_of "$ROOT")" = 700 ]] || refuse "$ROOT must be owned by $ACCOUNT with mode 700"
 [[ "$(owner_of "$SECRETS")" = "$ACCOUNT" && "$(mode_of "$SECRETS")" = 600 ]] || refuse "$SECRETS must be owned by $ACCOUNT with mode 600"
-for d in scratch run logs; do install -d -m 700 "$ROOT/$d"; done
+[[ ! -L "$ROOT/evidence" ]] || refuse "$ROOT/evidence must be a directory under the instance root, not a symlink"
+for d in scratch run logs evidence; do install -d -m 700 "$ROOT/$d"; done
+# 2a. Replay evidence (D-IMPL-383): every question's graph, the replay store and the evidence index are
+#     kept in $ROOT/evidence (CCF_REPLAY_EVIDENCE_ROOT, below), outside the door's temporary scratch, so
+#     decisions replay after a restart. Nothing deletes them: they consume disk and must be backed up
+#     with the instance root.
+[[ "$(owner_of "$ROOT/evidence")" = "$ACCOUNT" && "$(mode_of "$ROOT/evidence")" = 700 ]] || refuse "$ROOT/evidence must be owned by $ACCOUNT with mode 700"
 
 # 3. Trusted deployment code: the tree is the tested commit, unmodified.
 COMMIT=$(git -C "$TREE" rev-parse HEAD 2>/dev/null || echo unknown)
@@ -39,7 +45,7 @@ set -a; source "$SECRETS"; set +a
 EXAMPLE="$TREE/examples/cp-06-canonical-collateral-and-setoff-coverage"
 env -i PATH=/usr/bin:/bin HOME="$ROOT" LANG=C.UTF-8 TMPDIR="$ROOT/scratch" \
     PYTHONPATH="$TREE/src:$TREE/runtime:$EXAMPLE" PYTHONDONTWRITEBYTECODE=1 \
-    CCF_CP_06C_DOOR_TOKEN="$CCF_CP_06C_DOOR_TOKEN" \
+    CCF_CP_06C_DOOR_TOKEN="$CCF_CP_06C_DOOR_TOKEN" CCF_REPLAY_EVIDENCE_ROOT="$ROOT/evidence" \
     CCF_CP_06C_FLUREE_URL="$CCF_CP_06C_FLUREE_URL" CCF_CP_06C_FLUREE_LEDGER="$CCF_CP_06C_FLUREE_LEDGER" \
     CCF_CP_06C_POSTGRES_DSN="$CCF_CP_06C_POSTGRES_DSN" CCF_CP_06C_POSTGRES_SCHEMA="$CCF_CP_06C_POSTGRES_SCHEMA" \
     setsid "$PY" -B "$EXAMPLE/run.py" --door > "$ROOT/run/door.out" 2> "$ROOT/logs/door.err" < /dev/null &

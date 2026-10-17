@@ -54,9 +54,11 @@ export CCF_CP_09_FLUREE_LEDGER=fibo-v2
 ```
 
 Both libpq spellings work and neither is preferred: a `host=… user=…` keyword
-string and a `postgresql://…` URI. libpq also reads `PGHOST`/`PGPORT`/`PGUSER`/
-`PGPASSWORD` from the environment, so the value can be as short as
-`dbname=parkavedb`. **`CCF_CP_09_POSTGRES_SCHEMA` is `ccf_v2` and
+string and a `postgresql://…` URI. All four variables above are required, and
+the DSN must be complete: host, port, database, user and password. A short value
+such as `dbname=parkavedb` is not sufficient: libpq fills what it leaves out from
+`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`, so it would quietly use whatever login
+the shell already has. **`CCF_CP_09_POSTGRES_SCHEMA` is `ccf_v2` and
 `CCF_CP_09_FLUREE_LEDGER` is `fibo-v2`** — the v2 namespaces, which are *not*
 the names in the estate's own `.env`.
 

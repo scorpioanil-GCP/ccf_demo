@@ -78,6 +78,7 @@ def main(argv: list[str]) -> int:
 
     if parsed.door:
         from server import serve as door  # noqa: PLC0415
+        # CCF_REPLAY_EVIDENCE_ROOT, when set, keeps the door's replay evidence (D-IMPL-383).
         door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
         return 0
 

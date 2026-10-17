@@ -1,0 +1,227 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Use, copying, modification, and distribution of the covered material
+# are governed by the CCF SDK Interim Software and Patent License
+# in the repository-root LICENSE.md and any controlling signed agreement.
+# Rights under that interim license begin only upon its execution
+# and are limited to its stated scope and term.
+#
+# SK-01 · declare and govern agent skills — THE CONTROL PLANE DOCUMENT.
+#
+# WHAT THIS EXAMPLE IS ABOUT. One agent, `collateral-analyst`, and one governed
+# skill, `collateral-ask`. The policy regime below says which scopes an agent of
+# this deployment MAY hold (`policy.skill_governance`); the skill says which
+# scopes it NEEDS (`skills.collateral-ask.requirements`); `grants:` says which
+# skills the agent DOES hold. The SDK requests every declared grant through the
+# grant ledger as the product opens — tier 1 (the regime compatibility check),
+# tier 2 (the approval rule) and the audit log — and refuses to open, by name,
+# when a grant is refused.
+#
+# WHY THERE IS A PRODUCT AROUND THE AGENT. On today's SDK an agent that holds
+# grants and asks another product exists only as the composing agent of a
+# composite product (SK01-F-05 in FINDINGS.md). So the agent lives inside a
+# one-child composite, `credit-risk.facility-collateral-brief`, which requires
+# one class — `credit-risk.collateral-coverage` — and asks the cp-06-canonical
+# producer for it through that producer's standard door. The brief is the
+# vehicle, not the subject.
+#
+# NO ADDRESS AND NO CREDENTIAL APPEARS HERE. The producer's endpoint and
+# credential are read from the environment by the NAMES declared below.
+
+semver: "1.0.0"
+tenant_id: sk-01-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.facility-collateral-brief
+  schema_version: "1.0.0"
+  # Decision-scoped, and floored by the admitted child's own expiry (`D-IMPL-31`).
+  ttl_anchor: from_decision
+  assembly_mode: swarm_assembled
+  max_ttl_key: sk-01/product/facility-collateral-brief/max-ttl
+  # The parent's OWN operator set: one traversal over the obligor node its own
+  # leg wrote. It exists because a paved product must have an own leg (an empty
+  # own view refuses); it is counted as friction (SK01-F-05).
+  required_operator_keys:
+    - traversal.typed-neighborhood
+  discovery:
+    domain: credit-risk
+    intents:
+      - collateral-brief
+    capabilities:
+      - facility-collateral-brief
+    audiences:
+      - credit-officer
+  # This brief's Π never raises the withheld signal: a child its producer
+  # withholds refuses the required slot, and the brief refuses with it.
+  subject_withholding: never
+  # WHAT THIS COMPOSITE REQUIRES: a class and a floor, never a producer, a
+  # skill, a tenant or a transport.
+  requires:
+    - {product_class: credit-risk.collateral-coverage, required: true, compatible_from: "1.0.0"}
+
+operators:
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - obligor
+    relationship_types:
+      - brief-relates-to
+    depth_limit: 1
+
+request_contract:
+  class_id: sk-01.request-contract
+  role: load
+  registration: typed
+  schema_name: credit-risk.facility-collateral-brief
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the facility whose collateral and set-off coverage the brief carries.
+          The request's subject is the obligor; the facility is named
+          explicitly beside it and never derived.
+    required:
+      - facility_id
+
+# The obligor as fabric state: its identity record, read from `legal_entity`.
+resolution:
+  entity_rules:
+    - match_key: obligor_ref
+      entity_class: obligor
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - legal_name
+        - legal_jurisdiction
+
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+#
+# The parent's own signal class — the identity record, refreshed slowly — and the
+# composing agent's debt bands. Neither is what this example is about; both are
+# values a paved product cannot open without.
+half_life:
+  obligor:
+    half_life_seconds: 31536000
+    decay_driver: gleif-record-refresh
+    supersession_event: lei-record-update
+
+# The composing agent's axis 5 pins this document, so its key is spelled in the
+# `{tenant}/{class}/{name}` form a pinned reference resolves through.
+debt_profile:
+  key: sk-01-demo/ccf.debt-profile/facility-collateral-brief
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.60"
+
+# THE POLICY REGIME IN FORCE — for the product AND for the agent's skilling
+# (`D-IMPL-29` tier 1). `permitted_scopes` is the envelope every grant is judged
+# against: an agent of this deployment may hold a skill whose required scopes
+# are all in this list, and no other. Scopes are LABELS: tier 1 compares the
+# skill's labels with the regime's, and nothing else in this example enforces
+# "read" against "write" (README, "What this does not show").
+policy:
+  class_id: sk-01.policy-bundle
+  role: register
+  registration: typed
+  key: sk-01-demo/policy-bundle/facility-collateral-brief
+  regime: facility-collateral-brief
+  skill_governance:
+    grant_requires_approval: false
+    permitted_scopes:
+      - collateral-coverage.read
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 43200
+  product_ttl_seconds: 43200
+
+# WHO MAY PROVIDE THE ONE REQUIRED CLASS — the cp-06-canonical producer, at the
+# identity and tenant every answer is HELD TO, reached at the endpoint and with
+# the credential whose NAMES are below (`D-IMPL-340`). Copied from cp-14's
+# `producers.collateral`, with this deployment's own variable names.
+producers:
+  collateral:
+    server: collateral-coverage-producer
+    producer_id: cp-06-canonical-collateral-and-setoff-coverage-egress
+    producer_tenant: cp-06-canonical-demo
+    endpoint_from_env: CCF_SK_01_COLLATERAL_URL
+    credential_from_env: CCF_SK_01_COLLATERAL_TOKEN
+    offers:
+      - {product_class: credit-risk.collateral-coverage, versions_from: "1.0.0"}
+
+# THE AGENT (CLAUDE.md §6.4: an agent is data). Its context contract,
+# perspective, policy regime and debt profile are derived from the declarations
+# above.
+agent:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: collateral-analyst
+  archetypes: [context_assembly]
+
+# THE GRANTS THIS DEPLOYMENT DECLARES. Each is requested through the grant
+# ledger as the product opens; the audit log records `grant_requested` and then
+# `grant_effective` or `grant_refused`.
+grants: [collateral-ask]
+
+# HOW FAR INTO THE PAST THIS TENANT ANSWERS FOR (`D-IMPL-358` ruling 11): a
+# question asked as of more than an hour before the serve instant is refused
+# `asked-at-outside-temporal-bound`.
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+temporal_boundary:
+  max_past_seconds: 3600
+  permitted_clock_skew_seconds: 0
+
+# THE DEVELOPMENT CLOCK THIS DEMONSTRATION SERVES ON (`D-IMPL-378` C1). The
+# demonstration question is asked at 2026-09-07T12:00Z (`artifacts/question.yaml`);
+# this deployment declares it serves at 2026-09-07T12:05Z — the same declared
+# instant its producer, cp-06-canonical, serves on. Remove this section and the
+# deployment serves on the real clock, and the demonstration question is then
+# refused `asked-at-outside-temporal-bound`.
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+demonstration_serve_instant:
+  serve_instant: "2026-09-07T12:05:00+00:00"
+
+# >>> SK-01 SKILL DECLARATION
+# THE ONE GOVERNED SKILL. What it is for, the requirements envelope tier 1
+# judges against `policy.skill_governance.permitted_scopes`, and the class it
+# produces. Its type (`mcp_product`), binding and argument schema are DERIVED by
+# the SDK (`D-IMPL-343` R-7); stating any other type is refused at open
+# (SK01-F-01). `variants/over-reach/ccf_config.yaml` is this document with only
+# this block changed.
+skills:
+  collateral-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered collateral producer for one facility's collateral and set-off coverage
+    produces: credit-risk.collateral-coverage
+    requirements:
+      required_scopes: [collateral-coverage.read]
+      required_context_products: []
+# <<< SK-01 SKILL DECLARATION
