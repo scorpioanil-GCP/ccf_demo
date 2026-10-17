@@ -82,9 +82,13 @@ def _fail(where: str, detail: str) -> Verdict:
 
 
 def is_governed_refusal(answer: Answer) -> bool:
-    """A recorded "no": not a transport error, ``isError`` false, a refusal object, a well-formed replay reference."""
+    """A recorded "no": a result rather than a transport error — on the tool route with ``isError`` false; a template
+    read carries no ``isError`` and answers an error by raising — holding a refusal object and a well-formed replay
+    reference."""
     envelope = answer.envelope()
-    if answer.result is None or envelope is None or answer.result.get("isError") is not False:
+    if answer.result is None or envelope is None:
+        return False
+    if answer.route == "tool" and answer.result.get("isError") is not False:
         return False
     refusal, reference = envelope.get("refusal"), envelope.get("replay_ref")
     return isinstance(refusal, dict) and isinstance(reference, str) and bool(REPLAY_REFERENCE.fullmatch(reference))

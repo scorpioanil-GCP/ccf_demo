@@ -206,6 +206,16 @@ def test_text_length_alone_is_a_fail() -> None:
     assert not verdict.ok, verdict
 
 
+def test_a_governed_refusal_is_recognized_on_both_routes() -> None:
+    """Added 2026-10-16 after the first post-fix run: the predicate required `isError: false`, which a template read
+    never carries, so it called every template refusal "not governed" — and no test here had asked it about one."""
+    assert dc.is_governed_refusal(_tool(W, _refusal_text(W, DIGEST_W)))
+    assert dc.is_governed_refusal(_template(W, _refusal_text(W, DIGEST_W)))
+    assert not dc.is_governed_refusal(dc.Answer("template", A, None, "McpError: ccf-runtime-failure:cfe4", "x"))
+    assert not dc.is_governed_refusal(_tool(A, _refusal_text(A, DIGEST_A), is_error=True))
+    assert not dc.is_governed_refusal(_template(A, _refusal_text(A, DIGEST_A, replay_ref=_DELETE)))
+
+
 def test_the_template_route_masks_only_the_address_it_was_asked_for() -> None:
     outside = _template(W, _refusal_text(W, DIGEST_W))
     unknown = _template(A, _refusal_text(A, DIGEST_A))
