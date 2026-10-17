@@ -1242,10 +1242,14 @@ def build_egress_server(
         :class:`~ccf.products.door.DoorOutcome` bytes with ``isError`` false.
         Only a **failure** of CCF or its runtime raises, and it raises
         :class:`~mcp.server.fastmcp.exceptions.ToolError` carrying the opaque
-        id :func:`_opaque_failure` minted. The ``except`` tuple below is named
-        rather than bare precisely so that reading is checkable: a
-        :class:`~ccf.products.refusal.RefusalEnvelope` is a **return value**, so
-        no governed determination can enter that branch at all.
+        id :func:`_opaque_failure` minted. The fault clause below catches
+        ``Exception`` (SEC-030, ``D-IMPL-388``): a
+        :class:`~ccf.products.refusal.RefusalEnvelope` is a **return value**, and
+        the three governed types are caught around the resolver call before it,
+        so no governed determination can enter that branch at all — anything
+        else raised is a failure, and crosses as the opaque id on both surfaces.
+        It is ``Exception``, not ``BaseException``: cancellation, interrupt and
+        exit still propagate.
 
         **The** :class:`~ccf.products.request.ProductRequest` **is built before
         the entitlement decision**, and that is ordering rather than
@@ -1376,9 +1380,10 @@ def build_egress_server(
                 # while answering — out of child admission, say — is the
                 # recorded `erased-content` determination, disclosed by level
                 # (this tool's not-found shell at `minimal`) and delivered
-                # through the one emission site. It is outside the fault
-                # tuple below, so before this clause its prose, naming the
-                # erased address, crossed as the tool error.
+                # through the one emission site. It was outside the fault
+                # tuple below until SEC-030, so before this clause its prose,
+                # naming the erased address, crossed as the tool error; it must
+                # stay a governed answer, never the opaque failure.
                 resolved = govern_erasure(
                     grant=verified_grant(),
                     tenant=tenant,
@@ -1398,7 +1403,7 @@ def build_egress_server(
                 # could not return. Recorded through the one recorder at the
                 # question's instant and delivered through the one emission
                 # site — the typed absence's shape, for the typed handoff. Only
-                # this type; the fault clause below is unchanged.
+                # this type; the fault clause below masks everything else.
                 resolved = govern_raised_refusal(
                     raised=raised,
                     tenant=tenant,
@@ -1415,7 +1420,14 @@ def build_egress_server(
             return door_answer(
                 resolved, echo=question, resolved_request=asked, producer=producer
             )
-        except (ValueError, TypeError, LookupError, OSError) as exc:
+        except Exception as exc:
+            # SEC-030 (`D-IMPL-388`, Dave 2026-10-17): every failure, not four
+            # types. This named `ValueError`, `TypeError`, `LookupError` and
+            # `OSError`, so any other exception a resolver raised — an
+            # adopter's undeclared one, `RuntimeError`, an HTTP error naming its
+            # URL — crossed as its own text on both surfaces and left nothing in
+            # this module's log. The governed types never arrive here: they are
+            # caught around the resolver call above.
             raise _opaque_failure(exc) from exc
 
     if expose_product_tool:

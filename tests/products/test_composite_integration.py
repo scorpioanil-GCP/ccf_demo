@@ -879,6 +879,10 @@ def test_the_record_mismatch_is_wrapped_OPAQUE_at_the_delivery_doors() -> None:
 
     Asserted against the door's OWN tuple, read from the runtime rather than
     restated here, so widening or narrowing that tuple moves this test.
+
+    It moved 2026-10-17 (SEC-030, `D-IMPL-388`): the door now masks every
+    ``Exception``, so the clause is a single name followed by its comment; the
+    reading below accepts either form and every assertion is unchanged.
     """
     import inspect
     import re
@@ -889,7 +893,9 @@ def test_the_record_mismatch_is_wrapped_OPAQUE_at_the_delivery_doors() -> None:
     source = inspect.getsource(
         __import__("ccf_runtime.mcp.egress", fromlist=["x"])
     )
-    match = re.search(r"except \(([^)]*)\) as exc:\s*\n\s*raise _opaque_failure", source)
+    match = re.search(
+        r"except \(?([\w, ]+?)\)? as exc:\s*\n(?:\s*#[^\n]*\n)*\s*raise _opaque_failure", source
+    )
     assert match is not None, "the door's opaque-failure guard has moved"
     caught = tuple(
         getattr(__import__("builtins"), name.strip()) for name in match.group(1).split(",")
