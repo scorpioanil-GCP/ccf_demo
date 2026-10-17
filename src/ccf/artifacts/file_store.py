@@ -53,17 +53,34 @@ deliberately not used: it is process-wide and leaks to every thread. Replay
 records and Control Plane artifacts are decision evidence (CLAUDE.md §7.4);
 the host's default umask is not a confidentiality posture for them.
 
-Suitable for development, tests, and single-node deployments. Concurrency
-posture is the filesystem's: the write is done to a temporary file and moved
-into place, so a reader never observes a partial artifact.
+Suitable for development, tests, and single-node deployments. An artifact is
+written to a staging file unique to its writer and moved into place, so a
+reader never observes a partial artifact and two writers of the same artifact
+never share a staging file.
+
+**One naming-index writer at a time (D-IMPL-390).** Every ``put`` reads the
+naming index, appends one address and replaces the file. That sequence runs
+under an exclusive ``flock`` on ``.artifact-names.lock`` in the store root,
+taken on a descriptor opened for that one update, so it excludes other
+processes and other threads of this process alike; without it, two writers
+that read the same index each replaced it with only their own entry and one
+name was lost (measured). The wait is **blocking, with no timeout** (Dave,
+2026-10-17 15:25 MST): the hold is one small read and write, and the kernel
+releases the lock if its holder dies. **The lock is unsuitable for a network
+filesystem that does not support reliable ``flock``** — on such a mount the
+exclusion, and with it the index's completeness under concurrent writers, is
+not guaranteed. Readers take no lock: the index is replaced atomically, so a
+reader sees the index before an update or after it.
 
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+import uuid
 from pathlib import Path
 
 from ccf.artifacts.protocol import (
@@ -88,6 +105,8 @@ __all__ = ["FileArtifactStore", "InsecureArtifactStoreRoot"]
 #: Filename of the naming index. Leading dot so it never collides with a
 #: content address, which is always hexadecimal.
 _INDEX_FILENAME = ".artifact-names.json"
+#: The lock every naming-index update holds (D-IMPL-390). Leading dot, as above.
+_LOCK_FILENAME = ".artifact-names.lock"
 
 #: SEC-014 / Q8: fixed owner-only modes. Ruled mechanism, not a deployment
 #: knob — a parameter that could only loosen these is one a reviewer would
@@ -274,16 +293,33 @@ class FileArtifactStore:
         Append-only for the same reason the Control Plane registry is: a name
         whose older versions vanished when a newer one arrived would make every
         replay older than the last write unresolvable.
+
+        The read, the append and the replace hold an exclusive ``flock`` on
+        ``.artifact-names.lock`` (D-IMPL-390; see the module docstring). The
+        descriptor is opened per update, never shared, so the one lock excludes
+        other threads of this process as well as other processes.
         """
         key = self._name_key(
             tenant_id=tenant_id, artifact_class=artifact_class, name=name
         )
-        index = self._read_index()
-        versions = index.setdefault(key, [])
-        if address in versions:
-            return
-        versions.append(address)
-        self._write_index(index)
+        lock = os.open(
+            self._root / _LOCK_FILENAME,
+            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+            _FILE_MODE,
+        )
+        try:
+            # The requested mode is umask-masked; set it on the descriptor
+            # (SEC-014), as _write_private does.
+            os.fchmod(lock, _FILE_MODE)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            index = self._read_index()
+            versions = index.setdefault(key, [])
+            if address in versions:
+                return
+            versions.append(address)
+            self._write_index(index)
+        finally:
+            os.close(lock)
 
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
@@ -392,7 +428,10 @@ class FileArtifactStore:
             # Write-then-move: a reader either sees no artifact or sees the
             # whole one. A half-written replay record is worse than a missing
             # one, because it looks answerable.
-            staging = file.with_name(f".{address}.{os.getpid()}.partial")
+            # Unique per writer (D-IMPL-390): two threads putting the same
+            # artifact once shared a per-process name, and the second replace
+            # found the staging file already moved.
+            staging = file.with_name(f".{address}.{os.getpid()}.{uuid.uuid4().hex}.partial")
             _write_private(staging, payload)
             staging.replace(file)
         self._register_name(
