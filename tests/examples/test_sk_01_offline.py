@@ -390,6 +390,8 @@ def test_o5_no_sdk_machinery_outside_the_glue_file() -> None:
 
 
 _FINDING_ID = re.compile(r"\bSK01-F-\d\d\b")
+#: Internal shorthand a bank reader cannot follow: a bare gap number or a TP id.
+_SHORTHAND = re.compile(r"\bgap \d\b|\bTP-\d\d\b")
 
 
 def test_the_readme_carries_the_seven_template_headings_and_states_sk01_f01() -> None:
@@ -407,6 +409,23 @@ def test_the_readme_carries_the_seven_template_headings_and_states_sk01_f01() ->
     sections = text.split("## Whitepaper / CLAUDE.md sections exercised", 1)[1].split("\n## ", 1)[0]
     (seam,) = [bullet for bullet in sections.split("\n- ") if bullet.startswith("**CLAUDE.md §7.3**")]
     assert "SK01-F-01" in seam and "not demonstrated" in seam, seam
+    assert not _SHORTHAND.search(text), _SHORTHAND.findall(text)
+
+
+def test_movement_five_prints_each_item_in_plain_words(
+    example: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Movement 5 prints one line per item, each item's own words, and no internal id."""
+    items = yaml.safe_load((EXAMPLE / "artifacts" / "not-yet-available.yaml").read_text(encoding="utf-8"))
+    items = items["declaration"]["items"]
+    example["run"].movement_five()
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "5 · NOT YET AVAILABLE", lines
+    assert len(lines) == 1 + len(items), lines
+    for line, item in zip(lines[1:], items):
+        assert item["what"] in line and item["status"] in line, (line, item)
+        assert ("recorded_as" in item) == ("recorded as SK01-F-" in line), (line, item)
+    assert not re.search(r"\[|\bgap \d\b|\bTP-\d\d\b", "\n".join(lines[1:])), lines
 
 
 def test_every_listed_artifact_exists_and_findings_holds_every_cited_id() -> None:
@@ -431,7 +450,13 @@ def test_every_listed_artifact_exists_and_findings_holds_every_cited_id() -> Non
     for path in (pathlib.Path(__file__), pathlib.Path(__file__).with_name("test_sk_01_estate.py")):
         cited.update(_FINDING_ID.findall(path.read_text(encoding="utf-8")))
     nya = yaml.safe_load((EXAMPLE / "artifacts" / "not-yet-available.yaml").read_text(encoding="utf-8"))
-    assert {item["id"] for item in nya["declaration"]["items"] if item["id"].startswith("SK01-F-")} <= cited
+    items = nya["declaration"]["items"]
+    assert items and all(item["what"] and item["status"] for item in items), items
+    recorded = [item["recorded_as"] for item in items if "recorded_as" in item]
+    assert recorded and all(_FINDING_ID.fullmatch(value) for value in recorded), recorded
+    assert set(recorded) <= cited  # and each is held to a PARKED FINDINGS.md entry below
+    for item in items:  # movement 5 prints these words verbatim to a bank reader
+        assert not _SHORTHAND.search(f"{item['what']} {item['status']}"), item
     assert cited >= {f"SK01-F-0{n}" for n in range(1, 6)}, sorted(cited)
     for finding in sorted(cited):
         heading = re.search(rf"^## {finding}\b.*$", findings, re.MULTILINE)

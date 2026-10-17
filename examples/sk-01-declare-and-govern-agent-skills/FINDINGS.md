@@ -13,7 +13,11 @@ and are limited to its stated scope and term.
 the skills example, option A RULED 2026-10-16 16:58 MST". Dave, verbatim:
 *"Gaps 1, 3 and 4, and the new findings F-01 through F-04, stay recorded and
 parked. The three-issue cap is already exceeded; do not start additional SDK
-work for the example."* So every finding below is **PARKED** (Dave, 2026-10-16
+work for the example."* (Gap 1 is granting or revoking a skill while a product
+runs; gap 3, replaying a composite decision through `replay_decision`; gap 4, an
+agent that holds grants outside a product. On 2026-10-17 01:46 MST Dave ruled
+that gap 3 be fixed in the SDK; gaps 1 and 4 stay parked.) So every finding below
+is **PARKED** (Dave, 2026-10-16
 16:58): recorded, classified as proposed, and not worked on. Nothing in `src/`
 or `runtime/` was changed for this example. Each finding was classified under
 `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B before anything was changed; the
@@ -42,7 +46,7 @@ Only what a gate in this repository, or a recorded measurement, shows.
 | **refuse correctly** | **Exercised with findings, not proven.** A question outside the temporal boundary is refused as data (`RefusalEnvelope`, `asked-at-outside-temporal-bound`) with a record. On the estate, the expired-evidence facility is refused `composite-child-refusal`, the child row `ineligible` with the producer's `ttl-refusal` / `ttl-bounds`. A refused *open* raises `DeclaredGrantRefused` and leaves no replay record (SK01-F-04). | `test_o6_…`; E3 on the estate; `test_o1_…` |
 | **preserve sufficient refusal evidence** | **Exercised with findings, not proven.** A refused question's record names the agent and its skill-set, on the estate too. A child row that was not admitted omits the skill and grant: measured on the estate for the `ineligible` row, which does carry the producer's refusal kind and reason (see "Observed while building"). | `test_o6_…`; E3 on the estate; the live `run.py` output |
 | **compose; local and remote boundaries** | **Exercised on the estate.** The brief admitted cp-06-canonical's product from that producer's own door in another process, and the child row names the producer registration. | E2 on the estate; the live `run.py` output |
-| **replay and reconstruct; tenant/product/provider identity** | **Not measured in this build.** Composite replay through `replay_decision` is gap 3, parked. | — |
+| **replay and reconstruct; tenant/product/provider identity** | **Not measured in this build.** Composite replay through `replay_decision` is gap 3, ruled for fixing in the SDK on 2026-10-17. | — |
 
 **Dimension 4 names the composing agent (`D-IMPL-385`), bound by this example.**
 `test_o6_a_refused_decision_names_the_declared_agent_and_its_audited_skill_set`
@@ -181,12 +185,13 @@ The parked findings, each recorded in full below:
 | SK01-F-02 | the paved agent's tool surface needs SDK-internal knowledge | candidate §B.2 | PARKED |
 | SK01-F-03 | a skill's requirements are not pinned in the decision record (unsure) | for Dave | PARKED |
 | SK01-F-04 | grant audit lives only in memory (unsure) | for Dave | PARKED |
-| SK01-F-05 | the product scaffolding an agent needs to hold one grant | evidence for gap 4 | PARKED with gap 4 |
+| SK01-F-05 | the product scaffolding an agent needs to hold one grant | evidence for gap 4 (an agent outside a product) | PARKED with gap 4 |
 | §2 (e) | duplicated configuration authorities | candidate §B.2 | proposed; parked by the ruling |
 
-Gaps 1 (a run-time grant/revoke door), 3 (composite replay through
-`replay_decision`) and 4 (an agent outside a product) stay parked (`D-IMPL-385`
-and the sk-01 ruling).
+Gaps 1 (a run-time grant/revoke door) and 4 (an agent outside a product) stay
+parked (`D-IMPL-385` and the sk-01 ruling). Gap 3 (composite replay through
+`replay_decision`) was ruled for fixing in the SDK on 2026-10-17 01:46 MST; this
+example does not run a replay.
 
 ## 5 · Estate / example limitations
 
@@ -270,9 +275,11 @@ step-1 *"No"*. The classification is Dave's.
   `skills:` entries — always `mcp_product`. A script could mint one (the lint
   that holds minting to composition roots does not scan `examples/`), but that
   would be a bypass; `test_o5_…` forbids it here. This is the evidence for the
-  design's open question of whether F-01 folds into gap 1.
+  design's open question of whether SK01-F-01 is the same gap as gap 1 (no
+  run-time grant or revoke).
 - Movement 3: the adapter's tool list for the granted agent is empty, which is
-  the correct answer for an `mcp_product` skill (TP-03).
+  the correct answer for an `mcp_product` skill (the SDK's rule:
+  `src/ccf/skills/toolsurface.py::HARNESS_EXPOSABLE_SKILL_TYPES`).
 
 **Consequence.** CLAUDE.md §7.3 seam 2 cannot be demonstrated from an example:
 it is *called* (movement 3), but neither half of its contract — a granted skill
