@@ -10,7 +10,8 @@ Dave, 2026-10-17 00:44 MST: *"Any exception raised while a product is acquiring 
 caller only as the opaque ``ccf-runtime-failure:<id>``. No raw exception message, type name, or internal text may
 cross either the tool route or the address-template route."*
 
-Until this fix the door's fault clause in ``runtime/ccf_runtime/mcp/egress.py::_answer_question`` named four types —
+Until this fix the door's fault clause — in ``_answer_question``, inside
+``runtime/ccf_runtime/mcp/egress.py::build_egress_server`` — named four types:
 ``ValueError``, ``TypeError``, ``LookupError``, ``OSError``. Anything else a resolver raised reached the caller as its
 own text, on both routes, and left no record in the door's log. Measured on ``main`` ``0746e701``, and first seen in
 SEC-020's deliberate break S4: cp-06C's out-of-scope exception with its ``seam_refusals`` binding missing answered
