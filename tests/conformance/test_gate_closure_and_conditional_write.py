@@ -24,15 +24,32 @@ or :data:`STORES` and runs it unchanged:
   creates admit one; racing writes from one version admit one; an
   unconditional write moves the version a conditional writer reads; a refused
   write writes nothing and appends no audit event.
+* :meth:`~ccf.hitl.transport.HITLTransportProtocol.enqueue` (``D-IMPL-391``;
+  Dave, 2026-10-17 15:25 MST: *"Third-party transports must meet the
+  contract."*) — racing enqueues of one paused run's request file one; a
+  request for another pause under the same key is filed.
+* :attr:`~ccf.controlplane.state.ConditionalStateStore.identity`
+  (``D-IMPL-391``, design 1.4) — 64 lowercase hex characters; one identity for
+  every client of one substrate; different for an independent substrate; kept
+  by a durable substrate across a reopen; and a copied durable substrate
+  refuses to open. The engine checks only the shape; these cases are the bar
+  for uniqueness and persistence. :data:`SUBSTRATES` holds the in-memory
+  reference, a stand-in for a durable store several processes share, and a
+  path-backed single-process stand-in
+  (``tests/support/path_backed_approval_pair.py``); a deployment adds its own.
 
 Every race starts its threads at one barrier. Test vocabulary only (CINV-01).
 """
 
 from __future__ import annotations
 
+import re
+import shutil
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -303,3 +320,163 @@ def test_a_refused_conditional_write_writes_nothing_and_appends_nothing(make: Ca
     with pytest.raises(StateConflict):
         write_if(writer_, {"writer": "stale"}, expected=0)
     assert (store.get_versioned(RECORD_CLASS, KEY), len(audit.events())) == before
+
+
+# --- one paused run, one request (D-IMPL-391, ruling 4(a)) ---------------------------
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_racing_enqueues_of_one_paused_runs_request_file_one(make: Callable[[], Any]) -> None:
+    transport = make()
+    outcomes = race(THREADS, lambda i: transport.enqueue(event=gate_event()))
+    assert all(kind == "ok" for kind, _ in outcomes), outcomes
+    queued = [e for e in transport.pending(tenant=TENANT) if e.event_key == EVENT_KEY]
+    assert queued == [gate_event()], f"{len(queued)} requests queued for one paused run"
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_a_request_for_another_pause_under_the_same_key_is_filed(make: Callable[[], Any]) -> None:
+    transport = make()
+    transport.enqueue(event=gate_event(SUSPENSION))
+    transport.enqueue(event=gate_event(LATER_SUSPENSION))
+    assert [e.product_content_hash for e in transport.pending(tenant=TENANT)] == [
+        SUSPENSION,
+        LATER_SUSPENSION,
+    ]
+
+
+# --- the state store's identity (D-IMPL-391, design 1.4) -----------------------------
+
+#: The declared shape (``src/ccf/controlplane/state.py::STATE_STORE_IDENTITY_PATTERN``),
+#: restated so this suite reads as the bar, not as a copy of the code it judges.
+IDENTITY_SHAPE = re.compile(r"[0-9a-f]{64}")
+
+
+def identity_of(store: Any) -> str:
+    identity = getattr(store, "identity", None)
+    assert isinstance(identity, str) and IDENTITY_SHAPE.fullmatch(identity), (
+        f"{type(store).__name__} declares no identity of the declared shape: {identity!r}"
+    )
+    return identity
+
+
+@dataclass(frozen=True)
+class Substrate:
+    """How a deployment opens its own store, for the identity cases.
+
+    ``open(location)`` opens a client of the substrate at ``location``, a
+    directory a durable store may use. ``second_client(store)`` is another
+    client of the same substrate while ``store`` is open. ``reopen(store)``
+    closes ``store`` and opens its substrate again; ``None`` for a store whose
+    records do not survive a restart. ``copy(store, location)`` copies the
+    closed substrate to ``location`` and opens the copy; ``None`` for a store
+    with nothing to copy.
+    """
+
+    open: Callable[[Path], Any]
+    second_client: Callable[[Any], Any]
+    reopen: Callable[[Any], Any] | None
+    copy: Callable[[Any, Path], Any] | None
+
+
+def _in_memory() -> Substrate:
+    # An in-memory store's records live in the object, so the object is the
+    # substrate: its only client is itself, and a new object is a new store.
+    return Substrate(open=lambda _: InMemoryStateStore(), second_client=lambda s: s, reopen=None, copy=None)
+
+
+def _shared_backing() -> Substrate:
+    from tests.workflow.test_approval_gate_limits import SharedBackingStore, StandInRecords
+
+    return Substrate(
+        open=lambda _: SharedBackingStore(StandInRecords()),
+        second_client=lambda s: SharedBackingStore(s._records),
+        reopen=lambda s: SharedBackingStore(s._records),
+        copy=None,
+    )
+
+
+def _path_backed() -> Substrate:
+    from tests.support.path_backed_approval_pair import PathBackedStateStore
+
+    def reopen(store: Any) -> Any:
+        store.close()
+        return PathBackedStateStore(store.directory)
+
+    def copy(store: Any, location: Path) -> Any:
+        store.close()
+        shutil.copytree(store.directory, location / "copied")
+        return PathBackedStateStore(location / "copied")
+
+    return Substrate(
+        open=lambda location: PathBackedStateStore(location / "state"),
+        # A single-process store has one client per process: the open one.
+        second_client=lambda s: s,
+        reopen=reopen,
+        copy=copy,
+    )
+
+
+#: Every substrate a deployment's own store joins.
+SUBSTRATES = [
+    pytest.param(_in_memory, id="in-memory-store"),
+    pytest.param(_shared_backing, id="shared-backing-stand-in"),
+    pytest.param(_path_backed, id="path-backed-single-process-stand-in"),
+]
+
+
+@pytest.mark.parametrize("substrate", SUBSTRATES)
+def test_the_identity_has_the_declared_shape(substrate: Callable[[], Substrate], tmp_path: Path) -> None:
+    identity_of(substrate().open(tmp_path))
+
+
+@pytest.mark.parametrize("substrate", SUBSTRATES)
+def test_every_client_of_one_substrate_returns_one_identity(
+    substrate: Callable[[], Substrate], tmp_path: Path
+) -> None:
+    kind = substrate()
+    store = kind.open(tmp_path)
+    assert identity_of(kind.second_client(store)) == identity_of(store)
+
+
+@pytest.mark.parametrize("substrate", SUBSTRATES)
+def test_independent_substrates_have_different_identities(
+    substrate: Callable[[], Substrate], tmp_path: Path
+) -> None:
+    kind = substrate()
+    one = kind.open(tmp_path / "one")
+    other = kind.open(tmp_path / "other")
+    assert identity_of(one) != identity_of(other)
+
+
+@pytest.mark.parametrize("substrate", SUBSTRATES)
+def test_a_reopened_durable_substrate_keeps_its_identity(
+    substrate: Callable[[], Substrate], tmp_path: Path
+) -> None:
+    """A store whose records survive a restart keeps its identity; one whose
+    records do not must not present the same identity again, since a new
+    object is a new store (the restart variant of the residual)."""
+    kind = substrate()
+    store = kind.open(tmp_path)
+    before = identity_of(store)
+    if kind.reopen is None:
+        assert identity_of(kind.open(tmp_path)) != before
+        return
+    assert identity_of(kind.reopen(store)) == before
+
+
+@pytest.mark.parametrize("substrate", SUBSTRATES)
+def test_a_copied_durable_substrate_refuses_to_open(
+    substrate: Callable[[], Substrate], tmp_path: Path
+) -> None:
+    """The copy MUST (Dave, 2026-10-09 10:54 MST): *"A copied store must refuse,
+    not 'should.'"* A store that cannot detect a copy does not conform."""
+    kind = substrate()
+    store = kind.open(tmp_path)
+    identity_of(store)
+    if kind.copy is None:
+        return  # nothing outlives the object, so there is nothing to copy
+    from tests.support.path_backed_approval_pair import SubstrateMoved
+
+    with pytest.raises(SubstrateMoved, match="was copied"):
+        kind.copy(store, tmp_path)

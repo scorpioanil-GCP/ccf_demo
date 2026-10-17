@@ -536,22 +536,27 @@ def test_a_request_the_approval_gate_resolved_is_never_filed_again(tmp_path: Pat
 # Each test below pins what the recovery does NOT prevent, so the disclosure in
 # ``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._restore_request``
 # rests on a measurement. Each goes red if the residual is ever closed, and must
-# then be rewritten to assert the closing mechanism.
+# then be rewritten to assert the closing mechanism. The first was closed by
+# ``D-IMPL-391`` (the atomic enqueue) and asserts that mechanism now.
 
 
 @pytest.mark.parametrize("overlap", ["a slow suspension", "a recovery held at its enqueue"])
-def test_an_overlapping_recovery_can_file_a_second_identical_request_and_the_gate_still_opens_once(
+def test_overlapping_recoveries_file_exactly_one_request_and_the_gate_opens_once(
     tmp_path: Path, overlap: str
 ) -> None:
-    """RESIDUAL. The conditional write orders recoveries that read the same
-    version, not one that reads the record after another write landed and before
-    that write's enqueue. Process A is held there, either inside its suspension's
-    trace write (the suspension is alive but slow, after its suspension write
-    landed) or inside a recovery's enqueue (after that recovery's write landed),
-    while process B's resumption runs to its end. Both file the request: two
-    identical requests for the one suspension. One approval then opens the gate
-    exactly once, the gate's closure retires both requests, and a later verdict
-    on the suspension is refused ``hitl-gate-closed``."""
+    """CLOSED RESIDUAL (``D-IMPL-391``, ruling 4(a); rewritten from the pin that
+    measured it, as this section's header requires). The conditional write orders
+    recoveries that read the same version, not one that reads the record after
+    another write landed and before that write's enqueue. Process A is held
+    there, either inside its suspension's trace write (the suspension is alive
+    but slow, after its suspension write landed) or inside a recovery's enqueue
+    (after that recovery's write landed), while process B's resumption runs to
+    its end. Both file the request. Before design 1.4 that was two identical
+    requests for the one suspension; now ``enqueue`` is atomic on the paused
+    run's fingerprint (``(tenant, event_key, product_content_hash)``), so exactly
+    one is pending. One approval then opens the gate exactly once, the gate's
+    closure retires the request, and a later verdict on the suspension is
+    refused ``hitl-gate-closed``."""
     records = StandInRecords()
     transport = DyingTransport()
     transport.scope = "shared"  # type: ignore[misc]
@@ -576,7 +581,9 @@ def test_an_overlapping_recovery_can_file_a_second_identical_request_and_the_gat
     assert isinstance(first.join(), WorkflowSuspended)
     stuck = state_of(a)
     expected = the_request_a_suspension_files(a, stuck)
-    assert requests(a, FIRST_GATE) == [expected, expected], "the residual: two identical requests"
+    assert requests(a, FIRST_GATE) == [expected], (
+        "two overlapping recoveries filed the paused run's request more than once"
+    )
 
     eh._resolve_gate(
         a.registry, transport, tenant=a.tenant, event_key=expected.event_key,
@@ -584,7 +591,7 @@ def test_an_overlapping_recovery_can_file_a_second_identical_request_and_the_gat
     )
     passed = resume(a)
     assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
-    assert requests(a, FIRST_GATE) == [], "the gate's closure retired both requests"
+    assert requests(a, FIRST_GATE) == [], "the gate's closure retired the request"
     with pytest.raises(HitlGateClosed):
         eh._submit_only(
             transport, tenant=a.tenant, event_key=expected.event_key,
