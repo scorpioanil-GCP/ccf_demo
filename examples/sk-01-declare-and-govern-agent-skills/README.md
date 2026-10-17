@@ -8,12 +8,13 @@ and are limited to its stated scope and term.
 -->
 # sk-01 — declare and govern an agent's skills
 
-**What a skill is.** An agent is a named, versioned definition, not code. A
-*skill* is one governed capability the agent may use. Here it is
+**The skill in this example.** An agent is a named, versioned definition, not
+code. Here the agent `collateral-analyst` holds one Context Skill,
 `collateral-ask`: "ask the bank's collateral product (cp-06-canonical) about one
-facility." The bank's **policy regime** says which skills an agent *may* hold.
-A **grant** says which skills it *does* hold. Every grant, and every refused
-grant, goes into the audit log.
+facility." The bank's **policy regime** says which skills an agent *may* hold; a
+**grant** says which it *does* hold. What a Context Skill is, and how it differs
+from the skills an agent harness uses, is set out in the two sections just before
+"What this demonstrates".
 
 **Why it matters to a bank.** Three questions can be answered without trusting
 the agent's own account of itself:
@@ -38,6 +39,128 @@ and the design findings it rests on, are recorded in `docs/DECISIONS.md` under
 "sk-01 — the skills example, option A RULED 2026-10-16 16:58 MST"; the findings
 themselves, parked, are in `FINDINGS.md` beside this README.
 
+### What a Context Skill is (and is not)
+
+A **Context Skill** is the name this README uses for a governed authorization for
+an agent to ask a Context Product. In the SDK it is two declared Control Plane
+artifacts: a skill catalog entry, which carries its own version and says what may
+be asked and of which producer, and a grant, which gives that skill to one agent.
+Neither "Context Skill" nor "Agent Skill" is an SDK identifier; the SDK and its
+configuration call them skills and grants.
+
+It is:
+
+- **Declared** in the deployment's `ccf_config.yaml`: the skill under `skills:`
+  (with its own `schema_version` and `artifact_version`), the grant under
+  `grants:`.
+- **Granted or refused under a policy regime**, when the product opens. Every
+  scope the skill requires must be one `policy.skill_governance` permits (scopes
+  are compared as labels), and every product it requires must be one the agent's
+  context contract consumes. If the regime requires approval, the grant goes to
+  the deployment's approver as the product opens and takes effect only if
+  approved; with no approver configured, it is refused. A refused grant stops the
+  product from opening (movement 4).
+- **Audited, with two limits.** Each grant request and its outcome
+  (`grant_requested`, then `grant_effective`, `grant_pending_approval` or
+  `grant_refused`) is written to the Control Plane audit log, which today is held
+  in memory and ends with the process (SK01-F-04). And three configuration
+  mistakes are refused by name before any grant is requested, so they leave no
+  grant event: a grant naming an undeclared skill, a declared skill no grant
+  lists, and a skill of a type other than `mcp_product`.
+- **Identified in the decision record.** Every decision this product records,
+  served or refused, names the agent (dimension 4: content hash, versioned URI,
+  archetypes) and carries a fingerprint, a content hash, of the grants it held
+  when the record was written. The fingerprint is not a list: turning it back
+  into skill names needs the grant artifacts, which today live only in the
+  in-memory Control Plane (SK01-F-04). When a child product was admitted, that
+  child's row (dimension 5) names the skill and the grant it was asked under; a
+  refused child's row names neither.
+
+It is not:
+
+- **A tool the model sees and calls.** On the supported configuration path every
+  declared skill is type `mcp_product` ("ask a registered producer for a Context
+  Product of this class"); any other type stops the product from opening
+  (SK01-F-01). None of the SDK's harness adapters offers an `mcp_product` skill to
+  a model. The product asks the producer while it assembles its answer; no model
+  does.
+- **A general-purpose skill in the sense most agent frameworks use.** The SDK has
+  skill types a harness can offer a model as tools (`tool`, `mcp`,
+  `local_callable`), but an example cannot declare or grant one today: the
+  supported configuration path refuses them, and the SDK's separate route for
+  registering and granting skills is not one an example can use yet.
+- **Code the agent runs.** A skill entry is data: a description, a requirements
+  envelope, the class it produces and which registered producer to ask. It has no
+  data acquisition, projection, debt rule or door of its own. The answering
+  happens inside the producer's Context Product.
+
+**What building one takes.** Building a Context Skill is not a separate
+construction activity from building a Context Product. The product being asked
+already exists (here, cp-06-canonical). The skill is five declarations in
+`ccf_config.yaml`, checked against one another when the product opens —
+`policy.skill_governance`, `producers:`, `skills:`, `agent:` and `grants:` — plus
+one question mapping in `deployment.py`. Today an agent that holds grants can
+exist only inside a product built from other products, so this example also wraps
+the agent in a small product of its own (the facility collateral brief); that
+host product is not part of the skill (SK01-F-05).
+
+In short: a Context Skill is how you say, under policy, "this agent may ask that
+product", and how a decision record later identifies which agent asked and which
+grants it held. It is not how you give a model a new tool.
+
+### Context Skill and Agent Skill
+
+These are two different things. Keeping them separate avoids confusion with the
+skills most developers already know.
+
+**Context Skill (CCF).** As above: declared in `ccf_config.yaml` (`skills:`,
+`grants:`), put in force or refused under the policy regime when the product
+opens, audited in the Control Plane audit log (held in memory today), and
+identified in every decision record the product writes. On the supported
+configuration path it is always type `mcp_product`, and it is never offered to a
+model as a tool.
+
+**Agent Skill (harness).** The ordinary skill you write inside your own agent
+harness (the Claude Agent SDK or any other).
+
+- It can hold functional instructions, workflow steps and the logic that works on
+  a product's answer.
+- It can tell the model to ask a Context Product through the product's door (for
+  example its MCP door, as the clients in `examples/hw1-harness-clients` do), then
+  apply further rules to the answer.
+- It lives outside the fabric. The fabric does not parse it, grant it or record
+  its text, and no decision record contains any of it. (The SDK can import a
+  `SKILL.md` into the Control Plane as a governed `procedure` skill with
+  `ccf skill import`; this example does not use that, and the supported
+  configuration path cannot declare one.)
+
+**How the two relate today.** An Agent Skill can name a Context Product, or a
+Context Skill, in its text, but nothing in the fabric reads that text, so naming a
+Context Skill there authorizes nothing. A Context Skill is used in one place: a
+product built from other products asking a child product for a class it requires,
+under its agent's grant. Here the brief's agent, `collateral-analyst`, holds
+`collateral-ask`, and the brief uses that grant to ask cp-06-canonical for the
+facility's collateral coverage.
+
+If a harness follows an instruction such as
+
+> "To draft the credit memo, ask the collateral coverage product
+> (`credit-risk.collateral-coverage`) for this facility. Take the returned
+> coverage figures and apply the following rules …"
+
+by calling cp-06-canonical's door directly, the `collateral-ask` Context Skill
+plays no part: the door's own controls decide (its credential, its scope mapping
+and the product's entitlement policy), and that decision's record names the
+caller the door verified and records that no agent and no skill grant were
+involved. An agent that holds grants and asks a product on its own, outside a
+product built from other products, is not available yet (SK01-F-05).
+
+So the Agent Skill supplies whatever instructions your harness gives its model,
+and the fabric neither governs nor records them. The Context Skill governs one
+thing, a product's own ask of another product, and makes that ask identifiable in
+the decision record. A harness's own request to a product is governed by that
+product's door, not by any Context Skill.
+
 ## What this demonstrates
 
 One command, five movements:
@@ -46,9 +169,9 @@ One command, five movements:
 | --- | --- | --- |
 | **1 · Skills declared at start** | The agent `collateral-analyst` is granted `collateral-ask` as the product opens. The audit log shows the grant was **requested** and took **effect**. | `ccf_config.yaml`: `policy.skill_governance`, `producers`, `skills`, `agent`, `grants` |
 | **2 · The record names who decided and what they held** | After one real question, the decision record's dimension 4 names the agent (content hash, versioned URI, archetypes) and the identity of its skill-set; the child row in dimension 5 names the skill and the grant it was asked under, when the child was admitted. `run.py` holds both to the audit log from movement 1 and prints `yes` or `NO` for each check. | `run.py::movement_two` |
-| **3 · What a model would see** | The agent is handed to the Claude Agent SDK adapter. **No model is called** and nothing is spawned. The tool list is **empty, and that is correct**: a "go ask another product" skill is never a tool a model calls — the product asks, and admits the answer under the producer's controls. | `tool_surface.py` (glue — SK01-F-02) |
+| **3 · What a model would see** | The agent is handed to the Claude Agent SDK adapter. **No model is called** and nothing is spawned. The tool list is **empty, and that is correct**: a "go ask another product" skill is never a tool a model calls — the product asks, and admits the answer under its own admission checks. | `tool_surface.py` (glue — SK01-F-02) |
 | **4 · An over-reaching grant is refused at start-up, and audited** | A second deployment ships version 1.1.0 of the skill, which also wants `collateral-ledger.write`. The regime permits reading only, so the product **refuses to open** (`DeclaredGrantRefused`, check `tier-1-policy-compatibility`). The audit log shows `grant_requested` followed by `grant_refused`. | `variants/over-reach/` |
-| **5 · Not yet available** | The first four items under "What this does not show", each printed from `artifacts/not-yet-available.yaml` with the finding or gap that records it. | |
+| **5 · Not yet available** | The first three items under "What this does not show", printed in plain words from `artifacts/not-yet-available.yaml`, each naming the finding that records it where there is one. | |
 
 **The skill chain is five declarations**, and the regime, the catalog entry and
 the grant agree **by construction at open**, not by care: the SDK derives the
@@ -66,8 +189,9 @@ not list it, not because anything here could write a ledger.
 
 - **Granting or revoking a skill while the product runs.** Every grant here is
   declared in `ccf_config.yaml` and requested as the product opens. The SDK's
-  grant ledger can grant and revoke later, but no door an example can use is
-  authorized to do it yet (gap 1).
+  grant ledger can grant and revoke later, but the SDK does not yet offer an
+  example an authorized way to do that while the product runs (a parked SDK
+  gap; FINDINGS.md §4).
 - **A granted skill appearing as a model tool, or a revoked one disappearing —
   not yet possible (SK01-F-01).** This agent's only skill asks another product,
   and that kind of skill (`mcp_product`) is never a model tool
@@ -83,7 +207,8 @@ not list it, not because anything here could write a ledger.
   refused beside a declared `agent:`/`skills:`
   (`src/ccf/products/product.py::_refuse_half_wired_composite`), so nothing on it
   requests a grant for you. The grant ledger takes only two capabilities: the
-  `skill.grant` door's, which no example can reach (gap 1), or the
+  `skill.grant` door's, which no example can reach (the parked gap in the
+  first item above), or the
   composition-time `DeclaredSkillGrant`. The SDK mints the second only for
   `grants:` entries that name `skills:` entries, which are always `mcp_product`;
   minting one in example code would be a bypass, and this example's offline test
@@ -92,13 +217,18 @@ not list it, not because anything here could write a ledger.
   lists would be empty.
   `tests/examples/test_sk_01_offline.py` asserts the refusal as shipped, so it
   turns red the day this becomes possible.
-- **Replaying this decision.** The record names the agent, its version, its
-  skill-set and the grant behind the child. Replaying a *composite* decision
-  through `replay_decision` is not available yet (gap 3).
 - **An agent on its own.** Today an agent that holds grants and asks another
-  product exists only inside a composite product. The small product around
-  `collateral-analyst` — its own identity leg, its debt rule, its Π — exists for
-  that reason, not because the brief needs it (gap 4, SK01-F-05).
+  product exists only inside a product built from other products. The small
+  product around `collateral-analyst` — its own identity lookup, its debt rule,
+  its presentation step (Π) — exists for that reason, not because the brief
+  needs it (a parked SDK gap; its cost is measured in FINDINGS.md, SK01-F-05).
+- **Replaying this decision.** Not run by this example. The SDK's one-step
+  replay (`replay_decision`) now rebuilds a decision that admitted another
+  product's answer from its record and the retained copy of that answer, without
+  asking the producer again (`D-IMPL-389`; held by
+  `tests/replay/test_composite_replay_decision.py`, which stops the producer
+  before it replays). No gate in this repository replays this example's own
+  decisions.
 - **A model call.** No model is called. The tool list comes from the adapter
   alone, with no network.
 - **Reading the skills back from the record alone.** The record carries the
@@ -246,8 +376,8 @@ open, by name, before anything is composed; `run.py` prints the check and the
 excess scope, and the audit log's `grant_requested` and `grant_refused` for the
 variant's own grant hash.
 
-**Movement 5** prints what is not yet available, with the finding or gap that
-records each.
+**Movement 5** prints, in plain words, what this SDK cannot show yet, naming
+the finding in FINDINGS.md that records each where there is one.
 
 ## Artifact-by-artifact
 
@@ -267,7 +397,7 @@ records each.
 | `produce.py` | One `open_product` call, and the named plan factory. |
 | `tool_surface.py` | **Glue (SK01-F-02).** The only file allowed `GrantLedger(`, `SkillCatalog(` and `AgentFactory(`. |
 | `run.py` | The five movements and their checks. |
-| `FINDINGS.md` | SK01-F-01 … F-05, the observed friction, and the parked gaps, in the six close-report sections. |
+| `FINDINGS.md` | SK01-F-01 … F-05, the observed friction, and the two parked SDK gaps (granting or revoking a skill while a product runs; an agent outside a product) and the composite-replay gap since fixed in the SDK (`D-IMPL-389`), in the six close-report sections. |
 
 ## Whitepaper / CLAUDE.md sections exercised
 

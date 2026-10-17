@@ -8,23 +8,22 @@
 #
 # WHAT THIS EXAMPLE CANNOT SHOW ON TODAY'S SDK — printed as movement 5 by
 # `run.py` and explained in the README's "What this does not show". Each item
-# names the finding or gap that records it (FINDINGS.md). Dave, 2026-10-16
-# 16:58 MST: these stay recorded and parked; no SDK work is started for them.
+# says in plain words what cannot be shown and why; `recorded_as`, where present,
+# names the parked finding in FINDINGS.md. Dave, 2026-10-16 16:58 MST: these stay
+# recorded and parked; no SDK work is started for them. The composite-replay
+# item was removed when the SDK fix Dave ruled on 2026-10-17 01:46 MST landed
+# (`D-IMPL-389`); this example does not run a replay.
 
 semver: "1.0.0"
 class_id: sk-01.not-yet-available
 
 declaration:
   items:
-    - id: SK01-F-01
-      what: a granted skill appearing as a model tool, or a revoked one disappearing
-      status: not yet possible — the paved road declares only mcp_product skills, which are never model tools; the low road's children= hatch can carry other skill types but has no grant authority an example may hold (gap 1)
-    - id: gap 1
-      what: granting or revoking a skill while the product runs
-      status: not yet available — no door an example can use is authorized to grant or revoke
-    - id: gap 3
-      what: replaying this composite decision through replay_decision
-      status: not yet available
-    - id: gap 4
-      what: an agent that holds grants outside a composite product
-      status: not yet available — the brief around collateral-analyst exists for that reason
+    - what: a granted skill appearing as a model tool, or a revoked one disappearing
+      status: not yet possible — the supported configuration declares only skills that ask another Context Product, and a model never calls those; the one other route that can carry a model-callable skill gives an example no way to grant it
+      recorded_as: SK01-F-01
+    - what: granting or revoking a skill while the product runs
+      status: not yet available — every grant here is declared in ccf_config.yaml and put in force when the product opens; the SDK offers an example no authorized way to grant or revoke one afterwards
+    - what: an agent that holds grants and asks another product on its own, without a product of its own around it
+      status: not yet available — today such an agent exists only inside a product built from other products, which is why this example wraps collateral-analyst in a small facility collateral brief
+      recorded_as: SK01-F-05

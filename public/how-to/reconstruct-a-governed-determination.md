@@ -147,8 +147,18 @@ read for what a parent actually asked — from the parent's own retained bytes,
 held to the row's address, calling nothing.
 
 For a **composite**, the environment also answers `resolve_composite_plan`
-over the reconstructed children; the fourth CP-14 slice's suite carries the
-reference form.
+over the reconstructed children, and its `rehydrate_product` composes the
+composite's lineage and expiry from the admitted child rows, refusing rather
+than defaulting a missing member. The reference form is the supported
+environment, `ccf.replay.environment.RecordedEnvironment` — the one
+`OpenedProduct.replay_decision` builds (`D-IMPL-389`). The fourth CP-14 slice's
+suite carries an earlier, hand-built form that departs from the serve in three
+ways: it caps the expiry at `max_ttl_seconds` rather than the class's
+`product_ttl_seconds`; it defaults missing row members; and with no admitted
+child it still calls `compose_expiry`, which refuses an empty set
+(`EmptyCompositionError`) where the serve keeps the product's own window. On
+CP-14 the first difference is invisible, because CP-14 declares both windows
+equal.
 
 ## One private dependency
 
@@ -171,5 +181,12 @@ an SDK change, recorded as such; it is not made here.
 - **Refusal records do not pin the half-life table**, so a refused
   determination's anchor evidence is not re-derivable under its own pins; the
   refusal is held to what it recorded.
+- **Opening a product only to replay still needs its producers' environment
+  variable names.** With `read_sources=False` the opening still resolves each
+  declared producer's endpoint and credential variables, and refuses with
+  `ccf.skills.producers.ProducerEnvironmentMissing` when one is unset, or when
+  the endpoint is set but empty, although replay asks no producer. Setting them,
+  with a non-empty endpoint, lets the replay run; measured with an address
+  nothing listens on (`D-IMPL-389`, recorded as a known limit).
 - These are limitations, stated as limitations. They are not lifted by the
   current examples passing.

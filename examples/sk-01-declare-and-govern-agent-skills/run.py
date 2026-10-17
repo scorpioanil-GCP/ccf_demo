@@ -233,7 +233,7 @@ def movement_three(opened: OpenedProduct, *, instant: datetime) -> None:
     print("3 · WHAT A MODEL WOULD SEE")
     print(f"    bound: {bound}  ->  model tools: {list(surface.exposed) or 'none'}  allowed_tools={list(surface.allowed_tools)}")
     print(f"    tool-surface types: {sorted(surface.exposable_types)}")
-    print("    why: a product ask is performed and admitted by the product, never called by the model (TP-03)")
+    print("    why: a skill that asks another product is carried out by the product, which checks and admits the answer; it is never a tool the model calls")
 
 
 def movement_four(scratch: Path) -> bool:
@@ -262,7 +262,8 @@ def movement_five() -> None:
     document = yaml.safe_load((HERE / "artifacts" / "not-yet-available.yaml").read_text(encoding="utf-8"))
     print("5 · NOT YET AVAILABLE")
     for item in document["declaration"]["items"]:
-        print(f"    [{item['id']}] {item['what']}: {item['status']}")
+        recorded = f" (recorded as {item['recorded_as']} in FINDINGS.md)" if "recorded_as" in item else ""
+        print(f"    - {item['what']}: {item['status']}{recorded}")
 
 
 def main(argv: list[str]) -> int:
