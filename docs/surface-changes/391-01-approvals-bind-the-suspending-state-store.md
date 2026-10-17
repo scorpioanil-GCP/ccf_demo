@@ -53,7 +53,7 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 
 - Surface: ccf.controlplane.state.InMemoryStateStore
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: no identity; no `writer_lease`.
 - After: `identity`, minted per construction (its records live in the object, so a new object is a new store); `writer_lease()` returns the `"process"` declaration (`ProcessScopedWriterLease`), exact because no other process can reach its memory.
 - Why: `D-IMPL-391`.
@@ -63,7 +63,7 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 
 - Surface: ccf.hitl.transport.HITLTransportProtocol
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `enqueue` appended every event it was given.
 - After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
 - Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."*
@@ -103,7 +103,7 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 
 - Surface: ccf_runtime.workflow.engine.WorkflowEngine
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: an approval counted in any store whose suspension hashed alike; no single-process lease requirement.
 - After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` retires the pending pre-upgrade request (audited `workflow_request_retired`), then re-pauses the run under this store (audited `workflow_suspended`, one new request under the same key); a fresh approval is required.
 - Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST.

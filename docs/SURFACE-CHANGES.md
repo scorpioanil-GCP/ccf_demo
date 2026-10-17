@@ -21407,7 +21407,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-660 entries — 464 public Python surface, 196 not public Python API.
+657 entries — 461 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28891,30 +28891,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
-#### ccf.controlplane.state.InMemoryStateStore
-
-- Surface: ccf.controlplane.state.InMemoryStateStore
-- Public surface: true
-- Change type: reshaped
-- Before: no identity; no `writer_lease`.
-- After: `identity`, minted per construction (its records live in the object, so a new object is a new store); `writer_lease()` returns the `"process"` declaration (`ProcessScopedWriterLease`), exact because no other process can reach its memory.
-- Why: `D-IMPL-391`.
-- Migration: none.
-
-*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
-
-#### ccf.hitl.transport.HITLTransportProtocol
-
-- Surface: ccf.hitl.transport.HITLTransportProtocol
-- Public surface: true
-- Change type: reshaped
-- Before: `enqueue` appended every event it was given.
-- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
-- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."*
-- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, and runs the conformance suite's enqueue cases.
-
-*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
-
 #### ccf.hitl.transport.InMemoryHitlTransport
 
 - Surface: ccf.hitl.transport.InMemoryHitlTransport
@@ -28948,18 +28924,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: `state_store_identity: str | None`, hash-transparent at `None`, stamped by the engine on every record; `suspension_left_by` carries it. It is served on `GET /workflow/execution` (the served record must keep hashing to the request's `product_content_hash`): it tells a `WorkflowStatusRead` holder whether two executions share a store, and it is not a credential. `openapi.json` is regenerated.
 - Why: `D-IMPL-391` (DESIGN-2b §6.2, §8).
 - Migration: none; a record written before the change keeps its content address.
-
-*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
-
-#### ccf_runtime.workflow.engine.WorkflowEngine
-
-- Surface: ccf_runtime.workflow.engine.WorkflowEngine
-- Public surface: true
-- Change type: reshaped
-- Before: an approval counted in any store whose suspension hashed alike; no single-process lease requirement.
-- After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` retires the pending pre-upgrade request (audited `workflow_request_retired`), then re-pauses the run under this store (audited `workflow_suspended`, one new request under the same key); a fresh approval is required.
-- Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST.
-- Migration: a durable store holding runs paused before this change rebinds each (`items(WORKFLOW_STATE)` lists them) and asks for a fresh approval. The SDK's own in-memory store keeps nothing across the upgrade restart, so it has none.
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
@@ -32123,7 +32087,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-590 entries — 550 public Python surface, 40 not public Python API.
+593 entries — 553 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -40058,6 +40022,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. The record format and the replay engine are unchanged. Known limit, not fixed (Dave, 2026-10-17 09:41 MST): opening a product for replay with `read_sources=False` still requires each declared producer's endpoint and credential environment variable names (`ccf.skills.producers.ProducerEnvironmentMissing`), although replay asks no producer; set them before replaying.
 
 *Recorded by `389-01-composite-replay-from-the-record.md`.*
+
+#### ccf.controlplane.state.InMemoryStateStore
+
+- Surface: ccf.controlplane.state.InMemoryStateStore
+- Public surface: true
+- Change type: behavior
+- Before: no identity; no `writer_lease`.
+- After: `identity`, minted per construction (its records live in the object, so a new object is a new store); `writer_lease()` returns the `"process"` declaration (`ProcessScopedWriterLease`), exact because no other process can reach its memory.
+- Why: `D-IMPL-391`.
+- Migration: none.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.transport.HITLTransportProtocol
+
+- Surface: ccf.hitl.transport.HITLTransportProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `enqueue` appended every event it was given.
+- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
+- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."*
+- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, and runs the conformance suite's enqueue cases.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: an approval counted in any store whose suspension hashed alike; no single-process lease requirement.
+- After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` retires the pending pre-upgrade request (audited `workflow_request_retired`), then re-pauses the run under this store (audited `workflow_suspended`, one new request under the same key); a fresh approval is required.
+- Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST.
+- Migration: a durable store holding runs paused before this change rebinds each (`items(WORKFLOW_STATE)` lists them) and asks for a fresh approval. The SDK's own in-memory store keeps nothing across the upgrade restart, so it has none.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
 #### ccf.products.product.open_product
 
