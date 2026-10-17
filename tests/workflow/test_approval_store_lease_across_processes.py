@@ -322,7 +322,10 @@ def test_the_in_process_lease_control(tmp_path: Path) -> None:
     del store, transport, deployment
     gc.collect()
 
-    again_store, again_transport = open_pair(root)
+    try:
+        again_store, again_transport = open_pair(root)
+    except WriterLeaseHeld as exc:
+        pytest.fail(f"P stayed locked after its pair was dropped and collected: {exc}")
     assert again_store.writer_lease().scope == "cross-process"
     again_store.close()
     again_transport.close()
