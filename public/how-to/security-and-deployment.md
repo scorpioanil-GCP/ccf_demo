@@ -2482,7 +2482,82 @@ the same id is refused "already exists".
   `ccf.hitl.transport.check_approver_eligibility`, before recording it; no
   conformance test checks this. The engine can refuse an implementation that
   lacks the members; it cannot see whether one keeps the atomicity it
-  declares, or judges what it is bound to judge.
+  declares, or judges what it is bound to judge. Dated 2026-10-17
+  (`D-IMPL-391`, design 1.4), the engine also refuses by name a state store
+  that declares no well-formed `identity`, and a store or transport declaring
+  `process` that offers no `writer_lease`
+  (`tests/workflow/test_engine_refuses_unsupported_seams.py`); the bullets
+  below say what each must do.
+- **An approval counts only in the state store that paused the run**
+  (`D-IMPL-391`, design 1.4; Dave's ruling 1(a) of 2026-10-17). Before this,
+  two independent `shared` stores behind one `shared` transport that suspended
+  the same execution at the same clock readings wrote byte-identical
+  suspensions, and one approval released a passage in both (measured). Every
+  state store now declares an `identity`
+  (`src/ccf/controlplane/state.py::ConditionalStateStore`): 64 lowercase hex
+  characters from a CSPRNG, minted once per substrate, persisted with its
+  records, the same for every client in every process and across restarts,
+  and different for an independent substrate. The engine stamps it on every
+  record, so the suspension hash every request, verdict, closure and passage
+  names carries the store, and nothing about the store is shown on a queued
+  request. So two independent stores, or a restarted in-memory store beside a
+  transport that survived the restart, each need their own approval
+  (`tests/workflow/test_approval_binds_the_suspending_store.py`). A resumption
+  of a record another store wrote is refused *"written by a Control Plane
+  state store other than this engine's"*. **A copied store must refuse to
+  open**: a durable store records where its substrate lives beside its
+  identity and refuses to open elsewhere until an operator deliberately
+  re-mints it, which voids its in-flight approvals. A store that cannot detect
+  a copy (a network service, a VM snapshot) does not conform. The engine
+  checks the identity's shape, never its uniqueness or persistence; run the
+  identity cases of `tests/conformance/test_gate_closure_and_conditional_write.py`
+  against your own store. The identity is served on `GET /workflow/execution`
+  (the served record must keep hashing to the request's
+  `product_content_hash`); it tells a `WorkflowStatusRead` holder whether two
+  executions share a store and is not a credential.
+- **Re-pause runs that were paused before the upgrade.** A `suspended` record
+  written before the identity existed is refused by name, naming
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.rebind_legacy_suspension`.
+  That method first retires the run's pending pre-upgrade approval request,
+  audited `workflow_request_retired` (left in front, it made the fresh approval
+  fail), then re-pauses the run under the store's identity, audited
+  `workflow_suspended`, with one new request under the same event key. A fresh
+  approval is required: the old verdicts name the old suspension and authorize
+  nothing. A durable store lists such runs through `items(WORKFLOW_STATE)`. The
+  shipped in-memory store keeps nothing across the upgrade restart, so it has
+  none.
+- **A single-process store or transport is held by one process.** A
+  path-backed state store or HITL transport declaring `process` must take an
+  exclusive SEC-013 lease (`src/ccf/graph/leases.py::LockFileWriterLease`, on a
+  lock file inside its own directory) when it is OPENED, before it reads
+  anything, and hold it until it is closed or collected, so a second process
+  can neither submit a verdict nor read in-flight state. A second opener is
+  refused with `WriterLeaseHeld` naming the lock and the rule, and the refused
+  process logs one record saying so; it writes nothing into the store it was
+  refused (Dave's ruling 2(a) and his answers of 2026-10-17 15:25 MST). It
+  offers the lease as `writer_lease()`, which the engine requires of a
+  `process` store or transport; the engine sees that the lease is offered,
+  never that it was taken at open, so that obligation rests on your
+  implementation and the conformance suite. The lease carries SEC-013's
+  `flock` limits: one host, and a local filesystem with real `flock`
+  semantics. `shared` stores and transports take no lease; the identity above
+  is what makes them safe. The shipped in-memory store and transport return
+  the `process` declaration, exact because no other process can reach their
+  memory. The SDK ships no path-backed approval store; the criterion is proved
+  in real OS processes on a test stand-in
+  (`tests/workflow/test_approval_store_lease_across_processes.py`). The
+  shipped `--local` composition keeps its approval state in memory per process
+  and is not locked by this; two `--local` processes on one root share only
+  the artifact store, whose naming index is locked (`D-IMPL-390`).
+- **One approval request per paused run.** `enqueue` is atomic on `(tenant,
+  event_key, product_content_hash)`
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol.enqueue`): a request for a
+  paused run already pending is not queued again, the check and the append are
+  one step, and a claimed request is not pending, so the primitives' give-back
+  still re-files it. Before this, a slow suspension or two overlapping
+  recoveries could file the same request twice (the gate still opened once). A
+  deployment's own transport must meet the contract; run the conformance
+  suite's enqueue cases against it.
 - **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
   committed. The execution stays `running`, and `GET /workflow/execution`
@@ -2687,7 +2762,10 @@ the same id is refused "already exists".
   and no recorded approval for it, and a resumption was refused "no execution
   exists". Starting it again under the same execution id ran it from its first
   step to its first gate, where it waited for a new approval. The audit rows
-  the killed process wrote are gone with its memory (code reading).
+  the killed process wrote are gone with its memory (code reading). Since
+  `D-IMPL-391` the new approval is required with any transport: the restarted
+  in-memory store mints a new identity, so an approval a surviving transport
+  kept names a store that no longer exists and counts nowhere.
 - **The in-flight refusal tells a `Resume` holder that a resumption is
   running.** The claim is taken after the `Resume` capability is verified
   and before the gate's authority is checked (code reading of
