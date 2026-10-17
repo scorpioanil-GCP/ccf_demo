@@ -58,9 +58,12 @@ make venv
 #    Both libpq spellings work and neither is preferred:
 #      export CCF_CP_02_POSTGRES_DSN='host=… port=… dbname=… user=… password=…'
 #      export CCF_CP_02_POSTGRES_DSN='postgresql://user:pass@host:5432/dbname'
-#    libpq also reads PGHOST/PGPORT/PGUSER/PGPASSWORD from the environment on
-#    its own, so the variable's contents can be as short as `dbname=<database>`.
-export CCF_CP_02_POSTGRES_DSN='dbname=<database>'
+#    CCF_CP_02_POSTGRES_DSN is the one variable this example requires, and it
+#    must be complete: host, port, database, user and password. A short form
+#    such as `dbname=<database>` is not sufficient: libpq fills what it leaves
+#    out from PGHOST/PGPORT/PGUSER/PGPASSWORD, so it would quietly use whatever
+#    login the shell already has.
+export CCF_CP_02_POSTGRES_DSN='host=… port=… dbname=… user=… password=…'
 
 # 3. The one documented command. `-s` suppresses make's echo of the recipe,
 #    which is the only thing that differs between this output and the

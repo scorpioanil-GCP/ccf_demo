@@ -82,7 +82,12 @@ To reproduce, from the repository root:
 
 ```bash
 make venv
-export CCF_CP_01_POSTGRES_DSN="dbname=<your database>"
+# CCF_CP_01_POSTGRES_DSN is the one variable this example requires. It must be
+# a complete connection string: host, port, database, user and password. A short
+# form such as dbname=… is not sufficient: libpq fills what it leaves out from
+# PGHOST/PGPORT/PGUSER/PGPASSWORD, so it would quietly use whatever login the
+# shell already has.
+export CCF_CP_01_POSTGRES_DSN='host=… port=… dbname=… user=… password=…'
 make -s example-cp-01
 ```
 
