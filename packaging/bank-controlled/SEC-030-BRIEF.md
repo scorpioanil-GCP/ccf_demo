@@ -8,10 +8,45 @@ and are limited to its stated scope and term.
 -->
 # SEC-030 — unexpected failures at the MCP door: brief
 
-**Status, 2026-10-17.** PROPOSED for review. Nothing is built. Dave, 00:20 MST: *"Prepare the
-short SEC-030 brief for review, covering both routes, the proposed error boundary, and tests
-demonstrating opaque responses while preserving internal diagnostics. That authorizes
-preparation of the brief only—not implementation, a replacement wheel, or paid CI."*
+**Status, 2026-10-17 01:3x MST: BUILT and verified (`D-IMPL-388`); D1 (a), as ruled.**
+Proposed at 00:20 for review only. Dave's 00:44 instruction ("fix SEC-030") took D1 (a), the
+fault clause only, and D2 needed no change. Built on branch `sec-030-fix`: red tests
+`89528cdb`, fix `b8e19a1c`, records `38179adc`.
+
+- **The change:** exactly §2's: `except Exception`, with `_opaque_failure` unchanged.
+- **One departure, from the 00:44 instruction's preferred shape:** no fault-level re-raise of
+  the three governed types was added. Raised from anywhere but the resolver, a re-raise would
+  let their raw text cross.
+
+**Verification actually performed.**
+- **R1 and R2:** `tests/mcp/test_egress_unexpected_failure_is_opaque.py` gave 11 red before
+  and 13 green after.
+- **Breaks:** all five ran on the in-process tests, each restored from saved bytes with the
+  sha checked:
+  - S1 (tuple restored): 11 red;
+  - S2 (`str(exc)` passed through): 11 red;
+  - S3 (no log): 11 red, on the log assertion;
+  - S4 (`BaseException`): the structural check alone red;
+  - S5 (clause above the governed handlers): 13 red, the governed-absence controls included.
+
+  A first S5 run whose anchor matched twice is kept as INVALID and was redone.
+- **One existing test adjusted:** `test_composite_integration`'s source reading. Its
+  assertions are unchanged, and a clause narrowed to `(TypeError, OSError)` still reddens it.
+- **Through the bank's own `launch.sh`** (read-only estate):
+  - on the unbroken fixed tree, the five cp-06C door tests passed, `verify.py` included;
+  - with SEC-020's break S4 on a throwaway commit, both routes answered
+    `ccf-runtime-failure:<id>`, and `logs/door.err` held the ids with the type name and no
+    message text.
+- **Regression on `b8e19a1c`:**
+  - MCP, skills, crossproc, http_api and client: 1,860 passed;
+  - products: 4,602 passed, plus the composite test after its reading was corrected (that
+    test re-run alone);
+  - examples: identical to `main`;
+  - lint and `mypy` clean.
+
+**Scope of the closure:** the protected MCP acquisition and resolution path — the resolver call and the answer's emission inside `_answer_question`, on the product tool and the address-form template. Entitlement failures (the step that runs before the resolver) and every other surface remain outside it: the standing product resource `ccf-product://{tenant}/{class}/{version}` (its handler has no fault clause; the standard door the bank uses does not register it, `build_egress_server` does by default), the HTTP API door, the experience and agent tools, and the HITL resources.
+
+The text below is the proposal as reviewed, unchanged.
 
 **Baseline:** `main` at `0746e701`. **Register:** `OPEN-SECURITY-ITEMS.md` item 17.
 
