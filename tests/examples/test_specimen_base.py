@@ -16,12 +16,14 @@ diagnosis, §4.2). Each case builds the checkout shape it names under
 
 from __future__ import annotations
 
+import hashlib
 import pathlib
 import subprocess
 
 import pytest
 
 from tests.examples.specimen_base import branch_point, frozen_digest
+from tests.examples.specimen_content import frozen_by_content_violations
 
 
 def _git(cwd: pathlib.Path, *args: str) -> str:
@@ -123,16 +125,57 @@ def specimen(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
     return repo, tree
 
 
-def test_the_content_pin_ignores_the_amended_files_and_nothing_else(
+def test_the_content_pin_ignores_the_amended_files_and_documentation_and_nothing_else(
     specimen: tuple[pathlib.Path, pathlib.Path],
 ) -> None:
+    """AMENDED 2026-10-16 (`D-IMPL-386`): a README edit no longer moves the pin; a code edit still does."""
     repo, tree = specimen
     amended = frozenset({"produce.py"})
     pinned = frozen_digest(repo, tree, amended=amended)
     (tree / "produce.py").write_text("repaired", encoding="utf-8")
     assert frozen_digest(repo, tree, amended=amended) == pinned
-    (tree / "README.md").write_text("edited", encoding="utf-8")
+    (tree / "README.md").write_text("a documentation correction", encoding="utf-8")
+    assert frozen_digest(repo, tree, amended=amended) == pinned
+    (tree / "deployment.py").write_text("drifted", encoding="utf-8")
     assert frozen_digest(repo, tree, amended=amended) != pinned
+
+
+def test_adding_or_removing_documentation_never_moves_the_content_pin(
+    specimen: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    repo, tree = specimen
+    amended = frozenset({"produce.py"})
+    pinned = frozen_digest(repo, tree, amended=amended)
+    (tree / "spec").mkdir()
+    (tree / "spec" / "CP-SPEC-999.md").write_text("a new specification", encoding="utf-8")
+    _git(repo, "add", ".")
+    assert frozen_digest(repo, tree, amended=amended) == pinned
+    _git(repo, "rm", "-q", "-f", "examples/specimen/README.md")
+    assert not (tree / "README.md").exists()
+    assert frozen_digest(repo, tree, amended=amended) == pinned
+
+
+def test_the_byte_pin_exempts_documentation_and_still_catches_drift(
+    specimen: tuple[pathlib.Path, pathlib.Path],
+) -> None:
+    """``specimen_content.frozen_by_content_violations`` under `D-IMPL-386`."""
+    repo, tree = specimen
+    frozen = {
+        name: hashlib.sha256((tree / name).read_bytes()).hexdigest()
+        for name in ("deployment.py", "README.md")
+    }
+    amended = {"produce.py": "a named amendment"}
+    assert frozen_by_content_violations(repo, tree, frozen=frozen, amended=amended) == []
+    (tree / "README.md").write_text("a documentation correction", encoding="utf-8")
+    (tree / "FINDINGS.md").write_text("a new findings record", encoding="utf-8")
+    _git(repo, "add", ".")
+    assert frozen_by_content_violations(repo, tree, frozen=frozen, amended=amended) == []
+    (tree / "deployment.py").write_text("drifted", encoding="utf-8")
+    (tree / "transport.py").write_text("an unrecorded new module", encoding="utf-8")
+    _git(repo, "add", ".")
+    problems = frozen_by_content_violations(repo, tree, frozen=frozen, amended=amended)
+    assert any("deployment.py changed" in problem for problem in problems), problems
+    assert any("transport.py" in problem and "added" in problem for problem in problems), problems
 
 
 def test_the_content_pin_moves_when_a_file_is_added_and_ignores_untracked_ones(

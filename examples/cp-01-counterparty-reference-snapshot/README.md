@@ -86,13 +86,18 @@ counterparty estate. `backends.yaml` holds the variable's NAME and nothing
 else — no host, no port, no credential enters this tree:
 
 ```bash
-export CCF_CP_01_POSTGRES_DSN='postgresql://<read-only-role>@<host>/<db>'
+export CCF_CP_01_POSTGRES_DSN='postgresql://<read-only-role>:<password>@<host>:<port>/<db>'
 ```
 
 The role needs `SELECT` and nothing else. **Nothing this example runs writes to
 the store it reads** — a role that could write would make that a promise rather
-than a guarantee. A `host=… user=… password=…` keyword string works equally
-well; both are libpq conninfo and neither is preferred.
+than a guarantee. A `host=… port=… dbname=… user=… password=…` keyword string
+works equally well; both are libpq conninfo and neither is preferred.
+`CCF_CP_01_POSTGRES_DSN` is the one variable this example requires, and it must
+be complete: host, port, database, user and password. A short form such as
+`dbname=…` is not sufficient: libpq fills what it leaves out from
+`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`, so it would quietly use whatever login
+the shell already has.
 
 > **AMENDED 2026-10-11 — compatibility repair** (Dave, ruling 3 of 2026-10-11;
 > `examples/AMENDMENTS-2026-10-11.md`). The spine now serves through the SDK's

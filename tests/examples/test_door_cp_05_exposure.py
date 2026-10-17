@@ -84,7 +84,11 @@ SPECIMEN_AMENDED = frozenset(
 #: Re-pinned 2026-10-12 for the copyright banner (Dave 2026-10-11 14:51 / 23:44):
 #: `git diff 514b36ce` over the specimen is the 6-line notice and nothing else;
 #: the previous pin was 68d4669f….
-SPECIMEN_FROZEN_DIGEST = "168019b3424e4c250f2f6e0f6288af5aa405b17bdd77c9434746821434d51781"
+#: Re-pinned 2026-10-16 (`D-IMPL-386`, the freeze on cp-* lifted): documentation is
+#: outside every pin by construction, so FINDINGS.md, README.md, spec/CP-SPEC-005_Credit_Exposure_Rollup.md and summary_explanations.md left the digest.
+#: The previous pin, 168019b3…, held on this tree immediately before the change,
+#: so every other file still holds its frozen bytes.
+SPECIMEN_FROZEN_DIGEST = "052a138ee9331c4339c08335a5961038d4bdcd215fc683b477d0975dc578d093"
 CONSUMER = pathlib.Path(__file__).resolve().parent / "cp_05_door_paved_consumer"
 RUN = WRAPPER / "run.py"
 

@@ -30,6 +30,8 @@ import hashlib
 import pathlib
 import subprocess
 
+from tests.examples.specimen_base import is_documentation
+
 
 def tracked_files(repo_root: pathlib.Path, specimen: pathlib.Path) -> set[str]:
     """Every file git tracks under ``specimen``, relative to it."""
@@ -50,6 +52,10 @@ def frozen_by_content_violations(
 ) -> list[str]:
     """What breaks the freeze, as sentences; empty when the specimen holds.
 
+    Documentation (``specimen_base.is_documentation``) is outside the freeze:
+    correcting, adding or removing a Markdown file is never a violation, and a
+    documentation entry in ``frozen`` is not checked (`D-IMPL-386`).
+
     Args:
         frozen: relative path → sha256 of the bytes it must still hold.
         amended: relative path → why it was amended (the dated amendment).
@@ -58,13 +64,15 @@ def frozen_by_content_violations(
     overlap = set(frozen) & set(amended)
     if overlap:
         problems.append(f"a file is both frozen and amended: {sorted(overlap)}")
-    present = tracked_files(repo_root, specimen)
-    declared = set(frozen) | set(amended)
+    present = {path for path in tracked_files(repo_root, specimen) if not is_documentation(path)}
+    declared = {path for path in set(frozen) | set(amended) if not is_documentation(path)}
     if present - declared:
         problems.append(f"files added to the frozen specimen: {sorted(present - declared)}")
     if declared - present:
         problems.append(f"files removed from the frozen specimen: {sorted(declared - present)}")
     for relative, expected in sorted(frozen.items()):
+        if is_documentation(relative):
+            continue
         path = specimen / relative
         if not path.is_file():
             continue
