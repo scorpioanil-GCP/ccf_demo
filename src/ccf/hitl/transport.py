@@ -157,8 +157,12 @@ _GATE_VERDICTS: frozenset[str] = frozenset({"approve", "reject"})
 #: The state the transport found for a submission's event at ``submit``
 #: (`D-IMPL-366` H2; brief §4b): ``claimed`` (a primitive holds the atomic
 #: claim), ``pending`` (queued, no claim — a door submission) or ``missing``
-#: (nothing under the key). Stamped on the recorded submission and never
-#: rewritten; ``None`` only on a record written before the field existed.
+#: (no request waiting). Judged against the request for the pause the
+#: submission NAMES — its ``product_content_hash`` — never against another
+#: pause's request under the same key (``D-IMPL-391``; Dave, 2026-10-17 18:54
+#: MST: *"Count an approval sent straight to the queue only while the request
+#: for this exact pause is waiting."*). Stamped on the recorded submission and
+#: never rewritten; ``None`` only on a record written before the field existed.
 EventStateAtSubmit = Literal["claimed", "pending", "missing"]
 
 #: The action vocabulary D-IMPL-20 names (approve/reject/override/annotate).
@@ -989,7 +993,7 @@ class HITLTransportProtocol(Protocol):
     All methods of every conforming implementation must be safe for
     concurrent calls from multiple threads. The Experience-Layer HITL
     doors (HTTP and MCP) invoke the transport from FastAPI's threadpool,
-    so enqueue/dequeue/pending/remove/submit/submissions race by
+    so enqueue/dequeue/pending/remove/retire/submit/submissions race by
     construction in any real deployment — an implementation whose queue
     state can be lost, duplicated, or corrupted under concurrent access
     does not conform to this Protocol. ``remove`` exists precisely for
@@ -1104,6 +1108,33 @@ class HITLTransportProtocol(Protocol):
         """
         ...
 
+    def retire(
+        self, *, tenant: str, event_key: str, product_content_hash: str
+    ) -> tuple[PendingHitlEvent, ...]:
+        """Remove every pending request for one paused run, recording no claim.
+
+        ``D-IMPL-391``; Dave's ruling of 2026-10-17 18:54 MST (option 3):
+        *"remove the old request with a new queue step that matches its exact
+        fingerprint and leaves no claim"*, and *"Third-party queues must
+        implement the new exact-fingerprint removal."* Every PENDING event whose
+        ``(tenant, event_key, product_content_hash)`` is the given triple is
+        removed, wherever it sits in the tenant's queue, and returned oldest
+        first; every other event keeps its place and relative order. Nothing
+        pending under the triple returns ``()``.
+
+        **A retirement is not a resolution.** Unlike :meth:`remove` it records
+        no claim, so no later :meth:`submit` is stamped as answering a retired
+        request. An outstanding claim on ``(tenant, event_key)`` is discarded
+        when, and only when, the claimed event bears the same
+        ``product_content_hash``: it names the retired pause too. A claim on any
+        other pause's request is left for the primitive that holds it.
+
+        The search, the removal and the claim check are ONE atomic step of the
+        implementation, as :meth:`remove`'s are: of any number of concurrent
+        retirements of one pause, exactly one returns each request.
+        """
+        ...
+
     def view(
         self, authorized: Authorized[HitlQueueRead]
     ) -> tuple[PendingHitlEvent, ...]:
@@ -1137,6 +1168,19 @@ class HITLTransportProtocol(Protocol):
         from the transport's own :meth:`remove` observation, never from
         ``submission`` — stamped ``None`` when this submitter claimed
         nothing, and stamped with the capability's ``decision_id``.
+
+        **Judged against its own pause** (``D-IMPL-391``; Dave, 2026-10-17
+        18:54 MST: *"Count an approval sent straight to the queue only while
+        the request for this exact pause is waiting."*). The event a
+        submission is judged against, and its ``event_state_at_submit``, are
+        those of the request for the pause it names —
+        ``(authorized.tenant, submission.event_key,
+        submission.principal.product_content_hash)``: ``claimed`` when the
+        outstanding claim on the key is on that pause's request, else
+        ``pending`` when that pause's request is waiting (wherever it sits
+        under the key), else ``missing``. A claim on another pause's request is
+        neither used nor consumed. A conforming implementation judges this way;
+        the workflow engine never counts a ``missing`` submission.
         ``submission`` itself is not mutated (it is a frozen contract); the
         stamped copy is what :meth:`submissions` returns, and it is returned
         here so a door can answer with what was recorded rather than with
@@ -1402,21 +1446,23 @@ class InMemoryHitlTransport:
         )
 
     def _snapshot_locked(
-        self, tenant: str, event_key: str
+        self, tenant: str, event_key: str, product_content_hash: str
     ) -> tuple[PendingHitlEvent | None, EventStateAtSubmit]:
-        """The selected event under ``(tenant, event_key)`` and its state.
+        """The request for one pause under ``(tenant, event_key)`` and its state.
 
-        CALLER HOLDS THE LOCK. The claimed event when a primitive holds the
-        atomic claim; else the OLDEST pending event under the key — the same
-        order :meth:`remove` searches in; else ``None`` with state ``missing``
-        (`D-IMPL-366` §4b, the three states). Used twice per :meth:`submit`:
-        the snapshot (step 3) and the revalidation (step 6a).
+        CALLER HOLDS THE LOCK. The claimed event when a primitive's claim on
+        the key is on this pause's request; else the oldest pending event under
+        the key for this pause; else ``None`` with state ``missing``
+        (`D-IMPL-366` §4b, the three states, judged per pause since
+        ``D-IMPL-391``: a request for another pause under the key is not this
+        submission's). Used twice per :meth:`submit`: the snapshot (step 3) and
+        the revalidation (step 6a).
         """
         claimed = self._claims.get((tenant, event_key))
-        if claimed is not None:
+        if claimed is not None and claimed.product_content_hash == product_content_hash:
             return claimed, "claimed"
         for event in self._pending.get(tenant, ()):
-            if event.event_key == event_key:
+            if event.event_key == event_key and event.product_content_hash == product_content_hash:
                 return event, "pending"
         return None, "missing"
 
@@ -1487,6 +1533,38 @@ class InMemoryHitlTransport:
                     return event
             return None
 
+    def retire(
+        self, *, tenant: str, event_key: str, product_content_hash: str
+    ) -> tuple[PendingHitlEvent, ...]:
+        """See :meth:`HITLTransportProtocol.retire` (``D-IMPL-391``).
+
+        One acquisition of the lock every queue mutation takes covers the
+        search, the removal and the claim check; no claim is recorded.
+        """
+        with self._lock:
+            claimed = self._claims.get((tenant, event_key))
+            if claimed is not None and claimed.product_content_hash == product_content_hash:
+                del self._claims[(tenant, event_key)]
+            queue = self._pending.get(tenant)
+            if not queue:
+                return ()
+            retired = tuple(
+                event
+                for event in queue
+                if event.event_key == event_key
+                and event.product_content_hash == product_content_hash
+            )
+            if retired:
+                self._pending[tenant] = deque(
+                    event
+                    for event in queue
+                    if not (
+                        event.event_key == event_key
+                        and event.product_content_hash == product_content_hash
+                    )
+                )
+            return retired
+
     def view(
         self, authorized: Authorized[HitlQueueRead]
     ) -> tuple[PendingHitlEvent, ...]:
@@ -1540,8 +1618,10 @@ class InMemoryHitlTransport:
 
         **Residual: the claim is addressed, not held.** A claim is keyed
         ``(tenant, event_key)`` and consumed by whichever submission for
-        that pair arrives first, because ``submit`` has no caller identity
-        to bind it to. A submitter that races the window a primitive opens
+        that pair, naming the claimed request's pause, arrives first
+        (``D-IMPL-391``: a submission naming another pause is judged against
+        that pause's request and leaves the claim alone), because ``submit``
+        has no caller identity to bind it to. A submitter that races the window a primitive opens
         between its ``remove`` and its ``submit`` — the two adjacent
         statements in
         :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` — therefore
@@ -1563,12 +1643,14 @@ class InMemoryHitlTransport:
         and ``reject``, on an event that names an approval policy) — after the
         capability and the principal check, BEFORE attestation (G2 (a)) —
         against a snapshot of the selected event taken under the lock (§4b
-        step 3). Other event classes are not judged (G6 (a)); a ``missing``
+        step 3) — the request for the pause the submission names
+        (``D-IMPL-391``; see :meth:`HITLTransportProtocol.submit`). Other event classes are not judged (G6 (a)); a ``missing``
         event judges nothing and is recorded as ``missing`` (H2). Under the
         one lock acquisition that records, the event and its state are
         REVALIDATED against the
         snapshot first (6a, :class:`HitlEventRevalidationRefused`), then the
-        nonce is consumed, then the claim is popped and the copy recorded with
+        nonce is consumed, then the claim, if the submission was judged against
+        it, is popped and the copy recorded with
         ``approval_policy_ref``, ``requested_by`` and ``event_state_at_submit``
         stamped from the snapshot (H3 (a)). A submission refused at ANY step
         leaves ``_submissions``, ``_claims`` and ``_seen_nonces`` unchanged.
@@ -1612,7 +1694,9 @@ class InMemoryHitlTransport:
         # state, under the lock; the lock is released and the snapshot is a
         # frozen event (or None) that every judgment below reads.
         with self._lock:
-            event, state = self._snapshot_locked(tenant, submission.event_key)
+            event, state = self._snapshot_locked(
+                tenant, submission.event_key, submission.principal.product_content_hash
+            )
             judges = self._eligibility_judges_locked(submission.action, event)
         # Step 4: eligibility, outside the lock, BEFORE attestation (G2 (a)),
         # for approval-gate events only (RULED). Missing: nothing is judged,
@@ -1655,7 +1739,9 @@ class InMemoryHitlTransport:
             # runs: no nonce is consumed, no claim popped, nothing recorded
             # (D-IMPL-366 amendment: refused submissions introduce no state
             # mutations; the attestation's nonce is single-use on SUCCESS only).
-            again, state_again = self._snapshot_locked(tenant, submission.event_key)
+            again, state_again = self._snapshot_locked(
+                tenant, submission.event_key, submission.principal.product_content_hash
+            )
             if (
                 tenant,
                 submission.event_key,
@@ -1690,7 +1776,14 @@ class InMemoryHitlTransport:
                         " is admitted once (D-IMPL-363 E4)"
                     )
                 self._seen_nonces.add(nonce_key)
-            claimed = self._claims.pop((tenant, submission.event_key), None)
+            # D-IMPL-391: only a claim on the request for the pause this
+            # submission names is consumed; a claim on another pause's request
+            # stays for the primitive that holds it.
+            claimed = (
+                self._claims.pop((tenant, submission.event_key))
+                if state == "claimed"
+                else None
+            )
             recorded = submission.model_copy(
                 update={
                     "answered_event_class": (

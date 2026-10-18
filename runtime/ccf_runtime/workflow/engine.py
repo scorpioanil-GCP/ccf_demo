@@ -574,7 +574,7 @@ class WorkflowEngine:
             raise WorkflowWiringError(
                 f"the HITL transport {type(hitl_transport).__name__} does not"
                 " offer the whole HITLTransportProtocol (close_gate, closures,"
-                " scope among it) with a scope of 'process' or 'shared'; without"
+                " retire, scope among it) with a scope of 'process' or 'shared'; without"
                 " close_gate, a verdict recorded while a gate is being decided"
                 " is never judged (D-IMPL-378; SEC-001)"
             )
@@ -945,37 +945,41 @@ class WorkflowEngine:
         them authorizes anything (Dave's decision 8 (a): *"never manufacture
         approval"*).
 
-        **The pre-upgrade request is retired first** (Dave, 2026-10-17 15:25
-        MST: *"The re-pause retires the legacy request before enqueueing the
-        fresh one, and audits the retirement."*). ``ApprovalGate.resolve`` takes
-        the oldest pending request under a key, so a pre-upgrade request left in
-        front of the fresh one made the fresh approval fail until someone acted
-        on the stale one (measured). Every pre-upgrade request at the front of
-        the key's queue — bound to the legacy record's hash — is taken through
-        the transport's atomic
-        :meth:`~ccf.hitl.transport.HITLTransportProtocol.remove`, oldest first,
-        and each retirement is audited ``workflow_request_retired``, whether or
-        not the fresh request then lands. A request under the key bound to
-        anything else stops the retirement (one taken in a race is given back
-        unchanged), so a pre-upgrade request queued behind another is not
-        reached. This departs from DESIGN-2b §6.5, which left the request listed
-        until an operator removed it.
+        **The fresh request is filed first; then every pre-upgrade request is
+        retired** (Dave's ruling of 2026-10-17 18:54 MST, option 3: *"File the
+        new request first, then remove the old request with a new queue step
+        that matches its exact fingerprint and leaves no claim."* It replaces
+        his 15:25 MST wording, *"The re-pause retires the legacy request before
+        enqueueing the fresh one"*, and the plain "file then remove" of 18:43:
+        both were measured to leave a claim — ``D-IMPL-391``).
+        ``ApprovalGate.resolve`` takes the oldest pending request under a key, so
+        a pre-upgrade request left in front of the fresh one made the fresh
+        approval fail until someone acted on the stale one (measured). The
+        retirement is the transport's
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.retire` on the legacy
+        record's exact fingerprint ``(tenant, event_key, legacy hash)``: every
+        pending request bound to it, wherever it sits, in one atomic step, with
+        no claim recorded. Each request retired is audited
+        ``workflow_request_retired``. A request for any other pause under the key
+        keeps its place. This departs from DESIGN-2b §6.5, which left the request
+        listed until an operator removed it.
 
-        **The order** (corrected after the independent review of the build): the
-        trace, then the version-fenced state write, then the retirement, then the
-        fresh request. ``remove`` records a claim on the key that only the fresh
-        request's enqueue discards, and a claim stamps the next verdict as a gate
-        primitive's answer; so nothing but transport calls stands between the
-        two. A trace or state write that fails moves nothing on the transport:
-        the run stays a pre-upgrade pause and the rebind can be presented again.
-        Two windows remain, disclosed: a process that dies, or a transport that
-        fails, between the retirement and the fresh request leaves the claim
-        until the next enqueue on the key (the next resumption's restore files
-        the fresh request, which discards it); and a process that dies between
-        the state write and the retirement leaves the pre-upgrade request in
-        front of the fresh one the next resumption restores, so the fresh
-        approval is refused until an operator removes the stale request — closed,
-        never a wrong passage.
+        **The order**: the trace, the version-fenced state write, the fresh
+        request, the retirement. Nothing on the transport is ever claimed, and a
+        verdict sent straight to the queue counts only while the request for its
+        own pause is waiting (the transport judges it against that request at
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.submit`, and
+        :meth:`resume` asks again), so no failure point lends a verdict
+        authority. A trace or state write that fails moves nothing on the
+        transport: the run stays a pre-upgrade pause and the rebind can be
+        presented again. One window remains, disclosed, and it is a liveness
+        window, never a passage: a process that dies, or a transport that fails,
+        after the state write and before the retirement leaves the pre-upgrade
+        request in front of the fresh one (which the next resumption restores if
+        it was never filed), so an approval through ``ApprovalGate`` is refused
+        until an operator retires the stale request; a verdict sent straight to
+        the queue naming the re-paused run counts once the fresh request is
+        waiting.
 
         Runs under the same in-process single-flight claim as :meth:`resume`.
         Anything other than a legacy ``suspended`` record of this definition is
@@ -989,7 +993,7 @@ class WorkflowEngine:
             ForeignStateRecordError: the state store returned a record this
                 machine did not write.
             ExecutionFenced: another writer moved the record after it was read;
-                retired requests stay retired, and the record stays a legacy
+                nothing on the transport moved, and the record stays a legacy
                 suspension that can be rebound again.
         """
         self._require_handle(workflow)
@@ -1050,12 +1054,9 @@ class WorkflowEngine:
             event_key = self._event_key(key, gate)
             legacy = content_hash(record)
             # The fallible writes FIRST, before anything on the HITL transport
-            # moves (found by the independent review of the build): a claim the
-            # retirement's `remove` records is discarded only by the fresh
-            # request's enqueue, so nothing but transport calls may stand
-            # between the two. A trace or state write that fails here leaves the
-            # run a pre-upgrade pause with its request pending, and the rebind
-            # can be presented again.
+            # moves (found by the independent review of the build): a trace or
+            # state write that fails here leaves the run a pre-upgrade pause
+            # with its request pending, and the rebind can be presented again.
             trace = record.trace + (self._entry(record.trace, gate, gate, "suspend"),)
             rebound = self._record(
                 workflow,
@@ -1071,21 +1072,21 @@ class WorkflowEngine:
                 authorized, workflow, key, rebound, action="workflow_suspended", version=version
             )
             event = self._gate_event(workflow, tenant=tenant, key=key, record=rebound)
-            retired: list[PendingHitlEvent] = []
-            try:
-                self._retire_legacy_requests(
-                    tenant=tenant, event_key=event_key, legacy=legacy, retired=retired
+            # Dave's ruling of 2026-10-17 18:54 MST (option 3): the fresh
+            # request FIRST, then the pre-upgrade requests retired by their
+            # exact fingerprint, recording no claim (D-IMPL-391).
+            self._hitl_transport.enqueue(event=event)
+            retired = self._hitl_transport.retire(
+                tenant=tenant, event_key=event_key, product_content_hash=legacy
+            )
+            for _ in retired:
+                self._append(
+                    workflow,
+                    key,
+                    action="workflow_request_retired",
+                    resolved=True,
+                    actor=None,
                 )
-                self._hitl_transport.enqueue(event=event)
-            finally:
-                for _ in retired:
-                    self._append(
-                        workflow,
-                        key,
-                        action="workflow_request_retired",
-                        resolved=True,
-                        actor=None,
-                    )
             return WorkflowSuspended(
                 tenant=tenant,
                 execution_id=execution_id,
@@ -1095,46 +1096,6 @@ class WorkflowEngine:
             )
         finally:
             _release_resumption(claim)
-
-    def _retire_legacy_requests(
-        self,
-        *,
-        tenant: str,
-        event_key: str,
-        legacy: str,
-        retired: list[PendingHitlEvent],
-    ) -> None:
-        """Take every pre-upgrade request at the front of ``event_key``'s queue (``D-IMPL-391``).
-
-        Oldest first, through the transport's atomic ``remove``, each pending
-        request under the key bound to ``legacy`` — the pre-upgrade suspension's
-        hash — is taken and appended to ``retired``. It stops at the first
-        request at the front bound to anything else; one taken in a race that
-        turns out not to be legacy is given back unchanged. A pre-upgrade request
-        queued BEHIND another request under the key is not reached (disclosed:
-        ``ApprovalGate.resolve`` takes the oldest, so the one in front is the one
-        that blocks a fresh approval).
-        """
-        while True:
-            oldest = next(
-                (
-                    event
-                    for event in self._hitl_transport.pending(tenant=tenant)
-                    if event.event_key == event_key
-                ),
-                None,
-            )
-            if oldest is None or oldest.product_content_hash != legacy:
-                return
-            taken = self._hitl_transport.remove(tenant=tenant, event_key=event_key)
-            if taken is None:
-                return
-            if taken.product_content_hash != legacy:
-                # Another request moved to the front between the read and the
-                # removal: it is not the legacy one, so it goes back.
-                self._hitl_transport.enqueue(event=taken)
-                return
-            retired.append(taken)
 
     async def _resume_claimed(
         self,
@@ -2212,9 +2173,14 @@ class WorkflowEngine:
         """
         event_key = self._event_key(key, gate)
         suspension = content_hash(record)
+        # D-IMPL-391 (Dave, 2026-10-17 18:54 MST): "Count an approval sent
+        # straight to the queue only while the request for this exact pause is
+        # waiting." The request for THIS suspension, not any request under the
+        # key (D-IMPL-366 H2, narrowed); the transport judged the same at submit.
         gate_still_pending = any(
             event.event_key == event_key
             and event.event_class == GATE_EVENT_CLASS
+            and event.product_content_hash == suspension
             for event in self._hitl_transport.pending(tenant=tenant)
         )
         # SEC-006 (D-IMPL-366 §4 (4)): the engine site is the BACKSTOP for
@@ -2253,8 +2219,9 @@ class WorkflowEngine:
                 and submission.answered_workflow_state_ref == key
                 if submission.answered_event_class is not None
                 # The unstamped leg: a door submission recorded against a
-                # PENDING event keeps today's semantics, and so does a
-                # pre-change record (None) — the fixture rule.
+                # PENDING event — the request for this suspension, judged at
+                # submit and still waiting now (D-IMPL-391) — counts, and so
+                # does a pre-change record (None) — the fixture rule.
                 else submission.event_state_at_submit in (None, "pending")
                 and gate_still_pending
             )
