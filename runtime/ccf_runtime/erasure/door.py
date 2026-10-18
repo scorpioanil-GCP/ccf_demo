@@ -365,6 +365,36 @@ class ErasureDoor:
         )
         if not isinstance(state, WorkflowStateRecord) or recorded_submission is None:
             raise self._approval_not_recorded()
+        # D-IMPL-391 (design 1.4): the engine acts only on its own store's
+        # records, and refuses a run paused before the store identity existed
+        # until it is re-paused. Asked HERE, before the approval is filed and
+        # before any write-ahead entry is appended (found by the independent
+        # review of the build): asked only by the engine's resume below, a
+        # refusal left entries naming the pre-upgrade approval, and every later
+        # completion — after the rebind and a fresh approval — was refused
+        # `approval-not-recorded`, the address withheld for good.
+        written_by = state.state_store_identity
+        own = getattr(self._control_plane.state_store, "identity", None)
+        if written_by is None and state.status == "suspended":
+            raise ErasureRefused(
+                f"the erasure's execution {suspension!r} was suspended before the"
+                " state store identity existed, so its approval names no store; the"
+                " workflow engine refuses it until"
+                " WorkflowEngine.rebind_legacy_suspension re-pauses it, and a fresh"
+                " signed approval is then required. Refused before anything was"
+                " filed or appended (SEC-001; D-IMPL-391)",
+                reason_code="workflow-refused",
+            )
+        if written_by is not None and not (
+            type(written_by) is str and type(own) is str and written_by == own
+        ):
+            raise ErasureRefused(
+                f"the erasure's execution {suspension!r} was written by a Control"
+                " Plane state store other than this engine's; an approval binds the"
+                " store that paused the run. Refused before anything was filed or"
+                " appended (SEC-001; D-IMPL-391)",
+                reason_code="workflow-refused",
+            )
         # I4 (fix round 2): the entries already appended for THIS request — a
         # prior completion that died after its write-ahead append.
         prior = tuple(

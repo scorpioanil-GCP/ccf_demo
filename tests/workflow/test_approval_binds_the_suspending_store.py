@@ -447,6 +447,49 @@ def test_b8_a_rebind_that_fails_before_its_fresh_request_lends_no_verdict_author
     assert isinstance(rebound, WorkflowSuspended) and rebound.gate == FIRST_GATE, rebound
 
 
+def test_residual_a_transport_failing_the_fresh_request_after_the_retirement_leaves_its_claim(
+    tmp_path: Path,
+) -> None:
+    """RESIDUAL, disclosed on ``WorkflowEngine.rebind_legacy_suspension``. The
+    retirement's ``remove`` records a claim on the key that only the fresh
+    request's enqueue discards. Dave's answer of 2026-10-17 15:25 MST orders the
+    retirement BEFORE the fresh request, so a transport that fails that one
+    enqueue leaves the claim: a verdict recorded before the next resumption is
+    stamped as a gate primitive's answer and carries the run past its gate. Without
+    such a verdict, the next resumption restores the fresh request, which discards
+    the claim, and nothing passes. Goes red if the window is closed (for example by
+    filing the fresh request before the retirement), and must then be rewritten to
+    assert the closing mechanism."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    transport: Any = deployment.transport
+    enqueue = transport.enqueue
+    armed = {"fail": True}
+
+    def fails_once(*, event: PendingHitlEvent) -> None:
+        if armed["fail"]:
+            armed["fail"] = False
+            raise OSError("transport unavailable at the fresh request")
+        enqueue(event=event)
+
+    transport.enqueue = fails_once
+    with pytest.raises(OSError):
+        rebind(deployment)
+    retired = [
+        e for e in deployment.registry.audit_log.events()
+        if e.action == "workflow_request_retired" and e.key == deployment.key
+    ]
+    assert len(retired) == 1, "the retirement is audited even though the fresh request failed"
+
+    stray = eh._submit_only(
+        deployment.transport, tenant=deployment.tenant, event_key=request.event_key,
+        product_content_hash=content_hash(deployment.record()), action="approve", subject_id=APPROVER,
+    )
+    assert stray.event_state_at_submit == "claimed", "the residual: the claim stamps the stray verdict"
+    outcome = deployment.resume()
+    assert isinstance(outcome, WorkflowSuspended) and outcome.gate == NEXT_GATE, outcome
+    assert downstream_runs(deployment.bindings) == 1
+
+
 def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(
     tmp_path: Path,
 ) -> None:

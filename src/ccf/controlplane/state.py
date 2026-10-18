@@ -374,14 +374,16 @@ def state_store_identity_of(store: object) -> str:
     """Return ``store``'s identity, or refuse a missing or malformed one by name.
 
     Checks the SHAPE only (:data:`STATE_STORE_IDENTITY_PATTERN`); uniqueness and
-    persistence are the conformance suite's to check.
+    persistence are the conformance suite's to check. The value must be a plain
+    ``str``, not a subclass: a subclass can override comparison and make every
+    record look like this store's own.
 
     Raises:
-        StateStoreIdentityMissing: ``identity`` is absent, not a string, or not
-            64 lowercase hex characters.
+        StateStoreIdentityMissing: ``identity`` is absent, not exactly a ``str``,
+            or not 64 lowercase hex characters.
     """
     identity = getattr(store, "identity", None)
-    if not isinstance(identity, str) or STATE_STORE_IDENTITY_PATTERN.fullmatch(identity) is None:
+    if type(identity) is not str or STATE_STORE_IDENTITY_PATTERN.fullmatch(identity) is None:
         raise StateStoreIdentityMissing(
             f"the Control Plane state store {type(store).__name__} declares no stable"
             " identity: `identity` must be 64 lowercase hex characters, minted once per"
