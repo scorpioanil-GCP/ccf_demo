@@ -692,6 +692,88 @@ def test_a_verdict_recorded_on_its_waiting_request_counts_only_while_that_reques
     )
 
 
+def test_an_approval_that_loses_a_race_to_another_store_leaves_no_claim_for_a_stray_verdict(
+    tmp_path: Path,
+) -> None:
+    """Found by the read-only review of ``4be75f02``. Two stores behind one queue
+    have paused the same execution, so two requests wait under one key. An
+    approver of A's pause passes the gate's checks; before its claim, another
+    approver resolves A's request, so the claim takes B's request instead. That
+    claim was left behind with B's request gone, and a verdict sent straight to
+    the queue naming B's pause was stamped as a gate primitive's answer and
+    carried B past its gate with no request waiting. The gate now gives B's
+    request back unanswered and refuses as a lost race (``4569d9f0`` refused the
+    stray verdict too)."""
+    a, b, transport, bindings = two_shared_stores(tmp_path)
+    started_a, started_b = a.start(), b.start()
+    assert isinstance(started_a, WorkflowSuspended) and isinstance(started_b, WorkflowSuspended)
+    key = started_a.event_key
+    assert started_b.event_key == key
+    real_remove = transport.remove
+    armed = {"on": True}
+
+    def remove_after_a_concurrent_resolve(**kwargs: Any) -> Any:
+        if armed["on"]:
+            armed["on"] = False
+            a.approve(key)
+        return real_remove(**kwargs)
+
+    transport.remove = remove_after_a_concurrent_resolve  # type: ignore[method-assign]
+    try:
+        a.approve(key)
+    except Exception:  # the lost race; its kind is pinned in tests/hitl
+        pass
+    finally:
+        del transport.remove
+    stray = eh._submit_only(
+        transport, tenant=b.tenant, event_key=key, product_content_hash=content_hash(b.record()),
+        action="approve", subject_id=APPROVER,
+    )
+    before = downstream_runs(bindings)
+    b.resume()
+
+    assert downstream_runs(bindings) == before, (
+        "a verdict sent straight to the queue carried B past its gate with no request waiting"
+    )
+    assert stray.event_state_at_submit != "claimed", "an orphaned claim stamped the stray verdict"
+    assert content_hash(b.record()) in [e.product_content_hash for e in transport.pending(tenant=b.tenant)]
+
+
+def test_an_approval_of_the_pre_upgrade_request_racing_the_rebind_leaves_no_claim(tmp_path: Path) -> None:
+    """Found by the same review. An approver of the pre-upgrade request passes
+    the gate's checks; the rebind then files the fresh request and retires the
+    old one; the approver's claim takes the fresh request. That claim was left
+    behind with the fresh request gone, and a stray verdict naming the
+    re-paused run passed its gate. The gate now gives the fresh request back."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    transport: Any = deployment.transport
+    real_remove = transport.remove
+    armed = {"on": True}
+
+    def remove_after_the_rebind(**kwargs: Any) -> Any:
+        if armed["on"]:
+            armed["on"] = False
+            rebind(deployment)
+        return real_remove(**kwargs)
+
+    transport.remove = remove_after_the_rebind
+    try:
+        deployment.approve(request.event_key)
+    except Exception:  # the lost race; its kind is pinned in tests/hitl
+        pass
+    finally:
+        del transport.remove
+    fresh = content_hash(deployment.record())
+    stray = stray_verdict(deployment, request.event_key)
+    deployment.resume()
+
+    assert downstream_runs(deployment.bindings) == 0, (
+        "a stray verdict carried the re-paused run past its gate with no request waiting"
+    )
+    assert stray.event_state_at_submit != "claimed"
+    assert pending_hashes(deployment) == [fresh], "the fresh request was not given back"
+
+
 def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(
     tmp_path: Path,
 ) -> None:
