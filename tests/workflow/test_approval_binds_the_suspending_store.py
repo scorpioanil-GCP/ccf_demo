@@ -41,6 +41,8 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.state import InMemoryStateStore
@@ -400,6 +402,89 @@ def test_b7_the_rebind_retires_the_pending_pre_upgrade_request(tmp_path: Path) -
     passed = deployment.resume()
     assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
     assert downstream_runs(deployment.bindings) == 1
+
+
+def test_b8_a_rebind_that_fails_before_its_fresh_request_lends_no_verdict_authority(
+    tmp_path: Path,
+) -> None:
+    """Found by the independent review of the build. The rebind retired the
+    pre-upgrade request through the transport's ``remove``, which records a
+    claim on the key that only the fresh request's enqueue discards; when the
+    re-pause stopped between the two (here, the artifact store failing at the
+    trace write), the claim survived, and a verdict recorded afterwards with no
+    request pending was stamped as a primitive's answer and carried the run past
+    its gate — against ``D-IMPL-366`` H2. Now the trace and the state write come
+    before the retirement, and the retirement sits next to the fresh enqueue:
+    a failure at the trace write moves nothing, the stray verdict carries nothing
+    past the gate, and the rebind presented again completes."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    engine: Any = deployment.engine
+    write_trace = engine._write_trace
+    armed = {"fail": True}
+
+    def fails_once(*args: Any, **kwargs: Any) -> Any:
+        if armed["fail"]:
+            armed["fail"] = False
+            raise OSError("artifact store unavailable at the trace write")
+        return write_trace(*args, **kwargs)
+
+    engine._write_trace = fails_once
+    with pytest.raises(OSError):
+        rebind(deployment)
+
+    current = content_hash(deployment.record())
+    eh._submit_only(
+        deployment.transport, tenant=deployment.tenant, event_key=request.event_key,
+        product_content_hash=current, action="approve", subject_id=APPROVER,
+    )
+    outcome = deployment.resume()
+    assert downstream_runs(deployment.bindings) == 0, (
+        f"a verdict recorded with no request pending carried the run past its gate: {outcome!r}"
+    )
+    assert isinstance(outcome, WorkflowResumeRefused), outcome
+
+    rebound = rebind(deployment)
+    assert isinstance(rebound, WorkflowSuspended) and rebound.gate == FIRST_GATE, rebound
+
+
+def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(
+    tmp_path: Path,
+) -> None:
+    """``WorkflowEngine._finish_start``: a pre-upgrade pause whose request is
+    gone is refused as a second start, never restored under its legacy hash (the
+    rebind re-pauses it)."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    assert deployment.transport.dequeue(tenant=deployment.tenant) == request
+
+    again = deployment.start()
+
+    assert isinstance(again, WorkflowResumeRefused), (
+        f"a retried start restored a request bound to the pre-upgrade suspension: {again!r}"
+    )
+    assert "already exists" in again.reason, again.reason
+    assert deployment.transport.pending(tenant=deployment.tenant) == ()
+
+
+def test_a_retried_start_never_finishes_a_record_another_store_wrote(tmp_path: Path) -> None:
+    """``WorkflowEngine._finish_start``: a suspension copied in from another store,
+    its request gone, is refused as a second start; nothing is filed."""
+    deployment = Deployment(
+        tmp_path, store=PlantableStore(), transport=InMemoryHitlTransport(), bindings=eh._Bindings()
+    )
+    started = deployment.start()
+    assert isinstance(started, WorkflowSuspended)
+    copied = legacy(deployment.record()).model_copy(update={"state_store_identity": "f" * 64})
+    store = deployment.store
+    assert isinstance(store, PlantableStore)
+    store.plant(deployment.key, copied)
+    assert deployment.transport.dequeue(tenant=deployment.tenant) is not None
+
+    again = deployment.start()
+
+    assert isinstance(again, WorkflowResumeRefused), (
+        f"a retried start acted on a record another store wrote: {again!r}"
+    )
+    assert deployment.transport.pending(tenant=deployment.tenant) == ()
 
 
 def test_the_one_instance_cycle_passes_once_and_its_record_names_its_store(tmp_path: Path) -> None:

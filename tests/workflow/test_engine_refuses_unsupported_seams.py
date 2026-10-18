@@ -202,8 +202,29 @@ class SharedTransportWithoutLease(SharedTransport):
     writer_lease = None  # type: ignore[assignment]
 
 
+class _AlwaysEqual(str):
+    """A ``str`` whose comparisons always agree: it would make every record look
+    like this store's own (found by the independent review of the build)."""
+
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __ne__(self, other: object) -> bool:
+        return False
+
+    __hash__ = str.__hash__
+
+
+class StoreWithAStrSubclassIdentity(InMemoryStateStore):
+    """The right shape, in a ``str`` subclass that can override comparison."""
+
+    identity = _AlwaysEqual("a" * 64)  # type: ignore[assignment]
+
+
 @pytest.mark.parametrize(
-    "store_type", [StoreWithoutIdentity, StoreWithMalformedIdentity], ids=["missing", "63-hex"]
+    "store_type",
+    [StoreWithoutIdentity, StoreWithMalformedIdentity, StoreWithAStrSubclassIdentity],
+    ids=["missing", "63-hex", "str-subclass"],
 )
 def test_a_store_without_a_well_formed_identity_is_refused_by_the_identity_rule(
     tmp_path: Path, store_type: type[Any]
