@@ -51,7 +51,7 @@ address* is a fingerprint of an answer's exact content.
   addresses show a `<port>` placeholder. Four known corrections are still pending.
 - **Reference manual updates.** The security guide, the controls register, the artifact-store and
   replay pages, the HTTP API description and the developer change log are updated.
-- **New videos.** None in this release.
+- **New videos.** Three new videos join the eleven made earlier, for fourteen in all (section 7).
 - **Bank-ready form.** There is no form to sign. A bank-ready package for 1.0.2 has not been
   assembled yet; what it needs is listed in section 8.
 
@@ -384,11 +384,24 @@ example READMEs (cp-06C for the evidence, the commands and the refusal; sk-01 fo
 
 ## 7. New videos on using the SDK
 
-No videos, screen recordings or video scripts are part of 1.0.2. Recording demonstration videos is
-still an open handoff step in the bank packet (section 8). Recordings made of the October 13 build
-remain accurate for that build. A recording made on 1.0.2 would show a few differences: a newer Fluree
-image and the `<port>` placeholder in one tutorial's setup, and the bank launcher creating an evidence
-folder and the checker printing the new SEC-020 checks. No tutorial has been re-run on the 1.0.2 tag.
+The videos are kept in the project's Google Drive folder, not in the repository, and are shared
+separately; a viewer needs access to that folder.
+
+### New since October 13
+
+- `CCF_Engineering_Decision_Context.mp4`
+- `CCF_LinkedIn_Governed_Context.mp4`
+- `Cognitive Context Fabric Intro.mp4`
+
+### Already available
+
+- `CCF_SDK_Video_1_DaveC.mp4` to `CCF_SDK_Video_10_DaveC.mp4` (ten videos)
+- `CCF_Technical_Overview.mp4`
+
+The October 13 notes state that recordings of that build remain valid; this was not re-checked against
+1.0.2. A recording made on 1.0.2 would show a few differences: a newer Fluree image and the `<port>`
+placeholder in one tutorial's setup, and the bank launcher creating an evidence folder and the checker
+printing the new SEC-020 checks. No tutorial has been re-run on the 1.0.2 tag.
 
 ## 8. Bank-ready form
 
@@ -412,6 +425,7 @@ remaining step is to repeat the checks under its own service account.
   rather than from the installed package;
 - a check that replays a decision after a restart, which the verification script does not yet do;
 - a hosted CI run on the release commit, which 1.0.2 has not had;
+- the video folder (section 7) shared with the bank;
 - a written grant or amendment naming 1.0.2. The license's Schedule A names only the October 13 build,
   and its section 1 says later source commits are included only when the licensor names them in
   writing.
