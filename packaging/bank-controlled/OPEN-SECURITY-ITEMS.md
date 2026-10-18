@@ -8,17 +8,19 @@ and are limited to its stated scope and term.
 -->
 # Open security items — for review and ordering
 
-Status as of 2026-10-16 22:5x MST. Items 1–16 were measured against the delivered build
+Status as of 2026-10-17 20:58 MST. Items 1–16 were measured against the delivered build
 `01fc424d` (`main` at `8193c607` carried only documents after it). The replay-evidence
 work on branch `replay-evidence-383` (`D-IMPL-383`) closed none of these items and
 changed none of them. Item 3's cp-06C result was measured on branch `sec-020-parts-1-3`
 (`76f5d338` before the fix, `0b57fa7e` after). **That fix is not in the delivered build
 `01fc424d`: on the build the bank runs, the existence oracle item 3 describes is still
-there.** Item 17 (SEC-030) was closed 2026-10-17 (`b8e19a1c`). Both fixes are on `main` since
-`d5c98f45` and in a replacement CANDIDATE wheel built from it — `ccf_sdk-1.0.2.dev1608+gd5c98f45a`,
-SHA-256 `fed7e86f2731b3e8e6593341af016fbd07ef99cdca0b6ffce8dd774e52d5ad65`, verified as installed
-(`ccf_saves/ccf-sdk-replacement-candidate-2026-10-17/`) — which has NOT been delivered or deployed: the
-bank's installation is still `01fc424d`, which contains neither.
+there.** Item 17 (SEC-030) was closed 2026-10-17 (`b8e19a1c`). Items 1 (SEC-001's residual) and 18
+(the index race) were closed 2026-10-17 on the merge `5f85b389`. All four fixes are on `main` and in a
+replacement wheel built from `5f85b389` — `ccf_sdk-1.0.2.dev1644+g5f85b389e`, SHA-256
+`9b2b1b82d447cbe76565c7cee5faf13ce3077b532ef5396d88cb2350dbec77b2`, verified as installed and tagged
+`baseline-2026-10-17` (`ccf_saves/ccf-sdk-replacement-2026-10-17-5f85b389/`; it supersedes the candidate
+built from `d5c98f45`) — which has NOT been delivered or deployed: the bank's installation is still
+`01fc424d`, which contains none of them.
 
 This is the 16-item list shown to Dave on 2026-10-13 09:40 MST and sent to the
 bank; the numbers are the ones the bank's answer uses. Item 17 (SEC-030) was added on
