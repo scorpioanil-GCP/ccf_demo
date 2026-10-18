@@ -667,6 +667,31 @@ def test_a_verdict_sent_straight_to_the_queue_counts_only_while_its_own_pause_is
     assert paused in pending_hashes(deployment), "the run's own request was not restored"
 
 
+def test_a_verdict_recorded_on_its_waiting_request_counts_only_while_that_request_still_waits(
+    tmp_path: Path,
+) -> None:
+    """The resumption asks the same question again. A verdict recorded while its
+    own pause's request was waiting (``pending``) no longer counts once that
+    request has been drained and only a request for another pause is waiting
+    under the key; on ``4569d9f0`` any request under the key kept it counting."""
+    deployment = Deployment(
+        tmp_path, store=PlantableStore(), transport=InMemoryHitlTransport(), bindings=eh._Bindings()
+    )
+    started = deployment.start()
+    assert isinstance(started, WorkflowSuspended)
+    recorded = stray_verdict(deployment, started.event_key)
+    assert recorded.event_state_at_submit == "pending"
+    drained = deployment.transport.dequeue(tenant=deployment.tenant)
+    assert drained is not None
+    deployment.transport.enqueue(event=drained.model_copy(update={"product_content_hash": ANOTHER_PAUSE}))
+
+    deployment.resume()
+
+    assert downstream_runs(deployment.bindings) == 0, (
+        "a verdict counted while only a request for another pause was waiting at the resumption"
+    )
+
+
 def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(
     tmp_path: Path,
 ) -> None:
