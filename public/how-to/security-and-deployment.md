@@ -2520,29 +2520,31 @@ the same id is refused "already exists".
 - **Re-pause runs that were paused before the upgrade.** A `suspended` record
   written before the identity existed is refused by name, naming
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.rebind_legacy_suspension`.
-  That method first retires the run's pending pre-upgrade approval request,
-  audited `workflow_request_retired` (left in front, it made the fresh approval
-  fail), then re-pauses the run under the store's identity, audited
-  `workflow_suspended`, with one new request under the same event key. A fresh
-  approval is required: the old verdicts name the old suspension and authorize
-  nothing. A durable store lists such runs through `items(WORKFLOW_STATE)`. The
+  That method re-pauses the run under the store's identity, audited
+  `workflow_suspended`, files one new request under the same event key, and
+  then retires the run's pending pre-upgrade requests by their exact
+  fingerprint, each audited `workflow_request_retired` (left in front, a
+  pre-upgrade request made the fresh approval fail). A fresh approval is
+  required: the old verdicts name the old suspension and authorize nothing. A durable store lists such runs through `items(WORKFLOW_STATE)`. The
   shipped in-memory store keeps nothing across the upgrade restart, so it has
   none. The erasure door refuses such a run, and a record another store wrote,
   `workflow-refused` before it files the approval or appends any index entry,
   so the erasure completes after the rebind and a fresh signed approval. Limits:
-  the rebind is a Python call (no HTTP, MCP or CLI route exposes it); it retires
-  only pre-upgrade requests at the front of the key's queue; a refused rebind is
-  audited as a refused `workflow_resumed`, and a retirement row names neither the
-  retired request's hash nor an operator. The order is the trace, the state
-  write, the retirement, then the fresh request (Dave, 2026-10-17 15:25 MST:
-  the retirement comes before the fresh request). Two windows remain: a
-  transport that fails, or a process that dies, between the retirement and the
-  fresh request leaves the retirement's claim, so a verdict recorded before the
-  next resumption counts as a gate primitive's answer (measured; the next
-  resumption without one restores the request and clears the claim); and a
-  process that dies between the state write and the retirement leaves the
-  pre-upgrade request in front of the restored one, so the fresh approval is
-  refused until an operator removes it.
+  the rebind is a Python call (no HTTP, MCP or CLI route exposes it); a refused
+  rebind is audited as a refused `workflow_resumed`, and a retirement row names
+  neither the retired request's hash nor an operator. The order is the trace,
+  the state write, the fresh request, then the retirement (Dave, 2026-10-17
+  18:54 MST, option 3, which replaced his 15:25 MST order, retirement first: that
+  order left a claim a stray verdict could use when the transport failed between
+  the two). Nothing on the queue is claimed at any point, and a verdict sent
+  straight to the queue counts only while the request for its own pause is
+  waiting (next bullet), so no failure point lends a verdict authority. One
+  window remains, and it is about progress, not authority: a transport that
+  fails, or a process that dies, after the state write and before the
+  retirement leaves the pre-upgrade request in front of the fresh one (which
+  the next resumption restores if it was never filed), so an approval through
+  `ApprovalGate`, which takes the oldest request under the key, is refused
+  until an operator retires the stale request with `retire`.
 - **A single-process store or transport is held by one process.** A
   path-backed state store or HITL transport declaring `process` must take an
   exclusive SEC-013 lease (`src/ccf/graph/leases.py::LockFileWriterLease`, on a
@@ -2583,6 +2585,26 @@ the same id is refused "already exists".
   reference transport. Escalations are not bound to a store: an escalation held
   under an execution's state key holds or releases that execution in every
   store behind one transport (unchanged by this change).
+- **A verdict counts only while the request for its own pause is waiting, and
+  a retirement claims nothing** (Dave, 2026-10-17 18:54 MST: *"Count an approval
+  sent straight to the queue only while the request for this exact pause is
+  waiting."*). `HITLTransportProtocol.submit` judges a submission against the
+  request for the pause it names, `(tenant, event_key, product_content_hash)`:
+  `claimed` when a primitive's claim is on that request, `pending` when that
+  request is waiting wherever it sits under the key, otherwise `missing`, which
+  is never authority. A request for another pause under the same key no longer
+  counts, and a claim on another pause's request is neither used nor consumed.
+  The engine asks again at the resumption: a verdict recorded `pending` counts
+  only while its pause's request is still waiting. The new
+  `HITLTransportProtocol.retire(tenant, event_key, product_content_hash)` removes
+  every pending request bearing that fingerprint, wherever it sits, in one
+  atomic step, records no claim, and discards a claim only when it is on the
+  same pause. Your own transport must offer `retire` (the engine refuses one
+  that does not, at construction) and must judge `submit` the same way; run the
+  retirement and judgment cases of
+  `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
+  Their race case, like the enqueue race, catches a non-atomic retirement only
+  by chance.
 - **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
   committed. The execution stays `running`, and `GET /workflow/execution`

@@ -21407,7 +21407,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-657 entries — 461 public Python surface, 196 not public Python API.
+658 entries — 462 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28891,13 +28891,25 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
+#### ccf.hitl.transport.HITLTransportProtocol
+
+- Surface: ccf.hitl.transport.HITLTransportProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `enqueue` appended every event it was given; no `retire`; `submit` judged a submission against the claimed event, else the oldest event pending under its key, else `missing`.
+- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. New member `retire(*, tenant, event_key, product_content_hash) -> tuple[PendingHitlEvent, ...]`: every pending request bearing that fingerprint, wherever it sits, removed in one atomic step and returned oldest first; no claim recorded; a claim discarded only when it is on the same pause. `submit` judges a submission against the request for the pause it names: `claimed` when the claim on the key is on that request, `pending` when that request is waiting under the key, else `missing`; a claim on another pause's request is neither used nor consumed (`D-IMPL-366` H2, narrowed). The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
+- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."* Dave, 18:54 MST: *"remove the old request with a new queue step that matches its exact fingerprint and leaves no claim. Count an approval sent straight to the queue only while the request for this exact pause is waiting."*
+- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, adds `retire` (the workflow engine refuses a transport without it at construction), judges `submit` against the named pause's request, and runs the conformance suite's enqueue, retirement and judgment cases.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
 #### ccf.hitl.transport.InMemoryHitlTransport
 
 - Surface: ccf.hitl.transport.InMemoryHitlTransport
 - Public surface: true
 - Change type: reshaped
-- Before: `enqueue` appended duplicates; no `writer_lease`.
-- After: `enqueue` meets the new contract under its existing lock; `writer_lease()` returns the `"process"` declaration.
+- Before: `enqueue` appended duplicates; no `writer_lease`; no `retire`; `submit` judged against any event under the key.
+- After: `enqueue` meets the new contract under its existing lock; `writer_lease()` returns the `"process"` declaration; `retire` and the per-pause `submit` judgment, each under the same lock.
 - Why: `D-IMPL-391`.
 - Migration: none.
 
@@ -28909,8 +28921,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no action for a retired approval request.
-- After: adds `workflow_request_retired`, appended when `rebind_legacy_suspension` retires a pending pre-upgrade request.
-- Why: Dave, 15:25 MST: *"The re-pause retires the legacy request before enqueueing the fresh one, and audits the retirement."*
+- After: adds `workflow_request_retired`, appended once for each pending pre-upgrade request `rebind_legacy_suspension` retires.
+- Why: Dave, 15:25 MST: *"... and audits the retirement."* (His order there, retirement first, was replaced at 18:54 MST: the fresh request is filed first.)
 - Migration: an audit consumer that switches on the action admits the new value.
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
@@ -32087,7 +32099,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-594 entries — 554 public Python surface, 40 not public Python API.
+593 entries — 553 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -40035,26 +40047,14 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
-#### ccf.hitl.transport.HITLTransportProtocol
-
-- Surface: ccf.hitl.transport.HITLTransportProtocol
-- Public surface: true
-- Change type: behavior
-- Before: `enqueue` appended every event it was given.
-- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
-- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."*
-- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, and runs the conformance suite's enqueue cases.
-
-*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
-
 #### ccf_runtime.workflow.engine.WorkflowEngine
 
 - Surface: ccf_runtime.workflow.engine.WorkflowEngine
 - Public surface: true
 - Change type: behavior
 - Before: an approval counted in any store whose suspension hashed alike; no single-process lease requirement.
-- After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` retires the pending pre-upgrade request (audited `workflow_request_retired`), then re-pauses the run under this store (audited `workflow_suspended`, one new request under the same key); a fresh approval is required.
-- Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST.
+- After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` re-pauses the run under this store (audited `workflow_suspended`), files one new request under the same key, then retires every pending pre-upgrade request through the transport's `retire` (each audited `workflow_request_retired`; no claim recorded); a fresh approval is required. A verdict recorded `pending` counts only while the request for its own suspension is still waiting (before: any gate request under the key). Construction refuses a transport without `retire`, with the existing "does not offer the whole HITLTransportProtocol" message.
+- Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST; his ruling of 18:54 MST (option 3).
 - Migration: a durable store holding runs paused before this change rebinds each (`items(WORKFLOW_STATE)` lists them) and asks for a fresh approval. The SDK's own in-memory store keeps nothing across the upgrade restart, so it has none.
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*

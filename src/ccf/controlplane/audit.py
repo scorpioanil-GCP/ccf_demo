@@ -181,8 +181,9 @@ AuditAction = Literal[
     "workflow_exception",
     "workflow_completed",
     # D-IMPL-391 (design 1.4): re-pausing a run paused before the state store
-    # identity existed retires its pending pre-upgrade approval request first,
-    # and this is the audit answer for that retirement.
+    # identity existed files the fresh approval request, then retires each
+    # pending pre-upgrade request by its exact fingerprint (Dave, 2026-10-17
+    # 18:54 MST); this is the audit answer for each retirement.
     "workflow_request_retired",
     "hitl_action",
     "authz_decision",
