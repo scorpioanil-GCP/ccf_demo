@@ -1,0 +1,151 @@
+{
+ "version": 1,
+ "saved_at": "2026-10-14T13:00:00Z",
+ "session": "0f8f980f-619c-43c0-aed0-f2bb3f19d197",
+ "status": "paused",
+ "phase": "Tuesday 2026-10-13 delivery — DONE; waiting on the bank's answer",
+ "plan": null,
+ "task": "Wait for Dave to relay the bank's answer to the 16-item vulnerability list shown 2026-10-13 09:40. Build nothing until he does.",
+ "dave_last_instruction_verbatim": [
+  "save state so I can clear"
+ ],
+ "dave_rulings_this_session": {
+  "2026-10-13 03:53": "Keep the current decision and leave follow-ups 7–9 deferred. … Then stop. No new implementation, review agents or paid CI. (full text: ccf_saves/2026-10-12-batch/dave/dave-0353.txt)",
+  "2026-10-13 04:14": "use this version (LICENSE.md = his CCF SDK Software License; dave/dave-0414.txt)",
+  "2026-10-13 04:21": "Use today's date for \"It says the Effective Date is recorded in \"the accompanying delivery notice\", and there's no such document in the folder.\"",
+  "2026-10-13 09:39": "Show me the list of vulnerabilities and I will communicate the response from the bank",
+  "2026-10-14 05:59": "save state so I can clear"
+ },
+ "next_action": [
+  "Wait for Dave to relay the bank's answer.",
+  "When it arrives: save it verbatim to ccf_saves/2026-10-12-batch/dave/, map each point to the numbers in OPEN-ITEMS-LIST-SHOWN-2026-10-13-0940.md, record in docs/DECISIONS.md ([skip ci] after pre-push checks), ask only what his words leave open.",
+  "Any code fix needs Dave to lift the no-implementation instruction, then a new wheel, checks, one hosted CI run, re-sealed folder, and an updated Schedule A commit + wheel hash."
+ ],
+ "blockers": [
+  "The bank's acceptance answer (via Dave)."
+ ],
+ "human_actions_pending": [
+  "Dave: relay the bank's answer.",
+  "Dave: say whether to remove the two macOS Finder files (._BANK-PACKET.md, ._DELIVERY-NOTICE.md) that appeared in the delivery folder 2026-10-13 04:31."
+ ],
+ "read_first": "/home/parkave/ccf_saves/2026-10-12-batch/RESUME.md (top block)",
+ "origin_main": "8193c60780eff21d624c48f78d655dfc6dad0131",
+ "refs": {
+  "worktree": "/home/parkave/ccf_wt/docs-1012 (branch docs-1012, pushed as HEAD:main)",
+  "delivery_folder": "/home/parkave/ccf_saves/ccf-sdk-delivery-2026-10-13/ (113 files; MANIFEST.sha256 sha 5295fb03d9436c548bb5ed59f8e871664851f3ba7cc73f684f76e99425185c13)",
+  "wheel": "ccf_sdk-1.0.2.dev1564+g01fc424d9-py3-none-any.whl sha256 186c9b73960c250a51e8c0ad7952721d9ca80d71055655933b09092c1fa8e9cc (source 01fc424d92f8d15856d5f277e9cf18ef59bc7883)",
+  "list_shown": "/home/parkave/ccf_saves/2026-10-12-batch/OPEN-ITEMS-LIST-SHOWN-2026-10-13-0940.md",
+  "full_open_items": "/home/parkave/ccf_saves/2026-10-12-batch/OPEN-SECURITY-ITEMS-2026-10-12.md (token estimates UNVALIDATED)"
+ },
+ "constraints": [
+  ".76 is READ-ONLY; strip PG*/FLUREE_*/MONGO_*/NEO4J_*/CO_LENDER_* in every test command",
+  "Every main push [skip ci]",
+  "No tag, no PyPI upload, no force-push",
+  "No agents, implementation rounds or paid CI (Dave 16:03, 03:53)",
+  "Report any denial verbatim; never route around it"
+ ],
+ "uncommitted_files": [
+  "(ccf_code main checkout, branch wave-1-357) .planning/* and CLAUDE.md local modifications — planning records, not delivery"
+ ],
+ "background_processes": [],
+ "carried_findings": [
+  "SEC-001",
+  "SEC-013",
+  "SEC-020",
+  "SEC-027",
+  "SEC-029",
+  "follow-ups 1–9 (7–9 deferred; estimates UNVALIDATED)",
+  "designs 1.5/1.6",
+  "143 residuals"
+ ],
+ "previous_handoff": {
+  "version": 1,
+  "saved_at": "2026-10-12T06:40:00Z",
+  "session": "89b5b786-9002-491b-89ae-c24465d282a0",
+  "status": "paused",
+  "phase": "Tuesday 2026-10-13 delivery (Dave 2026-10-11 14:51 GO) — final stretch",
+  "plan": null,
+  "task": "WAITING FOR DAVE on the cp-04 jurisdiction governance defect; then banners LAST, final consolidated verification + ONE hosted CI run, wheel, bank config re-verify, bank packet. No tag, no PyPI upload.",
+  "dave_last_instruction_verbatim": [
+   "save your state so I can clear. make sure to save your state in a bullet proof manner so there is no ambiguity when we resume after the clear"
+  ],
+  "dave_rulings_this_session": {
+   "21:01": "I need you to not hit .76 until I can repair the damage",
+   "21:08": ".76 should be readonly and a local fluree should be where all of the writes happen. the local instance is disposable",
+   "21:11": "Update the vault on any insights you can provide ccf_dataprep so I can repair the databases. Pause after that",
+   "23:53": "write this to the vault and I will have dataprep read the vault",
+   "00:07": "read the vault one more time, then save your state because I'm going to issue a clear, embargo over on .76 but readonly access is all you get on .76",
+   "00:12": "local write store can be kept running but must be checked periodically and restarted in order to avoid consuming memory",
+   "00:16": "lets do option b when we return from the clear and the resume the remainder of the vulnerabilities"
+  },
+  "next_action": [
+   "After reboot: /tmp is WIPED — use /home/parkave/ccf_saves/2026-10-10-0745/; git worktree prune.",
+   "Re-create worktree for lane-380b-repair outside /tmp; relaunch the author lane with LANE-380B-BRIEF.md (from the save) resuming at 266b102e for items 2 and 4.",
+   "Certify every item (red tests-only on the property, green, my severings, restore MATCH); merge into int-378j; measure (step.sh 1a 1b 2 3a 3b 3c proof + static); ONE push; hosted CI; delta-only review; present to Dave (incl. my brief-premise error on _store_creation)."
+  ],
+  "blockers": [],
+  "human_actions_pending": [],
+  "refs": {
+   "main": "a5f77795",
+   "dl-378-integ (origin) = int-378j": "ef5d27a4",
+   "lane-380b-repair (local)": "266b102e",
+   "dl-378-record": "6dfdcbd1",
+   "save copy": "/home/parkave/ccf_saves/2026-10-10-0745/",
+   "hosted CI at ef5d27a4": "38055542431 (only the ruled 21 failed)"
+  },
+  "constraints": [
+   "READ-ONLY on 192.168.4.76 (Dave 00:07); every write goes to a local disposable store (Dave 21:08)",
+   "local write store may run continuously (Dave 00:12) but must be checked periodically and restarted to avoid consuming memory; not started yet",
+   "do NOT apply PGOPTIONS (Dave 23:22 via ccf-dataprep: leave the login as it was before)",
+   "strip PG*/FLUREE_*/MONGO_*/NEO4J_*/CO_LENDER_* in every test run (the measurement baseline is .76-free)",
+   "no merge to main beyond records",
+   "no closure",
+   "no tag",
+   "no containers",
+   "never pipe a gate",
+   "credential-scan before record pushes",
+   "[skip ci] on record/docs pushes",
+   ".planning edits stay uncommitted in the main checkout",
+   "push dl-378-integ once per batch",
+   "a severing counts only if it fails on the property (no error-class failures)",
+   "/tmp is wiped at boot (tmpfiles.d D /tmp) — keep worktrees and logs outside /tmp",
+   "Grok before code: no build without Dave confirming Grok agrees",
+   "No tag; SEC-020 open on its existing channels"
+  ],
+  "uncommitted_files": [
+   ".planning/ROADMAP.md",
+   ".planning/STATE.md",
+   ".planning/.continue-here.md",
+   ".planning/HANDOFF.json",
+   ".planning/HANDOFF-2026-10-07.md"
+  ],
+  "background_processes": [],
+  "open_questions_for_dave": [],
+  "read_first": "/home/parkave/ccf_saves/2026-10-11-SAVE-2340/RESUME.md",
+  "origin_main": "481cea69",
+  "open_for_dave": [
+   "cp-04 jurisdiction defect: tests/examples/test_cp_04_two_callers.py::test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives — a family serving a jurisdiction outside the declared closed set is SERVED; pre-existing on main; recommended one targeted fix before the hosted run"
+  ],
+  "branches_not_on_main": {
+   "banners": "d1663269 (4 commits; merge LAST; re-run header script on merged tree)"
+  },
+  "carried_findings": [
+   "SEC-001 cross-process shared store (excluded by deployment)",
+   "SEC-013",
+   "SEC-020 (21 ids)",
+   "SEC-027",
+   "SEC-029",
+   "HTTP door undeclared-class status code 403 vs 404",
+   "paved resource read without a request raises",
+   "assembler_id missing on replay (cp-04)",
+   "cp-05 own MCP door not migrated (5 errors)",
+   "frozen cp-06 no-anchor question -> transport error"
+  ],
+  "running": "nothing",
+  "previous_handoff": {
+   "saved_at": "2026-10-10T14:50:00Z",
+   "session": "ba17cd82-20d7-4f26-a72b-772ff24af7c5",
+   "task": "D-IMPL-380 round 2 (Dave 07:39): lane-380b-repair — item 1 built @ 266b102e (uncertified); items 2 (writers hand the store a deep copy) and 4 (wording; lock names a rule as a rule) not started; item 3 ruled not built."
+  }
+ }
+}
