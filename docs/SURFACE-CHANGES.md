@@ -21407,7 +21407,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-658 entries — 462 public Python surface, 196 not public Python API.
+657 entries — 461 public Python surface, 196 not public Python API.
 
 ### Public Python surface
 
@@ -28891,18 +28891,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
-#### ccf.hitl.transport.HITLTransportProtocol
-
-- Surface: ccf.hitl.transport.HITLTransportProtocol
-- Public surface: true
-- Change type: reshaped
-- Before: `enqueue` appended every event it was given; no `retire`; `submit` judged a submission against the claimed event, else the oldest event pending under its key, else `missing`.
-- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. New member `retire(*, tenant, event_key, product_content_hash) -> tuple[PendingHitlEvent, ...]`: every pending request bearing that fingerprint, wherever it sits, removed in one atomic step and returned oldest first; no claim recorded; a claim discarded only when it is on the same pause. `submit` judges a submission against the request for the pause it names: `claimed` when the claim on the key is on that request, `pending` when that request is waiting under the key, else `missing`; a claim on another pause's request is neither used nor consumed (`D-IMPL-366` H2, narrowed). The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
-- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."* Dave, 18:54 MST: *"remove the old request with a new queue step that matches its exact fingerprint and leaves no claim. Count an approval sent straight to the queue only while the request for this exact pause is waiting."*
-- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, adds `retire` (the workflow engine refuses a transport without it at construction), judges `submit` against the named pause's request, and runs the conformance suite's enqueue, retirement and judgment cases.
-
-*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
-
 #### ccf.hitl.transport.InMemoryHitlTransport
 
 - Surface: ccf.hitl.transport.InMemoryHitlTransport
@@ -32099,7 +32087,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-593 entries — 553 public Python surface, 40 not public Python API.
+594 entries — 554 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -40044,6 +40032,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: `identity`, minted per construction (its records live in the object, so a new object is a new store); `writer_lease()` returns the `"process"` declaration (`ProcessScopedWriterLease`), exact because no other process can reach its memory.
 - Why: `D-IMPL-391`.
 - Migration: none.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.transport.HITLTransportProtocol
+
+- Surface: ccf.hitl.transport.HITLTransportProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `enqueue` appended every event it was given; no `retire`; `submit` judged a submission against the claimed event, else the oldest event pending under its key, else `missing`.
+- After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. New member `retire(*, tenant, event_key, product_content_hash) -> tuple[PendingHitlEvent, ...]`: every pending request bearing that fingerprint, wherever it sits, removed in one atomic step and returned oldest first; no claim recorded; a claim discarded only when it is on the same pause. `submit` judges a submission against the request for the pause it names: `claimed` when the claim on the key is on that request, `pending` when that request is waiting under the key, else `missing`; a claim on another pause's request is neither used nor consumed (`D-IMPL-366` H2, narrowed). The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
+- Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."* Dave, 18:54 MST: *"remove the old request with a new queue step that matches its exact fingerprint and leaves no claim. Count an approval sent straight to the queue only while the request for this exact pause is waiting."*
+- Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, adds `retire` (the workflow engine refuses a transport without it at construction), judges `submit` against the named pause's request, and runs the conformance suite's enqueue, retirement and judgment cases.
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 

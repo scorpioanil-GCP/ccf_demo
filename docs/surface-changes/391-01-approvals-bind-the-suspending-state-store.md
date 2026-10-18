@@ -65,7 +65,7 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 
 - Surface: ccf.hitl.transport.HITLTransportProtocol
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `enqueue` appended every event it was given; no `retire`; `submit` judged a submission against the claimed event, else the oldest event pending under its key, else `missing`.
 - After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. New member `retire(*, tenant, event_key, product_content_hash) -> tuple[PendingHitlEvent, ...]`: every pending request bearing that fingerprint, wherever it sits, removed in one atomic step and returned oldest first; no claim recorded; a claim discarded only when it is on the same pause. `submit` judges a submission against the request for the pause it names: `claimed` when the claim on the key is on that request, `pending` when that request is waiting under the key, else `missing`; a claim on another pause's request is neither used nor consumed (`D-IMPL-366` H2, narrowed). The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
 - Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."* Dave, 18:54 MST: *"remove the old request with a new queue step that matches its exact fingerprint and leaves no claim. Count an approval sent straight to the queue only while the request for this exact pause is waiting."*
