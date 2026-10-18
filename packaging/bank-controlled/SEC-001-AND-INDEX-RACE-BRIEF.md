@@ -8,7 +8,7 @@ and are limited to its stated scope and term.
 -->
 # SEC-001's residual (design 1.4) and the evidence name-index race: build brief
 
-**Status, 2026-10-17 15:25 MST: ACCEPTED** (Dave: *"Confirmed. The brief is accepted."* and *"Proceed to
+**Status, 2026-10-17 20:42 MST: BUILT and ACCEPTED; merged to `main` on Dave's word** — Part 1 under option 3 (18:54) and the fixes of two read-only reviews, Part 2 as briefed; the departures are recorded under `D-IMPL-391` and `D-IMPL-390`. **Brief accepted 2026-10-17 15:25 MST** (Dave: *"Confirmed. The brief is accepted."* and *"Proceed to
 implementation of both fixes under the accepted brief. No further design questions remain."*). The answers to the
 five questions at the end are recorded under `D-IMPL-391`; each takes this brief's recommendation. Dave, 13:27:
 *"Write both fixes (SEC-001 residual under those six rulings, and the index race) into one build brief for
