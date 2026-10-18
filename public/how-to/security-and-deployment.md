@@ -2536,15 +2536,18 @@ the same id is refused "already exists".
   the state write, the fresh request, then the retirement (Dave, 2026-10-17
   18:54 MST, option 3, which replaced his 15:25 MST order, retirement first: that
   order left a claim a stray verdict could use when the transport failed between
-  the two). Nothing on the queue is claimed at any point, and a verdict sent
+  the two). The rebind claims nothing on the queue, and a verdict sent
   straight to the queue counts only while the request for its own pause is
-  waiting (next bullet), so no failure point lends a verdict authority. One
-  window remains, and it is about progress, not authority: a transport that
-  fails, or a process that dies, after the state write and before the
-  retirement leaves the pre-upgrade request in front of the fresh one (which
-  the next resumption restores if it was never filed), so an approval through
+  waiting (next bullet), so no failure point lends a verdict authority. Two
+  windows remain, both about progress, not authority: a transport that fails,
+  or a process that dies, after the state write and before the retirement
+  leaves the pre-upgrade request in front of the fresh one (which the next
+  resumption restores if it was never filed), so an approval through
   `ApprovalGate`, which takes the oldest request under the key, is refused
-  until an operator retires the stale request with `retire`.
+  until an operator retires the stale request with `retire`; and an approval
+  of the pre-upgrade request already in flight when the rebind runs can be
+  refused and put that request back behind the fresh one, not retired (a
+  verdict on it names the old suspension and authorizes nothing).
 - **A single-process store or transport is held by one process.** A
   path-backed state store or HITL transport declaring `process` must take an
   exclusive SEC-013 lease (`src/ccf/graph/leases.py::LockFileWriterLease`, on a
@@ -2595,16 +2598,29 @@ the same id is refused "already exists".
   is never authority. A request for another pause under the same key no longer
   counts, and a claim on another pause's request is neither used nor consumed.
   The engine asks again at the resumption: a verdict recorded `pending` counts
-  only while its pause's request is still waiting. The new
+  only while its pause's request is still waiting. Because `remove` takes the
+  oldest request under a key whatever its pause, each HITL primitive
+  (`ApprovalGate`, `ExceptionEscalation`, `OverrideBoundary`, `ReviewQueue`)
+  that finds it claimed a request for a pause other than the one its principal
+  names gives it back unanswered and refuses as a lost race; a claim left with
+  its request gone would otherwise stamp a later verdict. The HTTP action
+  door's receipt reports `event_pending` for the request of the named pause, so
+  it agrees with `event_state_at_submit`. A limit, about progress: a claim is
+  still held per key, so when another pause's request is filed under the same
+  key while a primitive is between its claim and its submission (two stores
+  behind one queue, or a rebind), the filing discards that claim, the
+  primitive's verdict is recorded `missing` and never counts although the
+  primitive reports it, and the run asks again. The new
   `HITLTransportProtocol.retire(tenant, event_key, product_content_hash)` removes
   every pending request bearing that fingerprint, wherever it sits, in one
   atomic step, records no claim, and discards a claim only when it is on the
   same pause. Your own transport must offer `retire` (the engine refuses one
   that does not, at construction) and must judge `submit` the same way; run the
   retirement and judgment cases of
-  `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
-  Their race case, like the enqueue race, catches a non-atomic retirement only
-  by chance.
+  `tests/conformance/test_gate_closure_and_conditional_write.py` against it,
+  including the case that a claim on one pause is neither used nor consumed by
+  a verdict naming another. Their race case, like the enqueue race, catches a
+  non-atomic retirement only by chance.
 - **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
   committed. The execution stays `running`, and `GET /workflow/execution`

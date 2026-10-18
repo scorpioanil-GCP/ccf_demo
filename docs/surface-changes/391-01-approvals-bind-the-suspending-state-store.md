@@ -81,6 +81,56 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 - Why: `D-IMPL-391`.
 - Migration: none.
 
+## ccf.hitl.approval_gate.ApprovalGate
+
+- Surface: ccf.hitl.approval_gate.ApprovalGate
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+## ccf.hitl.escalation.ExceptionEscalation
+
+- Surface: ccf.hitl.escalation.ExceptionEscalation
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+## ccf.hitl.override.OverrideBoundary
+
+- Surface: ccf.hitl.override.OverrideBoundary
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+## ccf.hitl.review_queue.ReviewQueue
+
+- Surface: ccf.hitl.review_queue.ReviewQueue
+- Public surface: true
+- Change type: behavior
+- Before: `release and reject` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+## ccf.hitl.transport.HitlActionReceipt
+
+- Surface: ccf.hitl.transport.HitlActionReceipt
+- Public surface: true
+- Change type: behavior
+- Before: the HTTP action door set `event_pending` when any request was pending under the submission's key.
+- After: `event_pending` is set when the request for the pause the submission names is pending, so it agrees with `event_state_at_submit`; `openapi.json` is regenerated (the field's description).
+- Why: `D-IMPL-391`; found by the review of `4be75f02`: a verdict recorded `missing` (never authority) was answered `event_pending: true` while only another pause's request waited.
+- Migration: none.
+
 ## ccf.controlplane.audit.AuditAction
 
 - Surface: ccf.controlplane.audit.AuditAction

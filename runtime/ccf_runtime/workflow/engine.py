@@ -965,21 +965,27 @@ class WorkflowEngine:
         listed until an operator removed it.
 
         **The order**: the trace, the version-fenced state write, the fresh
-        request, the retirement. Nothing on the transport is ever claimed, and a
+        request, the retirement. The rebind claims nothing on the transport, a
         verdict sent straight to the queue counts only while the request for its
         own pause is waiting (the transport judges it against that request at
         :meth:`~ccf.hitl.transport.HITLTransportProtocol.submit`, and
-        :meth:`resume` asks again), so no failure point lends a verdict
-        authority. A trace or state write that fails moves nothing on the
-        transport: the run stays a pre-upgrade pause and the rebind can be
-        presented again. One window remains, disclosed, and it is a liveness
-        window, never a passage: a process that dies, or a transport that fails,
-        after the state write and before the retirement leaves the pre-upgrade
-        request in front of the fresh one (which the next resumption restores if
-        it was never filed), so an approval through ``ApprovalGate`` is refused
-        until an operator retires the stale request; a verdict sent straight to
-        the queue naming the re-paused run counts once the fresh request is
-        waiting.
+        :meth:`resume` asks again), and a gate primitive that finds it claimed
+        another pause's request gives it back and refuses, so no failure point
+        and no race with a primitive lends a verdict authority. A trace or state
+        write that fails moves nothing on the transport: the run stays a
+        pre-upgrade pause and the rebind can be presented again. Two windows
+        remain, disclosed, both about progress, never a passage: (1) a process
+        that dies, or a transport that fails, after the state write and before
+        the retirement leaves the pre-upgrade request in front of the fresh one
+        (which the next resumption restores if it was never filed), so an
+        approval through ``ApprovalGate`` is refused until an operator retires
+        the stale request; a verdict sent straight to the queue naming the
+        re-paused run counts once the fresh request is waiting. (2) A gate
+        primitive that had claimed the pre-upgrade request before the rebind,
+        and whose submission is then refused because the queue changed under it,
+        gives that request back behind the fresh one; it is not retired or
+        audited as retired, and a verdict on it names the old suspension and
+        authorizes nothing (as on ``4569d9f0``).
 
         Runs under the same in-process single-flight claim as :meth:`resume`.
         Anything other than a legacy ``suspended`` record of this definition is

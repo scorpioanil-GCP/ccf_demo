@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2728 entries**, of which **2445** name a public Python surface.
+**2733 entries**, of which **2450** name a public Python surface.
 
 ## Added
 
@@ -32087,7 +32087,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-594 entries — 554 public Python surface, 40 not public Python API.
+599 entries — 559 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -40044,6 +40044,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: `enqueue` is atomic on `(tenant, event_key, product_content_hash)`: an event whose triple is already pending is not queued again; a claimed event is not pending, so the primitives' give-back still re-files it; an enqueue that appends still discards the key's claim. New member `retire(*, tenant, event_key, product_content_hash) -> tuple[PendingHitlEvent, ...]`: every pending request bearing that fingerprint, wherever it sits, removed in one atomic step and returned oldest first; no claim recorded; a claim discarded only when it is on the same pause. `submit` judges a submission against the request for the pause it names: `claimed` when the claim on the key is on that request, `pending` when that request is waiting under the key, else `missing`; a claim on another pause's request is neither used nor consumed (`D-IMPL-366` H2, narrowed). The docstring adds the single-process lease MUST for a path-backed transport declaring `"process"`. Supersedes DESIGN-2b §6.4 ("no change").
 - Why: ruling 4(a); Dave, 15:25 MST: *"The same paused run's request is filed only once. Third-party transports must meet the contract."* Dave, 18:54 MST: *"remove the old request with a new queue step that matches its exact fingerprint and leaves no claim. Count an approval sent straight to the queue only while the request for this exact pause is waiting."*
 - Migration: a deployment's own transport makes `enqueue` check and append in one atomic step, adds `retire` (the workflow engine refuses a transport without it at construction), judges `submit` against the named pause's request, and runs the conformance suite's enqueue, retirement and judgment cases.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.approval_gate.ApprovalGate
+
+- Surface: ccf.hitl.approval_gate.ApprovalGate
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.escalation.ExceptionEscalation
+
+- Surface: ccf.hitl.escalation.ExceptionEscalation
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.override.OverrideBoundary
+
+- Surface: ccf.hitl.override.OverrideBoundary
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.review_queue.ReviewQueue
+
+- Surface: ccf.hitl.review_queue.ReviewQueue
+- Public surface: true
+- Change type: behavior
+- Before: `release and reject` checked the oldest request under its key against its principal's pause, then claimed through `remove`, which takes the oldest request whatever its pause; a concurrent resolution or retirement in between handed it another pause's request, and it submitted against that claim.
+- After: a claimed request for a pause other than the one the principal names is given back unanswered (re-enqueued) and the call refuses as a lost race, with the primitive's existing "no pending" error; nothing is submitted.
+- Why: `D-IMPL-391`; found by the read-only review of the option-3 build (`4be75f02`): with submissions judged per pause, the primitive's own submission never consumed that claim, and the claim, left with its request gone, stamped a later verdict sent straight to the queue, which passed the gate.
+- Migration: none; a caller that already handles the lost-race error handles this one.
+
+*Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
+
+#### ccf.hitl.transport.HitlActionReceipt
+
+- Surface: ccf.hitl.transport.HitlActionReceipt
+- Public surface: true
+- Change type: behavior
+- Before: the HTTP action door set `event_pending` when any request was pending under the submission's key.
+- After: `event_pending` is set when the request for the pause the submission names is pending, so it agrees with `event_state_at_submit`; `openapi.json` is regenerated (the field's description).
+- Why: `D-IMPL-391`; found by the review of `4be75f02`: a verdict recorded `missing` (never authority) was answered `event_pending: true` while only another pause's request waited.
+- Migration: none.
 
 *Recorded by `391-01-approvals-bind-the-suspending-state-store.md`.*
 
