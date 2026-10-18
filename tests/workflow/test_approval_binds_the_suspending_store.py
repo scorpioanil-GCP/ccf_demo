@@ -702,13 +702,15 @@ def test_an_approval_that_loses_a_race_to_another_store_leaves_no_claim_for_a_st
     claim was left behind with B's request gone, and a verdict sent straight to
     the queue naming B's pause was stamped as a gate primitive's answer and
     carried B past its gate with no request waiting. The gate now gives B's
-    request back unanswered and refuses as a lost race (``4569d9f0`` refused the
-    stray verdict too)."""
+    request back unanswered and refuses as a lost race, so nothing is claimed,
+    B's request is waiting again, and a verdict naming B's pause is an ordinary
+    verdict on a waiting request: recorded ``pending``, it passes once."""
     a, b, transport, bindings = two_shared_stores(tmp_path)
     started_a, started_b = a.start(), b.start()
     assert isinstance(started_a, WorkflowSuspended) and isinstance(started_b, WorkflowSuspended)
     key = started_a.event_key
     assert started_b.event_key == key
+    paused_b = content_hash(b.record())
     real_remove = transport.remove
     armed = {"on": True}
 
@@ -725,18 +727,22 @@ def test_an_approval_that_loses_a_race_to_another_store_leaves_no_claim_for_a_st
         pass
     finally:
         del transport.remove
+    waiting = [e.product_content_hash for e in transport.pending(tenant=b.tenant)]
     stray = eh._submit_only(
-        transport, tenant=b.tenant, event_key=key, product_content_hash=content_hash(b.record()),
+        transport, tenant=b.tenant, event_key=key, product_content_hash=paused_b,
         action="approve", subject_id=APPROVER,
     )
     before = downstream_runs(bindings)
-    b.resume()
+    passed = b.resume()
 
-    assert downstream_runs(bindings) == before, (
-        "a verdict sent straight to the queue carried B past its gate with no request waiting"
+    assert stray.event_state_at_submit != "claimed", (
+        "a claim left on B's request by the losing approval stamped a verdict sent straight to the queue"
     )
-    assert stray.event_state_at_submit != "claimed", "an orphaned claim stamped the stray verdict"
-    assert content_hash(b.record()) in [e.product_content_hash for e in transport.pending(tenant=b.tenant)]
+    assert waiting == [paused_b], (
+        f"B's request was not given back, so the verdict was sent with none waiting: {waiting!r}"
+    )
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert downstream_runs(bindings) == before + 1
 
 
 def test_an_approval_of_the_pre_upgrade_request_racing_the_rebind_leaves_no_claim(tmp_path: Path) -> None:
@@ -744,7 +750,8 @@ def test_an_approval_of_the_pre_upgrade_request_racing_the_rebind_leaves_no_clai
     the gate's checks; the rebind then files the fresh request and retires the
     old one; the approver's claim takes the fresh request. That claim was left
     behind with the fresh request gone, and a stray verdict naming the
-    re-paused run passed its gate. The gate now gives the fresh request back."""
+    re-paused run passed its gate. The gate now gives the fresh request back,
+    so a verdict naming the re-paused run is one on a waiting request."""
     deployment, old, request = paused_before_the_upgrade(tmp_path)
     transport: Any = deployment.transport
     real_remove = transport.remove
@@ -764,14 +771,16 @@ def test_an_approval_of_the_pre_upgrade_request_racing_the_rebind_leaves_no_clai
     finally:
         del transport.remove
     fresh = content_hash(deployment.record())
+    waiting = pending_hashes(deployment)
     stray = stray_verdict(deployment, request.event_key)
-    deployment.resume()
+    passed = deployment.resume()
 
-    assert downstream_runs(deployment.bindings) == 0, (
-        "a stray verdict carried the re-paused run past its gate with no request waiting"
+    assert stray.event_state_at_submit != "claimed", (
+        "a claim left on the fresh request by the losing approval stamped a stray verdict"
     )
-    assert stray.event_state_at_submit != "claimed"
-    assert pending_hashes(deployment) == [fresh], "the fresh request was not given back"
+    assert waiting == [fresh], f"the fresh request was not given back: {waiting!r}"
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert downstream_runs(deployment.bindings) == 1
 
 
 def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(

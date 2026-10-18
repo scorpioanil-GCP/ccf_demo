@@ -35,8 +35,10 @@ or :data:`STORES` and runs it unchanged:
   only while the request for this exact pause is waiting."*) — a retirement
   takes every request of one pause wherever it sits, keeps the rest in order and
   records no claim; it discards a claim only on its own pause; racing
-  retirements return one request once; a verdict naming a pause with no request
-  waiting for it is recorded ``missing``, whatever else waits under the key.
+  retirements return one request once; a claim on one pause's request is
+  neither used nor consumed by a verdict naming another; a verdict naming a
+  pause with no request waiting for it is recorded ``missing``, whatever else
+  waits under the key.
 * :attr:`~ccf.controlplane.state.ConditionalStateStore.identity`
   (``D-IMPL-391``, design 1.4) — 64 lowercase hex characters; one identity for
   every client of one substrate; different for an independent substrate; kept
@@ -413,6 +415,23 @@ def test_a_retirement_discards_a_claim_on_its_own_pause_only(make: Callable[[], 
     assert other.remove(tenant=TENANT, event_key=EVENT_KEY) is not None
     retire(other, OLD_SUSPENSION)
     assert straight_verdict(other, SUSPENSION).event_state_at_submit == "claimed"
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_a_claim_on_another_pause_neither_stamps_a_verdict_nor_is_consumed_by_it(
+    make: Callable[[], Any],
+) -> None:
+    """The claim half of the per-pause judgment (found missing from this suite by
+    the review of ``4be75f02``): a primitive's claim on one pause's request is
+    neither used by a verdict naming another pause nor consumed by it, so the
+    primitive's own verdict still finds it."""
+    transport = make()
+    transport.enqueue(event=gate_event(OLD_SUSPENSION))
+    transport.enqueue(event=gate_event(SUSPENSION))
+    claimed = transport.remove(tenant=TENANT, event_key=EVENT_KEY)
+    assert claimed is not None and claimed.product_content_hash == OLD_SUSPENSION
+    assert straight_verdict(transport, SUSPENSION).event_state_at_submit == "pending"
+    assert straight_verdict(transport, OLD_SUSPENSION).event_state_at_submit == "claimed"
 
 
 @pytest.mark.parametrize("make", TRANSPORTS)
