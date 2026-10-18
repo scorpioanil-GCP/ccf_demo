@@ -2507,7 +2507,9 @@ the same id is refused "already exists".
   state store other than this engine's"*. **A copied store must refuse to
   open**: a durable store records where its substrate lives beside its
   identity and refuses to open elsewhere until an operator deliberately
-  re-mints it, which voids its in-flight approvals. A store that cannot detect
+  re-mints it. A re-mint strands every run in flight in that store: their
+  records name the old identity, so they are refused as another store's, and
+  an operator reconciles them outside the fabric. A store that cannot detect
   a copy (a network service, a VM snapshot) does not conform. The engine
   checks the identity's shape, never its uniqueness or persistence; run the
   identity cases of `tests/conformance/test_gate_closure_and_conditional_write.py`
@@ -2525,7 +2527,22 @@ the same id is refused "already exists".
   approval is required: the old verdicts name the old suspension and authorize
   nothing. A durable store lists such runs through `items(WORKFLOW_STATE)`. The
   shipped in-memory store keeps nothing across the upgrade restart, so it has
-  none.
+  none. The erasure door refuses such a run, and a record another store wrote,
+  `workflow-refused` before it files the approval or appends any index entry,
+  so the erasure completes after the rebind and a fresh signed approval. Limits:
+  the rebind is a Python call (no HTTP, MCP or CLI route exposes it); it retires
+  only pre-upgrade requests at the front of the key's queue; a refused rebind is
+  audited as a refused `workflow_resumed`, and a retirement row names neither the
+  retired request's hash nor an operator. The order is the trace, the state
+  write, the retirement, then the fresh request (Dave, 2026-10-17 15:25 MST:
+  the retirement comes before the fresh request). Two windows remain: a
+  transport that fails, or a process that dies, between the retirement and the
+  fresh request leaves the retirement's claim, so a verdict recorded before the
+  next resumption counts as a gate primitive's answer (measured; the next
+  resumption without one restores the request and clears the claim); and a
+  process that dies between the state write and the retirement leaves the
+  pre-upgrade request in front of the restored one, so the fresh approval is
+  refused until an operator removes it.
 - **A single-process store or transport is held by one process.** A
   path-backed state store or HITL transport declaring `process` must take an
   exclusive SEC-013 lease (`src/ccf/graph/leases.py::LockFileWriterLease`, on a
@@ -2538,7 +2555,9 @@ the same id is refused "already exists".
   offers the lease as `writer_lease()`, which the engine requires of a
   `process` store or transport; the engine sees that the lease is offered,
   never that it was taken at open, so that obligation rests on your
-  implementation and the conformance suite. The lease carries SEC-013's
+  implementation and the conformance suite. A path-backed subclass of the
+  in-memory reference store or transport inherits its in-memory declaration
+  and must override `writer_lease()` with the lease it holds. The lease carries SEC-013's
   `flock` limits: one host, and a local filesystem with real `flock`
   semantics. `shared` stores and transports take no lease; the identity above
   is what makes them safe. The shipped in-memory store and transport return
@@ -2556,8 +2575,14 @@ the same id is refused "already exists".
   one step, and a claimed request is not pending, so the primitives' give-back
   still re-files it. Before this, a slow suspension or two overlapping
   recoveries could file the same request twice (the gate still opened once). A
-  deployment's own transport must meet the contract; run the conformance
-  suite's enqueue cases against it.
+  deployment's own transport must meet the contract. The conformance suite's
+  race case catches a non-atomic enqueue only by chance (measured: it passed
+  with the reference transport's check moved outside its lock); force the
+  interleaving between your transport's check and append, as
+  `tests/hitl/test_enqueue_files_a_paused_runs_request_once.py` does for the
+  reference transport. Escalations are not bound to a store: an escalation held
+  under an execution's state key holds or releases that execution in every
+  store behind one transport (unchanged by this change).
 - **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
   committed. The execution stays `running`, and `GET /workflow/execution`

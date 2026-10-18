@@ -327,6 +327,12 @@ def test_a_refused_conditional_write_writes_nothing_and_appends_nothing(make: Ca
 
 @pytest.mark.parametrize("make", TRANSPORTS)
 def test_racing_enqueues_of_one_paused_runs_request_file_one(make: Callable[[], Any]) -> None:
+    """A race at one barrier: it can only catch a non-atomic enqueue BY CHANCE.
+    Measured: with the reference transport's absence check moved outside its
+    lock (severing S8), this case passed 5 of 5 runs. The deterministic check is
+    the forced interleaving of
+    ``tests/hitl/test_enqueue_files_a_paused_runs_request_once.py``, which a
+    deployment reproduces against its own transport's check and append."""
     transport = make()
     outcomes = race(THREADS, lambda i: transport.enqueue(event=gate_event()))
     assert all(kind == "ok" for kind, _ in outcomes), outcomes
@@ -377,12 +383,22 @@ class Substrate:
     second_client: Callable[[Any], Any]
     reopen: Callable[[Any], Any] | None
     copy: Callable[[Any, Path], Any] | None
+    #: What the store raises when opened as a copy; ``None`` with ``copy``.
+    copy_refusal: type[BaseException] | None = None
+    #: Why ``copy`` is ``None``: the case is SKIPPED with this reason, never passed.
+    not_copyable: str = ""
 
 
 def _in_memory() -> Substrate:
     # An in-memory store's records live in the object, so the object is the
     # substrate: its only client is itself, and a new object is a new store.
-    return Substrate(open=lambda _: InMemoryStateStore(), second_client=lambda s: s, reopen=None, copy=None)
+    return Substrate(
+        open=lambda _: InMemoryStateStore(),
+        second_client=lambda s: s,
+        reopen=None,
+        copy=None,
+        not_copyable="its records live in the object; nothing outlives it to copy",
+    )
 
 
 def _shared_backing() -> Substrate:
@@ -393,11 +409,15 @@ def _shared_backing() -> Substrate:
         second_client=lambda s: SharedBackingStore(s._records),
         reopen=lambda s: SharedBackingStore(s._records),
         copy=None,
+        not_copyable=(
+            "the stand-in's shared records are one in-process object; a copy of a"
+            " real shared store is that store's own case"
+        ),
     )
 
 
 def _path_backed() -> Substrate:
-    from tests.support.path_backed_approval_pair import PathBackedStateStore
+    from tests.support.path_backed_approval_pair import PathBackedStateStore, SubstrateMoved
 
     def reopen(store: Any) -> Any:
         store.close()
@@ -414,6 +434,7 @@ def _path_backed() -> Substrate:
         second_client=lambda s: s,
         reopen=reopen,
         copy=copy,
+        copy_refusal=SubstrateMoved,
     )
 
 
@@ -474,9 +495,7 @@ def test_a_copied_durable_substrate_refuses_to_open(
     kind = substrate()
     store = kind.open(tmp_path)
     identity_of(store)
-    if kind.copy is None:
-        return  # nothing outlives the object, so there is nothing to copy
-    from tests.support.path_backed_approval_pair import SubstrateMoved
-
-    with pytest.raises(SubstrateMoved, match="was copied"):
+    if kind.copy is None or kind.copy_refusal is None:
+        pytest.skip(f"not copyable: {kind.not_copyable}")
+    with pytest.raises(kind.copy_refusal, match="copied"):
         kind.copy(store, tmp_path)

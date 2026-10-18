@@ -135,7 +135,8 @@ class PathBackedStateStore(InMemoryStateStore):
     Args:
         directory: The substrate. Created ``0o700`` if absent.
         remint: Deliberately mint a new identity here (an operator's act after
-            a copy); voids every approval taken against the old one.
+            a copy). Every run in flight here then names the old identity and is
+            refused as another store's; an operator reconciles them.
 
     Raises:
         WriterLeaseHeld: another holder has the substrate.
@@ -162,7 +163,7 @@ class PathBackedStateStore(InMemoryStateStore):
                 f"the Control Plane state store at {str(self.directory)!r} was minted at"
                 f" device/inode {tuple(stamp['location'])}, not {location}: it was copied."
                 " A copied store refuses to open until an operator re-mints it, which"
-                " voids its in-flight approvals (D-IMPL-391; the copy MUST)"
+                " strands its runs in flight (D-IMPL-391; the copy MUST)"
             )
         self._substrate_identity: str = stamp["identity"]
         records, versions = _read(self.directory / _RECORDS_FILE, ({}, {}))

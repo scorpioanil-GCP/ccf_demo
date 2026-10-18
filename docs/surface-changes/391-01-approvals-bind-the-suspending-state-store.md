@@ -45,7 +45,7 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 - Public surface: true
 - Change type: reshaped
 - Before: `scope`, `get_versioned`, `put_if`.
-- After: also `identity` (a read-only property): minted once per substrate from a CSPRNG, persisted with the records, the same for every client in every process and across restarts, different for an independent substrate, minted per construction by a store whose records do not survive a restart. The docstring adds two MUSTs: a copied durable store refuses to open until an operator re-mints its identity (which voids in-flight approvals); and a path-backed store declaring `scope = "process"` holds an exclusive SEC-013 lease from open to close, refuses a second holder with `WriterLeaseHeld` naming the lock and the rule (logged in the refused process only), releases it on close and on collection, and offers it as `writer_lease()`, which is not a Protocol member.
+- After: also `identity` (a read-only property): minted once per substrate from a CSPRNG, persisted with the records, the same for every client in every process and across restarts, different for an independent substrate, minted per construction by a store whose records do not survive a restart. The docstring adds two MUSTs: a copied durable store refuses to open until an operator re-mints its identity (which strands every run in flight: their records name the old identity and are refused as another store's); and a path-backed store declaring `scope = "process"` holds an exclusive SEC-013 lease from open to close, refuses a second holder with `WriterLeaseHeld` naming the lock and the rule (logged in the refused process only), releases it on close and on collection, and offers it as `writer_lease()`, which is not a Protocol member.
 - Why: rulings 1(a) and 2(a); the 2026-10-09 10:54 MST ruling (*"A copied store must refuse, not 'should.'"*).
 - Migration: a deployment's own state store adds `identity` (and, if it declares `"process"` and is path-backed, the lease and `writer_lease()`), and runs `tests/conformance/test_gate_closure_and_conditional_write.py` against itself. A store without a well-formed identity is now refused when a workflow engine is built over it.
 
@@ -108,3 +108,13 @@ approval counted in both (measured on `3f914416`: two passages on one approval).
 - After: construction refuses, by name, a state store with no well-formed identity (asked before the generic conditional-store check) and a `"process"` store or transport that offers no `writer_lease` (after the eligibility check, before any binding). Resume refuses, by name, a record another store wrote (*"written by a Control Plane state store other than this engine's"*) and a `suspended` record written before the identity existed (naming `rebind_legacy_suspension`). A retried start finishes only a start this store wrote or one with no identity, and never restores a pre-upgrade suspension. New `rebind_legacy_suspension(authorized, workflow, *, execution_id)` retires the pending pre-upgrade request (audited `workflow_request_retired`), then re-pauses the run under this store (audited `workflow_suspended`, one new request under the same key); a fresh approval is required.
 - Why: ruling 1(a); decision 2 (b); Dave's answers of 15:25 MST.
 - Migration: a durable store holding runs paused before this change rebinds each (`items(WORKFLOW_STATE)` lists them) and asks for a fresh approval. The SDK's own in-memory store keeps nothing across the upgrade restart, so it has none.
+
+## ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `complete` filed the approval and appended its write-ahead index entries before the engine was asked to resume, so a run the engine refuses (paused before the store identity existed, or written by another store) left entries naming that approval, and every later completion was refused `approval-not-recorded`.
+- After: `complete` refuses such a run `workflow-refused` before it files or appends anything; after `rebind_legacy_suspension` and a fresh signed approval the erasure completes.
+- Why: `D-IMPL-391`; found by the independent review of the build.
+- Migration: none.

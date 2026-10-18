@@ -443,7 +443,10 @@ class ConditionalStateStore(ControlPlaneStateStore, Protocol):
     copied store must refuse, not 'should.'"*). A durable store records, beside
     its identity, where its substrate lives (for a file or a directory, its
     device and inode), and refuses to open anywhere else until an operator
-    deliberately re-mints the identity, which voids every in-flight approval. A
+    deliberately re-mints the identity. A re-mint STRANDS every run in flight in
+    the store: their records name the old identity, so the engine refuses them as
+    another store's (``rebind_legacy_suspension`` re-pauses only records with no
+    identity), and an operator reconciles them outside the fabric. A
     store that cannot detect a copy (a network service, a VM snapshot) does not
     conform. Reference recipes: a file or SQLite store creates a one-row table or
     file in the same transaction as its schema and reads it at open; PostgreSQL
@@ -466,7 +469,9 @@ class ConditionalStateStore(ControlPlaneStateStore, Protocol):
     process writes nothing into the store it was refused); and releases it on
     close and when the object is collected (``weakref.finalize``: a
     ``LockFileWriterLease`` never releases itself). It offers the held lease as
-    ``writer_lease()``. That method is NOT a member of this Protocol — a
+    ``writer_lease()``; a path-backed subclass of :class:`InMemoryStateStore`
+    MUST override the in-memory declaration it would otherwise inherit. That
+    method is NOT a member of this Protocol — a
     ``"shared"`` store, multi-process by declaration, takes no lease — but
     :class:`~ccf_runtime.workflow.engine.WorkflowEngine` refuses, by name, a
     ``"process"`` store that offers none. The engine can see that the lease is
