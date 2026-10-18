@@ -26,7 +26,14 @@ construction"* — never by the generic "not a ConditionalStateStore" message. A
 a store or transport declaring ``scope = "process"`` must offer
 ``writer_lease()``, the single-process lease Dave's ruling 2(a) requires
 (*"Stores labeled single-process get the graph store's lock."*); one that does
-not is refused by name, before anything is bound. Test vocabulary only (CINV-01).
+not is refused by name, before anything is bound.
+
+Dave's ruling of 2026-10-17 18:54 MST (option 3) adds ``retire`` to the
+transport Protocol — the queue step that removes a paused run's requests by
+their exact fingerprint and leaves no claim (*"Third-party queues must implement
+the new exact-fingerprint removal"*) — so a transport without it does not offer
+the whole Protocol and is refused at construction. Test vocabulary only
+(CINV-01).
 """
 
 from __future__ import annotations
@@ -117,6 +124,49 @@ class TransportWithoutClosure:
         return self._inner.submissions(**kwargs)
 
 
+class TransportWithoutRetire:
+    """The whole :class:`~ccf.hitl.transport.HITLTransportProtocol` as it stood
+    before Dave's ruling of 2026-10-17 18:54 MST — scope, closure, eligibility
+    binding and lease included — and no ``retire``."""
+
+    scope = "process"
+
+    def __init__(self) -> None:
+        self._inner = InMemoryHitlTransport()
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "retire":
+            raise AttributeError(name)
+        return getattr(self._inner, name)
+
+    def enqueue(self, **kwargs: Any) -> Any:
+        return self._inner.enqueue(**kwargs)
+
+    def dequeue(self, **kwargs: Any) -> Any:
+        return self._inner.dequeue(**kwargs)
+
+    def pending(self, **kwargs: Any) -> Any:
+        return self._inner.pending(**kwargs)
+
+    def remove(self, **kwargs: Any) -> Any:
+        return self._inner.remove(**kwargs)
+
+    def view(self, authorized: Any) -> Any:
+        return self._inner.view(authorized)
+
+    def submit(self, authorized: Any, **kwargs: Any) -> Any:
+        return self._inner.submit(authorized, **kwargs)
+
+    def submissions(self, **kwargs: Any) -> Any:
+        return self._inner.submissions(**kwargs)
+
+    def close_gate(self, authorized: Any, **kwargs: Any) -> Any:
+        return self._inner.close_gate(authorized, **kwargs)
+
+    def closures(self, **kwargs: Any) -> Any:
+        return self._inner.closures(**kwargs)
+
+
 def build(tmp_path: Path, *, store: Any, transport: Any) -> WorkflowEngine:
     registry = ControlPlaneRegistry(clock=eh._ticking_clock(), state_store=store)
     return engine_over(registry, tmp_path, eh._Bindings(), transport)
@@ -135,6 +185,13 @@ def test_a_store_declaring_an_unknown_scope_is_refused_at_construction(tmp_path:
 def test_a_transport_without_the_gate_closure_is_refused_at_construction(tmp_path: Path) -> None:
     with pytest.raises(WorkflowWiringError, match=NOT_THE_WHOLE_TRANSPORT):
         build(tmp_path, store=InMemoryStateStore(), transport=TransportWithoutClosure())
+
+
+def test_a_transport_without_the_fingerprint_retirement_is_refused_at_construction(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(WorkflowWiringError, match=NOT_THE_WHOLE_TRANSPORT):
+        build(tmp_path, store=InMemoryStateStore(), transport=TransportWithoutRetire())
 
 
 def test_a_shared_store_with_a_process_scoped_transport_is_refused_at_construction(

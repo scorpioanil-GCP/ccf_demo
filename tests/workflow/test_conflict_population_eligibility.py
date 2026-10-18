@@ -187,6 +187,9 @@ class _TransportWithoutEligibilityBinding:
     def closures(self, **kwargs: Any) -> Any:
         return self._inner.closures(**kwargs)
 
+    def retire(self, **kwargs: Any) -> Any:
+        return self._inner.retire(**kwargs)
+
 
 def test_an_engine_refuses_a_transport_it_cannot_bind_for_eligibility(tmp_path: Path) -> None:
     """Enforced, not assumed: a transport that cannot take the engine's Control

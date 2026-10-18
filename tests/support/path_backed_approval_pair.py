@@ -270,6 +270,9 @@ class PathBackedHitlTransport(InMemoryHitlTransport):
             lambda: super(PathBackedHitlTransport, self).close_gate(authorized, **kwargs)
         )
 
+    def retire(self, **kwargs: Any) -> Any:
+        return self._persisted(lambda: super(PathBackedHitlTransport, self).retire(**kwargs))
+
 
 def open_pair(root: Path | str) -> tuple[PathBackedStateStore, PathBackedHitlTransport]:
     """Open the state store at ``root/state`` and the transport at ``root/queue``.

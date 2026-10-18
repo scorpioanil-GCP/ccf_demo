@@ -28,6 +28,15 @@ or :data:`STORES` and runs it unchanged:
   Dave, 2026-10-17 15:25 MST: *"Third-party transports must meet the
   contract."*) — racing enqueues of one paused run's request file one; a
   request for another pause under the same key is filed.
+* :meth:`~ccf.hitl.transport.HITLTransportProtocol.retire` and the judgment of
+  :meth:`~ccf.hitl.transport.HITLTransportProtocol.submit` (``D-IMPL-391``;
+  Dave, 2026-10-17 18:54 MST: *"Third-party queues must implement the new
+  exact-fingerprint removal"*; *"Count an approval sent straight to the queue
+  only while the request for this exact pause is waiting."*) — a retirement
+  takes every request of one pause wherever it sits, keeps the rest in order and
+  records no claim; it discards a claim only on its own pause; racing
+  retirements return one request once; a verdict naming a pause with no request
+  waiting for it is recorded ``missing``, whatever else waits under the key.
 * :attr:`~ccf.controlplane.state.ConditionalStateStore.identity`
   (``D-IMPL-391``, design 1.4) — 64 lowercase hex characters; one identity for
   every client of one substrate; different for an independent substrate; kept
@@ -349,6 +358,81 @@ def test_a_request_for_another_pause_under_the_same_key_is_filed(make: Callable[
         SUSPENSION,
         LATER_SUSPENSION,
     ]
+
+
+# --- retirement and judgment by the paused run's fingerprint (D-IMPL-391, option 3) ---
+
+OLD_SUSPENSION = "c" * 64
+
+
+def retire(transport: Any, suspension: str) -> Any:
+    method = getattr(transport, "retire", None)
+    assert callable(method), f"{type(transport).__name__} offers no retire"
+    return method(tenant=TENANT, event_key=EVENT_KEY, product_content_hash=suspension)
+
+
+def straight_verdict(transport: Any, suspension: str) -> HitlActionSubmission:
+    """A verdict naming ``suspension``, sent straight to the queue."""
+    recorded: HitlActionSubmission = transport.submit(
+        submit_capability(tenant=TENANT, principal="approver", event_key=EVENT_KEY),
+        submission=HitlActionSubmission(
+            event_key=EVENT_KEY,
+            action="approve",
+            principal=eh._binding(suspension, subject_id="approver"),
+        ),
+    )
+    return recorded
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_a_retirement_takes_one_pause_wherever_it_sits_and_records_no_claim(
+    make: Callable[[], Any],
+) -> None:
+    transport = make()
+    for suspension in (SUSPENSION, OLD_SUSPENSION, LATER_SUSPENSION, OLD_SUSPENSION):
+        transport.enqueue(event=gate_event(suspension))
+    retired = retire(transport, OLD_SUSPENSION)
+    assert [e.product_content_hash for e in retired] == [OLD_SUSPENSION]
+    assert [e.product_content_hash for e in transport.pending(tenant=TENANT)] == [
+        SUSPENSION,
+        LATER_SUSPENSION,
+    ]
+    assert straight_verdict(transport, OLD_SUSPENSION).event_state_at_submit == "missing"
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_a_retirement_discards_a_claim_on_its_own_pause_only(make: Callable[[], Any]) -> None:
+    own = make()
+    own.enqueue(event=gate_event(OLD_SUSPENSION))
+    assert own.remove(tenant=TENANT, event_key=EVENT_KEY) is not None
+    retire(own, OLD_SUSPENSION)
+    assert straight_verdict(own, OLD_SUSPENSION).event_state_at_submit == "missing"
+
+    other = make()
+    other.enqueue(event=gate_event(SUSPENSION))
+    assert other.remove(tenant=TENANT, event_key=EVENT_KEY) is not None
+    retire(other, OLD_SUSPENSION)
+    assert straight_verdict(other, SUSPENSION).event_state_at_submit == "claimed"
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_racing_retirements_of_one_pause_return_its_request_once(make: Callable[[], Any]) -> None:
+    """A race at one barrier: like the enqueue race, it can only catch a
+    non-atomic retirement BY CHANCE."""
+    transport = make()
+    transport.enqueue(event=gate_event(OLD_SUSPENSION))
+    outcomes = race(THREADS, lambda i: tuple(retire(transport, OLD_SUSPENSION)))
+    assert all(kind == "ok" for kind, _ in outcomes), outcomes
+    assert sum(len(value) for _, value in outcomes) == 1, outcomes
+
+
+@pytest.mark.parametrize("make", TRANSPORTS)
+def test_a_verdict_naming_a_pause_with_no_request_waiting_is_missing(make: Callable[[], Any]) -> None:
+    transport = make()
+    transport.enqueue(event=gate_event(OLD_SUSPENSION))
+    assert straight_verdict(transport, SUSPENSION).event_state_at_submit == "missing"
+    transport.enqueue(event=gate_event(SUSPENSION))
+    assert straight_verdict(transport, SUSPENSION).event_state_at_submit == "pending"
 
 
 # --- the state store's identity (D-IMPL-391, design 1.4) -----------------------------

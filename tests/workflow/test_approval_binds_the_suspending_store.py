@@ -25,6 +25,14 @@ suspension hash every event, verdict, closure and passage name carries the
 store, and the engine refuses by name a record another store wrote and a
 suspension written before the change.
 
+**The re-pause, as ruled at 18:54 MST** (Dave's option 3). The rebind files the
+fresh request FIRST, then retires every pre-upgrade request by its exact
+fingerprint through the transport's ``retire``, which records no claim; and a
+verdict sent straight to the queue counts only while the request for its own
+pause is waiting (``D-IMPL-366`` H2, narrowed). The cases below are the four
+rows Dave ruled on: everything works; the fresh request then drained; the
+transport failing the fresh request; the transport failing the retirement.
+
 The stores here are the shared doubles of
 ``tests/workflow/test_engine_refuses_unsupported_seams.py`` (``SharedStore``,
 ``SharedTransport``): in-memory objects declaring ``scope = "shared"``, which is
@@ -79,6 +87,8 @@ NO_APPROVAL = "no approval for this suspension has returned through the HITL aut
 FOREIGN = "written by a Control Plane state store other than this engine's"
 LEGACY = "was suspended before the state store identity existed"
 REBIND = "rebind_legacy_suspension"
+#: A request for some other pause under the same key.
+ANOTHER_PAUSE = "f" * 64
 
 
 class PlantableStore(InMemoryStateStore):
@@ -321,6 +331,35 @@ def rebind(deployment: Deployment) -> WorkflowOutcome:
     return outcome
 
 
+def claim_on(deployment: Deployment, event_key: str) -> PendingHitlEvent | None:
+    """The claim the reference transport holds on ``event_key``: ``remove``
+    records one; a ``submit`` or an appending ``enqueue`` clears it."""
+    claims: dict[tuple[str, str], PendingHitlEvent] = getattr(deployment.transport, "_claims")
+    return claims.get((deployment.tenant, event_key))
+
+
+def pending_hashes(deployment: Deployment) -> list[str]:
+    return [e.product_content_hash for e in deployment.transport.pending(tenant=deployment.tenant)]
+
+
+def retirements(deployment: Deployment) -> int:
+    return sum(
+        1
+        for e in deployment.registry.audit_log.events()
+        if e.action == "workflow_request_retired" and e.key == deployment.key
+    )
+
+
+def stray_verdict(deployment: Deployment, event_key: str) -> Any:
+    """A verdict naming the run's current pause, sent straight to the queue (the
+    submit-only door): no gate primitive took a request for it."""
+    return eh._submit_only(
+        deployment.transport, tenant=deployment.tenant, event_key=event_key,
+        product_content_hash=content_hash(deployment.record()), action="approve",
+        subject_id=APPROVER,
+    )
+
+
 def test_b6_a_run_paused_before_the_upgrade_needs_a_fresh_approval(tmp_path: Path) -> None:
     """Approved before the upgrade: its resume is refused by name, naming the
     migration; the rebind re-pauses it under the same key with an audited
@@ -367,8 +406,9 @@ def test_b6_a_run_paused_before_the_upgrade_needs_a_fresh_approval(tmp_path: Pat
 
 def test_b7_the_rebind_retires_the_pending_pre_upgrade_request(tmp_path: Path) -> None:
     """Paused before the upgrade with its request still pending and no approval:
-    the rebind retires that request (audited) before it files the fresh one, so
-    a fresh approval through the real ApprovalGate succeeds and passes once."""
+    the rebind files the fresh request, then retires the pre-upgrade one by its
+    exact fingerprint (audited) and leaves no claim, so a fresh approval through
+    the real ApprovalGate succeeds and passes once."""
     deployment, old, request = paused_before_the_upgrade(tmp_path)
     refused = deployment.resume()
     assert isinstance(refused, WorkflowResumeRefused), (
@@ -388,6 +428,10 @@ def test_b7_the_rebind_retires_the_pending_pre_upgrade_request(tmp_path: Path) -
         if e.action == "workflow_request_retired" and e.key == deployment.key
     ]
     assert len(retired) == 1 and retired[0].resolved, "the retirement is audited"
+    assert claim_on(deployment, request.event_key) is None, (
+        "the re-pause left a claim on the key: the next verdict sent straight to the"
+        " queue would be stamped as answering the retired request"
+    )
 
     gate = ApprovalGate(
         transport=deployment.transport, audit=deployment.registry.audit_log, clock=eh._ticking_clock()
@@ -447,26 +491,27 @@ def test_b8_a_rebind_that_fails_before_its_fresh_request_lends_no_verdict_author
     assert isinstance(rebound, WorkflowSuspended) and rebound.gate == FIRST_GATE, rebound
 
 
-def test_residual_a_transport_failing_the_fresh_request_after_the_retirement_leaves_its_claim(
+def test_a_transport_failing_the_fresh_request_retires_nothing_claims_nothing_and_a_stray_verdict_never_counts(
     tmp_path: Path,
 ) -> None:
-    """RESIDUAL, disclosed on ``WorkflowEngine.rebind_legacy_suspension``. The
-    retirement's ``remove`` records a claim on the key that only the fresh
-    request's enqueue discards. Dave's answer of 2026-10-17 15:25 MST orders the
-    retirement BEFORE the fresh request, so a transport that fails that one
-    enqueue leaves the claim: a verdict recorded before the next resumption is
-    stamped as a gate primitive's answer and carries the run past its gate. Without
-    such a verdict, the next resumption restores the fresh request, which discards
-    the claim, and nothing passes. Goes red if the window is closed (for example by
-    filing the fresh request before the retirement), and must then be rewritten to
-    assert the closing mechanism."""
+    """Row 3 of the table Dave ruled on (2026-10-17 18:54 MST, option 3). This
+    test used to pin the residual: the rebind retired the pre-upgrade request
+    through ``remove`` BEFORE filing the fresh one, so a transport failing that
+    one enqueue left a claim, and a verdict sent straight to the queue before the
+    next resumption was stamped as a gate primitive's answer and carried the run
+    past its gate (measured on ``4569d9f0``). Now the fresh request is filed
+    first, so the failure retires nothing and claims nothing; the stray verdict,
+    sent while no request for the re-paused run is waiting, is recorded
+    ``missing`` and is never authority, at this resumption or any later one; the
+    resumption restores the fresh request; and a verdict sent once it is waiting
+    passes the gate once."""
     deployment, old, request = paused_before_the_upgrade(tmp_path)
     transport: Any = deployment.transport
     enqueue = transport.enqueue
     armed = {"fail": True}
 
     def fails_once(*, event: PendingHitlEvent) -> None:
-        if armed["fail"]:
+        if armed["fail"] and event.product_content_hash != content_hash(old):
             armed["fail"] = False
             raise OSError("transport unavailable at the fresh request")
         enqueue(event=event)
@@ -474,20 +519,152 @@ def test_residual_a_transport_failing_the_fresh_request_after_the_retirement_lea
     transport.enqueue = fails_once
     with pytest.raises(OSError):
         rebind(deployment)
-    retired = [
-        e for e in deployment.registry.audit_log.events()
-        if e.action == "workflow_request_retired" and e.key == deployment.key
-    ]
-    assert len(retired) == 1, "the retirement is audited even though the fresh request failed"
+    del transport.enqueue
+    after_failure = (pending_hashes(deployment), claim_on(deployment, request.event_key), retirements(deployment))
 
-    stray = eh._submit_only(
-        deployment.transport, tenant=deployment.tenant, event_key=request.event_key,
-        product_content_hash=content_hash(deployment.record()), action="approve", subject_id=APPROVER,
+    stray = stray_verdict(deployment, request.event_key)
+    first = deployment.resume()
+    second = deployment.resume()
+
+    assert downstream_runs(deployment.bindings) == 0, (
+        f"a verdict sent with no request waiting for this pause carried the run past its gate: {first!r}"
     )
-    assert stray.event_state_at_submit == "claimed", "the residual: the claim stamps the stray verdict"
-    outcome = deployment.resume()
-    assert isinstance(outcome, WorkflowSuspended) and outcome.gate == NEXT_GATE, outcome
+    assert passages(deployment) == []
+    assert stray.event_state_at_submit == "missing", (
+        f"the stray verdict was recorded {stray.event_state_at_submit!r}, not missing"
+    )
+    assert after_failure == ([content_hash(old)], None, 0), (
+        f"the failed rebind moved the queue (pending, claim, retirements): {after_failure!r}"
+    )
+    fresh = content_hash(deployment.record())
+    assert fresh in pending_hashes(deployment), "the resumption did not restore the fresh request"
+    assert isinstance(second, (WorkflowSuspended, WorkflowResumeRefused)) and getattr(
+        second, "gate", FIRST_GATE
+    ) == FIRST_GATE, second
+
+    stray_verdict(deployment, request.event_key)
+    passed = deployment.resume()
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
     assert downstream_runs(deployment.bindings) == 1
+
+
+def test_a_transport_failing_the_retirement_leaves_the_fresh_request_filed_and_nothing_claimed(
+    tmp_path: Path,
+) -> None:
+    """Row 4. The fresh request is filed before the retirement, so a transport
+    that fails the retirement leaves both requests pending and nothing claimed.
+    The fresh request is waiting, so a verdict sent straight to the queue naming
+    the re-paused run is authority, as on any waiting request, and passes once.
+    (The pre-upgrade request in front still blocks an approval through
+    ``ApprovalGate``, which takes the oldest request under the key, until an
+    operator retires it: closed, never a passage without a request.) Measured on
+    ``4569d9f0`` (retire, then file): the failure came before the fresh request,
+    so none was waiting when the verdict passed."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    transport: Any = deployment.transport
+
+    def fails(**kwargs: Any) -> Any:
+        raise OSError("transport unavailable at the retirement")
+
+    for name in ("remove", "retire"):
+        setattr(transport, name, fails)
+    try:
+        with pytest.raises(OSError):
+            rebind(deployment)
+    finally:
+        for name in ("remove", "retire"):
+            vars(transport).pop(name, None)
+    fresh = content_hash(deployment.record())
+
+    assert pending_hashes(deployment) == [content_hash(old), fresh], (
+        "the fresh request was not filed before the retirement"
+    )
+    assert claim_on(deployment, request.event_key) is None
+    assert retirements(deployment) == 0
+
+    stray = stray_verdict(deployment, request.event_key)
+    assert stray.event_state_at_submit == "pending"
+    passed = deployment.resume()
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert downstream_runs(deployment.bindings) == 1
+
+
+def test_a_drained_fresh_request_lends_a_verdict_sent_straight_to_the_queue_nothing(
+    tmp_path: Path,
+) -> None:
+    """Row 2, a guard. After a re-pause that succeeds nothing is claimed, so when
+    the fresh request is drained (``dequeue``: a drain, not a resolution) a
+    verdict sent straight to the queue is recorded ``missing`` and is never
+    authority. Measured on 2026-10-17: filing first and retiring through
+    ``remove`` left a claim on the pre-upgrade request, and this verdict was
+    stamped ``claimed`` and passed."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    rebind(deployment)
+    assert claim_on(deployment, request.event_key) is None
+    drained = deployment.transport.dequeue(tenant=deployment.tenant)
+    assert drained is not None and drained.product_content_hash == content_hash(deployment.record())
+
+    stray = stray_verdict(deployment, request.event_key)
+    deployment.resume()
+
+    assert downstream_runs(deployment.bindings) == 0, "a drained request lent a stray verdict authority"
+    assert stray.event_state_at_submit == "missing", stray.event_state_at_submit
+
+
+def test_the_rebind_retires_a_pre_upgrade_request_queued_behind_another(tmp_path: Path) -> None:
+    """The retirement matches the pre-upgrade request's exact fingerprint wherever
+    it sits under the key (Dave, 18:54 MST: *"Removing old requests that sit
+    behind others removes the 'front of the queue only' limit, which is the
+    correct behavior once identity is store-scoped."*); a request for another
+    pause under the key keeps its place. On ``4569d9f0`` only the front of the
+    key's queue was reached, and this request stayed pending."""
+    deployment, old, request = paused_before_the_upgrade(tmp_path)
+    transport = deployment.transport
+    legacy_request = transport.remove(tenant=deployment.tenant, event_key=request.event_key)
+    assert legacy_request is not None
+    transport.enqueue(event=legacy_request.model_copy(update={"product_content_hash": ANOTHER_PAUSE}))
+    transport.enqueue(event=legacy_request)
+    assert pending_hashes(deployment) == [ANOTHER_PAUSE, content_hash(old)]
+
+    rebind(deployment)
+
+    fresh = content_hash(deployment.record())
+    assert pending_hashes(deployment) == [ANOTHER_PAUSE, fresh], (
+        "the pre-upgrade request queued behind another request is still pending"
+    )
+    assert retirements(deployment) == 1
+    assert claim_on(deployment, request.event_key) is None
+
+
+def test_a_verdict_sent_straight_to_the_queue_counts_only_while_its_own_pause_is_waiting(
+    tmp_path: Path,
+) -> None:
+    """Dave's ruling of 18:54 MST: *"Count an approval sent straight to the queue
+    only while the request for this exact pause is waiting."* An ordinary run,
+    no upgrade: its request is drained and a request for another pause is filed
+    under the same key. A verdict naming this run's pause is recorded
+    ``missing`` (no request for it was waiting) and never carries the run past
+    its gate, though the resumption then restores the run's own request. On
+    ``4569d9f0`` any request under the key counted, and the run passed."""
+    deployment = Deployment(
+        tmp_path, store=PlantableStore(), transport=InMemoryHitlTransport(), bindings=eh._Bindings()
+    )
+    started = deployment.start()
+    assert isinstance(started, WorkflowSuspended)
+    paused = content_hash(deployment.record())
+    drained = deployment.transport.dequeue(tenant=deployment.tenant)
+    assert drained is not None and drained.product_content_hash == paused
+    deployment.transport.enqueue(event=drained.model_copy(update={"product_content_hash": ANOTHER_PAUSE}))
+
+    stray = stray_verdict(deployment, started.event_key)
+    deployment.resume()
+    deployment.resume()
+
+    assert downstream_runs(deployment.bindings) == 0, (
+        "a verdict counted while only a request for another pause was waiting"
+    )
+    assert stray.event_state_at_submit == "missing", stray.event_state_at_submit
+    assert paused in pending_hashes(deployment), "the run's own request was not restored"
 
 
 def test_a_retried_start_never_restores_a_request_for_a_run_paused_before_the_upgrade(
