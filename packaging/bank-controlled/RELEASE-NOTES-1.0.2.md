@@ -51,7 +51,8 @@ address* is a fingerprint of an answer's exact content.
   addresses show a `<port>` placeholder. Four known corrections are still pending.
 - **Reference manual updates.** The security guide, the controls register, the artifact-store and
   replay pages, the HTTP API description and the developer change log are updated.
-- **New videos.** Three new videos join the eleven made earlier, for fourteen in all (section 7).
+- **New videos.** Four new videos, one of them on Context Skills, join the eleven made earlier, for
+  fifteen in all (section 7).
 - **Bank-ready form.** There is no form to sign. A bank-ready package for 1.0.2 has not been
   assembled yet; what it needs is listed in section 8.
 
@@ -267,7 +268,7 @@ import`, but the supported configuration path cannot declare one.)
   audited, and every decision records which agent decided and a fingerprint of the skills it held. A
   second configuration asks for more than the policy allows, and the product refuses to start. It was
   built because the bank said there was no skills example. The bank's tested configuration declares no
-  skills.
+  skills. A video, `SK01_Context_Skills.mp4`, covers the example (section 7).
 - **Decisions name the agent and carry a fingerprint of its skills.** In the delivered build, a
   decision assembled by an agent from other products recorded "no agent" and "no grants". Now it
   records the agent (by fingerprint, version and type) and a fingerprint of the skills it held. The
@@ -392,6 +393,7 @@ separately; a viewer needs access to that folder.
 - `CCF_Engineering_Decision_Context.mp4`
 - `CCF_LinkedIn_Governed_Context.mp4`
 - `Cognitive Context Fabric Intro.mp4`
+- `SK01_Context_Skills.mp4`, on the sk-01 Context Skills example (section 3)
 
 ### Already available
 
