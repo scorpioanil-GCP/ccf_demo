@@ -62,7 +62,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Mapping
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import Field, field_validator, model_validator
 
@@ -81,6 +81,9 @@ from ccf.hitl.identity_binding import (
 )
 from ccf.hitl.principal import HumanPrincipalBinding, validate_content_hash
 from ccf.peering.identity import IdentityProvider, JsonWebKey
+
+if TYPE_CHECKING:
+    from ccf.graph.protocols import WriterLease
 from ccf.authz.capability import (
     Authorized,
     HitlQueueRead,
@@ -154,8 +157,12 @@ _GATE_VERDICTS: frozenset[str] = frozenset({"approve", "reject"})
 #: The state the transport found for a submission's event at ``submit``
 #: (`D-IMPL-366` H2; brief §4b): ``claimed`` (a primitive holds the atomic
 #: claim), ``pending`` (queued, no claim — a door submission) or ``missing``
-#: (nothing under the key). Stamped on the recorded submission and never
-#: rewritten; ``None`` only on a record written before the field existed.
+#: (no request waiting). Judged against the request for the pause the
+#: submission NAMES — its ``product_content_hash`` — never against another
+#: pause's request under the same key (``D-IMPL-391``; Dave, 2026-10-17 18:54
+#: MST: *"Count an approval sent straight to the queue only while the request
+#: for this exact pause is waiting."*). Stamped on the recorded submission and
+#: never rewritten; ``None`` only on a record written before the field existed.
 EventStateAtSubmit = Literal["claimed", "pending", "missing"]
 
 #: The action vocabulary D-IMPL-20 names (approve/reject/override/annotate).
@@ -953,8 +960,10 @@ class HitlActionReceipt(CCFContract):
     the two disposition fields carry real queue state so the caller sees
     the action's disposition rather than inferring it from an echo:
     ``event_pending`` — whether the submission's event is still on the
-    tenant's pending queue (it is, immediately after a submit; resolution
-    is the primitive's act) — and ``submissions_for_event`` — how many
+    tenant's pending queue: the request for the pause the submission names
+    (``D-IMPL-391``), so it agrees with ``event_state_at_submit`` (it is
+    pending immediately after a submit judged ``pending``; resolution is the
+    primitive's act) — and ``submissions_for_event`` — how many
     actions the transport has recorded against this event key, this one
     included.
     """
@@ -986,7 +995,7 @@ class HITLTransportProtocol(Protocol):
     All methods of every conforming implementation must be safe for
     concurrent calls from multiple threads. The Experience-Layer HITL
     doors (HTTP and MCP) invoke the transport from FastAPI's threadpool,
-    so enqueue/dequeue/pending/remove/submit/submissions race by
+    so enqueue/dequeue/pending/remove/retire/submit/submissions race by
     construction in any real deployment — an implementation whose queue
     state can be lost, duplicated, or corrupted under concurrent access
     does not conform to this Protocol. ``remove`` exists precisely for
@@ -1014,17 +1023,51 @@ class HITLTransportProtocol(Protocol):
     use without an engine need not offer it. The engine cannot see whether a
     third-party implementation judges what it is bound to judge; the
     reference implementation does.
+
+    **A path-backed transport declaring ``scope = "process"`` MUST hold an
+    exclusive SEC-013 lease on its substrate from open to close**
+    (``D-IMPL-391``; Dave's ruling 2(a) of 2026-10-17 and his answer of 15:25
+    MST: *"Cover the queue as well. A second process must be unable to submit a
+    verdict or read in-flight state."*). The obligation is the one
+    :class:`~ccf.controlplane.state.ConditionalStateStore` states for a
+    single-process state store, word for word: the lease
+    (``src/ccf/graph/leases.py::LockFileWriterLease``, on a lock file inside the
+    queue's own directory) is taken when the transport is OPENED, before any
+    event, verdict or closure is read; a second holder is refused with
+    :class:`~ccf.graph.protocols.WriterLeaseHeld` naming the lock and the rule,
+    logged in the refused process only; the lease is released on close and when
+    the object is collected; and it is offered as ``writer_lease()``, which is
+    not a member of this Protocol (a ``"shared"`` transport takes none) but
+    which :class:`~ccf_runtime.workflow.engine.WorkflowEngine` requires of a
+    ``"process"`` transport, refusing one that offers none by name.
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order.
+        """Queue ``event`` for its tenant, preserving arrival order — once per paused run.
 
-        An enqueue discards any outstanding claim (see :meth:`remove`) for
-        the same ``(tenant, event_key)``: a re-enqueued event is pending
-        again, so nothing has answered it. That is what keeps the
-        primitives' give-the-claim-back rollback honest — a refused
-        authority submission must leave no residue that a later bare
-        submission could inherit as a stamp.
+        **Atomic on ``(tenant, event_key, product_content_hash)``**
+        (``D-IMPL-391``; Dave's ruling 4(a) of 2026-10-17 and his answer of
+        15:25 MST: *"The same paused run's request is filed only once.
+        Third-party transports must meet the contract."*). An event whose
+        triple is already PENDING is not queued again, and the call does
+        nothing else. The absence check and the append are ONE atomic step of
+        the implementation, so of any number of concurrent enqueues of one
+        paused run's request exactly one is queued. The key is the paused run's
+        fingerprint — the content hash of the suspended record, which names the
+        state store that wrote it — so nothing about the store is shown on the
+        request, and two independent stores' requests under one key are both
+        queued (each needs its own approval). This supersedes the "no change"
+        of DESIGN-2b §6.4.
+
+        **A claim is not pending.** An event claimed through :meth:`remove`
+        and not yet answered does not count as present, so the primitives'
+        give-back (``remove`` → refused ``submit`` → ``enqueue``) re-files its
+        event. An enqueue that appends discards any outstanding claim for the
+        same ``(tenant, event_key)``: a re-enqueued event is pending again, so
+        nothing has answered it. That is what keeps the primitives'
+        give-the-claim-back rollback honest — a refused authority submission
+        must leave no residue that a later bare submission could inherit as a
+        stamp.
         """
         ...
 
@@ -1059,11 +1102,45 @@ class HITLTransportProtocol(Protocol):
         0). The winning caller is the primitive that is about to resolve
         this event, so the transport retains the removed event against
         ``(tenant, event_key)`` and stamps the next :meth:`submit` for that
-        pair with its class and ``workflow_state_ref``. The claim is
-        consumed by that submit and discarded by a re-:meth:`enqueue`;
-        conforming implementations must do both, because a consumer asking
-        "which primitive answered this?" gets ``None`` — and must fail
-        closed — from an implementation that stamps nothing.
+        pair that names the removed event's pause (its
+        ``product_content_hash``) with its class and ``workflow_state_ref``.
+        The claim is consumed by that submit and discarded by a
+        re-:meth:`enqueue`; a submit naming another pause neither uses nor
+        consumes it (``D-IMPL-391``). Conforming implementations must do all
+        three, because a consumer asking "which primitive answered this?" gets
+        ``None`` — and must fail closed — from an implementation that stamps
+        nothing. ``remove`` takes the oldest event under the key whatever its
+        pause, so a primitive that finds it took a request for a pause other
+        than the one its principal names gives it back unanswered
+        (re-:meth:`enqueue`) and refuses, rather than leave a claim no
+        submission of its own will consume.
+        """
+        ...
+
+    def retire(
+        self, *, tenant: str, event_key: str, product_content_hash: str
+    ) -> tuple[PendingHitlEvent, ...]:
+        """Remove every pending request for one paused run, recording no claim.
+
+        ``D-IMPL-391``; Dave's ruling of 2026-10-17 18:54 MST (option 3):
+        *"remove the old request with a new queue step that matches its exact
+        fingerprint and leaves no claim"*, and *"Third-party queues must
+        implement the new exact-fingerprint removal."* Every PENDING event whose
+        ``(tenant, event_key, product_content_hash)`` is the given triple is
+        removed, wherever it sits in the tenant's queue, and returned oldest
+        first; every other event keeps its place and relative order. Nothing
+        pending under the triple returns ``()``.
+
+        **A retirement is not a resolution.** Unlike :meth:`remove` it records
+        no claim, so no later :meth:`submit` is stamped as answering a retired
+        request. An outstanding claim on ``(tenant, event_key)`` is discarded
+        when, and only when, the claimed event bears the same
+        ``product_content_hash``: it names the retired pause too. A claim on any
+        other pause's request is left for the primitive that holds it.
+
+        The search, the removal and the claim check are ONE atomic step of the
+        implementation, as :meth:`remove`'s are: of any number of concurrent
+        retirements of one pause, exactly one returns each request.
         """
         ...
 
@@ -1100,6 +1177,19 @@ class HITLTransportProtocol(Protocol):
         from the transport's own :meth:`remove` observation, never from
         ``submission`` — stamped ``None`` when this submitter claimed
         nothing, and stamped with the capability's ``decision_id``.
+
+        **Judged against its own pause** (``D-IMPL-391``; Dave, 2026-10-17
+        18:54 MST: *"Count an approval sent straight to the queue only while
+        the request for this exact pause is waiting."*). The event a
+        submission is judged against, and its ``event_state_at_submit``, are
+        those of the request for the pause it names —
+        ``(authorized.tenant, submission.event_key,
+        submission.principal.product_content_hash)``: ``claimed`` when the
+        outstanding claim on the key is on that pause's request, else
+        ``pending`` when that pause's request is waiting (wherever it sits
+        under the key), else ``missing``. A claim on another pause's request is
+        neither used nor consumed. A conforming implementation judges this way;
+        the workflow engine never counts a ``missing`` submission.
         ``submission`` itself is not mutated (it is a frozen contract); the
         stamped copy is what :meth:`submissions` returns, and it is returned
         here so a door can answer with what was recorded rather than with
@@ -1275,6 +1365,16 @@ class InMemoryHitlTransport:
     #: No other process reaches these queues (``D-IMPL-378``).
     scope = "process"
 
+    def writer_lease(self) -> WriterLease:
+        """The ``"process"`` declaration: exact, because no other process can reach this memory.
+
+        ``D-IMPL-391`` (ruling 2(a)). A disclosure, not a lock: there is no
+        substrate a second process could open.
+        """
+        from ccf.graph.protocols import ProcessScopedWriterLease
+
+        return ProcessScopedWriterLease(substrate="in-memory HITL transport")
+
     def bind_approver_eligibility(self, control_plane: ControlPlaneProtocol) -> None:
         """Judge approval-gate verdicts against ``control_plane`` at :meth:`submit`.
 
@@ -1355,34 +1455,49 @@ class InMemoryHitlTransport:
         )
 
     def _snapshot_locked(
-        self, tenant: str, event_key: str
+        self, tenant: str, event_key: str, product_content_hash: str
     ) -> tuple[PendingHitlEvent | None, EventStateAtSubmit]:
-        """The selected event under ``(tenant, event_key)`` and its state.
+        """The request for one pause under ``(tenant, event_key)`` and its state.
 
-        CALLER HOLDS THE LOCK. The claimed event when a primitive holds the
-        atomic claim; else the OLDEST pending event under the key — the same
-        order :meth:`remove` searches in; else ``None`` with state ``missing``
-        (`D-IMPL-366` §4b, the three states). Used twice per :meth:`submit`:
-        the snapshot (step 3) and the revalidation (step 6a).
+        CALLER HOLDS THE LOCK. The claimed event when a primitive's claim on
+        the key is on this pause's request; else the oldest pending event under
+        the key for this pause; else ``None`` with state ``missing``
+        (`D-IMPL-366` §4b, the three states, judged per pause since
+        ``D-IMPL-391``: a request for another pause under the key is not this
+        submission's). Used twice per :meth:`submit`: the snapshot (step 3) and
+        the revalidation (step 6a).
         """
         claimed = self._claims.get((tenant, event_key))
-        if claimed is not None:
+        if claimed is not None and claimed.product_content_hash == product_content_hash:
             return claimed, "claimed"
         for event in self._pending.get(tenant, ()):
-            if event.event_key == event_key:
+            if event.event_key == event_key and event.product_content_hash == product_content_hash:
                 return event, "pending"
         return None, "missing"
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order.
+        """Queue ``event`` for its tenant, preserving arrival order — once per paused run.
 
-        Any outstanding claim for the same ``(tenant, event_key)`` is
-        discarded: the event is pending again, so nothing has answered it.
-        This is what makes the primitives' rollback path
-        (``remove`` → failed ``submit`` → ``enqueue``) leave no stamp
-        behind for a later bare submission to inherit.
+        ``D-IMPL-391``: an event whose ``(tenant, event_key,
+        product_content_hash)`` is already pending is not queued again, and the
+        call changes nothing. The check and the append run under the one lock
+        every queue mutation takes, so racing enqueues of one paused run's
+        request queue exactly one. A claimed event is not pending, so the
+        primitives' give-back re-files it. When the event is appended, any
+        outstanding claim for the same ``(tenant, event_key)`` is discarded:
+        the event is pending again, so nothing has answered it. This is what
+        makes the primitives' rollback path (``remove`` → failed ``submit`` →
+        ``enqueue``) leave no stamp behind for a later bare submission to
+        inherit.
         """
         with self._lock:
+            queued = self._pending.get(event.tenant)
+            if queued is not None and any(
+                pending.event_key == event.event_key
+                and pending.product_content_hash == event.product_content_hash
+                for pending in queued
+            ):
+                return
             self._claims.pop((event.tenant, event.event_key), None)
             self._pending.setdefault(event.tenant, deque()).append(event)
 
@@ -1412,8 +1527,8 @@ class InMemoryHitlTransport:
         relative order.
 
         The removal is recorded as a claim in the same lock acquisition
-        (SEC-001 Tier 0), so the next :meth:`submit` for this pair is
-        stamped with what was actually claimed. Only the winner records a
+        (SEC-001 Tier 0), so the next :meth:`submit` for this pair naming the
+        claimed event's pause is stamped with what was actually claimed. Only the winner records a
         claim, because only the winner removes anything.
         """
         with self._lock:
@@ -1426,6 +1541,38 @@ class InMemoryHitlTransport:
                     self._claims[(tenant, event_key)] = event
                     return event
             return None
+
+    def retire(
+        self, *, tenant: str, event_key: str, product_content_hash: str
+    ) -> tuple[PendingHitlEvent, ...]:
+        """See :meth:`HITLTransportProtocol.retire` (``D-IMPL-391``).
+
+        One acquisition of the lock every queue mutation takes covers the
+        search, the removal and the claim check; no claim is recorded.
+        """
+        with self._lock:
+            claimed = self._claims.get((tenant, event_key))
+            if claimed is not None and claimed.product_content_hash == product_content_hash:
+                del self._claims[(tenant, event_key)]
+            queue = self._pending.get(tenant)
+            if not queue:
+                return ()
+            retired = tuple(
+                event
+                for event in queue
+                if event.event_key == event_key
+                and event.product_content_hash == product_content_hash
+            )
+            if retired:
+                self._pending[tenant] = deque(
+                    event
+                    for event in queue
+                    if not (
+                        event.event_key == event_key
+                        and event.product_content_hash == product_content_hash
+                    )
+                )
+            return retired
 
     def view(
         self, authorized: Authorized[HitlQueueRead]
@@ -1480,8 +1627,10 @@ class InMemoryHitlTransport:
 
         **Residual: the claim is addressed, not held.** A claim is keyed
         ``(tenant, event_key)`` and consumed by whichever submission for
-        that pair arrives first, because ``submit`` has no caller identity
-        to bind it to. A submitter that races the window a primitive opens
+        that pair, naming the claimed request's pause, arrives first
+        (``D-IMPL-391``: a submission naming another pause is judged against
+        that pause's request and leaves the claim alone), because ``submit``
+        has no caller identity to bind it to. A submitter that races the window a primitive opens
         between its ``remove`` and its ``submit`` — the two adjacent
         statements in
         :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` — therefore
@@ -1503,12 +1652,14 @@ class InMemoryHitlTransport:
         and ``reject``, on an event that names an approval policy) — after the
         capability and the principal check, BEFORE attestation (G2 (a)) —
         against a snapshot of the selected event taken under the lock (§4b
-        step 3). Other event classes are not judged (G6 (a)); a ``missing``
+        step 3) — the request for the pause the submission names
+        (``D-IMPL-391``; see :meth:`HITLTransportProtocol.submit`). Other event classes are not judged (G6 (a)); a ``missing``
         event judges nothing and is recorded as ``missing`` (H2). Under the
         one lock acquisition that records, the event and its state are
         REVALIDATED against the
         snapshot first (6a, :class:`HitlEventRevalidationRefused`), then the
-        nonce is consumed, then the claim is popped and the copy recorded with
+        nonce is consumed, then the claim, if the submission was judged against
+        it, is popped and the copy recorded with
         ``approval_policy_ref``, ``requested_by`` and ``event_state_at_submit``
         stamped from the snapshot (H3 (a)). A submission refused at ANY step
         leaves ``_submissions``, ``_claims`` and ``_seen_nonces`` unchanged.
@@ -1552,7 +1703,9 @@ class InMemoryHitlTransport:
         # state, under the lock; the lock is released and the snapshot is a
         # frozen event (or None) that every judgment below reads.
         with self._lock:
-            event, state = self._snapshot_locked(tenant, submission.event_key)
+            event, state = self._snapshot_locked(
+                tenant, submission.event_key, submission.principal.product_content_hash
+            )
             judges = self._eligibility_judges_locked(submission.action, event)
         # Step 4: eligibility, outside the lock, BEFORE attestation (G2 (a)),
         # for approval-gate events only (RULED). Missing: nothing is judged,
@@ -1595,7 +1748,9 @@ class InMemoryHitlTransport:
             # runs: no nonce is consumed, no claim popped, nothing recorded
             # (D-IMPL-366 amendment: refused submissions introduce no state
             # mutations; the attestation's nonce is single-use on SUCCESS only).
-            again, state_again = self._snapshot_locked(tenant, submission.event_key)
+            again, state_again = self._snapshot_locked(
+                tenant, submission.event_key, submission.principal.product_content_hash
+            )
             if (
                 tenant,
                 submission.event_key,
@@ -1630,7 +1785,14 @@ class InMemoryHitlTransport:
                         " is admitted once (D-IMPL-363 E4)"
                     )
                 self._seen_nonces.add(nonce_key)
-            claimed = self._claims.pop((tenant, submission.event_key), None)
+            # D-IMPL-391: only a claim on the request for the pause this
+            # submission names is consumed; a claim on another pause's request
+            # stays for the primitive that holds it.
+            claimed = (
+                self._claims.pop((tenant, submission.event_key))
+                if state == "claimed"
+                else None
+            )
             recorded = submission.model_copy(
                 update={
                     "answered_event_class": (

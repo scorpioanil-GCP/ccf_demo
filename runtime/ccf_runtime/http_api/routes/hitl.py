@@ -262,8 +262,13 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         return HitlActionReceipt(
             status="submitted",
             submission=recorded,
+            # D-IMPL-391: the request for the pause the verdict names, as the
+            # transport judged it, never another pause's request under the key.
             event_pending=any(
-                event.event_key == recorded.event_key for event in pending
+                event.event_key == recorded.event_key
+                and event.product_content_hash
+                == recorded.principal.product_content_hash
+                for event in pending
             ),
             submissions_for_event=sum(
                 1 for item in recorded_all if item.event_key == recorded.event_key

@@ -14,6 +14,15 @@ narrower) and owned by the process, or construction raises
 found, and leaves the root exactly as it was. These modes are fixed, not configurable
 (`SEC-014`, `D-IMPL-369`; `src/ccf/artifacts/file_store.py::FileArtifactStore`).
 
+Several writers may share one file-backed store, as threads of one process or as processes on
+one host. Every update to the store's naming index (`.artifact-names.json`) holds an exclusive
+`flock` on `.artifact-names.lock` in the store root, and each artifact is staged under a name
+unique to its writer, so no writer's name entry is lost and no `put` fails on another writer's
+staging file (`D-IMPL-390`). A writer waits for the lock with no timeout; the kernel releases it
+if its holder dies. **The lock is only as good as the filesystem's `flock`:** it is unsuitable
+for a network filesystem that does not support reliable `flock`, where concurrent writers can
+still lose name entries.
+
 ::: ccf.artifacts.protocol.ArtifactStoreProtocol
 
 ::: ccf.artifacts.file_store.FileArtifactStore

@@ -2378,7 +2378,7 @@
       "AttributeAssertionRefusedAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2395,12 +2395,12 @@
       },
       "AuditAction": {
         "kind": "function",
-        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']"
+        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']"
       },
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2417,7 +2417,7 @@
       "AuthzDecisionAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "authz_action_id": "str | None",
@@ -2443,7 +2443,7 @@
       "WorkflowVerdictIntegrityAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2545,7 +2545,7 @@
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_started', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'workflow_request_retired', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2668,15 +2668,18 @@
       "ControlPlaneStateStore",
       "InMemoryStateStore",
       "STATE_KEY_SEPARATOR",
+      "STATE_STORE_IDENTITY_PATTERN",
       "STATE_WRITE_KINDS",
       "StateConflict",
       "StateKeyError",
+      "StateStoreIdentityMissing",
       "StateTenantMismatch",
       "StateWriteAuthority",
       "StateWriteBypassError",
       "StateWriteToken",
       "split_state_key",
       "state_key",
+      "state_store_identity_of",
       "verify_any"
     ],
     "exports": {
@@ -2700,6 +2703,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "STATE_STORE_IDENTITY_PATTERN": {
+        "kind": "constant",
+        "shape": "Pattern"
+      },
       "STATE_WRITE_KINDS": {
         "kind": "constant",
         "shape": "tuple"
@@ -2709,6 +2716,10 @@
         "shape": "type"
       },
       "StateKeyError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "StateStoreIdentityMissing": {
         "kind": "class",
         "shape": "type"
       },
@@ -2735,6 +2746,10 @@
       "state_key": {
         "kind": "function",
         "shape": "(*, tenant: 'str', record_id: 'str') -> 'str'"
+      },
+      "state_store_identity_of": {
+        "kind": "function",
+        "shape": "(store: 'object') -> 'str'"
       },
       "verify_any": {
         "kind": "function",
@@ -14375,6 +14390,7 @@
           "current_state": "<class 'str'>",
           "execution_id": "<class 'str'>",
           "started_by": "str | None",
+          "state_store_identity": "str | None",
           "status": "<class 'str'>",
           "tenant": "<class 'str'>",
           "trace": "tuple[ccf_runtime.workflow.state.TraceEntry, ...]",

@@ -79,6 +79,7 @@ Composition reuses the suite's own helpers
 from __future__ import annotations
 
 import asyncio
+import secrets
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -213,6 +214,9 @@ class StandInRecords(dict[tuple[str, str], object]):
         # by every client of these records.
         self.versions: dict[tuple[str, str], int] = {}
         self.lock = threading.Lock()
+        # The stand-in database's own identity, minted once with it: every
+        # client of these records returns it (D-IMPL-391, design 1.4).
+        self.identity = secrets.token_hex(32)
         self.held = threading.Event()
         self.release = threading.Event()
 
@@ -300,6 +304,8 @@ class SharedBackingStore(InMemoryStateStore):
         self._versions = records.versions
         self._write_lock = records.lock
         self.scope = scope
+        # One substrate, one identity, whichever client reads it (D-IMPL-391).
+        self._identity = records.identity
 
 
 class ReadHoldingTransport(InMemoryHitlTransport):

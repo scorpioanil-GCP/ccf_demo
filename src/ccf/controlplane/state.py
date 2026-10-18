@@ -94,8 +94,10 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import re
+import secrets
 import threading
-from typing import Final, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
     verify_any,
@@ -110,10 +112,14 @@ from ccf.authz.capability import (
 )
 from ccf.controlplane.audit import AuditEvent, AuditLog
 
+if TYPE_CHECKING:
+    from ccf.graph.protocols import WriterLease
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "STATE_KEY_SEPARATOR",
+    "STATE_STORE_IDENTITY_PATTERN",
     "STATE_WRITE_KINDS",
     "AuditedStateWriter",
     "ConditionalStateStore",
@@ -121,12 +127,14 @@ __all__ = [
     "InMemoryStateStore",
     "StateConflict",
     "StateKeyError",
+    "StateStoreIdentityMissing",
     "StateTenantMismatch",
     "StateWriteAuthority",
     "StateWriteBypassError",
     "StateWriteToken",
     "split_state_key",
     "state_key",
+    "state_store_identity_of",
     "verify_any",
 ]
 
@@ -345,6 +353,47 @@ class ControlPlaneStateStore(Protocol):
         ...
 
 
+#: The shape a state store's identity must have (``D-IMPL-391``, design 1.4):
+#: 256 bits written as 64 lowercase hex characters. Mechanism, not a domain
+#: value. The engine can check the shape; it cannot check that the value is
+#: unique or persisted, which is what the conformance suite
+#: (``tests/conformance/test_gate_closure_and_conditional_write.py``) checks.
+STATE_STORE_IDENTITY_PATTERN: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}")
+
+
+class StateStoreIdentityMissing(TypeError):
+    """A state store declares no well-formed :attr:`ConditionalStateStore.identity`.
+
+    SDK-defined (``D-IMPL-391``; ``D-IMPL-378`` decision 2 (b): *"Unsupported
+    implementations refuse construction."*). Without a stable identity an
+    approval cannot be bound to the store that suspended the run.
+    """
+
+
+def state_store_identity_of(store: object) -> str:
+    """Return ``store``'s identity, or refuse a missing or malformed one by name.
+
+    Checks the SHAPE only (:data:`STATE_STORE_IDENTITY_PATTERN`); uniqueness and
+    persistence are the conformance suite's to check. The value must be a plain
+    ``str``, not a subclass: a subclass can override comparison and make every
+    record look like this store's own.
+
+    Raises:
+        StateStoreIdentityMissing: ``identity`` is absent, not exactly a ``str``,
+            or not 64 lowercase hex characters.
+    """
+    identity = getattr(store, "identity", None)
+    if type(identity) is not str or STATE_STORE_IDENTITY_PATTERN.fullmatch(identity) is None:
+        raise StateStoreIdentityMissing(
+            f"the Control Plane state store {type(store).__name__} declares no stable"
+            " identity: `identity` must be 64 lowercase hex characters, minted once per"
+            " substrate from a CSPRNG and persisted with its records, so an approval"
+            " can be bound to the store that suspended the run (SEC-001; D-IMPL-391,"
+            " D-IMPL-378 decision 2 (b))"
+        )
+    return identity
+
+
 @runtime_checkable
 class ConditionalStateStore(ControlPlaneStateStore, Protocol):
     """The conditional write a store offers, so no write overwrites a record it never saw.
@@ -367,11 +416,77 @@ class ConditionalStateStore(ControlPlaneStateStore, Protocol):
     construction."*). The reference store's behavior under concurrent writers
     is pinned by ``tests/conformance/test_gate_closure_and_conditional_write.py``;
     a deployment runs that suite against its own store.
+
+    **``identity`` names the substrate** (``D-IMPL-391``, design 1.4; SEC-001;
+    ``D-IMPL-378`` decision 2 (b): *"Bind approval events and closures to the
+    suspending state store's stable identity. It must survive restart and
+    distinguish independent stores."*). The workflow engine stamps it on every
+    record it writes, so the suspension hash every approval request, verdict,
+    gate closure and passage names carries the store, and an approval counts only
+    in the store that paused the run. The contract:
+
+    * 256 bits from a CSPRNG, written as 64 lowercase hex characters
+      (:data:`STATE_STORE_IDENTITY_PATTERN`), **minted once per substrate** — the
+      records' durable home — when the substrate is created; never configured,
+      and never derived from a hostname, a path, a deployment name or any other
+      value an operator types;
+    * **persisted with the records**, at the same durability, and never
+      rewritten;
+    * **the same for every client object** of one substrate, in every process
+      and across restarts;
+    * **different for an independent substrate**;
+    * a store **whose records do not survive a restart mints it per
+      construction**: its records are gone, so a new object is a new store
+      (:class:`InMemoryStateStore`).
+
+    **A copied store MUST refuse to open** (Dave, 2026-10-09 10:54 MST: *"A
+    copied store must refuse, not 'should.'"*). A durable store records, beside
+    its identity, where its substrate lives (for a file or a directory, its
+    device and inode), and refuses to open anywhere else until an operator
+    deliberately re-mints the identity. A re-mint STRANDS every run in flight in
+    the store: their records name the old identity, so the engine refuses them as
+    another store's (``rebind_legacy_suspension`` re-pauses only records with no
+    identity), and an operator reconciles them outside the fabric. A
+    store that cannot detect a copy (a network service, a VM snapshot) does not
+    conform. Reference recipes: a file or SQLite store creates a one-row table or
+    file in the same transaction as its schema and reads it at open; PostgreSQL
+    creates a one-row table with the schema (``INSERT ... ON CONFLICT DO
+    NOTHING``, then ``SELECT``); a network service mints the identity at
+    provisioning and serves it, and its client reads it at construction and
+    raises if it cannot.
+
+    **A path-backed store declaring ``scope = "process"`` MUST hold an exclusive
+    SEC-013 lease on its substrate from open to close** (``D-IMPL-391``, Dave's
+    ruling 2(a) of 2026-10-17: *"Stores labeled single-process get the graph
+    store's lock. A second process is refused by name."*). It takes the lease
+    (``src/ccf/graph/leases.py::LockFileWriterLease``, on a lock file inside the
+    substrate's directory, or keyed on device and inode in a declared directory
+    as the graph's SQLite store does) when it is OPENED, before it reads a
+    record, so a second process can neither submit a verdict nor read in-flight
+    state; refuses to open while another holder has it, raising
+    :class:`~ccf.graph.protocols.WriterLeaseHeld` naming the lock and this rule,
+    and logging one record that says so in the refused process only (a refused
+    process writes nothing into the store it was refused); and releases it on
+    close and when the object is collected (``weakref.finalize``: a
+    ``LockFileWriterLease`` never releases itself). It offers the held lease as
+    ``writer_lease()``; a path-backed subclass of :class:`InMemoryStateStore`
+    MUST override the in-memory declaration it would otherwise inherit. That
+    method is NOT a member of this Protocol — a
+    ``"shared"`` store, multi-process by declaration, takes no lease — but
+    :class:`~ccf_runtime.workflow.engine.WorkflowEngine` refuses, by name, a
+    ``"process"`` store that offers none. The engine can see that the lease is
+    offered, never that it was taken at open; that is this MUST, and the
+    conformance suite's.
     """
 
     @property
     def scope(self) -> str:
         """``"process"`` or ``"shared"``."""
+        ...
+
+    @property
+    def identity(self) -> str:
+        """The substrate's stable identity: 64 lowercase hex characters (see above)."""
         ...
 
     def get_versioned(self, record_class: str, key: str) -> tuple[object | None, int]:
@@ -409,16 +524,36 @@ class InMemoryStateStore:
 
     It is a :class:`ConditionalStateStore` of scope ``"process"``
     (``D-IMPL-378``): every write increments the key's version under one lock,
-    and :meth:`put_if` compares and writes inside that same lock.
+    and :meth:`put_if` compares and writes inside that same lock. Its
+    :attr:`identity` is minted when the object is constructed and dies with it
+    (``D-IMPL-391``): its records live in this object only, so a new object is
+    a new store, and an approval taken against a store that no longer exists
+    counts in none.
     """
 
     #: No other process can reach these records (``D-IMPL-378``).
     scope = "process"
 
     def __init__(self) -> None:
+        self._identity = secrets.token_hex(32)
         self._records: dict[tuple[str, str], object] = {}
         self._versions: dict[tuple[str, str], int] = {}
         self._write_lock = threading.Lock()
+
+    @property
+    def identity(self) -> str:
+        """Minted per construction (``D-IMPL-391``; see the class docstring)."""
+        return self._identity
+
+    def writer_lease(self) -> WriterLease:
+        """The ``"process"`` declaration: exact, because no other process can reach this memory.
+
+        ``D-IMPL-391`` (ruling 2(a)). A disclosure, not a lock: there is no
+        substrate a second process could open.
+        """
+        from ccf.graph.protocols import ProcessScopedWriterLease
+
+        return ProcessScopedWriterLease(substrate="in-memory Control Plane state store")
 
     def get(self, record_class: str, key: str) -> object | None:
         """Return the record under ``key``, or ``None`` if there is none."""
