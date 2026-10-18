@@ -960,8 +960,10 @@ class HitlActionReceipt(CCFContract):
     the two disposition fields carry real queue state so the caller sees
     the action's disposition rather than inferring it from an echo:
     ``event_pending`` — whether the submission's event is still on the
-    tenant's pending queue (it is, immediately after a submit; resolution
-    is the primitive's act) — and ``submissions_for_event`` — how many
+    tenant's pending queue: the request for the pause the submission names
+    (``D-IMPL-391``), so it agrees with ``event_state_at_submit`` (it is
+    pending immediately after a submit judged ``pending``; resolution is the
+    primitive's act) — and ``submissions_for_event`` — how many
     actions the transport has recorded against this event key, this one
     included.
     """
@@ -1100,11 +1102,18 @@ class HITLTransportProtocol(Protocol):
         0). The winning caller is the primitive that is about to resolve
         this event, so the transport retains the removed event against
         ``(tenant, event_key)`` and stamps the next :meth:`submit` for that
-        pair with its class and ``workflow_state_ref``. The claim is
-        consumed by that submit and discarded by a re-:meth:`enqueue`;
-        conforming implementations must do both, because a consumer asking
-        "which primitive answered this?" gets ``None`` — and must fail
-        closed — from an implementation that stamps nothing.
+        pair that names the removed event's pause (its
+        ``product_content_hash``) with its class and ``workflow_state_ref``.
+        The claim is consumed by that submit and discarded by a
+        re-:meth:`enqueue`; a submit naming another pause neither uses nor
+        consumes it (``D-IMPL-391``). Conforming implementations must do all
+        three, because a consumer asking "which primitive answered this?" gets
+        ``None`` — and must fail closed — from an implementation that stamps
+        nothing. ``remove`` takes the oldest event under the key whatever its
+        pause, so a primitive that finds it took a request for a pause other
+        than the one its principal names gives it back unanswered
+        (re-:meth:`enqueue`) and refuses, rather than leave a claim no
+        submission of its own will consume.
         """
         ...
 
@@ -1518,8 +1527,8 @@ class InMemoryHitlTransport:
         relative order.
 
         The removal is recorded as a claim in the same lock acquisition
-        (SEC-001 Tier 0), so the next :meth:`submit` for this pair is
-        stamped with what was actually claimed. Only the winner records a
+        (SEC-001 Tier 0), so the next :meth:`submit` for this pair naming the
+        claimed event's pause is stamped with what was actually claimed. Only the winner records a
         claim, because only the winner removes anything.
         """
         with self._lock:

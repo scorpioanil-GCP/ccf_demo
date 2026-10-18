@@ -418,6 +418,23 @@ class ApprovalGate:
                 " pending-snapshot check (WR-02 — exactly one resolve wins"
                 " the claim; this one lost)"
             )
+        if claimed.product_content_hash != principal.product_content_hash:
+            # D-IMPL-391 (the review of 4be75f02): `remove` takes the oldest
+            # request under the key whatever pause it is for, so a concurrent
+            # act that took this call's request first hands it ANOTHER pause's
+            # request. The transport judges a submission against the pause it
+            # names, so this call's submission would not consume that claim,
+            # and a claim left with its request gone would stamp a later
+            # verdict sent straight to the queue. Give it back unanswered and
+            # refuse as a lost race.
+            self._transport.enqueue(event=claimed)
+            raise UnknownGateEventError(
+                f"the pending HITL event {event_key!r} for tenant {tenant!r} is no"
+                " longer the one this call checked: a concurrent resolution or"
+                " retirement took it after this call's pending-snapshot check,"
+                " and the request now in front is for another pause; it was given"
+                " back unanswered (WR-02; D-IMPL-391)"
+            )
         try:
             # The transport returns the RECORDED copy — stamped with the
             # authorizing decision id (D-IMPL-353 §9) — and that copy, not

@@ -2115,7 +2115,8 @@ class WorkflowEngine:
 
         * **(1) The stamp race itself is still there, in the transport.**
           A claim is keyed ``(tenant, event_key)`` and consumed by whichever
-          submission for that pair arrives first, so an attacker holding
+          submission for that pair, naming the claimed request's pause
+          (``D-IMPL-391``), arrives first, so an attacker holding
           submit authority can still cause an officer's verdict to be
           recorded unstamped. What changed is the consequence: the pair now
           REFUSES and demands human reconciliation instead of routing on
