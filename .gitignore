@@ -1,72 +1,25 @@
-._*
-*.orig
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Cache
 __pycache__/
-*.pyc
-*.egg-info/
-build/
-dist/
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml
-.venv
-.venv-*
-.env
-# Perf battery run outputs are never committed (Phase 11 D-02); baselines are.
-perf/results/
-# Runtime ArtifactStore output of examples/external servers — never committed.
-# The archive line is the identity re-point of the line above, added at plan
-# 23-04: the ten condemned trees moved to `archive/examples/`, the pattern above
-# stopped matching, and 17 generated files under
-# `archive/examples/external/00-hello-context/.store/` became visibly untracked.
-# The archived trees stay RUNNABLE (D-04), so this output keeps being produced.
-examples/external/*/.store/
-archive/examples/external/*/.store/
-# Build output of `mkdocs build` — never committed (D-02 / 14-RESEARCH Pitfall 6);
-# `public/` and `openapi.json` are the committed halves.
-site/
-# Key material and credential files — never committed (CLAUDE.md §2.2, "never
-# a secret in the tree"; LOW-04, D-IMPL-372). `FileBackedKeySource` reads
-# `*.jwk`; `FileTokenSource` reads a `tokens.json`; PKCS#12 (`*.p12`, `*.pfx`)
-# and Java keystores (`*.jks`, `*.keystore`) are the other shapes a deployment
-# drops beside a checkout. `.env` is ignored above; `.env.*` covers its
-# per-environment variants. `python -m tools.lints --ignored-secrets`
-# (`tools/lints/ignored_secrets.py`) refuses this tree if any line goes.
+*.py[cod]
+*.class
+*.pytest_cache/
+
+# CCF Local Replay Evidence & Data
+evidence/
+*.db
+*.sqlite3
+
+# Local secrets & environment files
+ccf_environment.yaml
+keys/
+*.json
 *.pem
-*.jwk
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
-tokens.json
-.env.*
-node_modules/
-.DS_Store
 
-# Claude Code local state — agent worktrees and machine-local settings.
-# Never a secret in the tree (CLAUDE.md §2.2).
-.claude/
-
-# Rendered documentation pages — the GENERATOR and the TEMPLATE are committed,
-# the output is not. `page/build_page.py` reproduces it from the tree.
-examples/*/page/*.html
-!examples/*/page/template.html
-
-# Census evidence — the INSTRUMENT is committed, its output is not.
-# `tools/estate_census/` is reviewable in the repository (`D-IMPL-358` ruling 8);
-# what a run of it produces is not. Two separate reasons, both load-bearing:
-# raw evidence that still carried a credential would become permanent in history,
-# and a committed run would read as the census's answer long after the estate had
-# moved past it. Reproduce with `python -m tools.estate_census`.
-census-evidence/
-*.census.json
-*.census.xml
-*.census.log
-
-# P1 (a) (2026-10-11): the SDK-managed SQLite identity-lock directory a
-# standard product boot creates under its scratch root.
-.ccf-writer-locks/
+# IDEs
+.vscode/
+.idea/
