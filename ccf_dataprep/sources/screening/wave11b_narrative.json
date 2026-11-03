@@ -1,0 +1,143 @@
+{
+  "generated_at": "2026-08-21T13:14:43+00:00",
+  "source": "manufactured by generators/narrative_wave11b.py -- design \u00a73.1 (scripted cascade) and \u00a73.3 (composite case). Both elements are synthetic \u2014 engineered per CLAUDE.md rule 1; never public, never synthetic \u2014 internal.",
+  "_inputs": {
+    "wave11b_signals.json": "b0a55b9d86bf6d2fe7b9f3bad0e08ae6bcc3c68d3d40c3d55dd9e9f1103f2886"
+  },
+  "cascade": {
+    "signal_id": "sig-8k-engineered-529900E95812SYWMCE44-2.04",
+    "lei": "529900E95812SYWMCE44",
+    "legal_name": "AVIS BUDGET GROUP, INC.",
+    "signal_type": "8k_event",
+    "item": "2.04",
+    "observed_at": "2026-08-12",
+    "severity": 1.0,
+    "source_ref": {
+      "accession": "0000000000-26-000001",
+      "item": "2.04",
+      "primary_document": null,
+      "facility_id": "FAC-044206",
+      "engineered": true,
+      "note": "manufactured acceleration/triggering-event filing -- design \u00a73.1 (\"the scripted cascade\"), \u00a7F lists this element as engineered rather than fetched. The real, public Item 2.04 population (Tupperware, Murphy Oil, Container Store, design \u00a73.2) is untouched by this module."
+    },
+    "provenance": "synthetic \u2014 engineered",
+    "signal_about": [
+      {
+        "target_type": "Facility",
+        "target_id": "FAC-044206"
+      },
+      {
+        "target_type": "CollateralPledge",
+        "target_id": "COL-00044"
+      },
+      {
+        "target_type": "CollateralPledge",
+        "target_id": "COL-00045"
+      },
+      {
+        "target_type": "Drawdown",
+        "target_id": "DRW-044206-0003"
+      },
+      {
+        "target_type": "Drawdown",
+        "target_id": "DRW-044206-0004"
+      },
+      {
+        "target_type": "Drawdown",
+        "target_id": "DRW-044206-0005"
+      },
+      {
+        "target_type": "Drawdown",
+        "target_id": "DRW-044206-0006"
+      },
+      {
+        "target_type": "Drawdown",
+        "target_id": "DRW-044206-0007"
+      }
+    ],
+    "resolution": {
+      "candidates": [
+        {
+          "facility_id": "FAC-044206",
+          "lei": "529900E95812SYWMCE44",
+          "legal_name": "AVIS BUDGET GROUP, INC.",
+          "n_pledge": 2,
+          "n_drawdown": 5
+        },
+        {
+          "facility_id": "FAC-01BB3F",
+          "lei": "5493000Q1S5TJIDIQH89",
+          "legal_name": "REGIS CORP",
+          "n_pledge": 2,
+          "n_drawdown": 3
+        }
+      ],
+      "selected_facility_id": "FAC-044206",
+      "selected_lei": "529900E95812SYWMCE44",
+      "selection_rule": "facility carrying a covenant_breach row AND >=1 collateral_pledge AND >=1 drawdown, all on that same facility_id; ties broken by most drawdowns (richest exposure-rollup demonstration), then facility_id ascending"
+    }
+  },
+  "composite": {
+    "lei": "B3BS7ACMDUWISF18KY76",
+    "legal_name": "Bausch Health Companies Inc.",
+    "excluded_lei": "529900E95812SYWMCE44",
+    "sector": "Manufacturing",
+    "provenance": "synthetic \u2014 engineered",
+    "signals": [
+      {
+        "signal_id": "sig-composite-B3BS7ACMDUWISF18KY76-adverse_media",
+        "lei": "B3BS7ACMDUWISF18KY76",
+        "signal_type": "adverse_media",
+        "observed_at": "2026-07-01",
+        "severity": 0.6,
+        "sector": "Manufacturing",
+        "weight": 0.12,
+        "weighted_score": 0.072,
+        "source_ref": {
+          "engineered": true,
+          "component": "adverse_media",
+          "basis": "design \u00a73.3 composite case: severity fixed at 0.6 (moderate, not near-ceiling) times the loaded 'Manufacturing' sector weight for 'adverse_media' (0.12)"
+        },
+        "provenance": "synthetic \u2014 engineered"
+      },
+      {
+        "signal_id": "sig-composite-B3BS7ACMDUWISF18KY76-warn_notice",
+        "lei": "B3BS7ACMDUWISF18KY76",
+        "signal_type": "warn_notice",
+        "observed_at": "2026-07-03",
+        "severity": 0.6,
+        "sector": "Manufacturing",
+        "weight": 0.26,
+        "weighted_score": 0.156,
+        "source_ref": {
+          "engineered": true,
+          "component": "warn_notice",
+          "basis": "design \u00a73.3 composite case: severity fixed at 0.6 (moderate, not near-ceiling) times the loaded 'Manufacturing' sector weight for 'warn_notice' (0.26)"
+        },
+        "provenance": "synthetic \u2014 engineered"
+      },
+      {
+        "signal_id": "sig-composite-B3BS7ACMDUWISF18KY76-spread_widening",
+        "lei": "B3BS7ACMDUWISF18KY76",
+        "signal_type": "spread_widening",
+        "observed_at": "2026-07-05",
+        "severity": 0.6,
+        "sector": "Manufacturing",
+        "weight": 0.25,
+        "weighted_score": 0.15,
+        "source_ref": {
+          "engineered": true,
+          "component": "spread_widening",
+          "basis": "design \u00a73.3 composite case: severity fixed at 0.6 (moderate, not near-ceiling) times the loaded 'Manufacturing' sector weight for 'spread_widening' (0.25)"
+        },
+        "provenance": "synthetic \u2014 engineered"
+      }
+    ],
+    "threshold": 0.3,
+    "combined_score": 0.378,
+    "candidates_considered": [
+      "B3BS7ACMDUWISF18KY76"
+    ],
+    "rationale": "Bausch Health Companies Inc. (B3BS7ACMDUWISF18KY76) is the obligor, other than the cascade anchor, whose real signal_event rows already cover all three of adverse_media, warn_notice and spread_widening (candidates: ['B3BS7ACMDUWISF18KY76']). Each of the three manufactured signals sits at severity 0.6 -- individually [0.072, 0.156, 0.15], all <= threshold 0.3 -- and their sum 0.378 clears it by 0.078."
+  }
+}

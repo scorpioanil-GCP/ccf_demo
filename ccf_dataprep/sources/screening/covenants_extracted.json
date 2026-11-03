@@ -1,0 +1,2679 @@
+{
+  "generated_for": "Wave 5 \u2014 covenant structure from EX-10",
+  "method": "conventional-language regex; section references verified against headings actually present (\u00a78.4)",
+  "note": "An extracted cross-reference is a CANDIDATE until a deterministic check confirms the cited section exists. Unverified references become Context Debt, not silent drops.",
+  "total_covenants": 44,
+  "documents": [
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.5,
+          "unit": "ratio",
+          "offset": 144603,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 144603,
+          "excerpt_length": 44
+        },
+        {
+          "covenant_type": "secured_leverage",
+          "direction": "max",
+          "threshold": 4.5,
+          "unit": "ratio",
+          "offset": 144595,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 144595,
+          "excerpt_length": 52
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 2051,
+          "verified": true
+        },
+        {
+          "cited_section": "3",
+          "offset": 2470,
+          "verified": true
+        },
+        {
+          "cited_section": "2.4",
+          "offset": 43791,
+          "verified": false
+        },
+        {
+          "cited_section": "2.4",
+          "offset": 47536,
+          "verified": false
+        },
+        {
+          "cited_section": "1.2",
+          "offset": 51296,
+          "verified": false
+        },
+        {
+          "cited_section": "10.5",
+          "offset": 55536,
+          "verified": true
+        },
+        {
+          "cited_section": "9.14",
+          "offset": 58896,
+          "verified": false
+        },
+        {
+          "cited_section": "9.15",
+          "offset": 59538,
+          "verified": false
+        },
+        {
+          "cited_section": "10.6",
+          "offset": 59673,
+          "verified": true
+        },
+        {
+          "cited_section": "10.6",
+          "offset": 60211,
+          "verified": true
+        },
+        {
+          "cited_section": "3.1",
+          "offset": 61482,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 79270,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 79357,
+          "verified": false
+        },
+        {
+          "cited_section": "10.7",
+          "offset": 79678,
+          "verified": false
+        },
+        {
+          "cited_section": "9.15",
+          "offset": 80953,
+          "verified": false
+        },
+        {
+          "cited_section": "6.2",
+          "offset": 81396,
+          "verified": true
+        },
+        {
+          "cited_section": "9.14",
+          "offset": 94689,
+          "verified": false
+        },
+        {
+          "cited_section": "4.1",
+          "offset": 102872,
+          "verified": false
+        },
+        {
+          "cited_section": "2.11",
+          "offset": 113984,
+          "verified": false
+        },
+        {
+          "cited_section": "2.11",
+          "offset": 114036,
+          "verified": false
+        },
+        {
+          "cited_section": "2.19",
+          "offset": 131871,
+          "verified": false
+        },
+        {
+          "cited_section": "3.9",
+          "offset": 131998,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 132351,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 132402,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 132451,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 132496,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 132547,
+          "verified": false
+        },
+        {
+          "cited_section": "7.7",
+          "offset": 160708,
+          "verified": false
+        },
+        {
+          "cited_section": "10.13",
+          "offset": 162741,
+          "verified": false
+        },
+        {
+          "cited_section": "1.4",
+          "offset": 164676,
+          "verified": false
+        },
+        {
+          "cited_section": "1.4",
+          "offset": 164720,
+          "verified": false
+        },
+        {
+          "cited_section": "1.4",
+          "offset": 164765,
+          "verified": false
+        },
+        {
+          "cited_section": "3.1",
+          "offset": 165253,
+          "verified": false
+        },
+        {
+          "cited_section": "3.1",
+          "offset": 165305,
+          "verified": false
+        },
+        {
+          "cited_section": "2.23",
+          "offset": 168976,
+          "verified": false
+        },
+        {
+          "cited_section": "2.26",
+          "offset": 169573,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 170896,
+          "verified": false
+        },
+        {
+          "cited_section": "2.19",
+          "offset": 173375,
+          "verified": false
+        },
+        {
+          "cited_section": "3.1",
+          "offset": 173436,
+          "verified": false
+        },
+        {
+          "cited_section": "2.19",
+          "offset": 173486,
+          "verified": false
+        }
+      ],
+      "references_verified": 16,
+      "references_unverified": 50,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 16,
+      "cik": 723612,
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "accession": "0000950142-26-001951",
+      "document": "eh260800571_ex1001.htm",
+      "filed_date": "2026-07-01"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "8",
+          "offset": 144803,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 148179,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 148548,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 148650,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 152650,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 153037,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 153139,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 165385,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 171169,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 174444,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 174823,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 174925,
+          "verified": true
+        }
+      ],
+      "references_verified": 12,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 38,
+      "cik": 723612,
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "accession": "0000950142-26-001753",
+      "document": "eh260791788_ex1001.htm",
+      "filed_date": "2026-06-12"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 1.25,
+          "unit": "ratio",
+          "offset": 95589,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 95589,
+          "excerpt_length": 117
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 49836,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 49963,
+          "verified": false
+        },
+        {
+          "cited_section": "18",
+          "offset": 152159,
+          "verified": true
+        }
+      ],
+      "references_verified": 2,
+      "references_unverified": 1,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 118,
+      "cik": 1534254,
+      "lei": "549300XN70JLF94XKX80",
+      "sec_name": "CION Investment Corp",
+      "accession": "0001104659-26-084247",
+      "document": "tm2620585d1_ex10-1.htm",
+      "filed_date": "2026-07-16"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 1.25,
+          "unit": "ratio",
+          "offset": 95254,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 95254,
+          "excerpt_length": 117
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 49504,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 49631,
+          "verified": true
+        },
+        {
+          "cited_section": "18",
+          "offset": 151802,
+          "verified": true
+        }
+      ],
+      "references_verified": 3,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 120,
+      "cik": 1534254,
+      "lei": "549300XN70JLF94XKX80",
+      "sec_name": "CION Investment Corp",
+      "accession": "0001104659-26-084247",
+      "document": "tm2620585d1_ex10-2.htm",
+      "filed_date": "2026-07-16"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.25,
+          "unit": "ratio",
+          "offset": 292318,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 292318,
+          "excerpt_length": 172
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 4.0,
+          "unit": "ratio",
+          "offset": 292597,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 292597,
+          "excerpt_length": 178
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 50149,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 74640,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 104398,
+          "verified": false
+        },
+        {
+          "cited_section": "430",
+          "offset": 244692,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 6,
+      "cik": 1094831,
+      "lei": "2549001IGRCG4F0RLD36",
+      "sec_name": "BGC Group, Inc.",
+      "accession": "0001213900-26-057808",
+      "document": "ea029103901ex10-1.htm",
+      "filed_date": "2026-05-15"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "4975",
+          "offset": 93610,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 136137,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 207577,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1632970,
+      "lei": "2549004GGE2APGNT6O92",
+      "sec_name": "American Healthcare REIT, Inc.",
+      "accession": "0001193125-26-145647",
+      "document": "ahr-ex10_1.htm",
+      "filed_date": "2026-04-07"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 6.5,
+          "unit": "ratio",
+          "offset": 121632,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 121632,
+          "excerpt_length": 65
+        }
+      ],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1278027,
+      "lei": "549300TRW1LZMDJZAQ78",
+      "sec_name": "B&G Foods, Inc.",
+      "accession": "0001104659-26-070572",
+      "document": "tm2616882d1_ex10-1.htm",
+      "filed_date": "2026-06-04"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 242897,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 1,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 66,
+      "cik": 1389170,
+      "lei": "5493003QENHHS261UR94",
+      "sec_name": "Targa Resources Corp.",
+      "accession": "0001193125-26-296255",
+      "document": "d116740dex101.htm",
+      "filed_date": "2026-07-06"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "430",
+          "offset": 73395,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 120056,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 204057,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 359401,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 3,
+      "defined_terms_found": 3,
+      "defined_terms": [
+        {
+          "term": "Equitably Subordinated Lender",
+          "offset": 312939
+        },
+        {
+          "term": "Equitably Subordinated Liabilities",
+          "offset": 313385
+        },
+        {
+          "term": "Recoveries",
+          "offset": 313492
+        }
+      ],
+      "sections_present": 98,
+      "cik": 317788,
+      "lei": "549300D0WZR1VI2QGB24",
+      "sec_name": "Digital Turbine, Inc.",
+      "accession": "0001140361-25-033513",
+      "document": "ef20054891_ex10-1.htm",
+      "filed_date": "2025-09-02"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 137291,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 137291,
+          "excerpt_length": 40
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.5,
+          "unit": "ratio",
+          "offset": 431636,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 431636,
+          "excerpt_length": 62
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 417759,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 417759,
+          "excerpt_length": 52
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 175593,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 144,
+      "cik": 1375365,
+      "lei": "54930022CZO1N2UGVW07",
+      "sec_name": "Super Micro Computer, Inc.",
+      "accession": "0001193125-26-269703",
+      "document": "d45696dex101.htm",
+      "filed_date": "2026-06-12"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 11,
+      "cik": 1538849,
+      "lei": "549300OUUC900EVOGX10",
+      "sec_name": "CrossAmerica Partners LP",
+      "accession": "0001193125-26-306100",
+      "document": "capl-ex10_1.htm",
+      "filed_date": "2026-07-16"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 1,
+      "cik": 1538849,
+      "lei": "549300OUUC900EVOGX10",
+      "sec_name": "CrossAmerica Partners LP",
+      "accession": "0000950170-25-028082",
+      "document": "capl-ex10_19.htm",
+      "filed_date": "2025-02-27"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 226208,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 226208,
+          "excerpt_length": 59
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 475417,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 475417,
+          "excerpt_length": 53
+        },
+        {
+          "covenant_type": "secured_leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 226200,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 226200,
+          "excerpt_length": 67
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 145049,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 197101,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 240781,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 346922,
+          "verified": false
+        },
+        {
+          "cited_section": "406",
+          "offset": 402538,
+          "verified": false
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 22,
+      "cik": 1166003,
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "accession": "0001104659-26-068522",
+      "document": "tm2616097d1_ex10-1.htm",
+      "filed_date": "2026-06-01"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 167809,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 167809,
+          "excerpt_length": 59
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 440676,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 440676,
+          "excerpt_length": 49
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 400245,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 400245,
+          "excerpt_length": 53
+        },
+        {
+          "covenant_type": "secured_leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 167801,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 167801,
+          "excerpt_length": 67
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 93801,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 143474,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 182233,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 273216,
+          "verified": false
+        },
+        {
+          "cited_section": "406",
+          "offset": 323382,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 5,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 13,
+      "cik": 1166003,
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "accession": "0001104659-26-068522",
+      "document": "tm2616097d1_ex10-2.htm",
+      "filed_date": "2026-06-01"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 123151,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 123151,
+          "excerpt_length": 84
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 95440,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 172772,
+          "verified": false
+        },
+        {
+          "cited_section": "9",
+          "offset": 293687,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 84,
+      "cik": 1597033,
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "accession": "0001193125-26-340356",
+      "document": "d133770dex101.htm",
+      "filed_date": "2026-08-07"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 2,
+      "cik": 1597033,
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "accession": "0001193125-26-094301",
+      "document": "d87762dex101.htm",
+      "filed_date": "2026-03-05"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 9,
+      "cik": 1091667,
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "sec_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "accession": "0001104659-26-003739",
+      "document": "tm263008d1_ex10-1.htm",
+      "filed_date": "2026-01-14"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.25,
+          "unit": "ratio",
+          "offset": 246776,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 246776,
+          "excerpt_length": 40
+        },
+        {
+          "covenant_type": "secured_leverage",
+          "direction": "max",
+          "threshold": 4.25,
+          "unit": "ratio",
+          "offset": 246768,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 246768,
+          "excerpt_length": 48
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4975",
+          "offset": 85263,
+          "verified": false
+        },
+        {
+          "cited_section": "957",
+          "offset": 100443,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 194061,
+          "verified": true
+        },
+        {
+          "cited_section": "3",
+          "offset": 285568,
+          "verified": true
+        },
+        {
+          "cited_section": "3",
+          "offset": 298528,
+          "verified": true
+        },
+        {
+          "cited_section": "2.11",
+          "offset": 340017,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 382795,
+          "verified": false
+        }
+      ],
+      "references_verified": 4,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 163,
+      "cik": 885590,
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "accession": "0000950103-26-000052",
+      "document": "dp239511_ex1001.htm",
+      "filed_date": "2026-01-02"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.5,
+          "unit": "ratio",
+          "offset": 958357,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 958357,
+          "excerpt_length": 43
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 982804,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 982804,
+          "excerpt_length": 150
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4975",
+          "offset": 148162,
+          "verified": true
+        },
+        {
+          "cited_section": "957",
+          "offset": 163267,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 257384,
+          "verified": true
+        },
+        {
+          "cited_section": "3",
+          "offset": 349917,
+          "verified": true
+        },
+        {
+          "cited_section": "3",
+          "offset": 362876,
+          "verified": true
+        },
+        {
+          "cited_section": "2.11",
+          "offset": 404978,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 449403,
+          "verified": false
+        }
+      ],
+      "references_verified": 5,
+      "references_unverified": 2,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 172,
+      "cik": 885590,
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "accession": "0001193125-25-149731",
+      "document": "d949183dex101.htm",
+      "filed_date": "2025-06-27"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1585389,
+      "lei": "549300EC266625K12S42",
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "accession": "0001585389-26-000006",
+      "document": "ck0001585389-ex10_2.htm",
+      "filed_date": "2026-05-08"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1585389,
+      "lei": "549300EC266625K12S42",
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "accession": "0001585389-26-000006",
+      "document": "ck0001585389-ex10_3.htm",
+      "filed_date": "2026-05-08"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 7.25,
+          "unit": "ratio",
+          "offset": 439105,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 439105,
+          "excerpt_length": 142
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 441076,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 441076,
+          "excerpt_length": 95
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 1.5,
+          "unit": "ratio",
+          "offset": 440814,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 440814,
+          "excerpt_length": 112
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 100431,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 193150,
+          "verified": false
+        },
+        {
+          "cited_section": "430",
+          "offset": 375726,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 1,
+      "cik": 1474098,
+      "lei": "5493004Q1NNH6JXCSI52",
+      "sec_name": "Pebblebrook Hotel Trust",
+      "accession": "0001474098-26-000011",
+      "document": "a021126debtamendmentex101.htm",
+      "filed_date": "2026-02-13"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 9,
+      "cik": 1306830,
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "accession": "0001104659-26-090359",
+      "document": "tm2622089d1_ex10-1.htm",
+      "filed_date": "2026-08-04"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "406",
+          "offset": 64716,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 106992,
+          "verified": false
+        },
+        {
+          "cited_section": "2.12",
+          "offset": 114970,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 134406,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 12,
+      "cik": 1306830,
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "accession": "0001104659-25-076253",
+      "document": "tm2523061d1_ex10-1.htm",
+      "filed_date": "2025-08-11"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 1.2,
+          "unit": "ratio",
+          "offset": 496886,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 496886,
+          "excerpt_length": 198
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4043",
+          "offset": 92825,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 134894,
+          "verified": false
+        },
+        {
+          "cited_section": "2.12",
+          "offset": 161603,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 187494,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 9,
+      "cik": 727510,
+      "lei": "529900VN48L8QCMVPV36",
+      "sec_name": "Viskase Holdings, Inc.",
+      "accession": "0001104659-26-046064",
+      "document": "tm2612273d1_ex10-1.htm",
+      "filed_date": "2026-04-21"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.0,
+          "unit": "ratio",
+          "offset": 49860,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 49860,
+          "excerpt_length": 75
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 55592,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 55679,
+          "verified": false
+        },
+        {
+          "cited_section": "2.21",
+          "offset": 87962,
+          "verified": true
+        },
+        {
+          "cited_section": "9.21",
+          "offset": 91144,
+          "verified": true
+        },
+        {
+          "cited_section": "4043",
+          "offset": 103172,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 153372,
+          "verified": true
+        },
+        {
+          "cited_section": "2.21",
+          "offset": 298082,
+          "verified": true
+        }
+      ],
+      "references_verified": 5,
+      "references_unverified": 2,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 120,
+      "cik": 1260221,
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "accession": "0001193125-26-161564",
+      "document": "d108525dex101.htm",
+      "filed_date": "2026-04-17"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.0,
+          "unit": "ratio",
+          "offset": 47437,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 47437,
+          "excerpt_length": 75
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 53171,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 53258,
+          "verified": false
+        },
+        {
+          "cited_section": "2.21",
+          "offset": 85205,
+          "verified": true
+        },
+        {
+          "cited_section": "9.21",
+          "offset": 88389,
+          "verified": true
+        },
+        {
+          "cited_section": "4043",
+          "offset": 100420,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 150602,
+          "verified": true
+        },
+        {
+          "cited_section": "2.21",
+          "offset": 294879,
+          "verified": true
+        }
+      ],
+      "references_verified": 5,
+      "references_unverified": 2,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 121,
+      "cik": 1260221,
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "accession": "0001193125-26-051416",
+      "document": "d83933dex101.htm",
+      "filed_date": "2026-02-13"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "897",
+          "offset": 61163,
+          "verified": false
+        },
+        {
+          "cited_section": "1",
+          "offset": 99757,
+          "verified": true
+        },
+        {
+          "cited_section": "1297",
+          "offset": 133955,
+          "verified": false
+        },
+        {
+          "cited_section": "952",
+          "offset": 134143,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 302802,
+          "verified": true
+        },
+        {
+          "cited_section": "101",
+          "offset": 303195,
+          "verified": false
+        }
+      ],
+      "references_verified": 2,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 110,
+      "cik": 1008654,
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "sec_name": "TUPPERWARE BRANDS CORP",
+      "accession": "0001193125-24-268115",
+      "document": "d869890dex101.htm",
+      "filed_date": "2024-11-29"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "minimum_liquidity",
+          "direction": "min",
+          "threshold": 10000000,
+          "unit": "USD",
+          "offset": 403681,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 403681,
+          "excerpt_length": 44
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "7701",
+          "offset": 162420,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 1,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 2,
+      "cik": 1593222,
+      "lei": "5493003J7157VP25NL57",
+      "sec_name": "City Office REIT, Inc.",
+      "accession": "0001193125-25-181880",
+      "document": "d927791dex101.htm",
+      "filed_date": "2025-08-15"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "5.1.1",
+          "offset": 23572,
+          "verified": false
+        },
+        {
+          "cited_section": "1445",
+          "offset": 135395,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 2,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 16,
+      "cik": 1593222,
+      "lei": "5493003J7157VP25NL57",
+      "sec_name": "City Office REIT, Inc.",
+      "accession": "0001193125-25-163765",
+      "document": "d923147dex101.htm",
+      "filed_date": "2025-07-24"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 1,
+      "cik": 1398987,
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "accession": "0001193125-25-210057",
+      "document": "d26146dex101.htm",
+      "filed_date": "2025-09-22"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 2,
+      "cik": 1398987,
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "accession": "0001193125-25-210057",
+      "document": "d26146dex102.htm",
+      "filed_date": "2025-09-22"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1136869,
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "accession": "0001193125-26-335044",
+      "document": "zbh-ex10_1.htm",
+      "filed_date": "2026-08-05"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1136869,
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "accession": "0001193125-26-335044",
+      "document": "zbh-ex10_2.htm",
+      "filed_date": "2026-08-05"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1005210,
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "sec_name": "SUBURBAN PROPANE PARTNERS LP",
+      "accession": "0001193125-25-298630",
+      "document": "sph-ex10_6.htm",
+      "filed_date": "2025-11-26"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "409",
+          "offset": 32582,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 5,
+      "cik": 1092796,
+      "lei": "5493004PFHUPOR1PWN79",
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "accession": "0001193125-26-274254",
+      "document": "swbi-ex10_107.htm",
+      "filed_date": "2026-06-17"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1092796,
+      "lei": "5493004PFHUPOR1PWN79",
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "accession": "0001193125-26-274254",
+      "document": "swbi-ex10_130.htm",
+      "filed_date": "2026-06-17"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 442867,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 442867,
+          "excerpt_length": 79
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 38331,
+          "verified": false
+        },
+        {
+          "cited_section": "4975",
+          "offset": 38418,
+          "verified": false
+        },
+        {
+          "cited_section": "1",
+          "offset": 82132,
+          "verified": false
+        },
+        {
+          "cited_section": "4043",
+          "offset": 86949,
+          "verified": false
+        },
+        {
+          "cited_section": "432",
+          "offset": 87222,
+          "verified": false
+        },
+        {
+          "cited_section": "430",
+          "offset": 87484,
+          "verified": false
+        },
+        {
+          "cited_section": "2",
+          "offset": 92432,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 133989,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 152128,
+          "verified": false
+        },
+        {
+          "cited_section": "9.12",
+          "offset": 611122,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 9,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 113,
+      "cik": 1078271,
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "accession": "0001193125-26-324888",
+      "document": "extr-ex10_1.htm",
+      "filed_date": "2026-07-30"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "6.3",
+          "offset": 2896,
+          "verified": false
+        },
+        {
+          "cited_section": "6.3",
+          "offset": 15061,
+          "verified": false
+        },
+        {
+          "cited_section": "424",
+          "offset": 16549,
+          "verified": false
+        },
+        {
+          "cited_section": "6.3",
+          "offset": 21461,
+          "verified": false
+        },
+        {
+          "cited_section": "424",
+          "offset": 21596,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 5,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1078271,
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "accession": "0001193125-26-029334",
+      "document": "extr-ex10_1.htm",
+      "filed_date": "2026-01-29"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "1",
+          "offset": 35838,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 10,
+      "cik": 910406,
+      "lei": "5493000S8QXWHLIXDP75",
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "accession": "0001193125-26-041911",
+      "document": "hain-ex10_2.htm",
+      "filed_date": "2026-02-09"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "1",
+          "offset": 40092,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 10,
+      "cik": 910406,
+      "lei": "5493000S8QXWHLIXDP75",
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "accession": "0001193125-26-041911",
+      "document": "hain-ex10_3.htm",
+      "filed_date": "2026-02-09"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "430",
+          "offset": 100941,
+          "verified": true
+        },
+        {
+          "cited_section": "4001",
+          "offset": 148899,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 233877,
+          "verified": true
+        }
+      ],
+      "references_verified": 3,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 96,
+      "cik": 716643,
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "accession": "0001193125-24-281618",
+      "document": "d761586dex101.htm",
+      "filed_date": "2024-12-19"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 716643,
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "accession": "0001193125-24-281618",
+      "document": "d761586dex102.htm",
+      "filed_date": "2024-12-19"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 2,
+      "defined_terms": [
+        {
+          "term": "Premises",
+          "offset": 1848
+        },
+        {
+          "term": "completed",
+          "offset": 8416
+        }
+      ],
+      "sections_present": 0,
+      "cik": 1059262,
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "sec_name": "SP Plus Corp",
+      "accession": "0000950170-23-058158",
+      "document": "sp-ex10_1.htm",
+      "filed_date": "2023-11-02"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 1059262,
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "sec_name": "SP Plus Corp",
+      "accession": "0000950170-23-058158",
+      "document": "sp-ex10_2.htm",
+      "filed_date": "2023-11-02"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 4.0,
+          "unit": "ratio",
+          "offset": 278434,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 278434,
+          "excerpt_length": 47
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "1",
+          "offset": 63024,
+          "verified": false
+        },
+        {
+          "cited_section": "2",
+          "offset": 70158,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 98687,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 185754,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 186186,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 192623,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 192771,
+          "verified": false
+        },
+        {
+          "cited_section": "9.08",
+          "offset": 398635,
+          "verified": true
+        }
+      ],
+      "references_verified": 1,
+      "references_unverified": 7,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 77,
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "accession": "0001193125-26-088484",
+      "document": "d105148dex101.htm",
+      "filed_date": "2026-03-03"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.3,
+          "unit": "ratio",
+          "offset": 41515,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 41515,
+          "excerpt_length": 57
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4975",
+          "offset": 53869,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 106978,
+          "verified": true
+        },
+        {
+          "cited_section": "4043",
+          "offset": 107340,
+          "verified": false
+        },
+        {
+          "cited_section": "303",
+          "offset": 110007,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 155096,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 189663,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 377855,
+          "verified": false
+        }
+      ],
+      "references_verified": 2,
+      "references_unverified": 5,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 49,
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "accession": "0001193125-25-178982",
+      "document": "d25970dex101.htm",
+      "filed_date": "2025-08-12"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 305941,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 305941,
+          "excerpt_length": 173
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 57559,
+          "verified": false
+        },
+        {
+          "cited_section": "101",
+          "offset": 90244,
+          "verified": true
+        },
+        {
+          "cited_section": "101",
+          "offset": 96348,
+          "verified": true
+        },
+        {
+          "cited_section": "2.12",
+          "offset": 98875,
+          "verified": true
+        },
+        {
+          "cited_section": "430",
+          "offset": 252622,
+          "verified": false
+        }
+      ],
+      "references_verified": 3,
+      "references_unverified": 2,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 30,
+      "cik": 15615,
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "accession": "0001193125-26-297552",
+      "document": "d77261dex101.htm",
+      "filed_date": "2026-07-07"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 5,
+      "cik": 15615,
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "accession": "0001193125-26-297552",
+      "document": "d77261dex102.htm",
+      "filed_date": "2026-07-07"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 573237,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 573237,
+          "excerpt_length": 75
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.75,
+          "unit": "ratio",
+          "offset": 581338,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 581338,
+          "excerpt_length": 121
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4975",
+          "offset": 42997,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 96352,
+          "verified": false
+        },
+        {
+          "cited_section": "2.12",
+          "offset": 165801,
+          "verified": true
+        },
+        {
+          "cited_section": "7701",
+          "offset": 196736,
+          "verified": false
+        },
+        {
+          "cited_section": "9",
+          "offset": 1134508,
+          "verified": true
+        }
+      ],
+      "references_verified": 2,
+      "references_unverified": 3,
+      "defined_terms_found": 1,
+      "defined_terms": [
+        {
+          "term": "Revolving Commitment",
+          "offset": 172812
+        }
+      ],
+      "sections_present": 23,
+      "cik": 1046102,
+      "lei": "5493002H8U24DJXQ4886",
+      "sec_name": "RB GLOBAL INC.",
+      "accession": "0001104659-25-031884",
+      "document": "tm2511351d1_ex10-1.htm",
+      "filed_date": "2025-04-04"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 367199,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 367199,
+          "excerpt_length": 119
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 368881,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 368881,
+          "excerpt_length": 134
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 52112,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 52199,
+          "verified": false
+        },
+        {
+          "cited_section": "1",
+          "offset": 88086,
+          "verified": true
+        },
+        {
+          "cited_section": "4043",
+          "offset": 91474,
+          "verified": false
+        },
+        {
+          "cited_section": "19",
+          "offset": 91701,
+          "verified": true
+        },
+        {
+          "cited_section": "2",
+          "offset": 97674,
+          "verified": true
+        },
+        {
+          "cited_section": "4001",
+          "offset": 121426,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 131512,
+          "verified": true
+        }
+      ],
+      "references_verified": 5,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 134,
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "accession": "0001193125-26-021794",
+      "document": "payx-ex10_1.htm",
+      "filed_date": "2026-01-26"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 368850,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 368850,
+          "excerpt_length": 119
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 2.0,
+          "unit": "ratio",
+          "offset": 370549,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 370549,
+          "excerpt_length": 134
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 52615,
+          "verified": true
+        },
+        {
+          "cited_section": "4975",
+          "offset": 52702,
+          "verified": false
+        },
+        {
+          "cited_section": "1",
+          "offset": 88324,
+          "verified": true
+        },
+        {
+          "cited_section": "4043",
+          "offset": 91713,
+          "verified": false
+        },
+        {
+          "cited_section": "412",
+          "offset": 91936,
+          "verified": false
+        },
+        {
+          "cited_section": "2",
+          "offset": 97913,
+          "verified": true
+        },
+        {
+          "cited_section": "4001",
+          "offset": 122073,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 132159,
+          "verified": true
+        }
+      ],
+      "references_verified": 4,
+      "references_unverified": 4,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 135,
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "accession": "0001193125-26-021794",
+      "document": "payx-ex10_2.htm",
+      "filed_date": "2026-01-26"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 2,
+      "cik": 1489096,
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "accession": "0001104659-26-018826",
+      "document": "tm267070d1_ex10-1.htm",
+      "filed_date": "2026-02-24"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 450052,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 450052,
+          "excerpt_length": 162
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "direction": "min",
+          "threshold": 1.25,
+          "unit": "ratio",
+          "offset": 450854,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 450854,
+          "excerpt_length": 162
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "6.1",
+          "offset": 14535,
+          "verified": false
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 14592,
+          "verified": true
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 15081,
+          "verified": true
+        },
+        {
+          "cited_section": "2.25",
+          "offset": 17756,
+          "verified": false
+        },
+        {
+          "cited_section": "10.8",
+          "offset": 19217,
+          "verified": false
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 19454,
+          "verified": true
+        },
+        {
+          "cited_section": "9.14",
+          "offset": 20467,
+          "verified": false
+        },
+        {
+          "cited_section": "9.15",
+          "offset": 22849,
+          "verified": false
+        },
+        {
+          "cited_section": "9.14",
+          "offset": 22916,
+          "verified": false
+        },
+        {
+          "cited_section": "10.6",
+          "offset": 23857,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 39124,
+          "verified": true
+        },
+        {
+          "cited_section": "10.7",
+          "offset": 39844,
+          "verified": false
+        },
+        {
+          "cited_section": "8",
+          "offset": 56358,
+          "verified": true
+        },
+        {
+          "cited_section": "10.21",
+          "offset": 72530,
+          "verified": false
+        },
+        {
+          "cited_section": "2.11",
+          "offset": 76044,
+          "verified": true
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 78843,
+          "verified": true
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 78917,
+          "verified": true
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 78987,
+          "verified": true
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 79064,
+          "verified": true
+        },
+        {
+          "cited_section": "4001",
+          "offset": 89406,
+          "verified": false
+        },
+        {
+          "cited_section": "2.25",
+          "offset": 101968,
+          "verified": false
+        },
+        {
+          "cited_section": "2.25",
+          "offset": 104587,
+          "verified": false
+        },
+        {
+          "cited_section": "7.1",
+          "offset": 106470,
+          "verified": false
+        },
+        {
+          "cited_section": "7.8",
+          "offset": 126654,
+          "verified": false
+        },
+        {
+          "cited_section": "7.9",
+          "offset": 127246,
+          "verified": false
+        },
+        {
+          "cited_section": "1.3",
+          "offset": 128584,
+          "verified": false
+        },
+        {
+          "cited_section": "1.3",
+          "offset": 128632,
+          "verified": false
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 128820,
+          "verified": true
+        },
+        {
+          "cited_section": "8",
+          "offset": 128980,
+          "verified": true
+        },
+        {
+          "cited_section": "2.25",
+          "offset": 133403,
+          "verified": false
+        },
+        {
+          "cited_section": "3",
+          "offset": 133514,
+          "verified": true
+        },
+        {
+          "cited_section": "2.24",
+          "offset": 136418,
+          "verified": false
+        },
+        {
+          "cited_section": "2.24",
+          "offset": 136478,
+          "verified": false
+        },
+        {
+          "cited_section": "2.27",
+          "offset": 139507,
+          "verified": true
+        },
+        {
+          "cited_section": "10.6",
+          "offset": 142634,
+          "verified": false
+        },
+        {
+          "cited_section": "10.6",
+          "offset": 142693,
+          "verified": false
+        },
+        {
+          "cited_section": "10.17",
+          "offset": 142743,
+          "verified": false
+        },
+        {
+          "cited_section": "9.06",
+          "offset": 142787,
+          "verified": false
+        },
+        {
+          "cited_section": "9.06",
+          "offset": 142840,
+          "verified": false
+        },
+        {
+          "cited_section": "6.2",
+          "offset": 157864,
+          "verified": false
+        }
+      ],
+      "references_verified": 18,
+      "references_unverified": 43,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 22,
+      "cik": 1489096,
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "accession": "0001104659-25-071742",
+      "document": "tm2521966d1_ex10-1.htm",
+      "filed_date": "2025-07-29"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 717423,
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "sec_name": "MURPHY OIL CORP",
+      "accession": "0001628280-26-011709",
+      "document": "mur-20251231xex1032.htm",
+      "filed_date": "2026-02-25"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 717423,
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "sec_name": "MURPHY OIL CORP",
+      "accession": "0001628280-26-011709",
+      "document": "mur-20251231xex1033.htm",
+      "filed_date": "2026-02-25"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "leverage",
+          "direction": "max",
+          "threshold": 2.5,
+          "unit": "ratio",
+          "offset": 97025,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 97025,
+          "excerpt_length": 135
+        },
+        {
+          "covenant_type": "secured_leverage",
+          "direction": "max",
+          "threshold": 3.5,
+          "unit": "ratio",
+          "offset": 97334,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 97334,
+          "excerpt_length": 143
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 37768,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 75351,
+          "verified": false
+        },
+        {
+          "cited_section": "303",
+          "offset": 75765,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 113922,
+          "verified": false
+        },
+        {
+          "cited_section": "406",
+          "offset": 279373,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 5,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 9,
+      "cik": 1411688,
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "accession": "0001104659-25-007267",
+      "document": "tm254690d1_ex10-1.htm",
+      "filed_date": "2025-01-29"
+    },
+    {
+      "covenants": [],
+      "definition_references": [
+        {
+          "cited_section": "3",
+          "offset": 35740,
+          "verified": false
+        },
+        {
+          "cited_section": "4975",
+          "offset": 35827,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 93715,
+          "verified": false
+        },
+        {
+          "cited_section": "303",
+          "offset": 94129,
+          "verified": false
+        },
+        {
+          "cited_section": "4001",
+          "offset": 132266,
+          "verified": false
+        },
+        {
+          "cited_section": "406",
+          "offset": 311738,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 6,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 8,
+      "cik": 1411688,
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "accession": "0001104659-25-007267",
+      "document": "tm254690d1_ex10-2.htm",
+      "filed_date": "2025-01-29"
+    },
+    {
+      "covenants": [],
+      "definition_references": [],
+      "references_verified": 0,
+      "references_unverified": 0,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 78749,
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "accession": "0000950170-25-007222",
+      "document": "agys-ex10_1.htm",
+      "filed_date": "2025-01-21"
+    },
+    {
+      "covenants": [
+        {
+          "covenant_type": "interest_coverage",
+          "direction": "min",
+          "threshold": 3.0,
+          "unit": "ratio",
+          "offset": 370605,
+          "test_frequency": "fiscal quarter",
+          "excerpt_offset": 370605,
+          "excerpt_length": 164
+        }
+      ],
+      "definition_references": [
+        {
+          "cited_section": "4001",
+          "offset": 59967,
+          "verified": false
+        },
+        {
+          "cited_section": "7701",
+          "offset": 129895,
+          "verified": false
+        },
+        {
+          "cited_section": "430",
+          "offset": 298737,
+          "verified": false
+        }
+      ],
+      "references_verified": 0,
+      "references_unverified": 3,
+      "defined_terms_found": 0,
+      "defined_terms": [],
+      "sections_present": 0,
+      "cik": 78749,
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "accession": "0000950170-24-117726",
+      "document": "agys-ex10_1.htm",
+      "filed_date": "2024-10-28"
+    }
+  ]
+}

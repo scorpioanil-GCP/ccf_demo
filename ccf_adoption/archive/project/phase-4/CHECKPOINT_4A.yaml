@@ -1,0 +1,15 @@
+checkpoint: 4A
+name: Consumer SDK Path
+status: APPROVED
+approved_by: David Castillo
+date: 2026-09-13
+branch: phase-4a-consumer
+reviewed_commit: 517588d3f2ce3f3bdbe19d589e1f45f2a80690ca
+source_snapshots:
+  ccf_code: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+notes:
+  - Consumer path remains independent of producer and assembler internals.
+  - Direct SDK client and MCP-native harness consumption are separate supported learning lanes.
+  - Corrective documentation amendment after approval: CONSUME_OVER_MCP.md now includes representative ADK, Claude Agent SDK, and LangGraph source excerpts plus the shared MCP request encoding, all grounded in the pinned runnable hw1 harness clients. This does not change the approved consumer architecture.
+  - CP-14 composite Context Products are a major pending capability but do not change the approved 4A consumer foundation at this checkpoint.
+  - Phase 4B may proceed using approved evidence through CP-13; composite-product documentation remains deferred until CP-14 is approved and merged.

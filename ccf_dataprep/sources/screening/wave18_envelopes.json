@@ -1,0 +1,41 @@
+{
+  "generated_for": "wave18 \u00b7 syndicated-lending-co-lender \u00b7 Task 10",
+  "method": "two bilateral envelopes, one per peer counterparty identity (design \u00a76) -- Bank of America (exact) and Citibank (band). Scope elements drawn from generate_syndicate_internal.py's PLANS vocabulary (the same one Task 7's syndicate_projection_plan rows use); asymmetry grounded against Task 6's competition_law_rule rows, checked here at generation time",
+  "generated_at": "2026-08-26T18:51:38.639576+00:00",
+  "envelope_count": 2,
+  "asymmetric_envelope_count": 2,
+  "envelopes": [
+    {
+      "counterparty_member_id": "SYNM-9d3fd0fd",
+      "counterparty_lei": "B4TYDEB6GKMZO031MB27",
+      "counterparty_legal_name": "Bank Of America, National Association",
+      "request_scope": [
+        "own_position",
+        "member_commitment"
+      ],
+      "disclose_scope": [
+        "syndicate_composition",
+        "amendment_vote_posture"
+      ],
+      "envelope_version": "v1",
+      "valid_from": "2026-08-26",
+      "rationale": "primary co-lender, exact precision. We request their own position (rating, workout posture -- at their discretion to share, not ours to disclose) and their own filed commitment figure (per-lender shares do not reconcile against any facility total, design \u00a77, so confirming directly is a real desk need). We disclose only syndicate composition and our own vote posture -- never own_position outbound, honouring CLR-003's ban on informally sharing our workout intent.",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "counterparty_member_id": "SYNM-8e5427c6",
+      "counterparty_lei": "E57ODZWZ7FF32TWEFA76",
+      "counterparty_legal_name": "Citibank, National Association",
+      "request_scope": [
+        "amendment_vote_posture"
+      ],
+      "disclose_scope": [
+        "syndicate_composition"
+      ],
+      "envelope_version": "v1",
+      "valid_from": "2026-08-26",
+      "rationale": "band precision, a narrower relationship -- Citibank both requests and discloses fewer elements than BofA (one against two in each direction), not a subset of BofA's scopes -- the request sides do not overlap at all. We request only their vote posture (not their full position) and disclose only syndicate composition (not our own vote posture back). A band-precision peer receives and grants less than an exact-precision one.",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ]
+}

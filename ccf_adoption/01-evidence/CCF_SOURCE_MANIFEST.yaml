@@ -1,0 +1,19 @@
+source_repository: drcastillo/ccf
+source_branch: master
+source_commit: ac81805d0e400da15f860eed8c39a132af3ce945
+source_tree: 3cf4f0c43c82b2e75724e72d699f0ecd4c070dc6
+inventory_checkpoint: 1A
+inventory_status: ready-for-review
+source_policy:
+  authoritative_whitepaper_source: whitepaper/CCF_*.md
+  published_snapshot: CCF_Whitepaper_1-2.pdf
+  diagram_source: inline Mermaid code fences in whitepaper chapter Markdown
+  static_figure_source: whitepaper/figures/CH##/*.png
+  draft_lineage: docs/CCF_Chapter_N_*.md
+reuse_policy:
+  canonical_terms: reuse-verbatim
+  generic_architecture_prose: reuse-or-adapt
+  institution_specific_prose: adapt-to-financial-services-neutral
+  mermaid: prefer-source-reuse
+  static_figures: candidate-for-direct-reuse-with-provenance
+  claims_and_external_citations: validate-before-republication

@@ -1,0 +1,447 @@
+{
+  "generated_at": "2026-08-23",
+  "deals": [
+    {
+      "deal_id": "SDART-2022-6",
+      "legal_name": "Santander Drive Auto Receivables Trust 2022-6",
+      "prospectus_accession": "0001193125-22-244774",
+      "prospectus_file": "d399127d424b5.htm",
+      "prospectus_filed": "2022-09-14",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1943670/000119312522244774/d399127d424b5.htm",
+      "provenance": "public",
+      "text_length": 790376,
+      "text_sha256": "3c8b3f50f607c34bc65a5c6e2c1fc9ec8ffde0f3489548e1126e0e9311f7a958",
+      "tranches": [
+        {
+          "tranche_id": "SDART-2022-6-A-1",
+          "class_name": "A-1",
+          "cusip": null,
+          "original_balance": "233000000",
+          "interest_rate": "3.317",
+          "interest_rate_text": "3.317%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [],
+          "seniority_rank": 0,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2022-6-A-2",
+          "class_name": "A-2",
+          "cusip": null,
+          "original_balance": "509690000",
+          "interest_rate": "4.37",
+          "interest_rate_text": "4.37%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2022-6-A-1"
+          ],
+          "seniority_rank": 1,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2022-6-A-3",
+          "class_name": "A-3",
+          "cusip": null,
+          "original_balance": "404910000",
+          "interest_rate": "4.49",
+          "interest_rate_text": "4.49%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2022-6-A-2"
+          ],
+          "seniority_rank": 2,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2022-6-B",
+          "class_name": "B",
+          "cusip": null,
+          "original_balance": "190240000",
+          "interest_rate": "4.72",
+          "interest_rate_text": "4.72%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2022-6-A-3"
+          ],
+          "seniority_rank": 3,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2022-6-C",
+          "class_name": "C",
+          "cusip": null,
+          "original_balance": "221100000",
+          "interest_rate": "4.96",
+          "interest_rate_text": "4.96%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2022-6-B"
+          ],
+          "seniority_rank": 4,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2022-6-D",
+          "class_name": "D",
+          "cusip": null,
+          "original_balance": "234460000",
+          "interest_rate": "5.69",
+          "interest_rate_text": "5.69%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2022-6-C"
+          ],
+          "seniority_rank": 5,
+          "provenance": "public"
+        }
+      ],
+      "triggers": [
+        {
+          "trigger_id": "SDART-2022-6-delinquency",
+          "name": "Delinquency Trigger",
+          "kind": "delinquency",
+          "threshold_value": "24.00",
+          "threshold_all_percents": [
+            "24.00"
+          ],
+          "threshold_unit": "percent_of_pool",
+          "definition_text": "\u201c Delinquency Trigger \u201d means, for any payment date and the related Collection Period, 24.00%.",
+          "start_offset": 609497,
+          "end_offset": 609591,
+          "copula": "means",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "SDART-2022-6-reserve",
+          "name": "Specified Reserve Account Balance",
+          "kind": "reserve",
+          "threshold_value": "1.00",
+          "threshold_all_percents": [
+            "1.00"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201c Specified Reserve Account Balance \u201d means, for any payment date, an amount not less than 1.00% of the Pool Balance as of the cut-off date; provided, that on any payment date after the notes are no longer outstanding following payment in full of the principal of and interest on the notes, the \u201cSpecified Reserve Account Balance\u201d shall be $0.",
+          "start_offset": 626211,
+          "end_offset": 626554,
+          "copula": "means",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "SDART-2022-6-overcollateralization",
+          "name": "Targeted Overcollateralization Amount",
+          "kind": "overcollateralization",
+          "threshold_value": "22.80",
+          "threshold_all_percents": [
+            "22.80",
+            "1.50"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201c Targeted Overcollateralization Amount \u201d means, the sum of (i) 22.80% of the Pool Balance as of the last day of the related Collection Period and (ii) 1.50% of the Pool Balance as of the cut-off date.",
+          "start_offset": 626822,
+          "end_offset": 627023,
+          "copula": "means",
+          "provenance": "public"
+        }
+      ]
+    },
+    {
+      "deal_id": "TAOT-2022-B",
+      "legal_name": "Toyota Auto Receivables 2022-B Owner Trust",
+      "prospectus_accession": "0000929638-22-000773",
+      "prospectus_file": "a424b5.htm",
+      "prospectus_filed": "2022-04-11",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1914281/000092963822000773/a424b5.htm",
+      "provenance": "public",
+      "text_length": 783929,
+      "text_sha256": "ef88e324337e705948d0c8b725f7af0eb9df375fb9426386b7ec54209701d60c",
+      "tranches": [
+        {
+          "tranche_id": "TAOT-2022-B-A-1",
+          "class_name": "A-1",
+          "cusip": null,
+          "original_balance": "353000000",
+          "interest_rate": "0.00000",
+          "interest_rate_text": "0.00000%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [],
+          "seniority_rank": 0,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "TAOT-2022-B-A-2a",
+          "class_name": "A-2a",
+          "cusip": "89238FAB9",
+          "original_balance": "372600000",
+          "interest_rate": "2.35",
+          "interest_rate_text": "2.35%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "TAOT-2022-B-A-1"
+          ],
+          "seniority_rank": 1,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "TAOT-2022-B-A-2b",
+          "class_name": "A-2b",
+          "cusip": "89238FAC7",
+          "original_balance": "200650000",
+          "interest_rate": null,
+          "interest_rate_text": "SOFR Rate + 0.49%",
+          "interest_rate_basis": "floating",
+          "subordinate_to": [
+            "TAOT-2022-B-A-1"
+          ],
+          "seniority_rank": 1,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "TAOT-2022-B-A-3",
+          "class_name": "A-3",
+          "cusip": "89238FAD5",
+          "original_balance": "573250000",
+          "interest_rate": "2.93",
+          "interest_rate_text": "2.93%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "TAOT-2022-B-A-2a",
+            "TAOT-2022-B-A-2b"
+          ],
+          "seniority_rank": 2,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "TAOT-2022-B-A-4",
+          "class_name": "A-4",
+          "cusip": "89238FAE3",
+          "original_balance": "158000000",
+          "interest_rate": "3.11",
+          "interest_rate_text": "3.11%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "TAOT-2022-B-A-3"
+          ],
+          "seniority_rank": 3,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "TAOT-2022-B-B",
+          "class_name": "B",
+          "cusip": null,
+          "original_balance": "42500000",
+          "interest_rate": "0.00",
+          "interest_rate_text": "0.00%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "TAOT-2022-B-A-4"
+          ],
+          "seniority_rank": 4,
+          "provenance": "public"
+        }
+      ],
+      "triggers": [
+        {
+          "trigger_id": "TAOT-2022-B-delinquency",
+          "name": "Delinquency Trigger Percentage",
+          "kind": "delinquency",
+          "threshold_value": "4.65",
+          "threshold_all_percents": [
+            "4.65"
+          ],
+          "threshold_unit": "percent_of_pool",
+          "definition_text": "\u201cDelinquency Trigger Percentage\u201d will equal 4.65%.",
+          "start_offset": 304643,
+          "end_offset": 304693,
+          "copula": "will equal",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "TAOT-2022-B-overcollateralization",
+          "name": "Overcollateralization Target Amount",
+          "kind": "overcollateralization",
+          "threshold_value": "0.85",
+          "threshold_all_percents": [
+            "0.85"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201cOvercollateralization Target Amount\u201d with respect to any Payment Date is equal to approximately 0.85% of the Adjusted Pool Balance as of the Cutoff Date.",
+          "start_offset": 456583,
+          "end_offset": 456737,
+          "copula": "is",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "TAOT-2022-B-reserve",
+          "name": "Specified Reserve Account Balance",
+          "kind": "reserve",
+          "threshold_value": "0.25",
+          "threshold_all_percents": [
+            "0.25"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201cSpecified Reserve Account Balance\u201d with respect to any Payment Date will be an amount equal to the lesser of (i) $4,250,000.02 (which is approximately 0.25% of the Adjusted Pool Balance as of the Cutoff Date) and (ii) the outstanding principal amount of the Notes (after giving effect to any principal payments made on the Notes on such Payment Date).",
+          "start_offset": 467433,
+          "end_offset": 467785,
+          "copula": "will be",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "TAOT-2022-B-yield_supplement",
+          "name": "Yield Supplement Overcollateralization Amount",
+          "kind": "yield_supplement",
+          "threshold_value": null,
+          "threshold_all_percents": [],
+          "threshold_unit": "amount",
+          "definition_text": "\u201cYield Supplement Overcollateralization Amount\u201d for each Payment Date, or with respect to the Closing Date, is the aggregate amount by which the Principal Balance as of the last day of the related Collection Period or as of the Cutoff Date, as applicable, of each of the related Receivables with an APR as stated in the related contract of less than the Required Rate, other than a Defaulted Receivable, exceeds the present value, calculated using a discount rate of the Required Rate, of each scheduled payment of each such Receivable assuming such scheduled payment is made on the last day of each month and each month has 30 days.",
+          "start_offset": 472862,
+          "end_offset": 473495,
+          "copula": "is",
+          "provenance": "public"
+        }
+      ]
+    },
+    {
+      "deal_id": "SDART-2024-1",
+      "legal_name": "Santander Drive Auto Receivables Trust 2024-1",
+      "prospectus_accession": "0001193125-24-008591",
+      "prospectus_file": "d605182d424b5.htm",
+      "prospectus_filed": "2024-01-16",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/2004812/000119312524008591/d605182d424b5.htm",
+      "provenance": "public",
+      "text_length": 798602,
+      "text_sha256": "4de498542111b8189eea8d03c2cd8592fd4c90df0233d8a3764c75ed9bbc3ace",
+      "tranches": [
+        {
+          "tranche_id": "SDART-2024-1-A-1",
+          "class_name": "A-1",
+          "cusip": null,
+          "original_balance": "122320000",
+          "interest_rate": "5.630",
+          "interest_rate_text": "5.630%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [],
+          "seniority_rank": 0,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2024-1-A-2",
+          "class_name": "A-2",
+          "cusip": null,
+          "original_balance": "567000000",
+          "interest_rate": "5.71",
+          "interest_rate_text": "5.71%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2024-1-A-1"
+          ],
+          "seniority_rank": 1,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2024-1-A-3",
+          "class_name": "A-3",
+          "cusip": null,
+          "original_balance": "253120000",
+          "interest_rate": "5.25",
+          "interest_rate_text": "5.25%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2024-1-A-2"
+          ],
+          "seniority_rank": 2,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2024-1-B",
+          "class_name": "B",
+          "cusip": null,
+          "original_balance": "174650000",
+          "interest_rate": "5.23",
+          "interest_rate_text": "5.23%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2024-1-A-3"
+          ],
+          "seniority_rank": 3,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2024-1-C",
+          "class_name": "C",
+          "cusip": null,
+          "original_balance": "129570000",
+          "interest_rate": "5.45",
+          "interest_rate_text": "5.45%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2024-1-B"
+          ],
+          "seniority_rank": 4,
+          "provenance": "public"
+        },
+        {
+          "tranche_id": "SDART-2024-1-D",
+          "class_name": "D",
+          "cusip": null,
+          "original_balance": "210060000",
+          "interest_rate": "5.60",
+          "interest_rate_text": "5.60%",
+          "interest_rate_basis": "fixed",
+          "subordinate_to": [
+            "SDART-2024-1-C"
+          ],
+          "seniority_rank": 5,
+          "provenance": "public"
+        }
+      ],
+      "triggers": [
+        {
+          "trigger_id": "SDART-2024-1-delinquency",
+          "name": "Delinquency Trigger",
+          "kind": "delinquency",
+          "threshold_value": "24.00",
+          "threshold_all_percents": [
+            "24.00"
+          ],
+          "threshold_unit": "percent_of_pool",
+          "definition_text": "\u201c Delinquency Trigger \u201d means, for any payment date and the related Collection Period, 24.00%.",
+          "start_offset": 588281,
+          "end_offset": 588375,
+          "copula": "means",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "SDART-2024-1-reserve",
+          "name": "Specified Reserve Account Balance",
+          "kind": "reserve",
+          "threshold_value": "1.00",
+          "threshold_all_percents": [
+            "1.00"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201c Specified Reserve Account Balance \u201d means, for any payment date, an amount not less than 1.00% of the Pool Balance as of the cut-off date; provided, that on any payment date after the notes are no longer outstanding following payment in full of the principal of and interest on the notes, the \u201cSpecified Reserve Account Balance\u201d shall be $0.",
+          "start_offset": 601783,
+          "end_offset": 602126,
+          "copula": "means",
+          "provenance": "public"
+        },
+        {
+          "trigger_id": "SDART-2024-1-overcollateralization",
+          "name": "Targeted Overcollateralization Amount",
+          "kind": "overcollateralization",
+          "threshold_value": "15.20",
+          "threshold_all_percents": [
+            "15.20",
+            "2.00"
+          ],
+          "threshold_unit": "amount_or_percent",
+          "definition_text": "\u201c Targeted Overcollateralization Amount \u201d means, the sum of (i) 15.20% of the Pool Balance as of the last day of the related Collection Period and (ii) 2.00% of the Pool Balance as of the cut-off date.",
+          "start_offset": 602372,
+          "end_offset": 602573,
+          "copula": "means",
+          "provenance": "public"
+        }
+      ]
+    }
+  ]
+}

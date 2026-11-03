@@ -1,0 +1,2543 @@
+{
+  "generated_for": "Wave 4 \u2014 deterministic facility extraction",
+  "method": "structure + conventional-language regex over EX-10 text",
+  "note": "Offsets are recorded per value so Wave 6 can anchor a passage and \u00a78.4 verification has something to check. Fields left null are the gap an LLM pass must cover.",
+  "document_count": 62,
+  "facility_rows_implied": 97,
+  "documents": [
+    {
+      "facility_types": {
+        "revolver": 1616,
+        "term_a": 30243,
+        "term_b": 30010,
+        "term_loan": 150186
+      },
+      "commitment_amounts": [
+        {
+          "value": 1950000000,
+          "offset": 40708
+        },
+        {
+          "value": 1000000000,
+          "offset": 470033
+        },
+        {
+          "value": 500000000,
+          "offset": 485083
+        },
+        {
+          "value": 500000000,
+          "offset": 472308
+        },
+        {
+          "value": 400000000,
+          "offset": 504339
+        },
+        {
+          "value": 350000000,
+          "offset": 465977
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 364,
+        "end": 389
+      },
+      "maturity_date": {
+        "value": "December 15, 2025",
+        "offset": 235495
+      },
+      "effective_date": {
+        "value": "June 29, 2026",
+        "offset": 143
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        1.5,
+        2.0,
+        3.5,
+        4.0,
+        5.0
+      ],
+      "cik": 723612,
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "accession": "0000950142-26-001951",
+      "document": "eh260800571_ex1001.htm",
+      "filed_date": "2026-07-01",
+      "form": "8-K",
+      "text_chars": 631957
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [
+        {
+          "value": 13750000,
+          "offset": 22202
+        }
+      ],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "June 9, 2026",
+        "offset": 271
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        2.5,
+        3.25,
+        3.26,
+        3.33,
+        3.61,
+        5.8,
+        8.19
+      ],
+      "cik": 723612,
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "accession": "0000950142-26-001753",
+      "document": "eh260791788_ex1001.htm",
+      "filed_date": "2026-06-12",
+      "form": "8-K",
+      "text_chars": 228342
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [
+        {
+          "value": 25000000,
+          "offset": 100429
+        },
+        {
+          "value": 8000000,
+          "offset": 9179
+        },
+        {
+          "value": 2000000,
+          "offset": 9076
+        }
+      ],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "October 5, 2021",
+        "offset": 168115
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        1.25,
+        3.1
+      ],
+      "cik": 1534254,
+      "lei": "549300XN70JLF94XKX80",
+      "sec_name": "CION Investment Corp",
+      "accession": "0001104659-26-084247",
+      "document": "tm2620585d1_ex10-1.htm",
+      "filed_date": "2026-07-16",
+      "form": "8-K",
+      "text_chars": 197164
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [
+        {
+          "value": 28000000,
+          "offset": 8728
+        },
+        {
+          "value": 25000000,
+          "offset": 100088
+        },
+        {
+          "value": 22000000,
+          "offset": 8832
+        }
+      ],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "October 5, 2021",
+        "offset": 167748
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        1.25,
+        3.1
+      ],
+      "cik": 1534254,
+      "lei": "549300XN70JLF94XKX80",
+      "sec_name": "CION Investment Corp",
+      "accession": "0001104659-26-084247",
+      "document": "tm2620585d1_ex10-2.htm",
+      "filed_date": "2026-07-16",
+      "form": "8-K",
+      "text_chars": 196774
+    },
+    {
+      "facility_types": {
+        "revolver": 2318
+      },
+      "commitment_amounts": [
+        {
+          "value": 40000000,
+          "offset": 283906
+        },
+        {
+          "value": 40000000,
+          "offset": 277657
+        },
+        {
+          "value": 5000000,
+          "offset": 163178
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 419,
+        "end": 440
+      },
+      "maturity_date": {
+        "value": "May 15, 2030",
+        "offset": 73662
+      },
+      "effective_date": {
+        "value": "MAY 15, 2026",
+        "offset": 90
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        2.0,
+        2.5,
+        3.25,
+        4.0
+      ],
+      "cik": 1094831,
+      "lei": "2549001IGRCG4F0RLD36",
+      "sec_name": "BGC Group, Inc.",
+      "accession": "0001213900-26-057808",
+      "document": "ea029103901ex10-1.htm",
+      "filed_date": "2026-05-15",
+      "form": "8-K",
+      "text_chars": 433138
+    },
+    {
+      "facility_types": {
+        "revolver": 5028,
+        "term_loan": 62340
+      },
+      "commitment_amounts": [
+        {
+          "value": 550000000,
+          "offset": 196679
+        },
+        {
+          "value": 35000000,
+          "offset": 435348
+        },
+        {
+          "value": 35000000,
+          "offset": 435055
+        },
+        {
+          "value": 35000000,
+          "offset": 434274
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 613,
+        "end": 634
+      },
+      "maturity_date": {
+        "value": "February 14, 2029",
+        "offset": 141200
+      },
+      "effective_date": {
+        "value": "February 14, 2024",
+        "offset": 821
+      },
+      "amendment_number": {
+        "value": 4,
+        "offset": 176942
+      },
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.25,
+        1.5,
+        1.75,
+        2.0
+      ],
+      "cik": 1632970,
+      "lei": "2549004GGE2APGNT6O92",
+      "sec_name": "American Healthcare REIT, Inc.",
+      "accession": "0001193125-26-145647",
+      "document": "ahr-ex10_1.htm",
+      "filed_date": "2026-04-07",
+      "form": "8-K",
+      "text_chars": 566425
+    },
+    {
+      "facility_types": {
+        "revolver": 1891
+      },
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": {
+        "value": "June 15, 2031",
+        "offset": 118266
+      },
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        1.0,
+        1.6,
+        6.5,
+        7.67
+      ],
+      "cik": 1278027,
+      "lei": "549300TRW1LZMDJZAQ78",
+      "sec_name": "B&G Foods, Inc.",
+      "accession": "0001104659-26-070572",
+      "document": "tm2616882d1_ex10-1.htm",
+      "filed_date": "2026-06-04",
+      "form": "8-K",
+      "text_chars": 144941
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": {
+        "name": "Bank of America, N.A.",
+        "offset": 224830,
+        "end": 224851
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "July 1, 2026",
+        "offset": 203
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        2.25,
+        2.5
+      ],
+      "cik": 1389170,
+      "lei": "5493003QENHHS261UR94",
+      "sec_name": "Targa Resources Corp.",
+      "accession": "0001193125-26-296255",
+      "document": "d116740dex101.htm",
+      "filed_date": "2026-07-06",
+      "form": "8-K",
+      "text_chars": 417115
+    },
+    {
+      "facility_types": {
+        "revolver": 78104,
+        "term_a": 169686,
+        "term_b": 170223,
+        "term_loan": 45084
+      },
+      "commitment_amounts": [
+        {
+          "value": 285000000,
+          "offset": 12246
+        },
+        {
+          "value": 90000000,
+          "offset": 12340
+        },
+        {
+          "value": 55000000,
+          "offset": 12436
+        },
+        {
+          "value": 25000000,
+          "offset": 143555
+        },
+        {
+          "value": 10000000,
+          "offset": 323517
+        },
+        {
+          "value": 10000000,
+          "offset": 141293
+        }
+      ],
+      "administrative_agent": {
+        "name": "BLUE TORCH FINANCE LLC",
+        "offset": 521,
+        "end": 543
+      },
+      "maturity_date": {
+        "value": "August 29, 2029",
+        "offset": 89661
+      },
+      "effective_date": {
+        "value": "August 29, 2025",
+        "offset": 169
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        2.0,
+        3.0,
+        3.5
+      ],
+      "cik": 317788,
+      "lei": "549300D0WZR1VI2QGB24",
+      "sec_name": "Digital Turbine, Inc.",
+      "accession": "0001140361-25-033513",
+      "document": "ef20054891_ex10-1.htm",
+      "filed_date": "2025-09-02",
+      "form": "8-K",
+      "text_chars": 635365
+    },
+    {
+      "facility_types": {
+        "revolver": 10748
+      },
+      "commitment_amounts": [
+        {
+          "value": 2000000000,
+          "offset": 23569
+        },
+        {
+          "value": 150000000,
+          "offset": 216399
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 382,
+        "end": 407
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "June 10, 2026",
+        "offset": 178
+      },
+      "amendment_number": {
+        "value": 2,
+        "offset": 100
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.5,
+        1.0,
+        1.5,
+        2.0,
+        2.5,
+        3.0,
+        5.0
+      ],
+      "cik": 1375365,
+      "lei": "54930022CZO1N2UGVW07",
+      "sec_name": "Super Micro Computer, Inc.",
+      "accession": "0001193125-26-269703",
+      "document": "d45696dex101.htm",
+      "filed_date": "2026-06-12",
+      "form": "8-K",
+      "text_chars": 601136
+    },
+    {
+      "facility_types": {
+        "revolver": 8432
+      },
+      "commitment_amounts": [],
+      "administrative_agent": {
+        "name": "Citizens Bank, N.A.",
+        "offset": 638,
+        "end": 657
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "April 1, 2019",
+        "offset": 1152
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [],
+      "cik": 1538849,
+      "lei": "549300OUUC900EVOGX10",
+      "sec_name": "CrossAmerica Partners LP",
+      "accession": "0001193125-26-306100",
+      "document": "capl-ex10_1.htm",
+      "filed_date": "2026-07-16",
+      "form": "8-K",
+      "text_chars": 27966
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1538849,
+      "lei": "549300OUUC900EVOGX10",
+      "sec_name": "CrossAmerica Partners LP",
+      "accession": "0000950170-25-028082",
+      "document": "capl-ex10_19.htm",
+      "filed_date": "2025-02-27",
+      "form": "10-K",
+      "text_chars": 12192
+    },
+    {
+      "facility_types": {
+        "revolver": 88700,
+        "term_b": 2436
+      },
+      "commitment_amounts": [
+        {
+          "value": 1600000000,
+          "offset": 35345
+        },
+        {
+          "value": 1000000000,
+          "offset": 36539
+        },
+        {
+          "value": 850000000,
+          "offset": 36991
+        },
+        {
+          "value": 830000000,
+          "offset": 37558
+        },
+        {
+          "value": 585000000,
+          "offset": 38258
+        },
+        {
+          "value": 535000000,
+          "offset": 36054
+        }
+      ],
+      "administrative_agent": {
+        "name": "Morgan Stanley Senior Funding, Inc.",
+        "offset": 433,
+        "end": 468
+      },
+      "maturity_date": {
+        "value": "May 24, 2028",
+        "offset": 196291
+      },
+      "effective_date": {
+        "value": "May 29, 2026",
+        "offset": 203
+      },
+      "amendment_number": {
+        "value": 11,
+        "offset": 107
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        2.0,
+        2.5,
+        3.0,
+        5.0
+      ],
+      "cik": 1166003,
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "accession": "0001104659-26-068522",
+      "document": "tm2616097d1_ex10-1.htm",
+      "filed_date": "2026-06-01",
+      "form": "8-K",
+      "text_chars": 644277
+    },
+    {
+      "facility_types": {
+        "revolver": 73977,
+        "term_a": 1406,
+        "term_b": 85077
+      },
+      "commitment_amounts": [
+        {
+          "value": 830000000,
+          "offset": 11426
+        },
+        {
+          "value": 585000000,
+          "offset": 12126
+        },
+        {
+          "value": 500000000,
+          "offset": 10860
+        },
+        {
+          "value": 450000000,
+          "offset": 11787
+        },
+        {
+          "value": 90000000,
+          "offset": 344097
+        }
+      ],
+      "administrative_agent": {
+        "name": "Wells Fargo Bank, National Association",
+        "offset": 10408,
+        "end": 10446
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "May\u202f29, 2026",
+        "offset": 688
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.25,
+        2.0,
+        3.0,
+        5.0
+      ],
+      "cik": 1166003,
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "accession": "0001104659-26-068522",
+      "document": "tm2616097d1_ex10-2.htm",
+      "filed_date": "2026-06-01",
+      "form": "8-K",
+      "text_chars": 582774
+    },
+    {
+      "facility_types": {
+        "term_loan": 182821
+      },
+      "commitment_amounts": [],
+      "administrative_agent": {
+        "name": "PNC BANK, NATIONAL ASSOCIATION",
+        "offset": 418,
+        "end": 448
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "August 4, 2026",
+        "offset": 236
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        2.5,
+        3.01,
+        5.0,
+        7.5
+      ],
+      "cik": 1597033,
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "accession": "0001193125-26-340356",
+      "document": "d133770dex101.htm",
+      "filed_date": "2026-08-07",
+      "form": "8-K",
+      "text_chars": 634589
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "March 1, 2026",
+        "offset": 25032
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1597033,
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "accession": "0001193125-26-094301",
+      "document": "d87762dex101.htm",
+      "filed_date": "2026-03-05",
+      "form": "8-K",
+      "text_chars": 70991
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [
+        {
+          "value": 1250000000,
+          "offset": 926
+        }
+      ],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "May 23, 2019",
+        "offset": 1698
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1091667,
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "sec_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "accession": "0001104659-26-003739",
+      "document": "tm263008d1_ex10-1.htm",
+      "filed_date": "2026-01-14",
+      "form": "8-K",
+      "text_chars": 108964
+    },
+    {
+      "facility_types": {
+        "revolver": 42697,
+        "term_a": 160873,
+        "delayed_draw": 250162,
+        "term_loan": 33788
+      },
+      "commitment_amounts": [
+        {
+          "value": 2802125000,
+          "offset": 55141
+        },
+        {
+          "value": 2500000000,
+          "offset": 52836
+        },
+        {
+          "value": 2325000000,
+          "offset": 54424
+        },
+        {
+          "value": 600000000,
+          "offset": 757642
+        },
+        {
+          "value": 500000000,
+          "offset": 53575
+        },
+        {
+          "value": 500000000,
+          "offset": 53202
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMorgan Chase Bank, N.A.",
+        "offset": 472,
+        "end": 497
+      },
+      "maturity_date": {
+        "value": "January 15, 2031",
+        "offset": 237015
+      },
+      "effective_date": {
+        "value": "January 2, 2026",
+        "offset": 193
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.75,
+        2.0,
+        2.25,
+        2.75,
+        3.0,
+        3.5
+      ],
+      "cik": 885590,
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "accession": "0000950103-26-000052",
+      "document": "dp239511_ex1001.htm",
+      "filed_date": "2026-01-02",
+      "form": "8-K",
+      "text_chars": 1103982
+    },
+    {
+      "facility_types": {
+        "revolver": 2845,
+        "term_a": 224132,
+        "delayed_draw": 312457,
+        "term_loan": 68967
+      },
+      "commitment_amounts": [
+        {
+          "value": 2500000000,
+          "offset": 110654
+        },
+        {
+          "value": 2325000000,
+          "offset": 112304
+        },
+        {
+          "value": 2325000000,
+          "offset": 16292
+        },
+        {
+          "value": 637650000,
+          "offset": 969473
+        },
+        {
+          "value": 600000000,
+          "offset": 855796
+        },
+        {
+          "value": 500000000,
+          "offset": 111481
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMorgan Chase Bank, N.A.",
+        "offset": 524,
+        "end": 549
+      },
+      "maturity_date": {
+        "value": "May 10,\n2027",
+        "offset": 412529
+      },
+      "effective_date": {
+        "value": "June 26, 2025",
+        "offset": 186
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.5,
+        1.0,
+        1.75,
+        2.0,
+        2.25,
+        2.4,
+        2.65,
+        2.75
+      ],
+      "cik": 885590,
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "accession": "0001193125-25-149731",
+      "document": "d949183dex101.htm",
+      "filed_date": "2025-06-27",
+      "form": "8-K",
+      "text_chars": 1254616
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1585389,
+      "lei": "549300EC266625K12S42",
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "accession": "0001585389-26-000006",
+      "document": "ck0001585389-ex10_2.htm",
+      "filed_date": "2026-05-08",
+      "form": "10-Q",
+      "text_chars": 30307
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1585389,
+      "lei": "549300EC266625K12S42",
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "accession": "0001585389-26-000006",
+      "document": "ck0001585389-ex10_3.htm",
+      "filed_date": "2026-05-08",
+      "form": "10-Q",
+      "text_chars": 40837
+    },
+    {
+      "facility_types": {
+        "revolver": 29095,
+        "term_loan": 298559
+      },
+      "commitment_amounts": [
+        {
+          "value": 10000000,
+          "offset": 261760
+        },
+        {
+          "value": 10000000,
+          "offset": 259537
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 542,
+        "end": 563
+      },
+      "maturity_date": {
+        "value": "October 13, 2027",
+        "offset": 43665
+      },
+      "effective_date": {
+        "value": "October 13, 2022",
+        "offset": 1222
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.5,
+        2.0,
+        2.5,
+        3.5,
+        4.0,
+        5.0,
+        5.5,
+        6.0
+      ],
+      "cik": 1474098,
+      "lei": "5493004Q1NNH6JXCSI52",
+      "sec_name": "Pebblebrook Hotel Trust",
+      "accession": "0001474098-26-000011",
+      "document": "a021126debtamendmentex101.htm",
+      "filed_date": "2026-02-13",
+      "form": "8-K",
+      "text_chars": 578791
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": {
+        "name": "Bank of America, N.A.",
+        "offset": 414,
+        "end": 435
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "July\u202f31, 2026",
+        "offset": 182
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        3.5
+      ],
+      "cik": 1306830,
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "accession": "0001104659-26-090359",
+      "document": "tm2622089d1_ex10-1.htm",
+      "filed_date": "2026-08-04",
+      "form": "8-K",
+      "text_chars": 29803
+    },
+    {
+      "facility_types": {
+        "revolver": 9444,
+        "term_loan": 78537
+      },
+      "commitment_amounts": [
+        {
+          "value": 900000000,
+          "offset": 375590
+        },
+        {
+          "value": 900000000,
+          "offset": 374552
+        },
+        {
+          "value": 250000000,
+          "offset": 368758
+        },
+        {
+          "value": 200000000,
+          "offset": 37413
+        },
+        {
+          "value": 100000000,
+          "offset": 93902
+        },
+        {
+          "value": 20000000,
+          "offset": 38030
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 341,
+        "end": 362
+      },
+      "maturity_date": {
+        "value": "August 11, 2030",
+        "offset": 94208
+      },
+      "effective_date": {
+        "value": "August 11, 2025",
+        "offset": 191
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        3.5,
+        4.0,
+        7.02
+      ],
+      "cik": 1306830,
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "accession": "0001104659-25-076253",
+      "document": "tm2523061d1_ex10-1.htm",
+      "filed_date": "2025-08-11",
+      "form": "8-K",
+      "text_chars": 504416
+    },
+    {
+      "facility_types": {
+        "revolver": 39009,
+        "term_loan": 311388
+      },
+      "commitment_amounts": [
+        {
+          "value": 180000000,
+          "offset": 32755
+        },
+        {
+          "value": 25000000,
+          "offset": 480418
+        },
+        {
+          "value": 20000000,
+          "offset": 458262
+        },
+        {
+          "value": 20000000,
+          "offset": 457415
+        },
+        {
+          "value": 15000000,
+          "offset": 468494
+        },
+        {
+          "value": 15000000,
+          "offset": 460349
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 428,
+        "end": 449
+      },
+      "maturity_date": {
+        "value": "August 13, 2026",
+        "offset": 133691
+      },
+      "effective_date": {
+        "value": "April 16, 2026",
+        "offset": 210
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.71,
+        1.0,
+        1.2,
+        2.1,
+        3.0,
+        3.5,
+        5.0
+      ],
+      "cik": 727510,
+      "lei": "529900VN48L8QCMVPV36",
+      "sec_name": "Viskase Holdings, Inc.",
+      "accession": "0001104659-26-046064",
+      "document": "tm2612273d1_ex10-1.htm",
+      "filed_date": "2026-04-21",
+      "form": "8-K",
+      "text_chars": 660847
+    },
+    {
+      "facility_types": {
+        "revolver": 55011,
+        "term_loan": 3483
+      },
+      "commitment_amounts": [
+        {
+          "value": 4800000000,
+          "offset": 159065
+        },
+        {
+          "value": 2500000000,
+          "offset": 225561
+        },
+        {
+          "value": 1500000000,
+          "offset": 475492
+        },
+        {
+          "value": 1500000000,
+          "offset": 225063
+        },
+        {
+          "value": 1000000000,
+          "offset": 2022
+        },
+        {
+          "value": 800000000,
+          "offset": 226082
+        }
+      ],
+      "administrative_agent": {
+        "name": "GOLDMAN SACHS BANK USA",
+        "offset": 441,
+        "end": 463
+      },
+      "maturity_date": {
+        "value": "February 27, 2029",
+        "offset": 203750
+      },
+      "effective_date": {
+        "value": "April 17, 2026",
+        "offset": 174
+      },
+      "amendment_number": {
+        "value": 21,
+        "offset": 108
+      },
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        4.0,
+        4.5,
+        5.0,
+        7.25,
+        7.5
+      ],
+      "cik": 1260221,
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "accession": "0001193125-26-161564",
+      "document": "d108525dex101.htm",
+      "filed_date": "2026-04-17",
+      "form": "8-K",
+      "text_chars": 598981
+    },
+    {
+      "facility_types": {
+        "revolver": 52576,
+        "term_loan": 3416
+      },
+      "commitment_amounts": [
+        {
+          "value": 4800000000,
+          "offset": 156293
+        },
+        {
+          "value": 2500000000,
+          "offset": 222817
+        },
+        {
+          "value": 1500000000,
+          "offset": 472302
+        },
+        {
+          "value": 1500000000,
+          "offset": 222305
+        },
+        {
+          "value": 800000000,
+          "offset": 223320
+        },
+        {
+          "value": 800000000,
+          "offset": 2022
+        }
+      ],
+      "administrative_agent": {
+        "name": "GOLDMAN SACHS BANK USA",
+        "offset": 443,
+        "end": 465
+      },
+      "maturity_date": {
+        "value": "February 27, 2029",
+        "offset": 200979
+      },
+      "effective_date": {
+        "value": "February 13, 2026",
+        "offset": 173
+      },
+      "amendment_number": {
+        "value": 20,
+        "offset": 107
+      },
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        4.0,
+        4.5,
+        5.0,
+        7.25,
+        7.5
+      ],
+      "cik": 1260221,
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "accession": "0001193125-26-051416",
+      "document": "d83933dex101.htm",
+      "filed_date": "2026-02-13",
+      "form": "8-K",
+      "text_chars": 616019
+    },
+    {
+      "facility_types": {
+        "term_a": 290729
+      },
+      "commitment_amounts": [
+        {
+          "value": 7000000,
+          "offset": 37053
+        }
+      ],
+      "administrative_agent": {
+        "name": "WELLS FARGO BANK, NATIONAL ASSOCIATION",
+        "offset": 160,
+        "end": 198
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "NOVEMBER 22, 2024",
+        "offset": 126
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1008654,
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "sec_name": "TUPPERWARE BRANDS CORP",
+      "accession": "0001193125-24-268115",
+      "document": "d869890dex101.htm",
+      "filed_date": "2024-11-29",
+      "form": "8-K",
+      "text_chars": 358664
+    },
+    {
+      "facility_types": {
+        "revolver": 17693,
+        "term_loan": 37394
+      },
+      "commitment_amounts": [
+        {
+          "value": 100000000,
+          "offset": 420971
+        },
+        {
+          "value": 25000000,
+          "offset": 420774
+        },
+        {
+          "value": 1000000,
+          "offset": 424902
+        }
+      ],
+      "administrative_agent": {
+        "name": "KEYBANK NATIONAL ASSOCIATION",
+        "offset": 487,
+        "end": 515
+      },
+      "maturity_date": {
+        "value": "November 16, 2026",
+        "offset": 228806
+      },
+      "effective_date": {
+        "value": "November 16, 2021",
+        "offset": 931
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.5,
+        1.5,
+        3.0,
+        4.0,
+        6.67
+      ],
+      "cik": 1593222,
+      "lei": "5493003J7157VP25NL57",
+      "sec_name": "City Office REIT, Inc.",
+      "accession": "0001193125-25-181880",
+      "document": "d927791dex101.htm",
+      "filed_date": "2025-08-15",
+      "form": "8-K",
+      "text_chars": 565332
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "February 8, 2022",
+        "offset": 13753
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1593222,
+      "lei": "5493003J7157VP25NL57",
+      "sec_name": "City Office REIT, Inc.",
+      "accession": "0001193125-25-163765",
+      "document": "d923147dex101.htm",
+      "filed_date": "2025-07-24",
+      "form": "8-K",
+      "text_chars": 195308
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "September 22, 2025",
+        "offset": 163
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1398987,
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "accession": "0001193125-25-210057",
+      "document": "d26146dex101.htm",
+      "filed_date": "2025-09-22",
+      "form": "8-K",
+      "text_chars": 34259
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "September 22, 2025",
+        "offset": 163
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1398987,
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "accession": "0001193125-25-210057",
+      "document": "d26146dex102.htm",
+      "filed_date": "2025-09-22",
+      "form": "8-K",
+      "text_chars": 35594
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1136869,
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "accession": "0001193125-26-335044",
+      "document": "zbh-ex10_1.htm",
+      "filed_date": "2026-08-05",
+      "form": "10-Q",
+      "text_chars": 69479
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1136869,
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "accession": "0001193125-26-335044",
+      "document": "zbh-ex10_2.htm",
+      "filed_date": "2026-08-05",
+      "form": "10-Q",
+      "text_chars": 35411
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1005210,
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "sec_name": "SUBURBAN PROPANE PARTNERS LP",
+      "accession": "0001193125-25-298630",
+      "document": "sph-ex10_6.htm",
+      "filed_date": "2025-11-26",
+      "form": "10-K",
+      "text_chars": 40902
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1092796,
+      "lei": "5493004PFHUPOR1PWN79",
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "accession": "0001193125-26-274254",
+      "document": "swbi-ex10_107.htm",
+      "filed_date": "2026-06-17",
+      "form": "10-K",
+      "text_chars": 43198
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1092796,
+      "lei": "5493004PFHUPOR1PWN79",
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "accession": "0001193125-26-274254",
+      "document": "swbi-ex10_130.htm",
+      "filed_date": "2026-06-17",
+      "form": "10-K",
+      "text_chars": 22358
+    },
+    {
+      "facility_types": {
+        "revolver": 106726,
+        "term_b": 111815,
+        "delayed_draw": 74868
+      },
+      "commitment_amounts": [
+        {
+          "value": 500000000,
+          "offset": 14079
+        },
+        {
+          "value": 35000000,
+          "offset": 464621
+        },
+        {
+          "value": 35000000,
+          "offset": 433255
+        },
+        {
+          "value": 35000000,
+          "offset": 421818
+        },
+        {
+          "value": 35000000,
+          "offset": 417435
+        },
+        {
+          "value": 30000000,
+          "offset": 476762
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 217,
+        "end": 242
+      },
+      "maturity_date": {
+        "value": "July 29, 2031",
+        "offset": 133682
+      },
+      "effective_date": {
+        "value": "July 29, 2026",
+        "offset": 126
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        2.0,
+        3.0,
+        3.75,
+        4.25
+      ],
+      "cik": 1078271,
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "accession": "0001193125-26-324888",
+      "document": "extr-ex10_1.htm",
+      "filed_date": "2026-07-30",
+      "form": "8-K",
+      "text_chars": 628927
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1078271,
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "accession": "0001193125-26-029334",
+      "document": "extr-ex10_1.htm",
+      "filed_date": "2026-01-29",
+      "form": "10-Q",
+      "text_chars": 125160
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 910406,
+      "lei": "5493000S8QXWHLIXDP75",
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "accession": "0001193125-26-041911",
+      "document": "hain-ex10_2.htm",
+      "filed_date": "2026-02-09",
+      "form": "10-Q",
+      "text_chars": 51307
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 910406,
+      "lei": "5493000S8QXWHLIXDP75",
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "accession": "0001193125-26-041911",
+      "document": "hain-ex10_3.htm",
+      "filed_date": "2026-02-09",
+      "form": "10-Q",
+      "text_chars": 57415
+    },
+    {
+      "facility_types": {
+        "revolver": 30194,
+        "term_a": 117704,
+        "term_b": 117750,
+        "term_loan": 15444
+      },
+      "commitment_amounts": [
+        {
+          "value": 70000000,
+          "offset": 30169
+        },
+        {
+          "value": 35000000,
+          "offset": 30089
+        },
+        {
+          "value": 25000000,
+          "offset": 30267
+        },
+        {
+          "value": 15000000,
+          "offset": 204815
+        },
+        {
+          "value": 10000000,
+          "offset": 30505
+        },
+        {
+          "value": 10000000,
+          "offset": 3027
+        }
+      ],
+      "administrative_agent": {
+        "name": "TCW",
+        "offset": 930,
+        "end": 933
+      },
+      "maturity_date": {
+        "value": "June 24, 2029",
+        "offset": 116405
+      },
+      "effective_date": {
+        "value": "December 19, 2024",
+        "offset": 184
+      },
+      "amendment_number": {
+        "value": 1,
+        "offset": 81
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        2.5,
+        2.75,
+        3.75,
+        4.0,
+        5.0,
+        5.25
+      ],
+      "cik": 716643,
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "accession": "0001193125-24-281618",
+      "document": "d761586dex101.htm",
+      "filed_date": "2024-12-19",
+      "form": "8-K",
+      "text_chars": 632522
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [
+        {
+          "value": 15000000,
+          "offset": 34366
+        }
+      ],
+      "administrative_agent": {
+        "name": "TCW",
+        "offset": 1805,
+        "end": 1808
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "December 19, 2024",
+        "offset": 1410
+      },
+      "amendment_number": {
+        "value": 1,
+        "offset": 1372
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.13
+      ],
+      "cik": 716643,
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "accession": "0001193125-24-281618",
+      "document": "d761586dex102.htm",
+      "filed_date": "2024-12-19",
+      "form": "8-K",
+      "text_chars": 51835
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "October 13, 2013",
+        "offset": 558
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        4.8
+      ],
+      "cik": 1059262,
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "sec_name": "SP Plus Corp",
+      "accession": "0000950170-23-058158",
+      "document": "sp-ex10_1.htm",
+      "filed_date": "2023-11-02",
+      "form": "10-Q",
+      "text_chars": 12139
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1059262,
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "sec_name": "SP Plus Corp",
+      "accession": "0000950170-23-058158",
+      "document": "sp-ex10_2.htm",
+      "filed_date": "2023-11-02",
+      "form": "10-Q",
+      "text_chars": 5405
+    },
+    {
+      "facility_types": {
+        "revolver": 378
+      },
+      "commitment_amounts": [
+        {
+          "value": 300000000,
+          "offset": 287482
+        },
+        {
+          "value": 300000000,
+          "offset": 285808
+        },
+        {
+          "value": 1000000,
+          "offset": 143103
+        },
+        {
+          "value": 1000000,
+          "offset": 142726
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 253,
+        "end": 278
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "March 3, 2026",
+        "offset": 126
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0
+      ],
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "accession": "0001193125-26-088484",
+      "document": "d105148dex101.htm",
+      "filed_date": "2026-03-03",
+      "form": "8-K",
+      "text_chars": 425444
+    },
+    {
+      "facility_types": {
+        "revolver": 114067,
+        "term_b": 34341,
+        "term_loan": 1353
+      },
+      "commitment_amounts": [
+        {
+          "value": 2200000000,
+          "offset": 29804
+        },
+        {
+          "value": 2086505256,
+          "offset": 1458
+        },
+        {
+          "value": 500000000,
+          "offset": 514797
+        },
+        {
+          "value": 180000000,
+          "offset": 512702
+        },
+        {
+          "value": 125000000,
+          "offset": 508372
+        },
+        {
+          "value": 120000000,
+          "offset": 514495
+        }
+      ],
+      "administrative_agent": {
+        "name": "CITIBANK, N.A.",
+        "offset": 915,
+        "end": 929
+      },
+      "maturity_date": {
+        "value": "March 2, 2027",
+        "offset": 223516
+      },
+      "effective_date": {
+        "value": "August 12, 2025",
+        "offset": 166
+      },
+      "amendment_number": {
+        "value": 6,
+        "offset": 100
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        1.35,
+        2.0,
+        2.8,
+        3.3,
+        6.71,
+        9.05
+      ],
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "accession": "0001193125-25-178982",
+      "document": "d25970dex101.htm",
+      "filed_date": "2025-08-12",
+      "form": "8-K",
+      "text_chars": 703369
+    },
+    {
+      "facility_types": {
+        "term_loan": 149
+      },
+      "commitment_amounts": [
+        {
+          "value": 600000000,
+          "offset": 102296
+        },
+        {
+          "value": 300000000,
+          "offset": 113754
+        },
+        {
+          "value": 200000000,
+          "offset": 146721
+        },
+        {
+          "value": 200000000,
+          "offset": 143446
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 555,
+        "end": 576
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "July 7, 2026",
+        "offset": 468
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.75,
+        2.0,
+        3.25,
+        3.5,
+        5.0,
+        8.5
+      ],
+      "cik": 15615,
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "accession": "0001193125-26-297552",
+      "document": "d77261dex101.htm",
+      "filed_date": "2026-07-07",
+      "form": "8-K",
+      "text_chars": 419200
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 424,
+        "end": 445
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "July 7, 2026",
+        "offset": 219
+      },
+      "amendment_number": {
+        "value": 1,
+        "offset": 100
+      },
+      "is_amended_and_restated": true,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 15615,
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "accession": "0001193125-26-297552",
+      "document": "d77261dex102.htm",
+      "filed_date": "2026-07-07",
+      "form": "8-K",
+      "text_chars": 19191
+    },
+    {
+      "facility_types": {
+        "revolver": 15705,
+        "term_a": 258
+      },
+      "commitment_amounts": [
+        {
+          "value": 500000000,
+          "offset": 572656
+        },
+        {
+          "value": 300000000,
+          "offset": 564529
+        },
+        {
+          "value": 150000000,
+          "offset": 563800
+        },
+        {
+          "value": 125000000,
+          "offset": 566969
+        },
+        {
+          "value": 100000000,
+          "offset": 554595
+        },
+        {
+          "value": 83983047,
+          "offset": 1034797
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 577,
+        "end": 598
+      },
+      "maturity_date": {
+        "value": "April\u202f3, 2030",
+        "offset": 142862
+      },
+      "effective_date": {
+        "value": "April 3, 2025",
+        "offset": 407
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.25,
+        2.75,
+        3.0,
+        3.25
+      ],
+      "cik": 1046102,
+      "lei": "5493002H8U24DJXQ4886",
+      "sec_name": "RB GLOBAL INC.",
+      "accession": "0001104659-25-031884",
+      "document": "tm2511351d1_ex10-1.htm",
+      "filed_date": "2025-04-04",
+      "form": "8-K",
+      "text_chars": 1282728
+    },
+    {
+      "facility_types": {
+        "revolver": 36919
+      },
+      "commitment_amounts": [
+        {
+          "value": 1000000000,
+          "offset": 524699
+        },
+        {
+          "value": 500000000,
+          "offset": 543411
+        },
+        {
+          "value": 300000000,
+          "offset": 354258
+        },
+        {
+          "value": 250000000,
+          "offset": 524872
+        },
+        {
+          "value": 250000000,
+          "offset": 361541
+        },
+        {
+          "value": 200000000,
+          "offset": 373976
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMorgan Chase Bank, N.A.",
+        "offset": 464,
+        "end": 489
+      },
+      "maturity_date": {
+        "value": "September 17, 2026",
+        "offset": 120922
+      },
+      "effective_date": {
+        "value": "January 23, 2026",
+        "offset": 102
+      },
+      "amendment_number": {
+        "value": 6,
+        "offset": 88
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        2.0,
+        3.5,
+        4.0
+      ],
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "accession": "0001193125-26-021794",
+      "document": "payx-ex10_1.htm",
+      "filed_date": "2026-01-26",
+      "form": "8-K",
+      "text_chars": 614614
+    },
+    {
+      "facility_types": {
+        "revolver": 37421
+      },
+      "commitment_amounts": [
+        {
+          "value": 1000000000,
+          "offset": 545291
+        },
+        {
+          "value": 1000000000,
+          "offset": 514726
+        },
+        {
+          "value": 1000000000,
+          "offset": 26508
+        },
+        {
+          "value": 300000000,
+          "offset": 355926
+        },
+        {
+          "value": 250000000,
+          "offset": 526778
+        },
+        {
+          "value": 250000000,
+          "offset": 363193
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMorgan Chase Bank, N.A.",
+        "offset": 462,
+        "end": 487
+      },
+      "maturity_date": {
+        "value": "April 12, 2029",
+        "offset": 121589
+      },
+      "effective_date": {
+        "value": "January 23, 2026",
+        "offset": 102
+      },
+      "amendment_number": {
+        "value": 4,
+        "offset": 88
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        2.0,
+        3.5,
+        4.0
+      ],
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "accession": "0001193125-26-021794",
+      "document": "payx-ex10_2.htm",
+      "filed_date": "2026-01-26",
+      "form": "8-K",
+      "text_chars": 615944
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": {
+        "value": "February 23, 2026",
+        "offset": 134
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 1489096,
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "accession": "0001104659-26-018826",
+      "document": "tm267070d1_ex10-1.htm",
+      "filed_date": "2026-02-24",
+      "form": "8-K",
+      "text_chars": 38034
+    },
+    {
+      "facility_types": {
+        "revolver": 1385,
+        "term_a": 1241,
+        "term_loan": 161664
+      },
+      "commitment_amounts": [
+        {
+          "value": 62500000,
+          "offset": 461217
+        },
+        {
+          "value": 62500000,
+          "offset": 459024
+        },
+        {
+          "value": 62500000,
+          "offset": 454180
+        },
+        {
+          "value": 40000000,
+          "offset": 491750
+        },
+        {
+          "value": 35000000,
+          "offset": 489876
+        },
+        {
+          "value": 35000000,
+          "offset": 460180
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 559,
+        "end": 584
+      },
+      "maturity_date": {
+        "value": "July 24, 2030",
+        "offset": 188288
+      },
+      "effective_date": {
+        "value": "July 24, 2025",
+        "offset": 627
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": true,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        1.25,
+        2.0,
+        3.0,
+        3.5
+      ],
+      "cik": 1489096,
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "accession": "0001104659-25-071742",
+      "document": "tm2521966d1_ex10-1.htm",
+      "filed_date": "2025-07-29",
+      "form": "8-K",
+      "text_chars": 639287
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 717423,
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "sec_name": "MURPHY OIL CORP",
+      "accession": "0001628280-26-011709",
+      "document": "mur-20251231xex1032.htm",
+      "filed_date": "2026-02-25",
+      "form": "10-K",
+      "text_chars": 14382
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 717423,
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "sec_name": "MURPHY OIL CORP",
+      "accession": "0001628280-26-011709",
+      "document": "mur-20251231xex1033.htm",
+      "filed_date": "2026-02-25",
+      "form": "10-K",
+      "text_chars": 13486
+    },
+    {
+      "facility_types": {
+        "revolver": 14753,
+        "term_loan": 1713
+      },
+      "commitment_amounts": [
+        {
+          "value": 115139160,
+          "offset": 16688
+        },
+        {
+          "value": 115139160,
+          "offset": 16688
+        }
+      ],
+      "administrative_agent": {
+        "name": "Eclipse Business Capital LLC",
+        "offset": 13504,
+        "end": 13532
+      },
+      "maturity_date": {
+        "value": "April 30, 2029",
+        "offset": 112722
+      },
+      "effective_date": {
+        "value": "January 28, 2025",
+        "offset": 155
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [
+        1.0,
+        2.0,
+        2.5,
+        3.0,
+        5.0,
+        7.5
+      ],
+      "cik": 1411688,
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "accession": "0001104659-25-007267",
+      "document": "tm254690d1_ex10-1.htm",
+      "filed_date": "2025-01-29",
+      "form": "8-K",
+      "text_chars": 516119
+    },
+    {
+      "facility_types": {
+        "revolver": 11523,
+        "term_loan": 176638
+      },
+      "commitment_amounts": [
+        {
+          "value": 140000000,
+          "offset": 11586
+        }
+      ],
+      "administrative_agent": {
+        "name": "ECLIPSE BUSINESS CAPITAL LLC",
+        "offset": 269,
+        "end": 297
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "January 28, 2025",
+        "offset": 161
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        0.5,
+        1.0,
+        2.0,
+        3.0,
+        4.25,
+        5.0,
+        7.5
+      ],
+      "cik": 1411688,
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "accession": "0001104659-25-007267",
+      "document": "tm254690d1_ex10-2.htm",
+      "filed_date": "2025-01-29",
+      "form": "8-K",
+      "text_chars": 545662
+    },
+    {
+      "facility_types": {},
+      "commitment_amounts": [],
+      "administrative_agent": null,
+      "maturity_date": null,
+      "effective_date": null,
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": false,
+      "pricing_grid_tiers": [],
+      "cik": 78749,
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "accession": "0000950170-25-007222",
+      "document": "agys-ex10_1.htm",
+      "filed_date": "2025-01-21",
+      "form": "10-Q",
+      "text_chars": 20552
+    },
+    {
+      "facility_types": {
+        "revolver": 13515
+      },
+      "commitment_amounts": [
+        {
+          "value": 75000000,
+          "offset": 9935
+        },
+        {
+          "value": 40000000,
+          "offset": 366061
+        },
+        {
+          "value": 15000000,
+          "offset": 352814
+        },
+        {
+          "value": 10000000,
+          "offset": 366818
+        },
+        {
+          "value": 10000000,
+          "offset": 357111
+        },
+        {
+          "value": 10000000,
+          "offset": 355521
+        }
+      ],
+      "administrative_agent": {
+        "name": "BANK OF AMERICA, N.A.",
+        "offset": 251,
+        "end": 272
+      },
+      "maturity_date": {
+        "value": "August 16, 2027",
+        "offset": 93270
+      },
+      "effective_date": {
+        "value": "August 16, 2024",
+        "offset": 114
+      },
+      "amendment_number": null,
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        2.0,
+        3.0,
+        3.5
+      ],
+      "cik": 78749,
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "accession": "0000950170-24-117726",
+      "document": "agys-ex10_1.htm",
+      "filed_date": "2024-10-28",
+      "form": "10-Q",
+      "text_chars": 522340
+    },
+    {
+      "facility_types": {
+        "revolver": 23958
+      },
+      "commitment_amounts": [
+        {
+          "value": 1000000000,
+          "offset": 459204
+        },
+        {
+          "value": 1000000000,
+          "offset": 419220
+        },
+        {
+          "value": 1000000000,
+          "offset": 13571
+        },
+        {
+          "value": 500000000,
+          "offset": 436373
+        },
+        {
+          "value": 250000000,
+          "offset": 288885
+        },
+        {
+          "value": 150000000,
+          "offset": 436555
+        }
+      ],
+      "administrative_agent": {
+        "name": "JPMORGAN CHASE BANK, N.A.",
+        "offset": 363,
+        "end": 388
+      },
+      "maturity_date": {
+        "value": "July 31, 2024",
+        "offset": 87948
+      },
+      "effective_date": {
+        "value": "July 31, 2019",
+        "offset": 235
+      },
+      "amendment_number": {
+        "value": 1,
+        "offset": 65713
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        2.0,
+        3.5,
+        4.0
+      ],
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "accession": "0000723531-19-000036",
+      "document": "payx-20190731xex10_1.htm",
+      "filed_date": "2019-08-01",
+      "form": "8-K",
+      "text_chars": 537589
+    },
+    {
+      "facility_types": {
+        "revolver": 102813,
+        "term_loan": 3916
+      },
+      "commitment_amounts": [
+        {
+          "value": 2200000000,
+          "offset": 26909
+        },
+        {
+          "value": 600000000,
+          "offset": 471294
+        },
+        {
+          "value": 180000000,
+          "offset": 472249
+        },
+        {
+          "value": 125000000,
+          "offset": 468119
+        },
+        {
+          "value": 120000000,
+          "offset": 474027
+        },
+        {
+          "value": 75000000,
+          "offset": 507188
+        }
+      ],
+      "administrative_agent": {
+        "name": "CITIBANK, N.A.",
+        "offset": 246,
+        "end": 260
+      },
+      "maturity_date": null,
+      "effective_date": {
+        "value": "March 2, 2020",
+        "offset": 338
+      },
+      "amendment_number": {
+        "value": 5,
+        "offset": 218109
+      },
+      "is_amended_and_restated": false,
+      "syndicated": true,
+      "pricing_grid_tiers": [
+        1.0,
+        2.0,
+        2.17,
+        2.8,
+        3.3,
+        5.0
+      ],
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "accession": "0001628280-20-002714",
+      "document": "exhibitno101termloancred.htm",
+      "filed_date": "2020-03-03",
+      "form": "8-K",
+      "text_chars": 648363
+    }
+  ]
+}

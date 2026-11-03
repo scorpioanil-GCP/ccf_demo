@@ -1,0 +1,454 @@
+{
+  "generated_at": "2026-08-22T18:43:40+00:00",
+  "generated_for": "credit-memo-context \u00a7D step 7 / \u00a7F5 / \u00a7F6",
+  "weights": {
+    "unresolved_passage_anchor": 0.3,
+    "peer_set_thinness": 0.25,
+    "signal_staleness": 0.15,
+    "inherited_prerequisite_debt": 0.3
+  },
+  "staleness_horizon_days": 730,
+  "note": "every component is measured from loaded data; there is no designed_debt anywhere in this wave, and the weights were not tuned to produce a comfortable breach count",
+  "obligors": [
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "legal_name": "Container Store Group, Inc.",
+      "sic": "5700",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1806,
+        "signal_staleness": 0.9493,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.4875,
+      "definition_refs_unverified": 11,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "legal_name": "CION Investment Corp",
+      "sic": "",
+      "components": {
+        "unresolved_passage_anchor": 0.1667,
+        "peer_set_thinness": 1.0,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.4
+      },
+      "aggregate_debt": 0.4309,
+      "definition_refs_unverified": 1,
+      "definition_refs_verified": 5,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": false,
+        "collateral": false,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "legal_name": "AGILYSYS INC",
+      "sic": "7373",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1968,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.2
+      },
+      "aggregate_debt": 0.4201,
+      "definition_refs_unverified": 3,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": false,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "legal_name": "Pebblebrook Hotel Trust",
+      "sic": "6798",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1891,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.2
+      },
+      "aggregate_debt": 0.4182,
+      "definition_refs_unverified": 3,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": false,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "legal_name": "City Office REIT, Inc.",
+      "sic": "6798",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1891,
+        "signal_staleness": 0.4466,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.4143,
+      "definition_refs_unverified": 3,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "legal_name": "BGC Group, Inc.",
+      "sic": "6200",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.2172,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3652,
+      "definition_refs_unverified": 4,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "legal_name": "Sabre Corp",
+      "sic": "7370",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1862,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3574,
+      "definition_refs_unverified": 3,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "legal_name": "Viskase Holdings, Inc.",
+      "sic": "2836",
+      "components": {
+        "unresolved_passage_anchor": 1.0,
+        "peer_set_thinness": 0.1611,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3512,
+      "definition_refs_unverified": 4,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300WRECW11X94UB57",
+      "legal_name": "EXTREME NETWORKS INC",
+      "sic": "3576",
+      "components": {
+        "unresolved_passage_anchor": 0.9333,
+        "peer_set_thinness": 0.1486,
+        "signal_staleness": 0.1973,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3467,
+      "definition_refs_unverified": 14,
+      "definition_refs_verified": 1,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "legal_name": "XPO, Inc.",
+      "sic": "4700",
+      "components": {
+        "unresolved_passage_anchor": 0.9,
+        "peer_set_thinness": 0.2434,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3417,
+      "definition_refs_unverified": 9,
+      "definition_refs_verified": 1,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "legal_name": "Thermon Group Holdings, Inc.",
+      "sic": "3620",
+      "components": {
+        "unresolved_passage_anchor": 0.7049,
+        "peer_set_thinness": 0.237,
+        "signal_staleness": 0.1973,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.3003,
+      "definition_refs_unverified": 43,
+      "definition_refs_verified": 18,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "legal_name": "Vertiv Holdings Co",
+      "sic": "3679",
+      "components": {
+        "unresolved_passage_anchor": 0.8,
+        "peer_set_thinness": 0.1323,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.284,
+      "definition_refs_unverified": 12,
+      "definition_refs_verified": 3,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "legal_name": "PAYCHEX INC",
+      "sic": "8700",
+      "components": {
+        "unresolved_passage_anchor": 0.4375,
+        "peer_set_thinness": 0.2222,
+        "signal_staleness": 0.1137,
+        "inherited_prerequisite_debt": 0.2
+      },
+      "aggregate_debt": 0.2639,
+      "definition_refs_unverified": 7,
+      "definition_refs_verified": 9,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": false,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "legal_name": "AVIS BUDGET GROUP, INC.",
+      "sic": "7510",
+      "components": {
+        "unresolved_passage_anchor": 0.641,
+        "peer_set_thinness": 0.1481,
+        "signal_staleness": 0.1973,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.2589,
+      "definition_refs_unverified": 50,
+      "definition_refs_verified": 28,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "legal_name": "RB GLOBAL INC.",
+      "sic": "7389",
+      "components": {
+        "unresolved_passage_anchor": 0.6,
+        "peer_set_thinness": 0.1703,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.2335,
+      "definition_refs_unverified": 3,
+      "definition_refs_verified": 2,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "legal_name": "MASTEC INC",
+      "sic": "1623",
+      "components": {
+        "unresolved_passage_anchor": 0.4,
+        "peer_set_thinness": 0.2331,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.1892,
+      "definition_refs_unverified": 2,
+      "definition_refs_verified": 3,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "legal_name": "B&G Foods, Inc.",
+      "sic": "2000",
+      "components": {
+        "unresolved_passage_anchor": 0.0,
+        "peer_set_thinness": 0.1616,
+        "signal_staleness": 0.0671,
+        "inherited_prerequisite_debt": 0.4
+      },
+      "aggregate_debt": 0.1705,
+      "definition_refs_unverified": 0,
+      "definition_refs_verified": 0,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": false,
+        "collateral": false,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "legal_name": "Bausch Health Companies Inc.",
+      "sic": "2834",
+      "components": {
+        "unresolved_passage_anchor": 0.3571,
+        "peer_set_thinness": 0.1692,
+        "signal_staleness": 0.0726,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.1603,
+      "definition_refs_unverified": 5,
+      "definition_refs_verified": 9,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "legal_name": "TransDigm Group INC",
+      "sic": "3728",
+      "components": {
+        "unresolved_passage_anchor": 0.2857,
+        "peer_set_thinness": 0.1726,
+        "signal_staleness": 0.0767,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.1404,
+      "definition_refs_unverified": 4,
+      "definition_refs_verified": 10,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "legal_name": "Super Micro Computer, Inc.",
+      "sic": "3571",
+      "components": {
+        "unresolved_passage_anchor": 0.0,
+        "peer_set_thinness": 0.1875,
+        "signal_staleness": 0.1973,
+        "inherited_prerequisite_debt": 0.0
+      },
+      "aggregate_debt": 0.0765,
+      "definition_refs_unverified": 0,
+      "definition_refs_verified": 1,
+      "prerequisite_coverage": {
+        "spread": true,
+        "family": true,
+        "exposure": true,
+        "collateral": true,
+        "covenant": true
+      },
+      "provenance": "derived"
+    }
+  ]
+}

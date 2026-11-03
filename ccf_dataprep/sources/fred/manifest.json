@@ -1,0 +1,57 @@
+{
+  "source": "fred",
+  "description": "ICE BofA US corporate OAS by rating band \u2014 market factor",
+  "licence": "FRED/St. Louis Fed redistribution terms; ICE BofA index data",
+  "fetches": [
+    {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLC0A2CAA",
+      "path": "sources/fred/BAMLC0A2CAA.csv",
+      "retrieved_at": "2026-08-19T21:58:48+00:00",
+      "sha256": "b8c7db2a4b0211993e250b0953ccd82e3d6130a0c5af25475740572da133e3ed",
+      "bytes": 12701,
+      "http_status": 200,
+      "content_type": "application/csv",
+      "notes": ""
+    },
+    {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLC0A3CA",
+      "path": "sources/fred/BAMLC0A3CA.csv",
+      "retrieved_at": "2026-08-19T21:58:48+00:00",
+      "sha256": "8395ff8aa68c4235845c4ddbf2d6a3ff46dd0eb26e17f5798f2b2a40ef1a8769",
+      "bytes": 12700,
+      "http_status": 200,
+      "content_type": "application/csv",
+      "notes": ""
+    },
+    {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLC0A4CBBB",
+      "path": "sources/fred/BAMLC0A4CBBB.csv",
+      "retrieved_at": "2026-08-19T21:58:49+00:00",
+      "sha256": "07c411fbbe448befaca56ae39d778165dc1ce060fc470e1b38184fba441e3193",
+      "bytes": 12702,
+      "http_status": 200,
+      "content_type": "application/csv",
+      "notes": ""
+    },
+    {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A1HYBB",
+      "path": "sources/fred/BAMLH0A1HYBB.csv",
+      "retrieved_at": "2026-08-19T21:58:49+00:00",
+      "sha256": "53e834ca1b10eac14a3ca223e79ebfe9960e4c8423d1c5b1e83c69301efc676f",
+      "bytes": 12702,
+      "http_status": 200,
+      "content_type": "application/csv",
+      "notes": ""
+    },
+    {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A2HYB",
+      "path": "sources/fred/BAMLH0A2HYB.csv",
+      "retrieved_at": "2026-08-19T21:58:50+00:00",
+      "sha256": "56a87ce48dea175ed86304d71e1c3254c2dc4043995b3686ef34df6005fe9d12",
+      "bytes": 12701,
+      "http_status": 200,
+      "content_type": "application/csv",
+      "notes": ""
+    }
+  ]
+}

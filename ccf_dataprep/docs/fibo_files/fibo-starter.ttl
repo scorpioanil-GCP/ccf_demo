@@ -1,0 +1,65 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+@prefix fibo-fnd-rel-rel: <https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/> .
+@prefix fibo-fnd-pty-pty: <https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/> .
+@prefix fibo-fnd-aap-agt: <https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/Agents/> .
+@prefix fibo-fnd-law-lcap: <https://spec.edmcouncil.org/fibo/ontology/FND/Law/LegalCapacity/> .
+@prefix fibo-be-le-lp: <https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/> .
+@prefix fibo-be-le-fbo: <https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/FormalBusinessOrganizations/> .
+@prefix fibo-be-corp-corp: <https://spec.edmcouncil.org/fibo/ontology/BE/Corporations/Corporations/> .
+@prefix fibo-be-oac-cown: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Ownership/> .
+@prefix fibo-be-oac-cctl: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Control/> .
+
+#################################################################
+# Core classes
+#################################################################
+
+fibo-fnd-aap-agt:Agent a owl:Class ;
+    rdfs:label "agent" ;
+    rdfs:comment "Something that can act autonomously." .
+
+fibo-fnd-pty-pty:Party a owl:Class ;
+    rdfs:label "party" ;
+    rdfs:subClassOf fibo-fnd-aap-agt:Agent ;
+    rdfs:comment "A person or organization that can participate in a contract or relationship." .
+
+fibo-be-le-lp:LegalEntity a owl:Class ;
+    rdfs:label "legal entity" ;
+    rdfs:subClassOf fibo-fnd-pty-pty:Party ;
+    rdfs:comment "An entity that is recognized as having legal rights and obligations." .
+
+fibo-be-le-fbo:FormalOrganization a owl:Class ;
+    rdfs:label "formal organization" ;
+    rdfs:subClassOf fibo-be-le-lp:LegalEntity .
+
+fibo-be-corp-corp:Corporation a owl:Class ;
+    rdfs:label "corporation" ;
+    rdfs:subClassOf fibo-be-le-fbo:FormalOrganization .
+
+#################################################################
+# Useful properties
+#################################################################
+
+fibo-fnd-rel-rel:hasIdentity a owl:ObjectProperty ;
+    rdfs:label "has identity" .
+
+fibo-fnd-rel-rel:isIdentifiedBy a owl:ObjectProperty ;
+    rdfs:label "is identified by" ;
+    owl:inverseOf fibo-fnd-rel-rel:hasIdentity .
+
+fibo-be-oac-cown:hasOwnershipInterestIn a owl:ObjectProperty ;
+    rdfs:label "has ownership interest in" ;
+    rdfs:domain fibo-fnd-pty-pty:Party ;
+    rdfs:range fibo-be-le-lp:LegalEntity .
+
+fibo-be-oac-cctl:hasControllingInterestIn a owl:ObjectProperty ;
+    rdfs:label "has controlling interest in" ;
+    rdfs:subPropertyOf fibo-be-oac-cown:hasOwnershipInterestIn .
+
+fibo-fnd-pty-pty:isRelatedTo a owl:ObjectProperty ;
+    rdfs:label "is related to" ;
+    rdfs:domain fibo-fnd-pty-pty:Party ;
+    rdfs:range fibo-fnd-pty-pty:Party .

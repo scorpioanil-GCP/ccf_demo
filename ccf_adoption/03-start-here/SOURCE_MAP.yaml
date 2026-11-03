@@ -1,0 +1,93 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+phase: 3
+name: Start Here / CCF Story
+status: working
+adoption_branch: phase-3-start-here
+
+source_baselines:
+  ccf:
+    repo: drcastillo/ccf
+    commit: ac81805d0e400da15f860eed8c39a132af3ce945
+  ccf_code:
+    repo: drcastillo/ccf_code
+    commit: 1a04e565504f712350b51777cfe398be46d5e157
+    note: exact SDK behavior is intentionally deferred from Start Here to later Build/Reference content
+
+pages:
+  - path: 03-start-here/START_HERE.md
+    purpose: primary front-door narrative and routing
+    primary_sources:
+      - whitepaper/CCF_00b_Executive_Summary.md
+      - whitepaper/CCF_Chapter_3_Agent_Anatomy.md
+      - whitepaper/CCF_Chapter_5_CCF.md
+      - whitepaper/CCF_Chapter_7_CCF_Architecture.md
+      - whitepaper/CCF_Chapter_8_CCF_Integration.md
+    reuse: ADAPT
+
+  - path: 03-start-here/WHY_CCF.md
+    purpose: problem framing and layering-not-replatforming posture
+    primary_sources:
+      - whitepaper/CCF_Chapter_3_Agent_Anatomy.md
+      - whitepaper/CCF_Chapter_5_CCF.md
+      - whitepaper/CCF_Chapter_8_CCF_Integration.md
+    reuse: ADAPT
+
+  - path: 03-start-here/ARCHITECTURE_AT_A_GLANCE.md
+    purpose: systems-of-cognition, six-tuple, L1-L6, planes, replay
+    primary_sources:
+      - whitepaper/CCF_Chapter_5_CCF.md
+      - whitepaper/CCF_Chapter_7_CCF_Architecture.md
+      - whitepaper/CCF_Chapter_8_CCF_Integration.md
+    reuse: ADAPT
+
+  - path: 03-start-here/CONTEXT_PRODUCTS.md
+    purpose: conceptual consumer primitive and Data Product distinction
+    primary_sources:
+      - whitepaper/CCF_Chapter_6_Context_Product.md
+      - whitepaper/CCF_Chapter_5_CCF.md
+      - whitepaper/CCF_Chapter_7_CCF_Architecture.md
+    reuse: ADAPT
+
+  - path: 03-start-here/RESOURCES.md
+    purpose: route to existing overview video and released whitepaper, then later portal sections
+    repository_assets:
+      - 02-overview/Cognitive_Context_Fabric_Intro.mp4
+      - 01-whitepaper/CCF_Whitepaper_1-2.pdf
+
+canonical_terms:
+  - Context Graph
+  - "G(E, R, T, P, Π, L)"
+  - Context Product
+  - Context Half-life
+  - Context Debt
+  - Context Operators
+  - Context Projection
+  - Control Plane
+  - Data Plane
+  - Decision Replay
+  - Assembly Mode
+  - "layering, not replatforming"
+
+canonical_layers:
+  L1: Signal Layer
+  L2: Context Assembly
+  L3: Context Graph
+  L4: Context Operators
+  L5: "Context Projection (Π)"
+  L6: Context Products
+
+publication_boundaries:
+  - Do not use the whitepaper as authority for exact SDK method names, signatures, defaults, or current runtime behavior.
+  - Do not copy institution-specific strategy language into the adoption front door.
+  - Do not present vendor/time-sensitive comparison material as evergreen CCF claims.
+  - Preserve the distinction between architectural mechanism evidence and security/production certification.
+  - Preserve the statement that L1-L6 are responsibility boundaries, not merely a sequential pipeline.

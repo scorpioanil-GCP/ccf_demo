@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-08-23",
+  "provenance": "synthetic \u2014 internal",
+  "holdings": [
+    {
+      "deal_id": "SDART-2022-6",
+      "class_name": "A-3",
+      "position_type": "investment",
+      "notional": "25000000",
+      "is_risk_retention": false,
+      "tranche_id": "SDART-2022-6-A-3"
+    },
+    {
+      "deal_id": "SDART-2022-6",
+      "class_name": "B",
+      "position_type": "investment",
+      "notional": "10000000",
+      "is_risk_retention": false,
+      "tranche_id": "SDART-2022-6-B"
+    },
+    {
+      "deal_id": "TAOT-2022-B",
+      "class_name": "A-4",
+      "position_type": "investment",
+      "notional": "40000000",
+      "is_risk_retention": false,
+      "tranche_id": "TAOT-2022-B-A-4"
+    },
+    {
+      "deal_id": "TAOT-2022-B",
+      "class_name": "B",
+      "position_type": "risk-retention",
+      "notional": "12500000",
+      "is_risk_retention": true,
+      "tranche_id": "TAOT-2022-B-B"
+    },
+    {
+      "deal_id": "SDART-2024-1",
+      "class_name": "A-3",
+      "position_type": "investment",
+      "notional": "30000000",
+      "is_risk_retention": false,
+      "tranche_id": "SDART-2024-1-A-3"
+    },
+    {
+      "deal_id": "SDART-2024-1",
+      "class_name": "C",
+      "position_type": "risk-retention",
+      "notional": "8000000",
+      "is_risk_retention": true,
+      "tranche_id": "SDART-2024-1-C"
+    }
+  ],
+  "materialization": [
+    {
+      "granularity": "deal",
+      "posture": "materialized",
+      "refresh_days": 30,
+      "note": "read pre-aggregated deal state; one query"
+    },
+    {
+      "granularity": "tranche",
+      "posture": "materialized",
+      "refresh_days": 30,
+      "note": "read pre-aggregated tranche state; one query"
+    },
+    {
+      "granularity": "cohort",
+      "posture": "materialized",
+      "refresh_days": 30,
+      "note": "cohort aggregates, batched per requested cohort"
+    },
+    {
+      "granularity": "loan",
+      "posture": "on-demand",
+      "refresh_days": 0,
+      "note": "stream loan rows; never materialize the pool"
+    }
+  ],
+  "entitlements": [
+    {
+      "principal": "structured-finance-desk",
+      "max_granularity": "loan",
+      "rationale": "arranges and holds these deals; needs loan-level detail"
+    },
+    {
+      "principal": "credit-risk",
+      "max_granularity": "cohort",
+      "rationale": "monitors trigger proximity; cohort detail is sufficient"
+    },
+    {
+      "principal": "client-reporting",
+      "max_granularity": "deal",
+      "rationale": "external-facing; loan-level borrower attributes are not disclosable"
+    }
+  ],
+  "privacy_restricted_fields": [
+    "obligor_credit_score",
+    "obligor_geographic_location",
+    "payment_to_income_percentage",
+    "obligor_income_verification_level_code"
+  ]
+}

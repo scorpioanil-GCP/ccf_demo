@@ -1,0 +1,113 @@
+# Copyright (c) 2026 David Castillo. All rights reserved.
+# Synthetic demonstration data; these are not Wells Fargo policies or customers.
+clock: "2026-09-30T12:00:00+00:00"
+tenant: demo-bank
+identities:
+  operator:
+    client_id: demo-platform-operator
+    scopes: [grant-skills, revoke-skills]
+  analyst:
+    client_id: demo-credit-analyst
+    scopes: [read-reviews]
+approval:
+  approver_id: scripted-demo-risk-officer
+keys:
+  scope_mapping: demo-bank/ccf.scope-mapping/skills-demo
+  agent: demo-bank/ccf.agent-definition/covenant-review
+referenced_artifacts:
+  - key: demo-bank/policy-bundle/credit-review
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: demonstration-credit-review
+      skill_governance:
+        permitted_scopes: [portfolio-read]
+        grant_requires_approval: true
+  - key: demo-bank/debt-profile/credit-review
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: quarterly
+agent_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-review
+  tenant: demo-bank
+  archetypes: [analytics_insights]
+  context_contract:
+    # Declares the intended fabric relationship. This small demonstration does
+    # not acquire this product: the calculator uses the synthetic rows below.
+    consumes:
+      - product_class: demo-bank.covenant-inputs
+        schema_version: "1.0.0"
+  perspective:
+    role: credit-analyst
+    selection_params:
+      portfolio: demonstration-wholesale
+  policy_regime:
+    ref: ccf-artifact://demo-bank/policy-bundle/credit-review@1.0.0
+  halflife_debt_profile:
+    ref: ccf-artifact://demo-bank/debt-profile/credit-review@1.0.0
+  instruction_bindings: []
+skills:
+  calculator:
+    schema_version: "2.0.0"
+    artifact_version: "1.0.0"
+    name: calculate-covenant-headroom
+    tenant: demo-bank
+    skill_type: local_callable
+    description: >-
+      Calculate total-debt leverage, interest coverage and signed covenant
+      headroom for a counterparty using synthetic demonstration financials.
+      Returns breach indicators for analyst review; makes no credit decision.
+    argument_schema:
+      properties:
+        counterparty_id:
+          type: string
+          description: Identifier of a counterparty in the demonstration portfolio.
+      required: [counterparty_id]
+    binding:
+      callable_ref: demo-covenant-calculator
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: []
+  writeback:
+    schema_version: "2.0.0"
+    artifact_version: "1.0.0"
+    name: update-covenant-register
+    tenant: demo-bank
+    skill_type: local_callable
+    description: Demonstration of a write capability outside this agent's policy envelope.
+    argument_schema:
+      properties:
+        counterparty_id:
+          type: string
+          description: Counterparty whose register would be changed.
+      required: [counterparty_id]
+    binding:
+      callable_ref: demo-writeback-denial-sentinel
+    requirements:
+      required_scopes: [covenant-writeback]
+      required_context_products: []
+grants:
+  calculator: covenant-review-calculator
+  writeback: covenant-review-writeback
+financials:
+  as_of: "2026-09-30"
+  currency: USD
+  monetary_unit: millions
+  flow_period: trailing-twelve-months
+  # Debt is measured at as_of; EBITDA and interest expense use flow_period.
+  counterparties:
+    demo-manufacturer:
+      total_debt: "180"
+      ebitda: "60"
+      interest_expense: "15"
+      maximum_leverage: "3.50"
+      minimum_interest_coverage: "3.00"
+    demo-distributor:
+      total_debt: "240"
+      ebitda: "60"
+      interest_expense: "24"
+      maximum_leverage: "3.50"
+      minimum_interest_coverage: "3.00"

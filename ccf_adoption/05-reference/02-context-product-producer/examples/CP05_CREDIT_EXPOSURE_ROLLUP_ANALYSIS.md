@@ -1,0 +1,3508 @@
+> **Current operations:** use [the refreshed implementation walkthrough](CP05_CREDIT_EXPOSURE_ROLLUP.md) and Fluree **4.2.4** where required. The embedded specification remains historical evidence at its stated pin.
+
+> **Reading copy:** [HTML edition](CP05_CREDIT_EXPOSURE_ROLLUP_ANALYSIS.html), with rendered tables and sources included in this file.
+
+> **Current runtime correction — 17 October 2026:** use **Fluree 4.2.4**. The embedded final specification below is an exact historical source snapshot; its older Fluree version describes that snapshot, not the current engine requirement. See [current SDK CI pin](https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/.github/workflows/ci.yml).
+
+# CP-05 — Credit Exposure Rollup — Analysis
+
+**Audience:** banking SME and Information Architect. **Purpose:** reconstruct the journey from the business problem to this example’s final specification.
+
+**Final specification:** `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md`, read directly from `drcastillo/ccf_code` at `37ac3055fd64ed64d78c6fd5555d79e451859153`. [Open the included final spec](#source-spec). Its recorded decisions, corrections, findings and placeholders are the destination of this walkthrough. The [Standard v0.3](#source-standard) supplies the template and the [generation recipe](#source-recipe) explains the ownership and evidence sequence.
+
+The figures below are the final spec’s teaching-estate measurements or declared design values. They are not new runtime measurements. Once the design journey is understood, continue with the [implementation walkthrough](#source-implementation).
+
+## Start with a group-limit decision
+
+A credit officer tests a proposed facility against a group limit, or a portfolio manager asks what the bank has on one name before committee. The SME must define the connected group and the policy under which exposure counts. A borrower-keyed sum is insufficient: guarantees can double-count an obligation, while cross-default links can connect an entity with no facility of its own.
+
+Final §A records both mechanisms in the example estate. Four guarantee terms require downstream deduplication, and four cross-default-connected entities hold no facility. The Information Architect turns those findings into three requirements: traverse the relevant relationships, preserve connected entities even when their direct exposure is zero, and show **gross and guarantee-adjusted measures together**. A single adjusted total would hide the reason the result differs from a simple sum.
+
+## Populate the contract — Standard §B → final §B
+
+The contract resolves one obligor LEI into entity and group exposure, with committed, outstanding and undrawn measures. Its choices are specific to CP-SPEC-005:
+
+| # | Element | Value |
+| --- | --- | --- |
+| 1 | **Schema** | Payload type `credit_exposure_rollup`. Entities: **LegalEntity** (the anchor and every entity reached) and **CreditFacility**. Relationships carried into the payload: `owns` / `isUltimatelyConsolidatedBy` (ownership), `isGuarantorOf` (guarantee), `crossDefaultsWith` (cross-default), `hasBorrower` (facility → obligor). Measures, each emitted **twice — gross and guarantee-adjusted**: committed, outstanding, undrawn. Reported **by entity and by group**. |
+| 2 | **Freshness SLA** | **Per signal class, not one value for the product.** Outstanding balances **intraday**; guarantee and cross-default structure **daily**; ownership edges **daily**; group-limit definition **on policy review**. The per-class shape is the point: a single product-level SLA would either over-promise on structure or under-promise on balances. |
+| 3 | **TTL** | **4 hours · `ttl_anchor: from_decision`.** The anchor **flips** from `facility-terms-snapshot`'s `from_entity_freshness`. Exposure is meaningful only for the duration of the decision taken against it; there is no underlying entity whose validity period governs it. Two products, two anchors, and the difference is a property of *the decision*, not of the data. `expires_at` = request time + 4 h. |
+| 4 | **Policy Binding** | Regime: **internal credit policy**, versioned in `ccf_v2.limit_definition` and bound to the request's `intent`. Measured — three intents, and they genuinely differ: `group-limit-test` (`counts_guarantees=true`, `counts_undrawn=true`, `connection_basis=control`, limit 25% of capital); `regulatory-large-exposure` (`true`, `true`, `both`, 25%); `internal-appetite` (**`false`, `false`**, `control`, 15%). Entitlement scope bound to the entitlement service. Data classification **confidential** (B.2). Because the limit definition is versioned policy rather than code, a change to it changes every rollup, and the lineage record shows which definition produced which number. |
+| 5 | **Lineage** | `operators_invoked: [Resolve, Policy, Traversal, Enrich, Aggregate]` · `graph_snapshot_at` — the Fluree ledger `t` at which the traversal read · `policy_version` — the `limit_definition` row version in force · plus source accession for each Postgres element. Lineage strict equality is a validation gate (D.7), not a debug aid. |
+| 6 | **Semantic Version** | **v1.0.0.** First supported version; no migration window. |
+| 7 | **Discovery** | `credit-risk.exposure-rollup.v1`. |
+| 8 | **Addressability** | `/context-products/credit-risk/exposure-rollup/{lei}` — anchored on the **obligor LEI**. |
+| 9 | **Assembly Mode** | **2 — algorithmic with a graph traversal.** Rationale in one sentence: every step is deterministic arithmetic or a typed graph walk, and no semantic stage is invoked at any point, so the product is fully replayable from the graph snapshot plus the policy version. |
+
+The table explicitly labels Assembly Mode **2 — algorithmic with a graph traversal**, while declaring no semantic/model stage. This companion preserves that final-spec terminology rather than assigning the mode used by a neighboring example. Its four-hour decision-time TTL also differs from a facility agreement's evidence-time anchor: the exposure is assembled for a current decision.
+
+| Parameter | Type | Moves | Default | Notes |
+|---|---|---|---|---|
+| `lei` | string(20), **required** | anchor | — | Must resolve through `ccf_v2.legal_entity`; an unresolvable LEI refuses rather than returning an empty rollup. |
+| `intent` | enum, **required** | selects limit definition and policy envelope | — | One of the three measured values. **No default** — see B.3. |
+| `depth` | int 1–5 | `R` scope | **3** | Ownership walk depth. |
+| `materiality` | decimal 0–1 | `R` filter | **0.05** | **The caller's decision tolerance, not a fact about the family.** Entities below this share of group exposure are aggregated into a residual rather than enumerated; it does NOT apply to zero-exposure entities reached by cross-default (§C.4 trap 2). **See B.4.1 — 5% is the product DEFAULT, not the product TRUTH.** |
+| `follow_guarantees` | bool | `R` scope | **true** | |
+| `follow_cross_default` | bool | `R` scope | **true** | |
+| `basis` | enum `committed` \| `outstanding` \| `both` | measure | **both** | |
+
+The SME treats `materiality` as the caller's decision tolerance, not a fact about the family. The architect therefore makes five percent a **default**, records the resolved value and its authority, and allows other admitted values. Below-threshold exposures become a residual, but a zero-exposure entity connected by cross-default remains an explicit finding. Otherwise presentation filtering would erase the structural risk the product was created to reveal.
+
+## Separate traversal scope from credit policy — Standard §C → final §C and §B.4.1
+
+The graph supplies ownership, guarantees, cross-default links and borrower relationships. PostgreSQL supplies balances, guarantee terms and the versioned `limit_definition`. `intent` selects one of three measured policy regimes: `group-limit-test`, `regulatory-large-exposure`, or `internal-appetite`. The last excludes guarantees and undrawn amounts that the first includes.
+
+The SME clarifies that following a relationship and counting its amount are different acts. When a caller requests guarantee traversal under a policy that excludes guarantees from the measure, the graph can remain complete while the measure follows policy. The final spec records the conflict as a finding rather than silently changing the requested scope.
+
+This discussion produces the three §C.4 trap treatments: deduplicate at the guarantee edge and retain gross evidence; reach cross-default entities that a facility list misses; and read the limit definition by required intent rather than hardcode one interpretation of “total exposure.” Source identities may be public, but the example's banking book and policy values are engineered internal data. They do not establish a real company's borrowings.
+
+## Specify the derivation and the serving decision — Standard §D → final §D
+
+Resolve the anchor, bind the versioned limit policy, traverse the admitted relationship set, enrich in a batch, and aggregate under that policy. Source access and the registered operator chain must remain distinguishable. A declared Policy invocation is insufficient if traversal subsequently ignores its output; §F.4 records precisely that defect and its correction.
+
+The final specification extends the assembly discussion through **fulfillment and replay**. Context debt measures the assembled evidence. Governance compares that measured value with the effective tolerance before attesting the answer for this caller. Changing a tolerance changes fulfillment, not the debt measurement.
+
+The materiality and debt constraints deliberately behave differently. Under `internal-appetite`, a requested materiality of 0.10 over a 0.05 policy ceiling is refused before assembly. Under the regulatory debt constraint, a requested tolerance of 1.0 is narrowed to the policy's 0.10 bar, with that authority recorded, and assessed after evidence exists. Replay must retain the **effective question**, including its authorities, rather than only what the caller typed.
+
+Both fulfilled and withheld decisions reach replay before response release. The record retains the fabric boundary, the Control Plane policy and the business limit-definition version, effective request, perspective and the applicable outcome. A refusal has no served-product address. The final §D.10 also records limitations of the example's historical MCP door; these remain findings in that specification rather than a claim that every door performed content reconciliation.
+
+## Derive volatility and debt — Standard §E → final §E
+
+Outstanding balances move on a roughly four-hour half-life, guarantee/cross-default structure on about 365 days, and ownership and limit definitions on about 180 days. The product is derived on demand. A stable ownership graph does not justify caching its fast-moving balances for the same duration.
+
+The recorded demonstration in §E.6 uses **`D_c = 1 − min(F, C, S)`**, not a formula borrowed from another companion. At the pinned instant F is zero, C is 0.2467 and S is one, producing debt 1.000 and withholding at the default 0.25 tolerance. The balances are 324–396 hours old against a four-hour signal. Nothing is recalibrated just to produce an acceptable rollup.
+
+The detailed debt contract treats stale balances as fail-closed, while stale structural or policy components produce the specified findings. The SME's concern about a stale money amount therefore becomes a different consequence from a slow-changing relationship feed. Drawdowns, repayments, structural amendments, family supersession and a replacement limit definition each have an explicit invalidation role.
+
+## Finish with owned evidence — Standard §F–§G → final §F–§G
+
+Section F records binding, authority and measurement gaps without rewriting them as resolved capabilities. The final §G.2 carries eight stable criteria:
+
+| Criterion | Evidence required |
+|---|---|
+| CER-G01 | Gross and adjusted measures appear in the declared contract. |
+| CER-G02 | The anchor's gross and adjusted values actually differ. |
+| CER-G03 | Cross-default reaches a nonempty connected-without-exposure population. |
+| CER-G04 | Changing between internal-appetite and group-limit policy changes the adjusted answer. |
+| CER-G05 | Validation holds and a deliberately double-subtracting variant makes the reconciliation guard fire. |
+| CER-G06 | Replay reproduces the hash, while a changed policy version produces a different one. |
+| CER-G07 | One composed walk is evidenced by one ledger boundary. |
+| CER-G08 | MCP and in-process delivery share the assembler and payload. |
+
+The final spec explicitly says only G01, G02, G03 and G08 have executing assertions declared in its gate artifact; the other four remain under CP05-F-01. A reconciliation field's presence does not prove its guard fires. Preserve that evidence status when completing the specification: the journey identifies what must be demonstrated and which obligations remain recorded, rather than announcing eight proven gates.
+
+
+## Included source snapshots
+
+Exact retrieved source texts, with their original historical statuses and internal links retained as source text. Tables quoted within the walkthrough come directly from the final spec; Markdown pipe escaping is normalized for display.
+
+<a id="source-spec"></a>
+
+<details>
+<summary>Final example specification — ccf_code@37ac3055</summary>
+
+Path: `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md`
+
+``````text
+---
+product: credit-risk.exposure-rollup.v1
+spec_version: v1.0.0
+standard: v0-3
+vault_article: credit-exposure-rollup
+vault_standard: q019
+owner: sdk
+tier: 2
+cost_band: "×1–2"
+assembly_mode: derived-on-demand
+capability_classes: [relational, graph-traversal, in-memory]
+stores: [postgres, fluree]
+prerequisites: [corporate-family-tree, facility-terms-snapshot]
+ladder_rung: 5
+authored: 2026-09-07
+status: AUTHORED — awaiting Dave's Gate 1 review
+---
+
+# Credit Exposure Rollup — Context Product Specification
+
+**Tier 2** · Postgres + Fluree · `credit-risk.exposure-rollup.v1` · cost band ×1–2
+**Rung 5 of the ladder.** Prerequisites `corporate-family-tree` (rung 4) and
+`facility-terms-snapshot` (rung 2), both built.
+
+> Aggregates committed and outstanding exposure across a corporate family,
+> following guarantee and cross-default edges rather than legal-entity
+> boundaries. Traversal plus arithmetic — and the arithmetic is where the
+> architecture earns its keep.
+
+---
+
+## 0 · What this document is
+
+This is the **SDK specification** for one Context Product: the buildable
+second-level document that turns the vault's product article into something a
+`ccf_code` session can implement without inventing a term. The vault owns the
+product's *meaning*; this document owns its *construction*. Where the two could
+diverge, the vault wins and the divergence is recorded rather than resolved
+silently (`spec_generation.md` §1, §10).
+
+**The vault article is on the q019 form.** Its `§F` heading is *Manufacture
+envelope*, not *Source binding & readiness*. This specification is on **v0.3**,
+where §F is *Source binding & readiness*. Vault sections are therefore resolved
+**by heading name, never by letter**, and the vault's manufacture-envelope
+conditions appear here in **F.1** and **F.3**.
+
+**Every number in this document was measured against the live estate on
+2026-09-07**, not carried from the vault or estimated. `bound is not the same as
+materialized`: an IRI in the binding mirror does not mean rows exist against it.
+Where a count appears, the query that produced it is stated with it.
+
+### 0.1 Do you need a Context Product? — the four-question test
+
+> ⚠ **The vault article carries no four-question test result**, which
+> `spec_generation.md` §4.1 lists among the items to extract *"including
+> partials and nos."* Measured: `grep -c "four-question"` over the article reads
+> **0**. The test below is **SDK-authored against the estate**, not transcribed
+> from the vault, and is registered for vault confirmation in F.2.
+
+| Question | Answer | Consequence |
+|---|---|---|
+| **Does the answer require more than one system of record?** | **Yes.** Ownership, guarantee and cross-default edges live in Fluree; commitments, balances, limit definitions and the reconciliation live in Postgres. | Two stores, one contract. A flat query against either alone is structurally unable to answer. |
+| **Does the answer depend on graph structure rather than a key?** | **Yes.** Exposure follows guarantee and cross-default edges, which cross legal-entity boundaries. Four entities in this estate sit in a cross-default chain while holding no facility of their own. | A borrower-keyed sum cannot find them. This is the product's reason to exist. |
+| **Does the answer change with who is asking, or under which policy?** | **Yes.** The group-limit definition is versioned policy bound to `intent`. Measured: `internal-appetite` sets `counts_guarantees=false` and `counts_undrawn=false`; `group-limit-test` sets both `true`. | The same anchor yields a different number under a different intent, by data rather than by code. |
+| **Is the answer time-sensitive in a way a cached table would get wrong?** | **Yes.** Outstanding balances move intraday (`λ_c` ≈ 4 h) while structure moves annually. | Materialization is the **wrong** posture here — see E.3. This is the first rung where that is true. |
+
+Four yes. The product is warranted.
+
+### 0.2 Placeholder discipline
+
+Every `[TBC]` in this document carries a named owner and appears again in **F.2**
+with that owner and what unblocks it. A spec with honest gaps is buildable; a
+spec with hidden gaps is not. There are **no** `[TBC]` markers gating the build
+of this product — F.2 records the two that exist and why neither blocks.
+
+### 0.3 Section skeleton
+
+`A` decision frame · `B` contract (B.1–B.5) · `C` data catalog (C.1–C.5) ·
+`D` assembly recipe (D.1–D.7) · `E` volatility, debt & materialization (E.1–E.5) ·
+`F` source binding & readiness (F.1–F.4) · `G` operate & govern (G.1–G.3).
+
+### 0.4 Front matter
+
+**Registry name** `credit-risk.exposure-rollup.v1` · **tier** 2 ·
+**Assembly Mode** derived on demand · **cost band** ×1–2 ·
+**capability classes** relational, graph-traversal, in-memory ·
+**stores** Postgres (`ccf_v2`) + Fluree (`fibo-v2`).
+
+**What it resolves, in two sentences.** Given one anchor obligor and a stated
+intent, it returns total committed and outstanding exposure across that
+obligor's corporate family, following guarantee and cross-default edges and
+deduplicating exposure that a guarantee has already captured at the parent. It
+emits both gross and guarantee-adjusted measures so the consumer can see what
+the adjustment did, rather than being handed one number and asked to trust it.
+
+**A capability the estate may not have.** None. Every element in C.1 was
+measured present on 2026-09-07 and the counts are in F.1. This product is
+buildable today.
+
+---
+
+## Section A — Decision frame
+
+**Decision & trigger.** A credit officer or portfolio manager is testing a
+proposed facility against a group limit, or answering *"what do we actually have
+on this name?"* ahead of a committee.
+
+**Consuming principals.** Single role at this tier. Perspective conditioning is
+not exercised here; it arrives at rung 18.
+
+**Counterfactual failure — Context Starved, compounding.**
+
+Taken verbatim from the vault, because it is the product's whole argument:
+
+> Exposure is not additive across a legal-entity list. A guarantee from the
+> parent means the subsidiary's exposure is *also* the parent's. A cross-default
+> clause means a breach at one entity accelerates obligations at another. A data
+> product that sums facility balances by borrower LEI produces a number that is
+> confidently wrong in both directions: it double-counts where a guarantee
+> already captured the risk, and it under-counts where a cross-default binds an
+> entity that holds no facility at all. The error is invisible in the output — a
+> number is returned, it looks like an exposure, and nothing signals that the
+> graph structure it should have respected was never traversed.
+
+**Both directions of that error are live in this estate, measured:**
+
+- **Double-counting.** `ccf_v2.guarantee_terms` carries **4 rows** of
+  `kind = 'downstream-dedup'` — cases where a parent's guarantee already
+  captures a subsidiary's exposure, so a naive sum counts it twice.
+- **Under-counting.** Of the **20** distinct entities reachable across the
+  **15** `crossDefaultsWith` edges, **4 hold no facility of their own**. A
+  borrower-keyed sum cannot reach them at any depth, because it never looks at
+  an edge.
+
+**Why the failure is silent.** Neither error raises. The naive number is
+well-formed, plausibly sized, and wrong. That is what makes this a Context
+Product rather than a query: the correction is structural, and a consumer has no
+way to detect its absence from the output alone. This product therefore emits
+**gross and adjusted side by side** (D.6) and refuses to emit only the adjusted
+figure — the difference *is* the evidence.
+
+**Primitive taught.** Traversal composed with algorithmic aggregation, under a
+policy regime that decides what counts. Contrast pointer: `corporate-family-tree`
+uses the same traversal machinery and takes the **opposite** materialization
+posture (E.3).
+
+---
+
+## Section B — Contract
+
+### B.1 The nine elements
+
+| # | Element | Value |
+| --- | --- | --- |
+| 1 | **Schema** | Payload type `credit_exposure_rollup`. Entities: **LegalEntity** (the anchor and every entity reached) and **CreditFacility**. Relationships carried into the payload: `owns` / `isUltimatelyConsolidatedBy` (ownership), `isGuarantorOf` (guarantee), `crossDefaultsWith` (cross-default), `hasBorrower` (facility → obligor). Measures, each emitted **twice — gross and guarantee-adjusted**: committed, outstanding, undrawn. Reported **by entity and by group**. |
+| 2 | **Freshness SLA** | **Per signal class, not one value for the product.** Outstanding balances **intraday**; guarantee and cross-default structure **daily**; ownership edges **daily**; group-limit definition **on policy review**. The per-class shape is the point: a single product-level SLA would either over-promise on structure or under-promise on balances. |
+| 3 | **TTL** | **4 hours · `ttl_anchor: from_decision`.** The anchor **flips** from `facility-terms-snapshot`'s `from_entity_freshness`. Exposure is meaningful only for the duration of the decision taken against it; there is no underlying entity whose validity period governs it. Two products, two anchors, and the difference is a property of *the decision*, not of the data. `expires_at` = request time + 4 h. |
+| 4 | **Policy Binding** | Regime: **internal credit policy**, versioned in `ccf_v2.limit_definition` and bound to the request's `intent`. Measured — three intents, and they genuinely differ: `group-limit-test` (`counts_guarantees=true`, `counts_undrawn=true`, `connection_basis=control`, limit 25% of capital); `regulatory-large-exposure` (`true`, `true`, `both`, 25%); `internal-appetite` (**`false`, `false`**, `control`, 15%). Entitlement scope bound to the entitlement service. Data classification **confidential** (B.2). Because the limit definition is versioned policy rather than code, a change to it changes every rollup, and the lineage record shows which definition produced which number. |
+| 5 | **Lineage** | `operators_invoked: [Resolve, Policy, Traversal, Enrich, Aggregate]` · `graph_snapshot_at` — the Fluree ledger `t` at which the traversal read · `policy_version` — the `limit_definition` row version in force · plus source accession for each Postgres element. Lineage strict equality is a validation gate (D.7), not a debug aid. |
+| 6 | **Semantic Version** | **v1.0.0.** First supported version; no migration window. |
+| 7 | **Discovery** | `credit-risk.exposure-rollup.v1`. |
+| 8 | **Addressability** | `/context-products/credit-risk/exposure-rollup/{lei}` — anchored on the **obligor LEI**. |
+| 9 | **Assembly Mode** | **2 — algorithmic with a graph traversal.** Rationale in one sentence: every step is deterministic arithmetic or a typed graph walk, and no semantic stage is invoked at any point, so the product is fully replayable from the graph snapshot plus the policy version. |
+
+> **A note on the figures in this document, required and meant.**
+>
+> These examples teach **method** — how to engineer and construct a Context
+> Product with the CCF SDK — not the figures.
+>
+> **Entity identities are real.** The anchor used throughout is
+> `5493000Q1S5TJIDIQH89` — **Regis Corporation**, a real LEI, a real
+> jurisdiction (`US-MN`) and a real SIC code (7200), as filed.
+>
+> **The bank's book is engineered.** Every facility, commitment, outstanding
+> balance, undrawn availability, guarantee edge, cross-default edge and
+> group-limit definition is **synthetic — internal**. No bank lends to Regis
+> Corporation on these terms, because the lender does not exist. The topology
+> was engineered so the product's failure modes are demonstrable rather than
+> hypothetical, and it is calibrated against public reality: committed exposure
+> reconciles to **49.4%** of the obligor's XBRL-reported total debt, which
+> `ccf_v2.debt_reconciliation` flags `plausible = true`.
+>
+> **No number here is a claim about any real company's borrowings.**
+
+### B.2 Classification and residency
+
+**Data classification: `confidential`** — the highest classification of any
+element in C.1. Ownership, guarantee and cross-default topology derived from
+EDGAR are `public`; facility commitments, outstanding balances, undrawn
+availability, borrower-of edges and limit definitions are `synthetic — internal`
+standing in for material non-public bank book data, and are classified as the
+real thing would be.
+
+**Residency.** Single jurisdiction, US. No cross-border transfer constraint is
+exercised at this rung; it arrives at rung 20 with A2A.
+
+**Consequence for delivery.** A `confidential` payload may not be served to an
+unentitled principal, and the entitlement check is a Policy-operator step
+(D.3 step 2) rather than a filter applied to a computed answer. The distinction
+matters: computing an exposure and then withholding it still computed it.
+
+### B.3 Model-risk annotation
+
+**No model.** No LLM, no scoring function, no estimator participates in
+construction. Every emitted figure is a sum, a difference, or a filter over
+rows and edges the estate holds. SR 11-7 model-risk treatment therefore does
+not attach to this product's *construction*.
+
+It does attach to the **group-limit definition** (`ccf_v2.limit_definition`),
+which is a policy artifact with its own owner and review cycle. This product
+consumes that definition by version and records which version it consumed; it
+does not interpret, extend or default it. Where a limit definition is absent
+for a requested `intent`, the product **refuses** (E.5) rather than falling back
+to a default — a silently defaulted limit definition is the failure this
+annotation exists to prevent.
+
+### B.4 Request parameter surface
+
+| Parameter | Type | Moves | Default | Notes |
+|---|---|---|---|---|
+| `lei` | string(20), **required** | anchor | — | Must resolve through `ccf_v2.legal_entity`; an unresolvable LEI refuses rather than returning an empty rollup. |
+| `intent` | enum, **required** | selects limit definition and policy envelope | — | One of the three measured values. **No default** — see B.3. |
+| `depth` | int 1–5 | `R` scope | **3** | Ownership walk depth. |
+| `materiality` | decimal 0–1 | `R` filter | **0.05** | **The caller's decision tolerance, not a fact about the family.** Entities below this share of group exposure are aggregated into a residual rather than enumerated; it does NOT apply to zero-exposure entities reached by cross-default (§C.4 trap 2). **See B.4.1 — 5% is the product DEFAULT, not the product TRUTH.** |
+| `follow_guarantees` | bool | `R` scope | **true** | |
+| `follow_cross_default` | bool | `R` scope | **true** | |
+| `basis` | enum `committed` \| `outstanding` \| `both` | measure | **both** | |
+
+#### B.4.1 The effective threshold is resolved at request time
+
+**5% is the product default. It is not the product truth.** The truth is:
+*return family exposures above the **effective** materiality threshold* — and
+that threshold is resolved per request under the authority model the SDK already
+defines (`ccf.products.provenance::Authority`, the literal
+`['default', 'caller', 'policy', 'technical']`):
+
+> **policy boundary > caller value > product default**, with `technical`
+> bounding all three.
+
+Three clients wanting 2%, 5% and 10% are **three parameterizations of one
+product**, not three products. The author defines the parameter and its domain;
+the caller may override inside it; policy may constrain it further; and the
+**effective value together with its authority is recorded on the answer**, so
+replay reconstructs the question rather than only the numbers.
+
+Measured on the demonstrated anchor:
+
+| Caller | Effective | Authority | Material entities |
+|---|---|---|---|
+| supplies nothing | `0.05` | `default` | 4 |
+| asks `0.10` | `0.10` | `caller` | 3 — RB Global drops out at 7.9% of the family |
+| asks `0.02` | `0.02` | `caller` | 4 |
+| asks `0.01` | `0.01` | `caller` | **5 — the anchor itself comes into view** |
+| asks `0.10` under `internal-appetite` | — | **refused** | *"exceeds the applicable maximum 0.05 established by authority 'policy'; the request is refused rather than narrowed, because a narrowed request answers a question nobody asked"* |
+
+Each threshold produces a **different content address**: one product, one
+assembler, three governed projections.
+
+**This resolves what an earlier draft recorded as a defect.** F.4 noted the
+anchor falls below its own materiality floor and is filtered from the enumerated
+entities of its own rollup. That is not a defect to special-case — it is a
+parameterization, and at `0.01` the anchor appears. Exempting it would have
+hard-coded one consumer's tolerance into the product.
+
+**The implementation resolves nothing itself.** `deployment.py::effective_request`
+assembles four inputs and hands them to
+`ccf.products.constraints::resolve_effective_request`; the precedence, the bounds
+and the refusals are the SDK's.
+
+**`follow_guarantees` and `follow_cross_default` are separable on purpose**, and
+this is a contract commitment rather than a convenience. Different limit regimes
+count them differently, and a product that hard-codes one interpretation cannot
+serve two regimes. The estate proves the need: `internal-appetite` sets
+`counts_guarantees = false` while `group-limit-test` sets it `true`.
+
+**The two flags and the policy regime can disagree, and the resolution is
+ruled here:** the **policy regime wins**, and the disagreement is reported as a
+finding on the product rather than resolved silently. A caller who sets
+`follow_guarantees=true` under an intent whose definition says
+`counts_guarantees=false` gets the guarantee edges **traversed** (so the family
+is complete) and **not counted** in the adjusted measure (so the limit test is
+correct), with a finding naming the conflict. Traversal scope and measurement
+policy are different questions and the contract keeps them apart.
+
+### B.5 Prerequisites, consumers and scope boundary
+
+**Prerequisites.** `corporate-family-tree` (rung 4) — supplies the ownership
+traversal pattern and the cycle-as-finding discipline. `facility-terms-snapshot`
+(rung 2) — supplies facility commitment and terms.
+
+**Consumers.** Credit officers and portfolio managers, through a single role at
+this tier. Downstream on the ladder, `large-exposure-rwa-concentration`
+(rung 21) composes this product.
+
+**Scope boundary — ⚠ THE VAULT ARTICLE CARRIES NONE. What follows is
+SDK-supplied and needs vault confirmation (F.2).**
+
+`spec_generation.md` §4.1 requires the scope boundary to be recorded *verbatim*
+from the vault. **It cannot be, because the vault article has no scope-boundary
+section** — measured: `grep -c "scope boundary"` over the article reads **0**,
+and the MCP copy is byte-identical to the copy on disk, so this is an absence in
+the article rather than a read failure.
+
+The boundary below is therefore **derived by the SDK** from the article's tier-2
+framing and from `corporate-family-tree`'s precedent, and is flagged for the
+vault to confirm or replace:
+
+> *(SDK-supplied, pending vault confirmation)* Single institution. No external
+> fabric is reached.
+
+**What that excludes, stated so no one has to infer it:** no A2A, no second
+CCF instance, no co-lender view, no netting against another bank's book. Those
+arrive at rung 20 (`syndicated-lending-co-lender`). This product's MCP door
+(G.1) is an egress surface for consumers **inside** the tenant boundary.
+
+**An earlier draft of this section presented that sentence as a verbatim vault
+quotation. It was not one** — the wording was carried from
+`examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`, a
+different product's artifact, and mis-attributed. Corrected here, and recorded
+rather than quietly amended because a fabricated citation is the defect class
+this project treats most seriously.
+
+---
+
+## Section C — Data catalog
+
+### C.1 Element table
+
+`G` is the CCF dimension the element serves: `R` relationship · `E` entity
+attribute · `P` policy. Counts measured 2026-09-07 against Postgres `ccf_v2` and
+Fluree ledger `fibo-v2`.
+
+| Element | Provenance | Class | Store | `G` | Measured |
+|---|---|---|---|---|---|
+| Ownership edges | inherited from `corporate-family-tree` | public | **Fluree** | `R` | `owns` **636**; `isUltimatelyConsolidatedBy` **140**; `isDirectlyConsolidatedBy` **140** |
+| Guarantee edges — guarantor → obligor | EDGAR EX-10 guarantor schedules and subsidiary guarantees | public topology, engineered coverage | **Fluree** | `R` | `isGuarantorOf` **27** |
+| Cross-default edges | EX-10 cross-default clauses; 10-K debt footnote | public topology, engineered | **Fluree** | `R` | `crossDefaultsWith` **15**, reaching **20** distinct entities |
+| Borrower-of edges — facility → obligor | internal loan system | **synthetic — internal** | **Fluree** | `R` | `hasBorrower` **45** |
+| Facility commitment and terms | inherited from `facility-terms-snapshot` | **synthetic — internal** | Postgres | `E` | `facility` **60** rows across **22** distinct borrowers |
+| Outstanding balance · undrawn availability | internal loan system | **synthetic — internal** | Postgres | `E` | columns `outstanding_balance`, `undrawn_availability` on all 60 |
+| Aggregate reported debt (reconciliation check) | XBRL `companyfacts` — total debt | public | Postgres | `E` | `debt_reconciliation` **14** rows |
+| Group-limit definition by intent | internal credit policy | **synthetic — internal** | Postgres | `P` | `limit_definition` **3** intents |
+| Guarantee coverage percentage and caps | EX-10 guarantee terms where stated; otherwise internal | mixed | Postgres | `E` | `guarantee_terms` **28** — `upstream` **24**, `downstream-dedup` **4** |
+| Entity identity | GLEIF / EDGAR | public | Postgres | `E` | `legal_entity` **156** |
+
+**The reconciliation the public data makes possible, and its one honest miss.**
+Total synthetic facility commitments for a public anchor can be sanity-checked
+against XBRL-reported total debt. They will not match — the bank holds only part
+of the borrower's debt — but the synthetic figure should be a *plausible share*
+of the real one. Measured: **13 of 14** obligors carry `plausible = true`;
+**one does not**. That row is not hidden and not repaired here (F.4); a spec
+that reported 14 of 14 would be describing a different estate.
+
+### C.2 Capability decomposition
+
+| Capability class | Where it is exercised | Store |
+|---|---|---|
+| **relational** | Resolve (anchor → canonical obligor), Policy (limit definition by intent), Batch Enrich (entities → facilities and balances), reconciliation read | Postgres |
+| **graph-traversal** | one walk over ownership, guarantee and cross-default predicates | Fluree |
+| **in-memory** | Aggregate: sum by entity, sum by group, guarantee-path deduplication, materiality filter, gross-vs-adjusted emission | none — algorithmic |
+
+**No similarity, no semantic stage, no model.** The Algorithmic ⇄ Semantic
+Alternation is satisfied trivially at this rung: every stage is algorithmic, and
+no LLM client may be imported by any module implementing this product.
+
+### C.3 Correlation key, single-writer discipline, and identity authority
+
+**Correlation key.** `LEI` for entities; `facility_id` for facilities. Both
+resolve through `ccf_v2.crosswalk` (**83** rows, mapping
+`internal_client_id ↔ lei ↔ cik ↔ ticker`).
+
+**Identity authority.** GLEIF's LEI is authoritative for entity identity. The
+internal client id is *not* an identity — it is a bank-side handle that the
+crosswalk maps to one. Where the two disagree, the LEI wins and the
+disagreement is a finding.
+
+**A join hazard, recorded because it caught the author.** Fluree subjects are
+addressed by **entity slug** (`…/RegisCorporation`), while Postgres keys on
+**LEI**. Joining slugs to LEIs directly yields a 100% miss rate that looks like
+a finding rather than a defect. The ledger's own `lei` predicate is the bridge,
+and every cross-store join in the implementation **must** go through it or
+through the crosswalk. An implementation that appears to discover that no
+entity holds a facility has made this mistake.
+
+**Single-writer.** This product **writes nothing**. It is a read-only assembly
+over two systems of record; L2 remains the only writer to the graph, and
+nothing in this product acquires a write handle to either store.
+
+### C.4 The three data traps, each with the binding chosen and what it costs
+
+**Trap 1 — the guarantee double-count.** A parent guarantees a subsidiary that
+holds its own facility. Summing facility balances by borrower counts that
+exposure twice: once at the subsidiary as borrower, once at the parent as
+guarantor. **Binding chosen:** deduplicate at the guarantee edge — where a
+guarantee already captures a subsidiary's exposure at the parent, count it
+once, and emit the gross figure alongside so the adjustment is visible.
+**What it costs:** the adjusted figure is no longer reproducible by a consumer
+with a spreadsheet, which is precisely why gross must ship beside it.
+**Live in this estate:** `guarantee_terms.kind = 'downstream-dedup'`, 4 rows.
+
+**Trap 2 — the cross-default blind spot.** A cross-default clause binds an
+entity that holds no facility at all. A borrower-keyed sum cannot reach it,
+because it never examines an edge. **Binding chosen:** traverse
+`crossDefaultsWith` as a first-class predicate in the same walk, and include
+reached entities in the family even when they contribute zero facility
+exposure — their presence is the finding. **What it costs:** the family is
+larger than a facility list suggests, and the materiality filter must not
+silently drop a zero-exposure entity that a cross-default reached; such an
+entity is reported as connected-with-no-exposure rather than aggregated into
+the residual. **Live in this estate:** **4** of the 20 entities in cross-default
+chains hold no facility.
+
+**Trap 3 — the policy-shaped number.** "Total exposure" is not a property of the
+data; it is a property of the limit definition in force. Undrawn commitments
+count under one regime and not another. **Binding chosen:** the limit definition
+is read from `ccf_v2.limit_definition` by `intent`, its version is recorded in
+lineage, and the product never defaults it. **What it costs:** a caller must
+state an intent, and there is no "just give me the number" path. That is
+deliberate — the number without the intent is the confidently-wrong figure §A
+describes. **Live in this estate:** `internal-appetite` counts neither
+guarantees nor undrawn, against `group-limit-test` which counts both.
+
+### C.5 What this data is — stated once more, because it is the point
+
+The entity layer is real: 156 legal entities with real LEIs, jurisdictions and
+SIC codes, and an ownership graph derived from public filings. The **bank's
+book is engineered** — facilities, balances, guarantee coverage, cross-default
+topology and limit definitions are synthetic, standing in for data no public
+source carries.
+
+The engineering is not arbitrary. The topology was built so that both halves of
+§A's counterfactual are demonstrable — 4 dedup cases and 4 cross-default-only
+entities — and the book is calibrated so committed exposure is a plausible
+share of publicly reported debt in 13 of 14 cases. **That calibration is what
+makes the demonstration honest**: a product that produced correct arithmetic
+over an implausible book would prove the arithmetic and nothing else.
+
+---
+
+## Section D — Assembly recipe
+
+### D.1 Client call
+
+```
+GET /context-products/credit-risk/exposure-rollup/5493000Q1S5TJIDIQH89
+      ?intent=group-limit-test
+      &depth=3
+      &materiality=0.05
+      &follow_guarantees=true
+      &follow_cross_default=true
+      &basis=both
+```
+
+**The anchor is `5493000Q1S5TJIDIQH89` — Regis Corporation** — chosen because it
+exercises every step rather than because it is the largest book. Measured:
+**4 facilities** (Term Loan 70,000,000 · Revolving Credit Facility 35,000,000 ·
+Term Loan A 25,000,000 · Term Loan B 15,000,000 = **145,000,000 committed**;
+**111,497,463 outstanding**; **31,447,787 undrawn**), it **gives 5 guarantees**,
+one of which is a `downstream-dedup` case, and its committed exposure is
+**49.4%** of XBRL-reported total debt with `plausible = true`.
+
+An anchor with facilities but no guarantees would let a naive implementation
+pass. This one will not.
+
+### D.2 Operator step table
+
+| # | Operator | Store | Reads | Emits | May be empty? |
+|---|---|---|---|---|---|
+| 1 | **Resolve** | Postgres | `legal_entity`, `crosswalk` | canonical obligor | **No** — an unresolvable anchor refuses |
+| 2 | **Policy** | Postgres | `limit_definition` by `intent`; entitlement service | policy envelope, `policy_version` | **No** — a missing definition refuses (B.3) |
+| 3 | **Traversal** | Fluree | `owns`, `isUltimatelyConsolidatedBy`, `isGuarantorOf`, `crossDefaultsWith`, `hasBorrower` | node set, edge set, ledger `t` | **No** — the anchor is always in the node set |
+| 4 | **Batch Enrich** | Postgres | `facility`, `guarantee_terms`, `debt_reconciliation` | facilities and balances per entity | **Yes** — a family may hold no facilities |
+| 5 | **Aggregate** | in-memory | steps 3 + 4 | gross and adjusted measures, findings | **No** |
+| 6 | **Contract assembly** | — | all above | `CreditExposureRollupContract@v1.0.0` | **No** |
+
+### D.3 Step detail
+
+**Step 1 · Resolve — Postgres.** `lei` → canonical obligor via
+`ccf_v2.legal_entity`. An LEI that does not resolve **refuses**; it does not
+return an empty rollup. A zero-exposure answer for a real obligor and a
+"no such obligor" answer are different facts, and the contract keeps them apart.
+
+**Step 2 · Policy — Postgres.** Entitlement scope is checked **before** any
+exposure is computed (B.2). The group-limit definition bound to `intent` is
+loaded from `ccf_v2.limit_definition`: `counts_guarantees`, `counts_undrawn`,
+`connection_basis`, `limit_pct_of_capital`. Emits `policy_version`. If the
+caller's `follow_*` flags disagree with the definition, the definition governs
+the **measure** and the flags govern the **traversal scope**, with a finding
+recording the conflict (B.4).
+
+**Step 3 · Traversal — and the distinction this rung exists to teach.**
+
+> **Acquisition may use backend-specific logic; decision logic must execute
+> through the declared fabric mechanisms.**
+
+Reading the source estate over SPARQL is **acquisition**. It is backend-specific
+by nature, has no SDK surface today (F.4, `D-IMPL-277`), and it **populates L3
+without answering anything**. Deciding which entities constitute the family is
+**decision logic**, and it runs through the operator the Control Plane
+registered — `traversal.typed-neighborhood` — over a `GraphView` of L3 bounded
+at the request's own instant, seeded from the entity class `ccf_config.yaml`
+declares.
+
+An earlier draft answered the question from the acquisition walk directly. It
+produced the same 77 entities and **was not a Context Product**: the Control
+Plane permitted a traversal that never ran, and a hand-rolled walk ran one it
+never saw. The two agreeing at 77 is what licensed the demotion, not what
+excused it.
+
+**Step 3a · Acquisition — Fluree. One walk, several predicate types.** Walk
+ownership to `depth`, and extend across `isGuarantorOf` and `crossDefaultsWith`
+where the corresponding flags are set.
+
+> **Do not issue one traversal per edge type.** This is the step where a naive
+> implementation quietly becomes three round trips and a merge, and where the
+> traversal's own `t` stops being a single snapshot. One walk, one ledger `t`,
+> one node set. `corporate-family-tree` established the pattern; this product is
+> where it starts to pay, because the predicate count rises from one to four.
+
+Emits the node set, the edge set, and `graph_snapshot_at` = the ledger `t`.
+Cycles are returned as **findings, not errors**, per the prerequisite product.
+
+**Step 4 · Batch Enrich — Postgres. One query, not N.** A single query resolves
+every returned entity to its facilities, balances and guarantee terms.
+
+> Fan-out here is **entity × facility**, so the N+1 penalty is *multiplicative*
+> rather than linear — the batch pattern matters more than it did at
+> `corporate-family-tree`, where fan-out was entity-only. An implementation that
+> issues one query per entity is not slow; it is wrong at scale, and the
+> difference shows up as a latency cliff rather than an error.
+
+Entities with no facility are retained with zero exposure — their presence is
+the cross-default finding (C.4 trap 2).
+
+**Step 5 · Aggregate — in-memory, algorithmic.**
+
+1. Sum by entity, then by group.
+2. **Deduplicate guarantee paths.** Where a guarantee edge already captures a
+   subsidiary's exposure at the parent, count it **once**, honoring
+   `guarantee_terms.covered_pct` and `cap_amount`. *This is the step that makes
+   the product correct and the naive sum wrong, and it is worth a comment in
+   the example code.*
+3. Apply `materiality` — **except** to zero-exposure entities reached only by
+   cross-default, which are reported rather than absorbed into the residual.
+4. Emit **both** gross and guarantee-adjusted measures.
+
+**Step 6 · Contract assembly.** Build `CreditExposureRollupContract@v1.0.0`
+with `graph_snapshot_at` = the ledger `t` from step 3 and `expires_at` =
+request time + 4 hours per `from_decision`.
+
+### D.4 Determinism class and payload hash
+
+**Determinism class: deterministic given (graph snapshot `t`, policy version,
+request parameters).** No clock is read during construction except to stamp
+`expires_at`, and no random or model-derived value participates.
+
+**Payload hash** covers the measures, the entity and edge sets, the findings and
+the lineage — and **excludes** `expires_at`, which is a function of request time
+rather than of the answer. Two runs at the same `t` under the same policy
+version with the same parameters **must** produce the identical payload hash;
+a difference is a defect in construction, not drift in the estate.
+
+### D.5 Replay statement and replay test
+
+**Replay statement.** Given `graph_snapshot_at`, `policy_version` and the
+request parameters recorded in lineage, the product reconstructs byte-identical
+measures. The Fluree ledger `t` makes the graph side replayable; the policy
+version makes the measurement side replayable; the Postgres side is replayable
+because facility rows are append-only with logical supersession.
+
+**Replay test.** Produce a rollup, record its lineage, then re-produce from the
+recorded lineage alone and compare payload hashes. The test must also
+**demonstrate the negative**: re-produce at a *different* `policy_version` and
+show the hash changes, proving the policy version is load-bearing rather than
+decorative. A replay test that only shows equality cannot distinguish a working
+replay from one that ignores its inputs.
+
+### D.6 Emitted contract
+
+`CreditExposureRollupContract@v1.0.0`, Pydantic with `extra=forbid`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `anchor` | `LegalEntityRef` | resolved obligor |
+| `intent` | `str` | echoed from the request |
+| `policy_version` | `str` | the `limit_definition` version in force |
+| `graph_snapshot_at` | `str` | Fluree ledger `t` |
+| `entities` | `list[EntityExposure]` | per entity: committed, outstanding, undrawn — **gross and adjusted** |
+| `group` | `GroupExposure` | committed, outstanding, undrawn — **gross and adjusted** |
+| `residual` | `GroupExposure` | entities below `materiality`, aggregated |
+| `connected_without_exposure` | `list[LegalEntityRef]` | reached by cross-default, holding no facility |
+| `findings` | `list[Finding]` | cycles, flag/policy conflicts, reconciliation observations |
+| `reconciliation` | `ReconciliationNote \| None` | committed vs XBRL-reported debt, with `plausible` |
+| `expires_at` | `datetime` | request time + 4 h |
+| `lineage` | `Lineage` | operators invoked, snapshot, policy version, source accessions |
+
+**Gross and adjusted are both required fields.** A consumer must never receive
+only the adjusted figure: the difference between them is the evidence that the
+graph was traversed, and a single number is indistinguishable from the naive sum
+§A warns about.
+
+### D.7 Validation gates
+
+Four gates. The first three are the SDK's standard set; the fourth is this
+product's own.
+
+| Gate | Assertion | Failure means |
+|---|---|---|
+| **Empty-operator guard** | No operator in D.2 marked "may be empty: No" returned empty | A step silently produced nothing and the product would have shipped a well-formed wrong answer |
+| **Lineage strict equality** | Lineage names exactly the operators invoked — no more, no fewer | The record does not describe the run |
+| **TTL bounds** | `expires_at` = request time + 4 h, within bounds | The `from_decision` anchor was not applied |
+| **Reconciliation guard** | **gross ≥ guarantee-adjusted**, per entity and per group | The dedup logic **double-subtracted**. Adjusted exposure exceeding gross is arithmetically impossible; if it happens, step 5.2 removed the same exposure twice |
+
+**The reconciliation guard is the one that earns its place.** The other three
+catch a broken pipeline. This one catches a *plausible wrong answer* — the
+failure mode §A says is invisible in the output. It must be observed firing on a
+deliberately double-subtracting implementation before it is trusted, not merely
+observed passing.
+
+---
+
+### D.8 The fulfillment determination — the step after the gates
+
+The gates decide whether a product **exists**. This step decides whether the
+fabric is **willing to attest** that the product it built is fit for this
+consumer to act on. They are different questions and they are answered by
+different code, in this order:
+
+```
+assembly -> projection -> Debt assessment -> effective Debt tolerance
+         -> fulfillment determination -> replay -> disclosure
+```
+
+**Context Debt does not refuse the request.** `D_c` is a *measurement* of the
+fabric's confidence in what it assembled, taken from evidence (E.2) and
+identical for every consumer of the same determination. Governance uses that
+measurement to decide whether fulfillment is permitted. Two consumers may ask
+the same business question with different fitness requirements, and the same
+assembled determination may legitimately be fulfilled for one and refused for
+the other.
+
+**The mechanism.** `ccf.products.gates::refuse_over_tolerance` takes a
+`ServableProduct` — which is not constructible outside `run_gates` — and one
+resolved `EffectiveParameter`. The sequencing is therefore structural rather
+than documented: a caller who has not run the gates has nothing to pass, so
+*withheld* can only ever be said about a product that exists.
+
+**The tolerance is a resolved parameter, never a number.** The three debt
+authorities — the class's `debt_tolerance` default of `0.25`, the caller's
+declared bar, and any applicable policy constraint — are folded exactly once,
+upstream, by `resolve_effective_request`. The fulfillment check performs no
+fold of its own; a second fold is where a product would quietly re-acquire the
+power to overrule its own governance.
+
+**The one narrowing case, and why it is not an inconsistency.** This deployment
+registers two policy constraints with the same `maximum` operator, and they
+behave differently:
+
+| Constraint | Parameter | Caller asks | Outcome |
+|---|---|---|---|
+| `materiality-ceiling/internal-appetite` | `materiality` | `0.10` over a `0.05` ceiling | **REFUSED by name**, before assembly. A narrowed request answers a question nobody asked (`D-IMPL-251` C5) |
+| `debt-tolerance-ceiling/regulatory-large-exposure` | `debt_tolerance` | `1.0` over a `0.10` ceiling | **NARROWED to `0.10`** with authority `policy`; the product is assembled and then withheld against that bar |
+
+`DEBT_TOLERANCE_PARAMETER` is the SDK's **only** parameter-name-keyed branch,
+and it keys on the SDK's own mechanism token rather than on any deployment's
+vocabulary. The asymmetry is deliberate: **a fitness bar cannot be refused
+before fitness has been measured.** Materiality shapes the answer, so a
+disallowed value can be refused at the boundary; debt tolerance *judges* the
+answer, so the comparison must wait until the observation exists. Both
+behaviors are visible in the scenario set (E.6).
+
+**What withholding does not do.** It does not withdraw the determination. The
+$10,125,000,000 gross and $9,325,000,000 guarantee-adjusted figures are the
+assembled truth and are printed on a withheld run. The fabric may know what it
+calculated without being willing to attest that the calculation is fit to serve;
+disclosure decides what the caller sees, and it discloses both the number and
+the reason it is not attested.
+
+---
+
+### D.9 Decision replay — written before the response is released
+
+`D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
+boundary — fulfilled or refused, tool or resource, authorized or denied — must
+reach the replay writer before the response is released."*
+
+**One writer, one store, one record class for both outcomes.** `D-IMPL-253` Q13
+(Dave): *"Refusal is itself a decision and deserves the same five-dimensional
+replay model. Do not create second-class replay."* A separate artifact class for
+withheld determinations would be that second class. Measured on this product,
+the **withheld record is larger than the served one** — 20,639 bytes against
+17,157 — because it additionally carries the refusal envelope, its evidence and
+the debt breakdown.
+
+| Dimension | Served | Withheld |
+|---|---|---|
+| 1 · Context fabric | boundary `2026-09-07T12:00:00+00:00`, 77 touched entities | **identical** — the same state was read |
+| 2 · Policy bindings | the Control Plane bundle pin **and** `limit_definition/group-limit-test` | identical |
+| 2 · Effective request | present | present |
+| 3 · Model version | `assembly_mode=algorithmic`, `model=none` | identical |
+| 4 · Perspective | `PRIN-CRO-001 / credit-officer` | identical |
+| 5 · Content path | product content address, `refusal_recorded: false` | `no-product-address`, `refusal_recorded: true` |
+| 5 · Debt | `1.000` | `1.000`, arriving through the refusal envelope's own permitted evidence |
+
+**What replay re-asks is the EFFECTIVE question, never the caller's.**
+`resolution` carries one parameter per name with the authority that established
+it, so a reader sees `debt_tolerance 0.10 [policy]` rather than the `1.0` the
+Regulated Consumer typed. Under a narrowing constraint those are different
+questions and only one of them was answered.
+
+**Two policy bindings, because two versioned policies governed the answer.** The
+Control Plane bundle is the fabric's own, pinned at boot. The limit definition is
+credit policy read from the amounts store, and it is what decided whether
+guarantees net and whether undrawn commitments count (§D.3 step 2). Recording
+only the first would leave a reader unable to tell which definition produced
+which number.
+
+**Ordering is structural rather than conventional.** A served product is what a
+successful append *returns* (INV-CH7-79): there is no branch through `serve`
+that hands back a product whose record failed to write, because the product
+comes out of the same call that wrote it. On the withheld branch `record_refusal`
+returns the artifact reference rather than a delivery capability — a refusal has
+no product for a capability to authorize, and what the caller needs is the
+address the refusal envelope's `replay_reference` points at.
+
+**The store is per-run, and that is a demonstration choice rather than a
+deployment one** (`artifacts/replay.yaml`). What is demonstrated is the ordering,
+which is observable inside one run. The record is read back out of the store and
+its content address compared against the record the run built before the
+directory is discarded, so the reported address is a fact about a persisted
+artifact rather than about an object that was never written.
+
+---
+
+---
+
+### D.10 The MCP door — and the two questions it was built to answer
+
+The door is `server/serve.py` over `server/door.yaml`. It exposes the governed
+path of §D.8–§D.9 as an MCP tool, authenticated, entitled, and recording every
+denial as a decision. It re-implements no part of the assembly, the gates, the
+debt assessment, the tolerance comparison or the replay record.
+
+#### Question 1 — does the governed door reconcile declared behavior against observed execution?
+
+**No. It proves a record EXISTS; it does not read what the record says.**
+Measured directly:
+
+```
+product payload claims family = 77
+replay record observed touched = 77
+
+--- door check on a product whose payload disagrees with its record ---
+door_refusal  -> None (no refusal)
+served_answer -> ACCEPTED. payload family = 9999 | record says 77
+```
+
+A `ServedProduct` whose payload claims 9,999 family members, wrapping a replay
+record whose dimension 1 observed 77, crosses the delivery boundary unremarked.
+
+What the boundary *does* enforce is real and is not nothing.
+`ccf.products.door::served_answer` refuses anything that is not a
+`ServedProduct` — a bare `ServableProduct` is named as *"admitted by the gates,
+recorded by nothing"* — and `D-IMPL-260` P-A requires *"a typed/provable
+governed result proving determination, replay and disclosure completed."* That
+is a **shape** proof: something was recorded. It is not a **content**
+reconciliation: nobody compares what was recorded against what is being served.
+
+**Both operands are in the door's hand.** `ServedProduct.product` carries the
+payload; `ServedProduct.replay_ref` addresses the record. Reading dimension 1
+and comparing it against the payload is one store fetch away. The ingredients
+are present and the comparison is not made — which is the same sentence
+findings 8, 12 and 14 each produced about a different mechanism.
+
+#### Question 2 — is MCP exposure binding, or another application?
+
+Measured in executable lines (blank lines, comments and docstrings excluded):
+
+| | total | executable |
+|---|---|---|
+| cp-04's door (`compose.py` + `serve.py`) | 733 | **260** |
+| cp-05's door (`serve.py`) | 334 | **204** |
+
+cp-05 came to this with its governed path already built, and still spent 204
+lines. The reduction is 22%, not the order of magnitude one would expect if the
+door were binding. Breaking cp-05's 204 down:
+
+| Part | exec | Kind |
+|---|---|---|
+| `door()` — entitlement registration, per-boot credential, `build_egress_server(...)` | 60 | **binding and configuration** |
+| imports | 30 | plumbing — 8 SDK modules plus three MCP auth internals |
+| `door_values`, `Door`, `serve`, module-level | 28 | plumbing |
+| `build_resolver` — the `ProductResolverProtocol` adapter | 41 | **application** |
+| `_wrong_address`, `_no_standing_answer`, `_refused`, `_text` | 31 | **application** |
+
+**Roughly half is binding and half is a small application.** The application
+half is not arbitrary — it is parameter translation, the wrong-address refusal,
+the no-standing-answer refusal for a parameterized class read as a resource, and
+the `refuse_request` call the door explicitly delegates. Each is a real decision
+a deployment must make. But each also has to be *written*, and three of the four
+mint a `ProductRequestViolation` by hand because the SDK ships no constructor
+for "this door was addressed for the wrong class."
+
+**The honest verdict: exposure is binding plus a thin application, and the thin
+application is where a deployment can still get governance wrong.**
+`ProductResolverProtocol` names the risk in its own docstring — *"a resolver
+that does not call `refuse_request` serves against an unchecked request"* — and
+that is a ruling (`D-IMPL-113`), not an oversight: the door never holds the
+`RegisteredProductClass` both comparisons need. cp-05 discharges
+`refuse_request`; it does **not** call `refuse_bound_payload`, because this class
+declares no `payload_schema_key` and there would be nothing to compare against.
+That absence is stated in `server/serve.py` rather than left to be inferred.
+
+#### The finding behind both answers
+
+**The SDK already ships the entire governed path cp-05 hand-built.**
+`ccf.products.resolver::GovernedResolver`, reached through
+`build_governed_resolver`, performs — in this order —
+`refuse_intent` → `resolve_effective_request` → `GraphView` at the boundary →
+`build_operator_registry` → `ProjectionEngine.execute(plan_factory(...))` →
+`register_product_class` → the candidate contract with lineage, payload, debt and
+`computed_empty` → `run_gates` → `refuse_over_tolerance` → `build_replay_record`
+→ `serve` or a recorded refusal. That is §D.8 and §D.9 of this document,
+composed, shipped and tested.
+
+cp-05 did not use it. It was built by hand across steps 4 and 5 of this rung's
+rebuild, and the reason is the one this specification has now recorded four
+times: **the machinery is present and correct, and the easiest path for an
+author walks past it.** What cp-05 would need to adopt it is a `plan_factory`
+carrying the Postgres enrichment and the aggregation, an
+`AssemblyDebtScorerProtocol` override (its debt comes from `balance_as_of` dates
+and reconciliation rows, not from the `GraphView`), a home for the
+product-specific reconciliation guard, and an answer to `D-IMPL-277` for the
+acquisition step `GovernedResolver` assumes has already happened. None of those
+is a blocker; all four are unstated.
+
+---
+
+## Section E — Volatility, debt & materialization
+
+### E.1 Half-life table
+
+| Signal class | `λ_c` | Why |
+|---|---|---|
+| Outstanding balances | **~4 hours** | Drawdowns and repayments land intraday |
+| Guarantee and cross-default structure | **~365 days** | Amendment-driven |
+| Ownership edges | **~180 days** | Inherited from `corporate-family-tree` |
+| Group-limit definition | **~180 days** | Policy review cycle |
+
+**The spread is the design constraint.** The fastest class moves ~2,190× faster
+than the slowest. A product-level half-life would have to be set to the fastest —
+4 hours — which would declare a stable ownership graph stale every four hours,
+or to something longer, which would serve a balance figure hours after it stopped
+being true. Per-class `λ_c` is not a refinement here; it is the only correct
+shape.
+
+### E.2 Debt model and per-component debt table
+
+Context Debt `D_c` accrues per component against its own `λ_c`.
+
+| Component | `λ_c` | Debt at threshold | Behavior at breach |
+|---|---|---|---|
+| Outstanding balances | 4 h | freshness shortfall vs the 4 h SLA | **Fail-closed** — refuse rather than serve a stale balance as current |
+| Guarantee / cross-default structure | 365 d | staleness of the amendment feed | **Finding** — serve, and name the staleness |
+| Ownership edges | 180 d | staleness inherited from rung 4 | **Finding** |
+| Group-limit definition | 180 d | policy past review date | **Finding** — the definition is still the definition until replaced |
+
+**Only the balance component fails closed.** A stale ownership edge produces an
+answer that is slightly out of date; a stale balance produces an answer that is
+*wrong about money* while looking current. The asymmetry is deliberate and is
+the debt model's whole content at this rung.
+
+### E.3 Materialization posture
+
+**Derived on demand. Materialization is the wrong answer here, and this is the
+first rung where that is true.**
+
+The fastest input moves on a ~4 hour half-life, so a materialized rollup would
+be stale inside its own `λ_c` window — the cache would spend most of its life
+serving a number the estate had already superseded. The cost of recomputation
+is bounded (one traversal, one batch query, in-memory arithmetic); the cost of
+serving a stale exposure to a limit test is not.
+
+**The contrast with `corporate-family-tree` is the point.** Same traversal
+machinery, same stores, **opposite posture** — that product's inputs move on a
+180-day half-life and materializing is correct. A reader who takes "traversal
+products should be materialized" from rung 4 and applies it here gets a
+plausible, stale, wrong number. The posture is a property of the *volatility
+profile*, never of the shape of the query.
+
+### E.4 Supersession triggers
+
+- Drawdown or repayment event — supersedes the balance component
+- Amendment changing guarantee or cross-default structure
+- Any supersession cascading from `corporate-family-tree`
+- Replacement of a `limit_definition` row — supersedes **every** rollup taken
+  under the prior version, which is why the version is in lineage
+
+### E.5 The expiry, and the two refusals it can produce
+
+`expires_at` is request time + 4 hours, anchored `from_decision`.
+
+**Refusal 1 — expired product.** A rollup read after `expires_at` is refused,
+not served with a warning. The decision it was assembled for has either been
+taken or has gone stale; either way the number is no longer the number.
+
+**Refusal 2 — balance debt at threshold.** If the outstanding-balance component
+breaches its freshness SLA at construction time, the product **fails closed**
+(E.2) rather than emitting an exposure built on a stale balance. The refusal
+names the component and its measured staleness.
+
+**Both refusals are refusals of fulfillment, not of response.** The caller
+receives a typed refusal carrying the reason, the component and the measurement
+— never a silent empty payload, and never a partial rollup presented as whole.
+
+### E.6 The demonstrated run, measured — and the eight consumers
+
+**The demonstrated run is a governed refusal, and nothing was calibrated to
+avoid that.** Measured against the estate at the pinned instant
+`2026-09-07T12:00:00+00:00`:
+
+| Factor | Value | Evidence |
+|---|---|---|
+| freshness | `0` | 15 real `balance_as_of` dates, 324–396 hours old, scored against the declared 4-hour `λ_c` |
+| completeness | `0.2467` | 19 of 77 family members carry an LEI and can be checked for exposure at all |
+| semantic_consistency | `1` | 5 reconciliations among the obligors this determination used; none disagrees |
+| **`D_c = 1 − min(F, C, S)`** | **`1.000`** | the weakest link bounds confidence; signal `fail_closed` |
+
+Against the class's own `0.25` default tolerance, fulfillment is **withheld**.
+This is E.2's asymmetry firing exactly as designed: the balance component is the
+one that fails closed, and it is stale. The correct response is to record it,
+not to widen `λ_c` until the demonstration serves — a four-hour half-life
+recalibrated to fit old demo data would make every later run of this product
+lie about how current its money figures are.
+
+**Eight named consumers, one estate, one instant.** `run.py --scenarios` runs
+the set declared in `artifacts/scenarios.yaml`; `page/scenario-transcript.txt`
+is its output.
+
+| Consumer | Requested | Effective (authority) | Projected | Fulfillment |
+|---|---|---|---|---|
+| Default | *nothing* | `materiality 0.05` (default) · `debt_tolerance 0.25` (default) | 4 material, residual 145,000,000 | **WITHHELD** (default) |
+| Detailed | `materiality 0.02` | `0.02` (caller) · `0.25` (default) | 4 material, residual 145,000,000 | **WITHHELD** (default) |
+| Material-Only | `materiality 0.10` | `0.10` (caller) · `0.25` (default) | 3 material, residual 945,000,000 | **WITHHELD** (default) |
+| Strict-Fitness | `debt_tolerance 0.05` | `0.05` (caller) | 4 material | **WITHHELD** (caller) |
+| Exploratory | `debt_tolerance 1.0` | `1.0` (caller) | 4 material | **SERVED** |
+| Regulated | `intent regulatory-large-exposure`, `debt_tolerance 1.0` | **`0.10` (policy)** — narrowed | 4 material | **WITHHELD** (policy) |
+| Appetite | `intent internal-appetite`, `materiality 0.10` | — | — | **REFUSED at the request boundary** |
+| As-Of | `as_of 2026-06-30` | — | — | **REFUSED at the request boundary** |
+
+**The invariant this table exists to prove.** Family **77**, gross
+**10,125,000,000**, adjusted **9,325,000,000** and `D_c` **1.000** are
+byte-identical across every consumer that reached assembly. The fabric does not
+revise what it knows to suit who is asking. What varies is (a) which slice of
+that truth is projected, and (b) whether the fabric will attest that it is fit
+to act on.
+
+**Two measurements worth stating because they were not the expected result.**
+
+1. **The Detailed Consumer's finer threshold changes nothing.** Dropping the
+   floor from 506,250,000 to 202,500,000 selects the same four entities,
+   because this family's book is concentrated: five entities hold facilities
+   and the smallest material one commits 800,000,000. The projection moves only
+   at 10%, where the 800,000,000 obligor falls into the residual. A threshold
+   that *can* move the answer is not a threshold that *does*, and a
+   demonstration that only showed the moving case would teach the wrong lesson
+   about what materiality is for.
+2. **A different tolerance produces a different content address.** The address
+   spans the effective request — including the resolved `debt_tolerance` and
+   the authority that set it — so the Exploratory and Default consumers address
+   differently while their determinations are byte-equal. That is correct:
+   *"give me this if you are confident enough"* is not the same question as
+   *"give me this whatever your confidence."* The served-or-withheld outcome is
+   deliberately **not** hashed in, because it is a pure function of the
+   tolerance and the Debt the address already covers.
+
+---
+
+## Section F — Source binding & readiness
+
+### F.1 Element readiness
+
+All measured 2026-09-07. The vault's manufacture-envelope conditions (its
+q019 `§F`) are reproduced here with what the estate actually holds.
+
+| Vault condition | Required | Measured | Status |
+|---|---|---|---|
+| Facilities | ~40 | **60** | **Met** |
+| Anchor obligors | ~50 | **22 distinct borrowers** | **Divergent — recorded (F.4)** |
+| Guarantee edges | ~25 | **27** | **Met** |
+| — of which upstream | ≥ 3 | **24** (`guarantee_terms.kind='upstream'`) | **Met** |
+| Cross-default edges | ~15 | **15** | **Met** |
+| — reaching an entity holding no facility | ≥ 2 | **4** of 20 entities reached | **Met** |
+| Families where naive ≠ guarantee-adjusted | ≥ 3 | **4** (`kind='downstream-dedup'`) | **Met** |
+| Balances reconciling to a plausible share of XBRL debt | all | **13 of 14** | **Divergent — recorded (F.4)** |
+
+**Verdict: buildable today.** Every element in C.1 exists and is populated. The
+two divergences are recorded rather than repaired, and neither blocks
+construction.
+
+### F.2 Every `[TBC]` in this document, with an owner
+
+| `[TBC]` | Owner | What unblocks it | Blocks build? |
+|---|---|---|---|
+| Entitlement service binding — the concrete service this product calls for entitlement scope at D.3 step 2 | SDK | The example may bind the reference entitlement surface; a production deployment binds its own | **No** — the step is specified, only the endpoint is deployment-local |
+| `limit_pct_of_capital` denominator — whose capital, measured how | Vault / credit policy | Needed only when the product **tests** a limit rather than **reporting** exposure against one; this version reports | **No** — out of scope at v1.0.0, and named so it is not silently assumed |
+
+| **Vault: four-question test result** — absent from the article (§0.1) | Vault | Vault authors it, or ratifies the SDK-authored version | **No** |
+| **Vault: scope boundary** — absent from the article (B.5) | Vault | Vault authors it, or ratifies the SDK-supplied wording | **No** |
+| **Vault: primitive taught / build-order note** — absent from the article | Vault | Vault authors them | **No** |
+| **Vault front matter: `sdk_spec`, `assembly_mode`, `out_of_scope` are `null`; `sources` is `unknown`** | Vault | This specification supplies the first three; return path (`spec_generation.md` §11) | **No** |
+
+**No `[TBC]` gates the build.** All are recorded so a later reader does not
+mistake an absence for an oversight.
+
+**Four of the six are absences in the vault article, not in this
+specification.** They are listed here because §4.1 requires those items to be
+*extracted from the vault*, and they could not be — the article does not carry
+them. Every SDK-supplied substitute is labeled as such at the point of use
+(§0.1, B.5) rather than presented as the vault's.
+
+### F.3 Access path, identifiers, history, text and volumetrics
+
+**Access path.** Postgres `ccf_v2` on the estate host, read-only credentials.
+Fluree 4.1.4 read endpoint `/v1/fluree/query`, SPARQL dialect, **explicit
+`FROM <fibo-v2>` on every query** — the server answers HTTP 500 without one, so
+the ledger name is not optional and is never defaulted.
+
+**Identifiers.** LEI (20 char) for entities; `facility_id` for facilities; the
+Fluree entity slug bridged to LEI through the ledger's `lei` predicate or
+`ccf_v2.crosswalk` — never by string similarity (C.3).
+
+**History.** Fluree carries ledger `t` for point-in-time reads. Postgres facility
+rows are append-only with logical supersession. Both are required for D.5.
+
+**Text.** None. This product reads no unstructured content; passage-level
+lineage arrives at rung 13.
+
+**Volumetrics, measured.** 156 legal entities · 60 facilities · 916 ownership
+edges (`owns` 636 + `isUltimatelyConsolidatedBy` 140 + `isDirectlyConsolidatedBy`
+140) · 27 guarantee edges · 15 cross-default edges · 45 borrower-of edges. At
+`depth=3` from the worked anchor the node set is small; the scale question this
+product raises is answered at rung 16, not here.
+
+### F.4 Recorded findings — not `[TBC]`, because none needs a decision to build
+
+1. **22 distinct borrowers against the vault's ~50 anchors.** The estate exceeds
+   the facility count (60 vs ~40) while concentrating them across fewer
+   borrowers. The uneven distribution the vault asks for is present — some
+   families hold several facilities, some none — so the product's behavior is
+   demonstrable. Recorded because the number differs from the vault's, not
+   because it is wrong.
+2. **One of 14 reconciliations is `plausible = false`.** One obligor's synthetic
+   commitments are not a plausible share of its XBRL-reported debt. Left as-is:
+   it exercises the `reconciliation` field's negative path, which an all-true
+   estate could not.
+3. **RESOLVED, not carried — the anchor below its own materiality floor.** An
+   earlier draft recorded it as a finding that the anchor is filtered from the
+   enumerated entities of its own rollup at the 5% default. It is not a defect:
+   the threshold is the CALLER's decision tolerance (B.4.1), and a caller asking
+   `0.01` sees the anchor. Recorded because the first reading was wrong and the
+   correction is architectural rather than a patch.
+4. **The slug↔LEI join hazard** (C.3). Recorded as a finding because it produced
+   a false measurement during authoring, and any implementation will meet it.
+5. **The vault article's own worked anchor does not exist in the estate.** Its
+   §D client call uses `5493001KJTIIGC8Y1R12`; measured, that LEI is **absent
+   from `ccf_v2.legal_entity` and holds zero facilities**, beside a positive
+   control confirming the query resolves `5493000Q1S5TJIDIQH89` to `REGIS CORP`.
+   This specification substitutes a real, exercising anchor (D.1) and records
+   the substitution here rather than making it silently. The vault's example
+   call should be repointed on the return path.
+6. **API/documentation friction — the envelope payload is FLAT, not nested.**
+   `AssemblyWorker`'s resolver treats `match_key` as a presence flag and reads
+   every identity and attribute key from the TOP LEVEL of `raw_payload`, as
+   siblings. Nesting them under the match key resolves the rule and then refuses
+   — *"matched rule for 'exposure_member' but lacks identity keys
+   ['entity_uri']; the fabric refuses to mint a URI from partial identity."*
+   **The SDK is behaving correctly**; refusing to mint from partial identity is
+   right. The declaration simply does not make the required payload shape
+   obvious. Adoption ergonomics, not a semantic defect.
+
+7. **CANDIDATE SDK VALIDATION GAP — operator seed classes and
+   resolution-produced entity classes can be compositionally incompatible with
+   no boot-time refusal.** The traversal operator's `seed_entity_classes` names
+   a class the resolution spec must mint. Each document is valid alone; the
+   COMBINATION can yield a silently empty traversal over a fully populated
+   graph. **Measured, both ways:** seeding on `exposure_nonesuch` — a class
+   nothing mints — the fabric **boots clean**, and the product then refuses at
+   the empty-operator guard: *"the declared traversal operator returned no
+   entities over an L3 holding 77 ingested nodes and 100 relationship claims."*
+   **NOT FIXED.** Recorded as a candidate; cp-05 continues, and whether this
+   deserves a general compatibility check is decided after seeing whether the
+   same class of mismatch appears elsewhere.
+
+8. **Guard placement is load-bearing, and this is where it was learned.** The
+   empty-operator guard originally watched the ACQUISITION walk. Under the
+   sabotage above that walk returns 77 and the guard **passes**, while the
+   served family is empty. The guard now watches the OPERATOR's output, which is
+   what the product serves. A guard over the wrong step is not a weaker guard —
+   it is a guard that reports on something nobody is served.
+
+9. **API friction, minor and recorded — `ProjectionPlan.invoke` receives no
+   request.** Its four arguments are `view`, `operator_outputs`, `perspective`
+   and `temporal_boundary`. A caller-selectable *projection* parameter — this
+   product's materiality threshold — therefore has no declared channel into
+   `invoke` and arrives through the plan's constructor, the plan being built per
+   request. **`ProjectionEngine.execute` itself required no adaptation**, so
+   this is a discoverability cost rather than a capability gap: an author has to
+   work out that the plan, not the call, is where a per-request projection
+   parameter lives. Arguably correct as designed — a projection conditioned on
+   `perspective` and bounded by time, with everything else fixed at
+   construction, is a defensible contract.
+
+10. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+   article's front matter.** This specification supplies all three; the vault
+   article should be updated on the return path (`spec_generation.md` §11).
+
+11. **NOT A GAP — the `debt_tolerance` narrowing is deliberate, and the source
+    says so.** A `maximum` policy constraint on `materiality` refuses; the same
+    operator on `debt_tolerance` narrows. That looked like an inconsistency
+    until it was measured against `src/ccf/products/constraints.py`, which
+    documents it as *"the one exception to 'nothing is clamped'"* and gives the
+    reason: the comparison that can still refuse — observed Debt against that
+    tolerance — happens after assembly, where the observation exists. Recorded
+    as a **confirmed SDK behavior**, not a finding, because a reader meeting
+    the asymmetry for the first time will reach for the same wrong conclusion.
+    `DEBT_TOLERANCE_PARAMETER` is the SDK's only parameter-name-keyed branch
+    and it keys on the SDK's own mechanism token, never on this deployment's
+    vocabulary.
+
+12. **The fulfillment path was present, complete and NOT the obvious path.**
+    `run_gates` -> `ServableProduct` -> `refuse_over_tolerance` required no SDK
+    change and no adaptation: the class registration, the gates, the debt field
+    on the contract and the tolerance check all composed as specified. What it
+    required was *knowing to look for it*. An earlier draft of this product
+    computed Context Debt, printed it, and served the answer anyway — the debt
+    figure was an ornament on a product nothing governed. Nothing in the SDK
+    stopped that, because a producer that never calls `refuse_over_tolerance`
+    is indistinguishable from one whose tolerance was met. **The same shape as
+    finding 8**: the machinery is present and correct, and the easiest path for
+    an author still walks past it.
+
+13. **Two self-inflicted documentation defects, recorded rather than amended.**
+    (a) `summary_explanations.md` quoted a depth-refusal message no run ever
+    produced — invented from the shape of the argument rather than copied from
+    output. The two real messages differ from it and from each other, and are
+    better teaching: depth 6 is refused by the CLASS's declared domain, depth 9
+    by the SUBSTRATE's capability, and a caller told which is which knows
+    whether to ask for a different product or to stop asking. (b)
+    `artifacts/assembly-recipe.yaml` did not parse as YAML — an unquoted
+    `` `may_be_empty: false` `` inside a scalar — while claiming to be "§D.2 as
+    data." Nothing reads the file, which is why it went unnoticed for the whole
+    build. Both are the same class as finding 5: a plausible artifact nobody
+    executed. **The rule that catches this class is to run the thing, not to
+    read it**, and both were found by running it.
+
+14. **DEFECT, FOUND BY THE REPLAY RECORD — the declared policy operator was
+    invoked and its output discarded.** The product answered 77 family members
+    from a traversal that never passed through `policy.principal-subgraph`,
+    while its lineage declared that operator among the ones invoked. The cause
+    was one argument: `registry.resolve("traversal.typed-neighborhood").apply(
+    ..., upstream=())`, which registers the policy operator and then walks the
+    raw view.
+
+    **Nothing caught it for the whole build.** Lineage strict equality passed —
+    the engine *did* invoke both operators. The empty-operator guard passed —
+    the traversal returned 77. Every gate passed. What found it was building
+    dimension 1 of the replay record: `touched_entities: 0` for a determination
+    over 77 members, because the `ProjectionEngine`'s **chained** pipeline was
+    correctly returning nothing (an empty `permitted_classifications` admits
+    nothing — *"the fabric does not admit state it cannot prove is
+    admissible"*) while the served answer came from somewhere else entirely.
+
+    **The config was right from the start; two halves of it were never
+    implemented.** `ccf_config.yaml` already declared `family_id` as an
+    attribute key on both entity rules, and `permitted_classifications: []`
+    deliberately empty. What was missing was the envelope carrying a `family_id`
+    value, and the request-time binding of the permitted set — both of which
+    rung 4 had already ruled and built (`D-IMPL-229`, Dave: *"If PolicyFilter
+    can only key off a claim attribute, that attribute is membership, minted
+    when the node is admitted to the walk."*).
+
+    **Fixed, and sabotage-verified in both directions.** Policy now runs first
+    and the traversal chains from its provenance;
+    `deployment.py::refuse_unbound_family_scope` refuses an unbound set and a
+    set naming another family, by name, and both refusals were observed firing.
+    Minting the family under a value the request does not name now returns an
+    empty traversal, caught by the empty-operator guard — *"the declared
+    traversal operator returned no entities over an L3 holding 77 ingested nodes
+    and 100 relationship claims"* — against a positive control of 77. The answer
+    is unchanged at 77 members and $9.325B; what changed is that it now passes
+    through the envelope it always claimed to.
+
+    **The SDK observation this leaves.** Every SDK mechanism behaved correctly.
+    `PolicyFilter` excluded state it could not prove admissible; the engine
+    chained correctly; the gates checked what they are specified to check. What
+    no mechanism did was notice that a product's *served answer* and its own
+    *engine's execution* disagreed about how many entities existed. This is the
+    same shape as findings 8 and 12: **the machinery is present and correct, and
+    the easiest path for an author walks past it.**
+
+15. **A float in the payload, caught only on the served path.** The payload
+    carried `request.materiality` as a Python float.
+    `ccf.contracts.canonical` refuses one outright — *"float is not canonically
+    encodable (not bit-stable across platforms); use int or decimal.Decimal"* —
+    which is exactly right. But the refusal fires only when the product payload
+    is content-hashed, and **only the served path does that**: a withheld
+    determination's record never hashes the payload, so the same defect had been
+    riding silently through every refused run. Fixed by carrying the `Decimal`
+    into the projection (exact arithmetic on a money floor) and its string form
+    on the wire — which also preserves the caller's lexical form, so `0.10` stays
+    `0.10` rather than normalizing to `0.1`.
+
+16. **The Control Plane document has no slot for a deployment's own replay
+    binding.** Adding a `replay:` section to `ccf_config.yaml` is refused by
+    name, and the refusal is right — a Control Plane document that accepted
+    arbitrary sections would let a deployment smuggle unaudited state into the
+    audit plane — and its message names every recognized alternative. But the
+    artifact class names a deployment writes its decision records under have
+    nowhere declared to live. Rung 4 put them in `deployment.py` as module
+    constants; this rung puts them in `artifacts/replay.yaml`. Neither is the
+    Control Plane. Minor, and recorded because every example will meet it.
+
+17. **THE SDK SHIPS THE WHOLE GOVERNED SPINE AND cp-05 REBUILT IT BY HAND.**
+    `ccf.products.resolver::GovernedResolver`, reached through
+    `build_governed_resolver`, composes `refuse_intent` →
+    `resolve_effective_request` → `GraphView` → `build_operator_registry` →
+    `ProjectionEngine.execute` → `register_product_class` → candidate contract
+    → `run_gates` → `refuse_over_tolerance` → `build_replay_record` → `serve`
+    or a recorded refusal. That is §D.8 and §D.9 of this document, shipped.
+    cp-05 built all of it by hand across steps 4 and 5 of this rung's rebuild
+    and discovered the shipped version only while building the MCP door.
+
+    **This is the fourth instance of one pattern**, and at a larger scale than
+    the other three: findings 8 (acquisition), 12 (fulfillment) and 14 (policy
+    composition) each said *the machinery is present and correct, and the
+    easiest path for an author walks past it*. This one says it about the
+    entire governed path at once.
+
+    What cp-05 would need to adopt `GovernedResolver`: a `plan_factory` carrying
+    the Postgres enrichment and the aggregation; an
+    `AssemblyDebtScorerProtocol` override, because this product's debt comes
+    from `balance_as_of` dates and reconciliation rows rather than from the
+    `GraphView`; a home for the product-specific reconciliation guard, which
+    `run_gates` does not run; and a ruling on `D-IMPL-277` for the acquisition
+    step `GovernedResolver` assumes has already happened. Each is tractable and
+    none is documented as the path.
+
+18. **The delivery boundary proves a record EXISTS and does not read it**
+    (§D.10 question 1). A `ServedProduct` whose payload claims 9,999 family
+    members, wrapping a replay record whose dimension 1 observed 77, crosses
+    unremarked — measured, not argued. Both operands are in the door's hand:
+    the payload on `ServedProduct.product`, the record at
+    `ServedProduct.replay_ref`. This is the reconciliation findings 8, 12 and 14
+    each imply and no layer performs.
+
+19. **CORRECTED — the request-boundary half of this finding was FALSE, and it
+    reached Dave before it was measured.** As first written this finding said
+    that `GovernedResolver` calls neither `refuse_request` nor
+    `refuse_bound_payload`, and therefore that *"a deployment adopting
+    `build_governed_resolver` in good faith inherits an unchecked request
+    surface."* **That conclusion does not survive measurement.** It was derived
+    from `grep`ping for the symbol name and reading a docstring, without ever
+    asking what the composed path actually refuses.
+
+    Measured, limb by limb, against `resolve_effective_request` — which
+    `GovernedResolver` reaches through `constraint_resolver.resolve`:
+
+    | `refuse_request` limb | `resolve_effective_request` |
+    |---|---|
+    | address | checked by `GovernedResolver` itself — `ProductNotResolvable` |
+    | tier (declared-and-inert) | **refuses** — `as_of: not_supported_at_tier` |
+    | undeclared parameter | **refuses** — `undeclared-parameter` |
+    | missing required parameter | **refuses** — `missing-required-parameter` |
+    | mistyped parameter | **refuses** — `type-mismatch` |
+    | declared domain | **refuses** — `D-IMPL-259`, by name and never clamped |
+
+    Each row was exercised against a live contract with a positive control that
+    passed. **The request boundary under `GovernedResolver` is checked.** There
+    is no correctness defect here and nothing to fix.
+
+    **What survives, narrowly.** `refuse_bound_payload` is called by **no
+    shipped module** — the only call site in the tree is
+    `archive/examples/04-cross-process/producer_child.py`. It returns `None`
+    for a class that declares no schema, and no shipped example declares one,
+    so it bites nobody today. A deployment that declares a `payload_schema_key`
+    would have that declaration silently ignored on every shipped path. That is
+    a real but latent gap, and it is a much smaller claim than the one this
+    finding originally made.
+
+    **Recorded this way on purpose.** The false half is preserved rather than
+    deleted. It is the fourth instance in this specification of the same
+    author-side failure — finding 3 (a hand-computed ground truth), finding 5
+    (a fabricated vault quotation), finding 13(a) (a fabricated refusal
+    message), and now a defect inferred from a symbol's absence rather than
+    measured from a path's behavior. **The rule that catches this class is the
+    same every time: run the thing, with a positive control, before reporting
+    what it does.**
+
+20. **THE DEFECT WAS A SECOND AUTHORITY, NOT A MISSING CALL — and cp-05 was
+    neither exempt nor compliant.** A shipped invariant sweeps every projecting
+    example body and requires `ccf.deployment.binder::refuse_operator_set_divergence`
+    between plan construction and `ProjectionEngine.execute`. cp-05 failed it in
+    four places. It was found by running the SDK suite on cp-05's branch for the
+    first time — cp-05 has no test in the tree, and `make lint` plus the example
+    itself had been the only checks.
+
+    **Measured, against the live estate.** Dropping `policy.principal-subgraph`
+    from the plan's `required_operators()` served a product having run ONE of
+    the two operators the Control Plane declares required — gates green, replay
+    written, delivery boundary released it, lineage honestly reporting one:
+
+    ```
+    Control Plane claims : ['policy.principal-subgraph', 'traversal.typed-neighborhood']
+    OUTCOME              : ServedProduct
+    lineage says         : ['traversal.typed-neighborhood']
+    family 77 | adjusted 9,325,000,000 | gates PASSED
+    ```
+
+    The binder, handed the same pair, refuses by name. So the invariant protects
+    a real semantic requirement and the sweep is not overfitted.
+
+    **Why cp-00–cp-04 pass.** They are on `RULED_ONE_DOCUMENT_DEPLOYMENTS`, each
+    ruled in by Dave by name (`D-IMPL-234`, `D-IMPL-239`). The exemption's
+    premise is that the deployment registers no `ccf.projection-requirements`
+    AND its plan's `required=` reads the product class's own claim — so the
+    binder would compare a value against itself. cp-04 does exactly that:
+    `required=tuple(scenario.product_class.required_operator_keys)`.
+
+    **cp-05 satisfied neither.** Its `required_operators()` returned a
+    hard-coded tuple, so two independent documents existed —
+    `ccf_config.yaml::required_operator_keys` and that tuple — with nothing
+    comparing them.
+
+    **A SECOND, SEPARATE DEFECT IN THE SAME PLACE: gate 2 was vacuous.** The
+    contract's `lineage.operators_invoked` was `frozenset(execution.operators_invoked)`
+    and `engine_resolved` was `execution.operators_invoked` — the same object on
+    both sides, so the gate could not fail. It was written that way deliberately,
+    believing a hand-kept list would drift; the effect was to remove the check
+    rather than ground it.
+
+    **CORRECTED under Dave's ruling of 2026-09-08**, and the ruling names the
+    deeper defect: *"The defect was not 'missing binder call' in isolation. The
+    deeper defect was that cp-05 created a second operator-requirement authority
+    where the established one-document deployment pattern already avoids that
+    duplication."* His disposition: *"cp-05 is a one-document deployment for
+    operator requirements. The Control Plane/product-class declaration is
+    authoritative; the projection plan derives its required operator set from
+    that declaration. Add cp-05 to `RULED_ONE_DOCUMENT_DEPLOYMENTS`."* And
+    explicitly: *"I would not call the binder in cp-05 after making that change.
+    Once the plan reads the declaration directly, the binder comparison becomes
+    self-comparison, exactly matching the exemption premise used by cp-01
+    through cp-04."*
+
+    So the plan is now handed `required=` from the declaration, the contract's
+    lineage is grounded in the declaration rather than in the engine's
+    observation, and cp-05 is on the roster by name. **The guarantee is now
+    structural rather than checked** — there is one authority, so there is
+    nothing to keep synchronized — and that is the point of the ruling rather
+    than a weakening of it.
+
+    Sabotage-verified in both directions: re-authoring the second operator set
+    reds four sweep assertions; restoring it passes 131. **Every figure in the
+    demonstrated run is unchanged** — family 77, gross 10,125,000,000, adjusted
+    9,325,000,000, D_c 1.000. Only the content address moves, because the
+    payload now carries the declaration beside the engine's observation.
+
+    **This is an example correction, not an SDK remediation** (Dave): the SDK
+    mechanism and the invariant were correct; cp-05 violated an established
+    deployment rule. It is the fifth instance of the pattern findings 8, 12, 14
+    and 17 record — and the sharpest, because the SDK had already ruled four
+    earlier products onto an explicit exemption roster and cp-05 walked past
+    both the mechanism and the roster.
+
+---
+
+## Section G — Operate & govern
+
+### G.1 The expiry obligation, restated where an operator will look for it
+
+A `credit_exposure_rollup` expires **4 hours after the request that produced
+it**. It is not refreshed in place and it is not served past expiry (E.5). An
+operator seeing an expired product in a queue should expect a refusal on read,
+not a stale payload — and the refusal is the correct behavior, not an incident.
+
+### G.2 Acceptance criteria
+
+The specification is discharged when a run demonstrates, on the live estate:
+
+**Each criterion carries a STABLE ID** (`D-IMPL-327`). The ids were added to the
+criteria already written here; **no criterion was added, removed or reworded**,
+because renumbering an acceptance criterion to suit a checker would make the
+tool the author of the product's obligations. `artifacts/gates.yaml` declares
+the **four** that an executing test asserts today — `CER-G01`, `CER-G02`,
+`CER-G03` and `CER-G08` — and `FINDINGS.md` carries the other **four** under
+`CP05-F-01` as work that needs new instrumentation rather than a missing id.
+
+**`CER-G05` is the one to read carefully, because it is the one that looks
+covered.** A test does assert that `reconciliation` is PRESENT in the payload —
+but this criterion asks for something else: that all four validation gates pass
+**and that the reconciliation guard is observed FIRING** on a deliberately
+double-subtracting variant. Nothing watches it fire. *Token presence is not
+token force*, and declaring the gate on the strength of the presence check
+would report coverage this product does not have. It stays carried until an
+instrument exists that can make the guard fail.
+
+1. **`CER-G01`** — the worked call at **D.1** returns a `CreditExposureRollupContract@v1.0.0`
+   with gross **and** adjusted measures populated.
+2. **`CER-G02`** — **gross ≠ adjusted** for the anchor — proving the dedup step is load-bearing
+   rather than a no-op on this data.
+3. **`CER-G03`** — `connected_without_exposure` is **non-empty** across the estate — proving the
+   cross-default traversal reached what a borrower-keyed sum cannot.
+4. **`CER-G04`** — the **same anchor under `internal-appetite`** returns a different adjusted
+   figure than under `group-limit-test` — proving the limit definition is
+   consumed rather than hard-coded.
+5. **`CER-G05`** — all **four validation gates** pass, and the **reconciliation guard is
+   observed firing** on a deliberately double-subtracting variant.
+6. **`CER-G06`** — **replay** from recorded lineage reproduces the payload hash, and a replay at
+   a different `policy_version` produces a different one (D.5).
+7. **`CER-G07`** — the traversal issues **one** walk, not one per predicate — evidenced by a
+   single ledger `t` in lineage.
+8. **`CER-G08`** — the product is reachable **over MCP** as well as in-process, serving the same
+   payload from the same assembler with no business logic reimplemented.
+
+### G.3 Catalog contribution
+
+**Registered as** `credit-risk.exposure-rollup.v1`.
+
+**Delivery surfaces.** In-process adapter **and an MCP door** — MCP is mandatory
+for this and every subsequent rung. **A2A is deferred**, not dropped; it arrives
+with rung 20 (`syndicated-lending-co-lender`) where the scope boundary opens
+beyond a single institution.
+
+**What this rung contributes to the ladder.** The first product where
+materialization is the wrong posture (E.3); the first multi-predicate traversal
+(D.3 step 3); the first multiplicative batch-enrich fan-out (D.3 step 4); the
+first product-specific validation gate (D.7); and the first place where a
+versioned policy artifact changes the answer rather than merely permitting it
+(C.4 trap 3).
+
+**Contrast pointer for the next reader.** `corporate-family-tree` — same
+machinery, opposite materialization posture. Read them together or the posture
+looks arbitrary.
+
+---
+
+*End of specification. Authored 2026-09-07 against `spec_generation.md` and
+`Context_Product_Specification_Standard_v0-3.md`. Every count measured on the
+live estate; no figure carried from the vault unverified. Awaiting Gate 1
+review.*
+
+``````
+
+</details>
+
+<a id="source-standard"></a>
+
+<details>
+<summary>Specification Standard v0.3 — ccf_code@37ac3055</summary>
+
+Path: `public/reference/specifications/Context_Product_Specification_Standard_v0-3.md`
+
+``````text
+# Context Product Specification Standard
+
+**v0.3** — authoring standard for CB/CIB Context Products
+
+**Status:** draft for Data Engineering review · **Basis:** CCF Whitepaper
+v1.1, Ch 6 §§6.2–6.5 and Ch 7 §§7.4–7.10 · **Supersedes:** v0.2
+(seven-section skeleton retained; twelve additions listed at §16)
+
+Table of contents (updates when the document opens)
+
+---
+
+## 0 · What this document is
+
+This is the **format contract** for a Context Product specification — not a
+specification of any one product. A spec written to this standard is complete
+enough that a data engineer can identify the source systems, build the
+assembly path, register the product, and operate it without a further design
+conversation.
+
+Five rules govern the whole document.
+
+- **A Context Product is not a dataset.** It is a unit of meaning — typed,
+  governed, and fit to act on — assembled at request time for one intent, one
+  perspective, one moment and one policy envelope.
+- **The contract is nine elements, not eight.** Schema, Freshness SLA, TTL,
+  Policy Binding, Lineage, Semantic Version, Discovery, Addressability,
+  Assembly Mode.
+- **Assembly is a composition of named operators over capability classes.**
+  A spec describing bespoke logic instead of an operator composition has
+  moved cost from the platform to the product, which is the failure mode
+  this architecture exists to prevent.
+- **The wire format is part of the standard.** Every product returns the
+  same response envelope (§10). A consumer that must special-case a
+  product's response shape does not have a contract, it has an integration.
+- **Every claim in a spec is falsifiable or it is decoration.** *(new in
+  v0.3)* A counterfactual, a replay guarantee, a determinism class and a
+  validation gate are each stated as a test someone can run and watch fail.
+  A spec whose assertions cannot be disproved has documented an intention,
+  not a design.
+
+### 0.1 Do you need a Context Product? — the four-question test
+
+Build one only if the answer to **all four** is yes. If any is no, build the
+data product and move on; the fabric is expensive precisely because it
+carries guarantees a data product does not.
+
+| # | Question | If no |
+| --- | --- | --- |
+| 1 | Does the answer change with who is asking, beyond formatting? | Build a view |
+| 2 | Does the answer have a validity window after which acting on it is wrong? | Build a table with a refresh schedule |
+| 3 | Must the answer be reconstructible after the fact, with the policy and freshness state that produced it? | Build a report and archive the output |
+| 4 | Is it composed at runtime from sources no schema author pre-joined? | Build the join |
+
+A qualified yes is a legitimate answer, but it must be written down as one.
+A product admitted on two clear yeses and two partials is admitted on a
+stated basis that a reviewer can challenge.
+
+### 0.2 Placeholder discipline (new in v0.3)
+
+Every unresolved item carries an explicit marker — `[TBC]` — and every
+marker appears again in §F with a named owner. **A spec with honest gaps is
+buildable; a spec with invented system names is not.** Reviewers should
+treat an unmarked assumption as the more serious defect, because a marked
+gap gets closed and an invented one gets built.
+
+### 0.3 Section skeleton
+
+| § | Section | Answers | Primary audience |
+| --- | --- | --- | --- |
+| A | Decision frame | What decision, for whom, and what breaks without it | Product owner, business sponsor |
+| B | Contract | The nine elements and the request parameter surface | Consuming agent teams |
+| C | Data catalog | Every element, its system of record, and where it lands in G | Data engineering |
+| D | Assembly recipe | The operator composition, step by step, with emits, budgets and gates | Data engineering |
+| E | Volatility & materialization | Per-signal half-life, debt model, supersession, caching posture | Platform, FinOps |
+| F | Source binding & readiness | What exists today, what does not, who owns the gap | Data engineering, source owners |
+| G | Operate & govern | Owner, SLOs, degradation, observability, retention, lifecycle | Platform, second line |
+
+The seven sections appear in order, always. A product with nothing to say in
+a section writes one line explaining why, rather than omitting the heading —
+an absent section reads as an oversight and a short one reads as a decision.
+
+### 0.4 Front matter (new in v0.3)
+
+Before §A, every spec carries: registry name · tier · Assembly Mode · cost
+band · lifecycle state · accountable owner · last review date · a
+two-sentence statement of what the product resolves · the four-question
+build test result · build-order note.
+
+**Capability gate.** Where a product cannot be built at all without a
+capability the estate may not have, that fact is stated **above §A**, not
+discovered in §C. This is a scheduling decision, not a build detail: a spec
+whose blocking dependency is buried is a spec that gets scheduled and then
+stalls.
+
+---
+
+## 1 · Section A — Decision frame
+
+**Decision & trigger.** The decision, the role taking it, and the event that
+triggers the request, in language a business sponsor recognizes. Where a
+product serves several distinct triggers that ask genuinely different
+questions, tabulate them and name which axis each exercises — the forensic
+and the live case are not the same request wearing different parameters.
+
+**Consuming principals.** Every role that will call the product, and whether
+each receives **materially different assembled content** — not different
+formatting. Different content means a projection plan (§13.2); different
+formatting belongs to the consuming application.
+
+**Counterfactual failure.** What a conventional data product returns for
+this decision and why it is wrong. Name the failure mode from the closed
+taxonomy: **context-starved · temporally-incoherent · perspective-flat ·
+policy-blind · evidence-free**. If you cannot write a counterfactual a
+skeptical engineer accepts, the product does not belong in the catalog yet.
+
+**Counterfactual acceptance test** *(new in v0.3)*. The counterfactual is
+written as an executable test, not a narrative. State the query, the two
+answers, and the condition under which they must differ. Where they agree,
+the product is not doing the work the counterfactual claims for it — and
+this is exactly the check a reviewer should be able to run on the built
+product rather than accept on assertion.
+
+**Primitive taught** *(optional, catalog coherence)*. Where the product is
+the clearest instance of one architectural primitive, name it — the catalog
+is also a teaching sequence, and a product that teaches nothing new is a
+candidate for merger with its neighbour.
+
+**Contrast pointer** *(optional)*. Where a sibling product makes the
+opposite design choice on the same axis, name it and the axis. Two products
+with opposite `ttl_anchor` values teach the anchor better than either does
+alone.
+
+---
+
+## 2 · Section B — Contract
+
+### 2.1 The nine elements
+
+| Element | What to write | Common error |
+| --- | --- | --- |
+| Schema | Named payload type; entities, relationships, attributes and measures, each bound to an ontology IRI. Link the machine-readable schema artifact. | Prose in a table cell with no artifact. Prose is not a contract. |
+| Freshness SLA | Per signal class, not one value for the product. | One "intraday" over a payload mixing intraday and annual signals. |
+| TTL | Duration plus ttl_anchor: from_decision or from_entity_freshness. Where the product carries a dual TTL, state both branches and the condition that selects them. | Anchoring by habit rather than by decision shape. |
+| Policy Binding | Every regime and internal policy constraining construction, each with a resolvable version id; entitlement scope bound to the actual entitlement service; data classification and residency constraints (§2.2). Where policy must be pinned to a past date, say so here and enforce it in §D. | Asserting "entitlement scope" with nothing behind it. |
+| Lineage | operators_invoked[] · graph_snapshot_at · policy_version · projection_plan_id · passage anchors where any claim rests on text · context_debt · payload_hash · model_record for Mode 2/3. | Omitting context_debt; it is an output of every assembly. |
+| Semantic Version | vMAJOR.MINOR.PATCH, prior supported version, migration window, and the change class rules at §14. | A version with no stated migration window. |
+| Discovery | domain.product.vN. | Registering before §G is complete. |
+| Addressability | URL pattern with a resolvable anchor identifier. | Anchoring on an internal surrogate key. |
+| Assembly Mode | 1 pure algorithmic · 2 algorithmic with LLM packaging · 3 algorithmic orchestration with agent-swarm assembly, with a one-sentence cost/quality/determinism rationale. Modes 2 and 3 additionally require the model-risk annotation at §2.3. | Omitted entirely. |
+
+**Assembly Mode is a registration-time commitment.** The product owner settles
+it, with a stated rationale, when the product class is registered. **It is not
+something the assembling agent works out for itself, and it cannot vary between
+calls.** Changing it is a MAJOR change (§14).
+
+### 2.2 Classification and residency
+
+State, inside Policy Binding:
+
+| Field | Values |
+| --- | --- |
+| Data classification | public · internal · confidential · restricted — highest classification of any element in §C |
+| Information barrier | none · control-room restricted · MNPI-bearing |
+| Residency constraints | Jurisdictions whose data may not leave, and the effect on assembly |
+| Cross-border serving | May this product be served to a principal outside the data's jurisdiction, and under what condition |
+
+**The suppression rule.** Where policy excludes content, the payload must
+carry **no count, marker, or placeholder** indicating that anything was
+withheld. Restricted content is never materialized and filtered — a "3 items
+hidden" marker is itself a disclosure, and on an information-barrier product
+it is a reportable one.
+
+### 2.3 Model-risk annotation — Mode 2 and Mode 3 only
+
+An LLM in the delivery path is a model, and model governance applies.
+Record:
+
+- Model identifier and version, pinned; temperature pinned; prompt template
+  versioned and logged
+- Model-risk registration reference and validation status
+- **The substrate/presentation boundary** — which fields are algorithmic
+  artifact-of-record and which are model-rendered presentation
+- **The smoothing control** — how the design prevents the model reconciling
+  a conflict the substrate deliberately surfaced. A product whose substrate
+  reports two sources disagreeing and whose narrative reads as settled has
+  failed, and this is the failure mode Mode 2 is most prone to
+
+Mode 1 products state "not applicable — no model in the trust path," which
+is the reason to prefer Mode 1 wherever the decision does not need
+narrative.
+
+### 2.4 Request parameter surface
+
+A table of every parameter with a **"Moves"** column naming which dimension
+it moves: E anchor, R scope, T reconstruction, P envelope, Π perspective, or
+a measure. A parameter that moves nothing is a formatting flag; push it to
+the consumer.
+
+Required on every product: an anchor identifier, `intent` (from the intent
+registry, §13.1), and `debt_tolerance`.
+
+**Declared-but-inert parameters** *(new in v0.3)*. Where a parameter is part
+of the uniform surface but unsupported at this product's tier, declare it
+and have it **fail explicitly** — `not_supported_at_tier`. It must never
+silently succeed against current state. A parameter that appears to work and
+does not is worse than an absent one: it will be relied on in a dispute.
+
+### 2.5 Prerequisites, consumers and scope boundary
+
+- **Prerequisites** — products this one composes over, by registry name.
+  This is the build order.
+- **Consumers** — products and applications that depend on this one.
+  Required because §E supersession cascades need a reverse dependency list,
+  and because a MAJOR version change needs a notification list.
+- **Deliberately out of scope** — capabilities a reader will expect and not
+  find, and which product carries them. Flag these to consumers as *coming
+  next*, not as gaps.
+
+---
+
+## 3 · Section C — Data catalog
+
+### 3.1 Element table
+
+One row per data element:
+
+| Column | Content | Rule |
+| --- | --- | --- |
+| Element | The fact or signal, in business language | One row per element, not per table |
+| System of record | The authoritative source system | A named system; "internal" is not a system |
+| Provenance class | internal-SOR · vendor · public-filing · derived · inherited | derived requires the derivation to appear in §D |
+| Classification | public · internal · confidential · restricted | Drives §2.2 |
+| Capability class | The store capability required (§11.1) | Never a product name |
+| G dimension | E · R · T · P · Π · L · schema | Every element lands somewhere in the graph or it is not context |
+| Ontology IRI | Bound class or property from the shared ontology contract | Unbound elements block registration |
+
+### 3.2 Capability decomposition (new in v0.3)
+
+Where a product depends on a capability the estate may not have, **decompose
+the capability into its separable properties** and state what is deliverable
+if each is absent. An estate rarely fails a capability wholesale; it
+satisfies two of four properties and fails the rest, and that is the finding
+worth having.
+
+| Column | Content |
+| --- | --- |
+| Property | The separable sub-capability |
+| Common estate answer | Widely available · sometimes · rare |
+| If absent | Blocking · degrades to a named partial · workaround with a stated cost |
+
+Where the decomposition yields a partial, name the **interim posture** —
+which triggers are deliverable, what the unsupported parameter returns, and
+what version string the partial ships under. Shipping a partial as though it
+were complete is the failure this section exists to prevent.
+
+### 3.3 Correlation key and single-writer discipline
+
+Close with the **correlation key** — the identifier(s) every element joins
+on, where the crosswalk lives, and its **measured coverage**. An unmeasured
+crosswalk is a stated risk, not a footnote.
+
+**Single-writer discipline.** One system is authoritative per element; no
+element is written by two. Where an element exists today in two systems,
+name the authority and make the other a read replica. This is a prerequisite
+to build, not a follow-up.
+
+**Identity authority hierarchy** *(new in v0.3)*. Where an anchor identifier
+does not exist for every entity the product must serve, tabulate the entity
+classes, the identity authority for each, the source of record-status for
+each, and the **freshness ceiling each class implies**. An anchor that
+silently excludes a population is inherited by every downstream product, and
+the asymmetry belongs in the payload rather than averaged into a single
+freshness claim.
+
+---
+
+## 4 · Section D — Assembly recipe
+
+### 4.1 Client call
+
+The literal request with parameters populated. Where the product has a
+forensic and a live case, show the forensic one — it exercises more of the
+surface.
+
+### 4.2 Operator step table (expanded in v0.3)
+
+Numbered, **one operator per step**, as a table:
+
+| Column | Content |
+| --- | --- |
+| # | Step order |
+| Operator | One name from the closed vocabulary (§11.2) |
+| Capability class | From §11.1 — never a product name |
+| Inputs | What the step consumes |
+| Emits | What the step produces, named as it appears in lineage |
+| Failure behavior | fail closed → HTTP code · degrade with debt · skip |
+| p95 budget | Milliseconds, summing to a stated total against the tier envelope |
+
+The final step is always contract assembly. **State the budget total and the
+envelope it is measured against.** A total at 97% of the envelope is a
+design finding, not a rounding detail — say which step dominates and what
+the first optimisation would be.
+
+### 4.3 Step detail
+
+Below the table, prose for any step carrying a non-obvious discipline. This
+is where an engineer learns *why* an ordering exists, and it is the part
+that prevents a well-meaning optimisation from removing a load-bearing step.
+
+Two disciplines recur and should be written out wherever they apply:
+
+- **Policy that appears to do nothing still runs first.** At Tier 1 the
+  step is an entitlement check; at Tier 5 the same step is what makes a
+  restricted edge structurally absent. The ordering is learned from the
+  first product or retrofitted painfully later.
+- **Two filters on two axes are two filters.** Where a product reconstructs
+  both what was true and what was known, both filters are separately
+  parameterised and separately testable. Applying one silently answers a
+  different question, and the silence is the defect.
+
+### 4.4 Determinism class and payload hash
+
+| Class | Meaning | Applies to |
+| --- | --- | --- |
+| deterministic | Same anchor + as_of + policy_version + graph snapshot → byte-identical payload | Mode 1 |
+| substrate-deterministic | Algorithmic substrate byte-identical; presentation reproducible only under pinned model, temperature and prompt | Mode 2, Mode 3 |
+
+Every product publishes a **payload hash** over the deterministic portion,
+excluding `assembled_at`. **Replay asserts hash equality, not similarity.**
+
+### 4.5 Replay statement and replay test
+
+**Replay statement.** What exactly the replay engine re-executes to return
+the identical product. "A similar product" is a defect recorded in §G, not a
+caveat.
+
+**Falsifiable replay test** *(new in v0.3)*. A numbered procedure a reviewer
+can run against the built product, ending in an assertion that can fail. The
+pattern: serve and record the snapshot · mutate the underlying state ·
+re-derive live and confirm the new value · re-derive at the recorded
+snapshot and confirm the **original** value returns. If the final step
+returns the new value, the snapshot is not load-bearing and
+`graph_snapshot_at` is decorative.
+
+Where the product carries two time axes, add a second test asserting the
+axes **disagree** under a case constructed to separate them. Agreement means
+a filter was dropped.
+
+### 4.6 Emitted contract
+
+The response envelope of §10, populated with this product's payload schema,
+**with types**. This is what the consuming agent team codes against and what
+CI validates. Prose describing a payload is not a payload.
+
+`extra=forbid` is enforced as a build-time CI invariant: a per-product
+subclass cannot quietly introduce a field absent from the base declaration, and
+a pull request carrying a drifted contract fails before it reaches a deployment
+surface.
+
+### 4.7 Validation gates
+
+**Universal**, applying to every product without re-argument:
+
+- **Empty-operator guard** — no operator returns an empty set silently;
+  empty is fail-closed or an explicit debt contribution
+- **Lineage strict equality** — operators_invoked equals the operators
+  executed
+- **TTL bounds** — expires_at consistent with the declared TTL and anchor;
+  where the TTL is dual, the branch matches the condition
+- **Debt gate** — assembly halts and returns the debt signal where D_c
+  exceeds debt_tolerance
+- **Suppression silence** — payload carries no marker of withheld content
+  (§2.2)
+- **Classification containment** — no element above the declared
+  classification appears in the payload
+
+Then **product-specific gates**, each a testable assertion naming the defect
+it detects, cross-referenced to a fixture ID:
+
+> "reconciliation guard — gross exposure must be ≥ guarantee-adjusted
+> exposure; a violation means the dedup logic double-subtracted. → fixture
+> EXP-G01"
+
+---
+
+## 5 · Section E — Volatility, debt & materialization
+
+### 5.1 Half-life table
+
+One row per signal class: λ_c · **calibration basis** · decay driver ·
+supersession event · owner.
+
+λ_c is **Control Plane configuration per observation type**, not a
+per-document attribute; conflicts between two specs resolve centrally. The
+table in a spec is an **initial calibration proposal**, and saying so is the
+difference between a value an engineer can challenge and a number they
+assume was measured.
+
+**Calibration basis** is one of: **illustrative** (a starting assumption) ·
+**expert** (business judgment, named function) · **measured** (observed
+decision-reversal or restatement data). A catalog whose λ_c values are all
+illustrative is not calibrated, and stating that plainly is more useful than
+implying otherwise. Review cadence: annually, or on any
+supersession-pattern change.
+
+### 5.2 Debt model and per-component debt table (expanded in v0.3)
+
+`D_c = 1 − (F · C · S)` — **multiplicative**, so a collapsed dimension
+forces escalation rather than being averaged away. **Normalize F over
+required signal classes, not over the classes actually present**, or losing
+a source improves the freshness score.
+
+Beyond the model, every spec carries a **per-component debt table**:
+
+| Column | Content |
+| --- | --- |
+| Component | The input or claim |
+| May be absent? | yes · no |
+| D_c contribution | The weight |
+| Behavior when absent | Fail closed · serve with flag · mark the affected claim NOT_EVALUABLE |
+
+**Debt is decomposed per claim, never only per product.** A product with
+four claims where one input is missing returns three evaluated claims and
+one marked unusable — not a product-level failure, and never a
+silently-omitted fourth. The gap is captured **before** the decision is
+taken and shapes it directly: it is a decision input, not a log line.
+
+### 5.3 Materialization posture
+
+`materialized` · `derived-on-demand` · `split` (state which fields and
+why). The test is mechanical: **if the fastest-moving input's λ_c is shorter
+than the intended cache window, materialization is wrong.**
+
+State the **cache key** explicitly — tenant, schema name, plan id, snapshot,
+any time-axis parameters, and principal binding. A cache key missing a
+parameter that changes the payload is a correctness defect that presents as
+an intermittent one.
+
+### 5.4 Supersession triggers
+
+Each event marked **local** or **cascading**, and for cascading, the named
+downstream products from §2.5. Invalidation cascades to every product whose
+`operators_invoked` touched the superseded entity, not only those named for
+it.
+
+Re-derivation is **lazy** — invalidate for next request; do not
+re-materialize eagerly, or a routine upstream publication becomes a
+thundering-herd event across the catalog.
+
+---
+
+## 6 · Section F — Source binding & readiness
+
+| Element | System of record | Interface & cadence | Available today | Gap owner | Blocker |
+| --- | --- | --- | --- | --- | --- |
+
+**Available today** is yes · partial (name the fields) · no. Every partial
+or no carries a named gap owner and a stated blocker. Close with:
+
+- **Access path** — existing feed, CDC, API, event stream, or new build
+- **Identifier reality** — does the correlation key exist end to end; who
+  owns the crosswalk; measured coverage
+- **History depth** — how far back the source reconstructs, which bounds
+  any as_of the contract advertises. Where the source publishes snapshots
+  without history, **start retaining deltas now**; history not captured
+  cannot be reconstructed later
+- **Text-source boundary** — build-time extraction or runtime operator. A
+  spec reaching into a document at runtime has changed capability class and
+  cost band
+- **First-build volumetrics** *(new in v0.3)* — the population the first
+  build must contain for every gate and counterfactual to have something to
+  act on. Where a required case does not occur naturally in the sample,
+  **widen the sample until it does** rather than proceeding without it; a
+  demonstrable primitive with no instance in the data reads to reviewers as
+  machinery without a purpose
+
+**No spec passes review with an unowned gap.** "Does not exist yet" is a
+valid state; unattributed is not.
+
+---
+
+## 7 · Section G — Operate & govern
+
+| Entry | Content |
+| --- | --- |
+| Accountable owner | Product owner, data steward, policy owner — roles, not individuals |
+| Service objectives | p50 / p95 assembly latency, expected volume, concurrency ceiling, payload bound, absolute per-call cost estimate alongside the relative band |
+| Degradation contract | Per input class: partial payload with elevated D_c, or fail closed. Mandatory classes named explicitly |
+| Debt model | Which inputs drive F, C and S; debt_tolerance default and its basis (§5.2) |
+| Observability | Per-operator latency · D_c distribution · gate-failure counts by gate · cache hit rate · entitlement denials · degradation-branch frequency · supersession-triggered invalidations. This is also the evidence base for moving λ_c and debt_tolerance from illustrative to measured |
+| Retention & record of record | Which system is the record of record for each element; the fabric references it and does not replace it. Replay-record retention tier — full-fidelity, compressed, or tombstoned — and the severity rule that assigns it |
+| Test fixtures | Named fixtures for the happy path, each gate, each degradation branch, and a replay hash assertion |
+| Lifecycle | draft · in-build · certified · deprecated, with date and reviewer. Deprecation requires: consumer notification from §2.5, a sunset date at least one migration window out, and a named successor or an explicit statement that none exists |
+
+### 7.1 Acceptance criteria (new in v0.3)
+
+Every spec closes with a checklist of assertions **specific to this
+product**, each independently verifiable, each phrased so it can fail. The
+universal definition of done is at §15; §7.1 is what this product must
+additionally prove. Close with the **open decisions blocking build**, named
+by their §F row.
+
+### 7.2 Catalog contribution (new in v0.3, optional)
+
+Where the catalog is also a teaching sequence: what this product proves that
+no earlier product proved, and what it deliberately does not prove. A
+product that proves nothing new is a merge candidate; a product whose
+exclusions are unstated invites a reviewer to read a tier boundary as an
+oversight.
+
+---
+
+## 8 · Response envelope
+
+Every product returns the same envelope. This is a wire contract, not a
+style guide.
+
+```json
+{
+  "product": "credit-risk.exposure-rollup",
+  "semantic_version": "1.0.0",
+  "payload": { },
+  "contract": {
+    "assembled_at": "...",
+    "expires_at": "...",
+    "ttl_anchor": "from_decision",
+    "ttl_basis": "...",
+    "assembly_mode": 1,
+    "determinism_class": "deterministic",
+    "freshness": [
+      { "signal_class": "...", "observed_at": "...",
+        "lambda_c_hours": 4, "relevance": 0.87 }
+    ]
+  },
+  "lineage": {
+    "operators_invoked": [ ],
+    "graph_snapshot_at": "...",
+    "policy_version": "...",
+    "projection_plan_id": "...",
+    "model_record": null,
+    "payload_hash": "..."
+  },
+  "context_debt": {
+    "F": 0.91, "C": 1.0, "S": 1.0, "D_c": 0.09,
+    "contributions": [ ]
+  },
+  "notices": [
+    { "type": "degraded-input", "signal_class": "...", "effect": "..." }
+  ]
+}
+```
+
+Rules:
+
+- `payload` is never returned without `contract`, `lineage` and
+  `context_debt`. A consumer that receives context with no debt signal
+  cannot know what it is trusting.
+- `notices` **is for degradation the consumer must see**, not for logging.
+  Anything policy suppressed never appears here (§2.2).
+
+---
+
+## 9 · Error semantics
+
+Every product returns one of these, and §D names which step raises which.
+
+| Condition | Response | Notes |
+| --- | --- | --- |
+| Anchor unresolvable | 404 | Never an empty payload |
+| Principal not entitled | 403, no detail on what exists | Existence is itself disclosure |
+| Parameter unsupported at tier | 400 not_supported_at_tier | Never a silent success against current state |
+| Debt gate exceeded | 409 with the debt block | Not a 200 with a warning |
+| Mandatory input unavailable | 503 with the failed source class named | Silence is not a negative answer — an unretrieved screening source is not a clean screen |
+| Non-mandatory input unavailable | 200 with notices and elevated D_c | The degradation contract in §G governs which inputs are which |
+
+---
+
+## 10 · Operators and capability classes
+
+### 10.1 Capability classes
+
+| Class | Capability required | Typical use |
+| --- | --- | --- |
+| relational | Set-based query over structured records at scale | Resolve, Enrich, reference lookup |
+| bitemporal-ledger | Append-only state with valid-time and observed-time, queryable at a past point | Traversal mode temporal, supersession chains |
+| graph-traversal | Multi-hop typed edge traversal with predicate filters | Ownership, guarantee, cross-default |
+| document-passage | Document storage with passage-level addressing | Passage lineage, evidence chains |
+| vector-index | Similarity retrieval over embeddings | Typology and pattern matching |
+| federated-external | Contract-bounded request outside the institution's trust boundary | Cross-organizational products |
+| in-memory | Deterministic computation over assembled state | Evaluate in all modes |
+
+Estate binding lives in one artifact owned by the platform team. **Product
+specs never name a database.**
+
+### 10.2 Closed operator vocabulary
+
+| Operator | Purpose | Reads | Emits | Cost driver |
+| --- | --- | --- | --- | --- |
+| Resolve | Anchor to canonical entity | relational | canonical entity, principal perspective | O(1) |
+| Policy | Load the envelope in force; compute permitted sets | relational, bitemporal-ledger | policy_version, permitted party / document / action sets | O(1); gates everything downstream |
+| Projection | Resolve and apply the Π plan | relational | projection_plan_id, projection shape | O(1) |
+| Traversal | Walk typed edges. Modes: current · temporal | graph-traversal, bitemporal-ledger | node set, edge set, graph_snapshot_at | fan-out × depth — dominant cost |
+| Enrich | Resolve nodes to attributes. Always batched | relational, document-passage | attribute sets, passage spans | entity × attribute fan-out |
+| Similarity | Rank candidates within the permitted set | vector-index | ranked candidates with scores | candidate-set size |
+| Evaluate | Deterministic computation. Modes: aggregate · score · reconcile · rank | in-memory | measures, scores, variances | negligible |
+| Federate | Contract-bounded request to an external fabric | federated-external | remote attested payload, attestation record | network + negotiation |
+
+Retired names: Batch Enrich (batch is mandatory, not a variant), Temporal
+Traversal (a Traversal mode), Aggregate / Score / Reconcile / Rank (Evaluate
+modes), Compose (contract assembly, not an operator).
+
+### 10.3 Composition invariants
+
+1. **Policy before anything that reads graph state.** Impermissible content
+   is never materialized, not filtered afterwards.
+2. **Resolve before Traversal.** Traversal from an unresolved anchor
+   answers plausibly about the wrong entity.
+3. **Enrich is batched, always.** One query per source per step.
+4. **Algorithmic substrate before any semantic stage.** Every LLM
+   invocation reads only the typed substrate a preceding algorithmic
+   operator produced, and the substrate remains artifact-of-record.
+
+### 10.4 Cost estimation
+
+Cost bands are relative multiples of the Tier-1 baseline and are
+placeholders until measured. Estimate before building:
+
+```
+est_cost = baseline
+         × (1 + traversal_fanout^depth / fanout_reference)
+         × (1 + enrich_sources)
+         × mode_multiplier          # Mode 1 = 1 · Mode 2 ≈ 3–5 · Mode 3 ≈ 15
+         × materialization_factor   # materialized = 1/hit_rate · on-demand = 1
+```
+
+Record the assumed fan-out, depth and hit rate. The commonest cost surprise
+is a traversal whose fan-out was estimated on the median entity and paid on
+the tail — **state the p95 fan-out, not the mean**.
+
+---
+
+## 11 · Shared contracts
+
+Six artifacts referenced by every spec. Only the first exists today; the
+rest block certification, not build.
+
+| Artifact | Owner | Purpose | State |
+| --- | --- | --- | --- |
+| Ontology / IRI binding | Data architecture | Class and property IRIs every schema binds to | exists |
+| Intent registry | Product owners + second line | Enumerated intent values and the envelope each selects | missing |
+| Projection plan registry | Product owners | Named Π plans and what each assembles differently | missing |
+| Policy version registry | Second line / compliance | Versioned envelopes with effective dates, resolvable at replay | missing |
+| Half-life calibration table | Platform | λ_c per observation type with calibration basis | missing |
+| Capability binding | Platform | Capability class to estate system, per environment | missing |
+
+**Extension namespace** *(new in v0.3)*. Where a schema needs a class or
+property the shared ontology does not carry, it is minted in the `ex:`
+extension namespace — **registered centrally with an owner, once**, not ad
+hoc per product. Three products minting their own covenant model
+independently is three incompatible covenant models, and the divergence is
+discovered at integration rather than at design.
+
+### 11.1 Intent registry record
+
+`intent` is required on every product and selects the policy envelope, which
+makes it a governed object. Each record carries: intent id · plain-language
+decision · the policy envelope selected · permitted principals · products
+accepting it · owner · effective date and version · deprecation status.
+
+### 11.2 Projection plan record
+
+Each plan carries: plan id · principal(s) · **what is assembled
+differently** (not displayed differently) · entitlement precondition ·
+suppression behavior confirming the silence rule · owner · version. A plan
+whose difference is presentational is rejected — that is a consumer concern.
+
+---
+
+## 12 · Naming, versioning and change classes
+
+| Convention | Rule |
+| --- | --- |
+| Registry name | domain.product.vN — domain from the approved list, product in kebab-case, N = MAJOR only |
+| Address | /context-products/{domain}/{product}/{anchor-id} |
+| Schema artifact | schemas/{payload_type}.v{MAJOR}.json |
+| Fixture id | {PREFIX}-{F/G/D/R}{nn} — happy path, gate, degradation, replay |
+| Spec document id | CP-SPEC-{nnn} — stable across versions of the same product |
+
+Change classes:
+
+| Class | Examples | Consumer impact |
+| --- | --- | --- |
+| PATCH | Gate added, telemetry added, documentation | None |
+| MINOR | Additive payload field, new optional parameter, new projection plan, λ_c recalibration | Backward compatible; notify consumers |
+| MAJOR | Field removed or retyped, parameter default changed, ttl_anchor changed, Assembly Mode changed, policy envelope semantics changed | Migration window required; both versions served |
+
+A λ_c or debt_tolerance change is **MINOR by type and material by effect** —
+it changes outputs without changing shape. Announce these to consumers
+explicitly rather than letting them surface as unexplained behavior change.
+
+---
+
+## 13 · Tiers, review and certification
+
+| Tier | Capability classes | Cost band | Required review |
+| --- | --- | --- | --- |
+| 1 | relational | ×1 baseline | Product owner |
+| 2 | + graph-traversal | ×1–2 | Product owner + platform |
+| 3 | + bitemporal-ledger | ×2–4 | + second line where P is regulatory |
+| 4 | + document-passage, vector-index | ×3–5 materialized, ×8–15 on demand | + second line, evidence-chain review |
+| 5 | + federated-external, multi-principal Π | ×8–15 | + legal / control room |
+
+Tiers describe assembly complexity, not maturity, and **not build order** —
+build order comes from the prerequisite graph.
+
+**Certification evidence.** Moving to certified requires, on file: schema
+artifact published; all fixtures passing including the replay hash
+assertion; measured p95 latency and per-call cost; debt_tolerance justified
+against observed data; every §F gap closed or accepted by a named owner;
+and, for Mode 2/3, model-risk registration complete.
+
+---
+
+## 14 · Review checklist for the reviewer (new in v0.3)
+
+A reviewer reads for six things, in this order. The first three reject a
+spec; the last three return it with comments.
+
+- **Is the counterfactual falsifiable?** Can I run the test in §A and watch
+  it fail? If not, the product's reason to exist is an assertion.
+- **Is every capability stated as a capability, not a product?** A named
+  database in §C means the spec is bound to a platform decision that has
+  not been made.
+- **Does every gap have an owner?** An unowned [TBC] is an unassigned risk
+  that will surface during build.
+- **Does each §D step name one operator from the closed vocabulary?**
+  Bespoke logic in a step means cost moved from platform to product.
+- **Is debt decomposed per claim?** A single product-level D_c forces
+  all-or-nothing escalation and wastes the primitive.
+- **Does the payload carry types?** Prose describing a payload is not a
+  payload.
+
+---
+
+## 15 · Definition of done
+
+- All seven sections present, in order, with front matter and capability
+  gate
+- Four-question build test answered, including honest partials
+- Nine contract elements populated, including Assembly Mode with rationale
+- Classification, residency and information-barrier fields complete
+- Model-risk annotation complete for Mode 2/3, or "not applicable" for
+  Mode 1
+- Every §C element has a system of record, provenance class,
+  classification, capability class, G dimension and ontology IRI
+- Capability decomposition present where the estate answer is unknown, with
+  interim posture named
+- Correlation key stated with measured coverage, or the measurement named
+  as a §F gap
+- Every §D step names one operator from the closed vocabulary, its
+  capability class, its emits, its failure behavior and its budget
+- The four composition invariants hold
+- Determinism class stated and a payload hash defined
+- Replay statement plus a numbered, falsifiable replay test
+- Emitted contract shown with types, conformant to the §8 envelope; error
+  taxonomy mapped to steps
+- Product-specific gates written as testable assertions with fixture IDs
+- Half-life table carries a calibration basis and an owner per row
+- Per-component debt table present, with behavior-when-absent per
+  component
+- Every no or partial in §F has a named gap owner; first-build volumetrics
+  stated
+- §G complete, including degradation contract, debt model, observability,
+  retention and lifecycle
+- Consumers list populated and cascading supersession targets named
+- Acceptance criteria written as failable assertions; open blocking
+  decisions named
+
+---
+
+## 16 · What changed from v0.2
+
+| # | Addition | Why |
+| --- | --- | --- |
+| 1 | Rule 5 — every claim falsifiable | v0.2 required a counterfactual and a replay statement but allowed both to be narrative; a reviewer had no test to run |
+| 2 | §0.2 placeholder discipline | An invented system name is a more serious defect than a marked gap, and v0.2 had no convention for marking one |
+| 3 | §0.4 front matter and the capability gate | A blocking platform dependency discovered in §C is discovered after scheduling |
+| 4 | §1 counterfactual acceptance test | Turns the counterfactual from a rationale into an executable check on the built product |
+| 5 | §2.4 declared-but-inert parameters | A parameter that appears to work and does not will be relied on in a dispute |
+| 6 | §3.2 capability decomposition and interim posture | Estates fail capabilities partially, not wholesale; the partial is the useful finding |
+| 7 | §3.3 identity authority hierarchy | An anchor that silently excludes a population propagates the exclusion catalog-wide |
+| 8 | §4.2 operator step table with emits and budgets | v0.2 prescribed prose steps; engineers need inputs, outputs and a latency budget per step |
+| 9 | §4.5 falsifiable replay test | v0.2 defined hash equality but gave no procedure to demonstrate it |
+| 10 | §4.6 emitted contract with types | The largest remaining gap between an architecture document and a buildable one |
+| 11 | §5.2 per-component debt table | Product-level D_c forces all-or-nothing escalation; per-claim decomposition is what makes the primitive useful |
+| 12 | §7.1–7.2 acceptance criteria and catalog contribution; §14 reviewer checklist | v0.2 could be written but not reviewed consistently |
+
+Two v0.2 disciplines were reinforced rather than changed: λ_c remains
+Control Plane configuration that a spec proposes rather than fixes, and the
+suppression silence rule is now also a universal validation gate rather than
+a prose rule.
+
+``````
+
+</details>
+
+<a id="source-recipe"></a>
+
+<details>
+<summary>Specification generation recipe — ccf_code@37ac3055</summary>
+
+Path: `public/reference/specifications/spec_generation.md`
+
+``````text
+# Generating a Context Product Specification — recipe for SDK Claude
+
+**Audience:** the Claude session working in `ccf_code`.
+**Output of this recipe:** one `CP-SPEC-NNN_<Product_Name>.md` in
+**`examples/cp-NN-<slug>/spec/`** — inside the example it governs, never in a
+docs folder (§7.1) — authored as the **first step** of that example project,
+**approved by Dave before any implementation**, and closed out against a build
+that proves it.
+**Status:** authoring instruction, not a specification. Written 2026-08-29 by
+the vault Claude at Dave's direction.
+
+**Owner: the vault.** Proposed by `ccf-sdk` and sent through the §11 return path
+2026-08-29; reverse it here if the vault rules otherwise. The reason is this
+document's own §1 — most of what follows states **what the vault and
+`ccf_dataprep` owe `ccf_code`**, and an agent that owns the document stating its
+own entitlements is writing another agent's term, which is the failure §0
+records. So: **`ccf_code` proposes changes here through the return path rather than
+editing freely** — with one narrow exception, and a test for it.
+
+**§7 describes `ccf_code`'s own tree**, so `ccf_code` may edit §7 directly and
+report back when the edit **records what the tree already is**: a path, a
+filename, a directory that exists, a layout the examples already follow. That
+is what happened to §7.2 on 2026-08-29 — the diagram predated `page/` and
+`summary_explanations.md`, and a session following it would have built an
+example missing both.
+
+**The test: could this edit be wrong tomorrow without any file moving?** If it
+could, it is a rule and not an observation, and it goes through the §11 return
+path — even when it sits inside §7, even when the tree already disagrees with
+it, and even when every example already does what the edit says. A requirement
+that something be published, a gate ordering, an approval, any *shall* or
+*must* or *never*: rules. Observing that no CP-SPEC is published is an
+observation. **Deleting the requirement to publish one is a rule change.**
+
+Recorded rather than implied: §7.1's publication requirement was deleted
+directly at `a9c4e28b` on 2026-09-12 and reported through `contrib/ccf-sdk/`.
+**The vault ruled the outcome correct and the route wrong.** The edit stands and
+is not precedent for the next one. The report was complete and honest, which is
+why this is a wording change here rather than a reversal there.
+
+**The companion document is `ccf_code`'s.**
+[How an example is delivered](example_delivery.md) covers everything after the
+spec is approved — the `make` target, the venv, the README run block, the
+documentation page mechanics, the banker-facing summary, the verbatim-output
+discipline and a delivery definition of done. Nothing in it is another agent's
+term, so it is owned, edited and gated by `ccf_code` without a return path.
+**Where the two documents disagree about `ccf_code`'s tree, the companion
+wins**; where they disagree about what a specification must contain, this one
+does.
+
+---
+
+## 0 · What this document is
+
+There are 21 Context Products described in the obsidian vault. None of them has
+an SDK specification yet except `counterparty-reference-snapshot`, and that one
+is on the older CP-SPEC-001 form. This document is the recipe for producing the
+rest.
+
+A Context Product specification here is assembled from **three inputs owned by
+three different agents**, it is **the first step in building a Context Product
+example**, and **it does not proceed to implementation until Dave has approved
+it** (§2).
+
+The single most important rule in this document is that **you may not write
+another agent's term.**
+
+That rule exists because it has already failed once. The vault wrote a scope
+sentence — *"identity only — no exposure, no grade, no relationship"* —
+with no implementation to check it against. `ccf_dataprep` read it, correctly
+treated the vault as the requirements authority, and generated an estate with
+**no risk grade and no coverage assignment**. Meanwhile CP-SPEC-001's emitted
+contract declares `internal_risk_grade`, `coverage_rm_id`, `coverage_team` and
+`coverage_lob`, and its §E.2 assigns the absent overlay a **0.30 `D_c`
+contribution against a 0.25 `debt_tolerance`** — which trips the debt gate and
+returns `409`. Three agents, no malice, one unservable product.
+
+Everything below is designed so that cannot happen twenty more times.
+
+---
+
+## 1 · The law: three owners, one term each
+
+| Term of the equation | Owner | Authoritative for | Published as |
+|---|---|---|---|
+| **why it exists** | **vault**<br>`obsidian-vault/wiki/context-products/content/` | Decision frame · trigger · consuming principals · counterfactual and its closed-taxonomy failure mode · four-question build test result *with honest partials* · tier · build order · prerequisites · **scope boundary** · primitive taught · contrast pointer · the seven-class Commons/FIBO typing chain | The vault article, prose. §A and the front matter of your spec derive from it |
+| **what data exists** | **ccf_dataprep**<br>`/home/parkave/ccf_dataprep` | §C element rows — system of record · provenance class · classification · capability class · `G` dimension · **ontology IRI** · §F readiness and *measured* coverage · §E calibration evidence · first-build volumetrics · every count, threshold and match rate | Their repo: `docs/spec-digest.md`, `docs/data-acquisition-plan.md`, `docs/known-issues.md`, `validators/spec_coverage.py`, `ontology/`, and the live `ccf_v2.*` schema |
+| **what it does** | **ccf_code (you)** | §B.1 element values the runtime enforces · parameter surface · §D operator steps, budgets and witnesses · determinism class · replay test · emitted contract · validation gates and fixtures · error mapping · §E materialization and debt · §G operations — **and the merge itself** | `examples/cp-NN-<slug>/` — spec, artifacts and code together |
+
+**The rule.** When a term you need is missing from its owner, you write
+`[TBC — <owner>]` and name what you asked for. **You never guess it.** A guessed
+term is indistinguishable from an authoritative one once it is written down, and
+that is precisely how the grade/coverage break happened.
+
+This is the standard's own placeholder discipline (§0.2) applied *across* agents
+rather than within a document: *"a marked gap gets closed and an invented one
+gets built."*
+
+### 1.1 · Two levels of specification — and you are writing the second
+
+**Ruled by Dave, 2026-08-29:**
+
+> *"We must distinguish between the specification at the vault level versus the
+> SDK level. The vault level is an **implementation independent** product
+> specification whereas the SDK is a **specific implementation artifact** for
+> developing the context product."*
+
+Both documents are legitimately called `CP-SPEC-001`. They are different
+artifact classes answering different questions, and **neither supersedes the
+other.**
+
+| | **Vault level** | **SDK level — what you write** |
+|---|---|---|
+| Document | `wiki/context-products/content/<slug>.md` | `examples/cp-NN-<slug>/spec/CP-SPEC-NNN_….md` |
+| Answers | **what the product is** | **how it is built** |
+| Posture | implementation-independent | a specific implementation artifact, bound to one estate |
+| **Names a store** | **no** | **yes — or a table reference means nothing** |
+
+**The Standard's §10.1 — *"product specs never name a database"* — is written
+for the vault level.** Applying it to an implementation artifact strips out the
+one thing a developer needs: *"As a context product developer how do I know
+where the data being referenced lives?"* (Dave). In a five-store estate
+`ccf_v2.legal_entity` does not say whether that is the relational store, the
+graph ledger, the document store or the departmental file.
+
+**Three levels. Only the middle one moves:**
+
+| Level | Example | Vault level | SDK level |
+|---|---|---|---|
+| Capability class — what the store must *do* | `relational` | yes | yes |
+| **Store · schema · table — where the element *is*** | `PostgreSQL ccf_v2.legal_entity` | **no** | **yes** |
+| Deployment — host, port, credential, instance | — | **never** | **never** |
+
+**Deployment never appears in a specification of either kind.** It lives in
+`backends.yaml` as an environment-variable *name*. A sweep of `examples/`,
+`public/`, `src/` and `runtime/` for the estate's host address must return
+nothing, and no credential enters the tree.
+
+> **This distinction cost a working session before it was written down, and it
+> produced two errors in opposite directions.** Read side by side without it,
+> the vault article and the repo's `CP-SPEC-001` look like rival drafts of one
+> document — 11 §C rows against 4 — and the apparent task is to adjudicate which
+> wins. There was no conflict. Then the same gap, applied the other way, stripped
+> store identification out of an implementation spec on the literal reading of a
+> rule written for the other level. Carry the frame, not just the rules.
+
+---
+
+## 2 · The sequencing law: spec first, approved, then build
+
+**Every specification must be approved by Dave, and the approved specification
+is the first step in creating a Context Product example.** Nothing is
+implemented before that approval. There are two gates.
+
+### Gate 1 — the authored spec (blocking)
+
+A CP-SPEC is **not** written for the whole catalog in advance. It is written as
+**step one of one example project**, when that product comes up the ladder. At
+Gate 1 you author everything knowable before code exists:
+
+- §0 and the data banner · front matter · capability gate
+- §A in full, including the counterfactual acceptance test as a procedure
+- §B.1–B.5 — the nine elements, parameter surface, scope boundary
+- §C in full — every element bound to a real table and IRI, coverage measured,
+  traps named
+- §D.1–D.3 — client call, the operator step table, step detail
+- §D.7 gates and §G.2 acceptance criteria, **as intentions phrased so they can
+  fail**
+- §E.1–E.5 and §F.1–F.4 — with measured data reality from `ccf_dataprep`
+- Everything not yet measurable marked **`[TBC — this build, phase Pn]`**
+
+**Send it to Dave. Do not write implementation code until he approves it.** He
+is approving the *design*: scope, decision frame, contract elements, operator
+composition, and what the product will be held to. That is the cheapest moment
+to catch a wrong product, and the grade/coverage break in §10.1 is what an
+unreviewed scope boundary costs downstream.
+
+### Gate 2 — the completed spec (close-out)
+
+During and after the build, the measurable terms land: p95 budgets, payload
+hashes, witnesses, replay results, gate-failure observations, final
+materialization posture. You fill them in and clear every `[TBC — this build]`.
+
+Gate 2 is **not** a second design review. It is a close-out: the approved design
+is now discharged by something that runs.
+
+**Nothing at Gate 2 may silently change a Gate-1 decision.** If the build
+disproves an approved term — a λ_c, an operator step, a scope boundary — that is
+a **deviation**: stop, state it, and take it back to Dave. Do not edit the
+approved design to match what you built.
+
+### An approved spec IS editable — classify the edit, not the document
+
+**Ruled by Dave, 2026-08-29.** Approval does not freeze the file. It freezes
+**what was approved**, which is not the same thing. Three classes:
+
+| Class | Examples | What to do |
+|---|---|---|
+| **Editorial** | spelling, a heading brought into line with the Standard, formatting, a broken link, a typo | **Just edit it.** No notice, no approval. Name it in the commit message |
+| **Corrective** | a factual error in something approved — a wrong table name, a miscounted row, a stale path | **Edit it, then say what changed and why.** No re-approval; visibility is the obligation |
+| **Substantive** | a contract element value · scope boundary · operator step · λ_c · a gate · a parameter · anything that changes what the approval was *about* | **Still a deviation.** Stop, state it, take it back. Unchanged by this ruling |
+
+The test is not *"is the document approved?"* — it always is. The test is
+**"would Dave's approval have been different if the document had said this
+originally?"** If no, edit. If yes, escalate.
+
+Regenerating a published page after an editorial edit is part of the edit, not a
+separate approval.
+
+### Why the claims must still be discharged by a run
+
+Approval makes the design binding; it does not make the claims true. That is
+what `examples/cp-00-institutional-holders/artifacts/assembly-recipe.yaml`
+holds you to:
+
+> *"**THE §D OPERATOR STEP TABLE, AS DATA** — so that criterion 2 is discharged
+> by a test rather than by a reading... **A prose table cannot be held against a
+> run.** This document declares the same steps with, per step, a WITNESS — a fact
+> a completed run either produced or did not... **a step nothing executes is
+> RED.**"*
+
+So: the spec is approved first and proven second. A section whose content cannot
+be known before the build is `[TBC — this build]` at Gate 1, never a plausible
+guess — a guessed budget that survives review becomes a number someone plans
+against.
+
+## 3 · Build order: the ladder is the vault's, not yours
+
+Priority is **increasing complexity**, and the vault establishes it. Do not
+reorder for convenience. Each rung teaches a primitive the next rung assumes,
+and the catalog is a teaching sequence as much as an inventory.
+
+`cp-00-institutional-holders` sits below the ladder as your own warm-up rung and
+is already built. The vault's 21 follow:
+
+| Rung | Tier | Product | What it exists to prove |
+|---|---|---|---|
+| 01 | **T1** | `counterparty-reference-snapshot` | The contract fires. Identity authority hierarchy. The replay harness itself |
+| 02 | T1 | `facility-terms-snapshot` | Anchoring on something other than a legal entity; `from_entity_freshness` against a document-dated source |
+| 03 | T1 | `obligor-financial-spread` | Attribute-level temporal validity before any graph exists |
+| 04 | **T2** | `corporate-family-tree` | First multi-store product. Multi-hop traversal, cross-shareholding cycles as findings |
+| 05 | T2 | `credit-exposure-rollup` | Traversal + aggregation; the concentration denominator a flat product gets wrong |
+| 06 | T2 | `collateral-and-setoff-coverage` | Typed edge vocabulary; coverage as a graph question |
+| 07 | T2 | `client-360-coverage-graph` | High fan-out; where traversal cost becomes a design constraint |
+| 08 | **T3** | `covenant-in-force-as-of` | **Flagship.** Ledger time-travel, supersession preserved |
+| 09 | T3 | `treasury-liquidity-position` | Fast `λ_c` forcing on-demand derivation |
+| 10 | T3 | `rating-and-spread-migration` | Per-signal decay curves |
+| 11 | T3 | `credit-surveillance-early-warning` | Supersession cascading across downstream products |
+| 12 | T3 | `fx-post-trade-reconciliation` | Two time axes that must be separately parameterised |
+| 13 | **T4** | `covenant-cross-reference` | Passage-level lineage across documents |
+| 14 | T4 | `credit-memo-context` | Algorithmic/semantic stage alternation; debt across a multi-agent handoff |
+| 15 | T4 | `kyc-refresh-beneficial-ownership` | Entity resolution; ownership to person level |
+| 16 | T4 | `abs-securitization-surveillance` | Loan-level fan-out; forces the materialization decision |
+| 17 | **T5** | `mnpi-wall-enforcement` | Entitlement as formative constraint — the edge never materializes |
+| 18 | T5 | `ib-opportunity-synthesis` | Projection `Π` across three principals |
+| 19 | T5 | `aml-typology-match` | Policy-before-Similarity. **Synthetic obligor only, never a named real company** |
+| 20 | T5 | `syndicated-lending-co-lender` | Cross-organizational federation under a negotiated envelope |
+| 21 | T5 | `large-exposure-rwa-concentration` | Composes every primitive below it |
+
+**Tier is not build order within a tier** — the vault's index order above is.
+Where a product's `Prerequisites` name another product, that dependency
+overrides the list.
+
+---
+
+## 4 · Phase 0 — gather, before you write a line *(Gate 1)*
+
+For product `<slug>`:
+
+**4.1 Read the vault article in full.**
+`/home/parkave/obsidian-vault/wiki/context-products/content/<slug>.md`
+Or `get_article("context-products", "<slug>")` over MCP.
+
+Extract and hold separately — these are the vault's terms and you will not
+alter them:
+- decision & trigger, consuming principals
+- counterfactual failure + which closed-taxonomy mode it names
+  (`context-starved · temporally-incoherent · perspective-flat · policy-blind · evidence-free`)
+- the four-question test result, **including partials and nos**
+- tier, build order note, prerequisites, consumers
+- **scope boundary** — record it verbatim; see §10 warning
+- primitive taught, contrast pointer
+
+> ⚠️ **Twenty of the 21 vault articles are on the older Q019 form**, where **§F
+> means *Manufacture envelope*, not *Source binding & readiness*.** Only
+> `counterparty-reference-snapshot` is on v0.3. Resolve vault sections **by
+> heading name, never by letter.**
+
+**4.2 Pull the data reality from ccf_dataprep.**
+
+| Need | Where |
+|---|---|
+| §C rows as dataprep holds them | `validators/spec_coverage.py` — `read_catalog()` and the per-product manifests |
+| §C/§F as dataprep read the vault | `docs/spec-digest.md` |
+| Obligor cast, waves, acquisition decisions | `docs/data-acquisition-plan.md` |
+| Known defects and limits | `docs/known-issues.md` |
+| Ontology IRI bindings | `ontology/`, plus the vault's `fibo-iri-binding` mirror |
+| Anchor-cast satisfaction | `validators/cast_audit.py` |
+| Live estate | the `ccf_v2.*` schema |
+
+**Measure, do not assume.** Every count, coverage figure and match rate in your
+spec must come from a query you ran or a dataprep artifact you can cite.
+`bound is not the same as materialized` — an IRI documented in the binding
+mirror does not mean rows exist against it.
+
+**4.3 Re-read the Standard.**
+`public/reference/specifications/Context_Product_Specification_Standard_v0-3.md`
+
+Known errata — the document's own cross-references are stale in six places, so
+resolve by heading, not by the number cited: response envelope is **§8** (cited
+as §10, twice); intent registry **§11.1** (cited §13.1); projection plans
+**§11.2** (cited §13.2); change classes **§12** (cited §14, twice); capability
+classes and operator vocabulary **§10.1/§10.2** (cited §11.1/§11.2).
+
+**4.4 Use CP-SPEC-000 as your template, not CP-SPEC-001.**
+`examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md`
+
+CP-SPEC-001 predates the current form. CP-SPEC-000 carries the embedded §0, the
+B.1–B.5 / C.1–C.5 / D.1–D.7 / **E.1–E.5** / F.1–F.4 / G.1–G.3 structure, the
+`[TBC]`-with-owner register at F.2, and the mandatory data banner. Match it.
+
+---
+
+## 5 · Phase map — Gate 1, then build, then Gate 2
+
+| Phase | Gate | What you do | Spec sections |
+|---|---|---|---|
+| **P1 · Frame** | 1 | Read vault article; confirm the product is real and belongs | §0, banner, front matter, §A, §B.5 |
+| **P2 · Bind** | 1 | Map every element to a real table/column and IRI; measure coverage | §C.1–C.3, §F.1, §F.3 |
+| **P3 · Trap** | 1 | Find what the data does *not* support cleanly; choose bindings, record their cost | **§C.4**, §C.2, §F.4 |
+| **P4 · Design** | 1 | Contract elements, parameter surface, operator composition, intended gates and criteria | §B.1–B.4, §D.1–D.3, §D.7, §E.1–E.5, §G.2 *(budgets and measured values `[TBC — this build]`)* |
+| **▶ GATE 1** | — | **Send to Dave. Stop. No implementation until approved.** | Spec complete except `[TBC — this build]` |
+| **P5 · Assemble** | 2 | `assembler.py`, `produce.py`, `deployment.py`, `ccf_config.yaml`, `backends.yaml` | code; `artifacts/*.yaml` |
+| **P6 · Run** | 2 | Execute; capture budgets, hashes, witnesses | §D.2 budgets, §D.4, §D.5, §D.6 |
+| **P7 · Gate** | 2 | Fixtures; make each gate fail deliberately once | §D.7 fixture IDs, §G.2 results |
+| **P8 · Operate** | 2 | Measure decay against read frequency; confirm posture | §E.1 basis, §E.3 posture, §G.1, §G.3 |
+| **▶ GATE 2** | — | Clear every `[TBC — this build]`; file returns to vault and dataprep | §F.2 register closed |
+
+A Gate-1 section written from imagination is the failure this map exists to
+prevent. A Gate-2 value that contradicts an approved Gate-1 decision is a
+**deviation** — see §2.
+
+## 6 · Section-by-section recipe
+
+Throughout: **SOURCE** = whose term it is · **NEVER INVENT** = the failure mode
+· **DISCHARGED BY** = what proves it.
+
+### §0 · What this document is
+
+Restate the standard's five rules, the four-question test, placeholder
+discipline, the section skeleton and front matter — as CP-SPEC-000 does. This is
+deliberate duplication so the spec is readable standalone.
+
+**Then the banner. It is mandatory and it is not boilerplate.**
+
+CP-SPEC-000 opens with `READ THIS BEFORE YOU READ A NUMBER`, stating that the
+examples **teach method, not figures**, with that product's own *measured*
+provenance counts. Reproduce this with **your product's measured numbers**, and
+follow CP-SPEC-000's discipline of repeating the statement **beside each figure
+cluster** rather than leaving it as a header a reader scrolls past.
+
+For `aml-typology-match` (rung 19) the vault adds a hard constraint: **synthetic
+obligor only, never a named real company.** Carry it into the banner.
+
+### Front matter
+
+**SOURCE:** vault (registry name, tier, build order, what it resolves) ·
+you (Assembly Mode, cost band, lifecycle).
+
+Registry name is `domain.product.vN`. **Assembly Mode is a registration-time
+commitment** — a documented decision with a one-sentence cost/quality/determinism
+rationale, not a description of how you happened to build it. Modes 2 and 3
+require §B.3.
+
+**Capability gate above §A** where the product cannot be built without a
+capability the estate may not have. This is a scheduling statement.
+
+### §A · Decision frame
+
+**SOURCE: vault, entirely.**
+**NEVER INVENT:** the counterfactual, the failure-taxonomy mode, or the
+four-question result. If the vault's four-question result carries a `no` or a
+`partial`, **carry it through unchanged** — `counterparty-reference-snapshot` is
+admitted on one no and one partial, stated openly, and that honesty is the
+standard working.
+
+**You add one thing:** the **counterfactual acceptance test** — the vault's
+narrative counterfactual rewritten as a numbered procedure ending in an
+assertion that can fail. State the query, both answers, and the condition under
+which they must differ.
+
+**DISCHARGED BY:** a test in the example that runs the counterfactual and fails
+if the two answers agree.
+
+### §B · Contract
+
+**B.1 — the nine elements.** Schema · Freshness SLA · TTL · Policy Binding ·
+Lineage · Semantic Version · Discovery · Addressability · **Assembly Mode**.
+
+**SOURCE: you.** The vault's element values are theoretical and have been
+measurably wrong — its `counterparty-reference-snapshot` set `λ_c ≈ 24h` where
+the real half-life is ~365 days, having substituted publication cadence for
+decay. Take element *intent* from the vault; take *values* from your runtime.
+
+Rules that are not negotiable:
+- **Schema** binds every entity, relationship, attribute and measure to an
+  **ontology IRI**, and links a machine-readable artifact at
+  `schemas/{payload_type}.v{MAJOR}.json`. *Prose in a table cell is not a
+  contract.*
+- **Freshness SLA** is **per signal class**, never one value over a mixed payload.
+- **TTL** carries `ttl_anchor` **and states how `expires_at` is computed.** For
+  `from_entity_freshness` that is source publication time, not request time —
+  *a 23:00 request against an 06:00 file gets 7 hours of validity, not 24.*
+  **Nine vault specs declare this anchor and none define the computation.** You
+  must.
+- **Lineage** is the full list: `operators_invoked[]` · `graph_snapshot_at` ·
+  `policy_version` · `projection_plan_id` · passage anchors where a claim rests
+  on text · `context_debt` · `payload_hash` · `model_record`. Plus any
+  product-specific authority field. `operators_invoked` carries **typed operator
+  references** — `ResolveOperator@entity-master.v1.0` — **not bare names**,
+  because lineage strict equality compares them.
+- **Discovery** is registered only after §G is complete.
+
+**B.2 — classification and residency.** Data classification (highest of any §C
+element) · information barrier · residency · cross-border serving. **The
+suppression rule:** where policy excludes content the payload carries **no
+count, marker or placeholder**. A "3 items hidden" marker is itself a
+disclosure.
+
+**B.3 — model-risk annotation.** Modes 2/3 only: pinned model and version,
+pinned temperature, versioned prompt, model-risk registration, the
+**substrate/presentation boundary**, and the **smoothing control** — how the
+design stops the model reconciling a conflict the substrate deliberately
+surfaced. Mode 1 states *"not applicable — no model in the trust path."*
+
+**B.4 — request parameter surface.** Every parameter with a **Moves** column
+naming which dimension it moves (`E` anchor · `R` scope · `T` reconstruction ·
+`P` envelope · `Π` perspective · a measure). A parameter that moves nothing is a
+formatting flag — push it to the consumer.
+
+Required on every product: an anchor identifier, `intent`, `debt_tolerance`.
+
+**Declared-but-inert parameters** must be declared and **fail explicitly** with
+`not_supported_at_tier`, never silently succeed. This keeps the request surface
+uniform so consumers do not learn a second calling convention at a higher tier.
+
+**B.5 — prerequisites, consumers, scope boundary.**
+**SOURCE: vault** for prerequisites and consumers (it owns build order).
+Consumers must be **named individually** — supersession cascades and MAJOR
+version notification both need a reverse dependency list, and *"every other
+product"* cannot serve as one.
+
+> ⚠️ **Scope boundary — treat with suspicion.** This is the field that broke.
+> Copy the vault's sentence verbatim, then **check it against your §C and your
+> payload.** If your payload declares a field the vault's scope excludes, you
+> have found a live conflict: **do not silently resolve it.** Record it, raise
+> it (§11), and mark the field `[TBC — ruling]` until it is settled.
+
+### §C · Data catalog
+
+**SOURCE: ccf_dataprep, entirely.**
+
+**C.1 — element table.** One row per element, *not per table*:
+
+`Element · System of record · Provenance class · Classification · Capability class · G dimension · Ontology IRI`
+
+- **Provenance class** is the closed list: `internal-SOR · vendor ·
+  public-filing · derived · inherited`. `synthetic` is **not** a provenance
+  class — it is a property of the estate and belongs in the §0 banner or its own
+  column. The vault conflates these; do not copy that.
+- **Capability class** — never a product name. `relational ·
+  bitemporal-ledger · graph-traversal · document-passage · vector-index ·
+  federated-external · in-memory`. This column says what the store must *do*.
+- **Store · schema · table — name it.** Per §1.1 you are writing the
+  implementation artifact, so §C.1 carries a store column alongside capability
+  class, and §F.3 states the estate binding collectively — including **which
+  stores this product does not read, and why.** The vault article's store
+  assignment is a **proposal** to confirm against the real estate, not residue
+  to discard and not an authority to copy. **Deployment detail — host, port,
+  credential — never appears.**
+- **G dimension** — every element lands in `E · R · T · P · Π · L · schema`, or
+  it is not context.
+- **Ontology IRI** — unbound elements block registration. Foundational party
+  terms are in **OMG Commons** (`cmns-org:`), not FIBO; only `Corporation` stays
+  as `fibo-be-le-cb:Corporation`. A validator asserting every IRI begins
+  `spec.edmcouncil.org` will reject correct data.
+
+**C.2 — capability decomposition.** Decompose each required capability into
+separable properties with `Widely available · sometimes · rare` and what is
+deliverable if each is absent. State the **interim posture** where the answer is
+partial. Estates fail capabilities partially, and the partial is the finding.
+
+**C.3 — correlation key, single-writer, identity authority.** The join key,
+where the crosswalk lives, its **measured** coverage. One authoritative writer
+per element. Where an anchor does not exist for every entity the product serves,
+tabulate entity classes, identity authority, and the **freshness ceiling each
+implies** — an anchor that silently excludes a population propagates the
+exclusion catalog-wide.
+
+**C.4 — the data traps.** CP-SPEC-000's most valuable section and the one with
+no vault equivalent. **Where the data does not cleanly support what the spec
+wants, name the trap, the binding you chose, and what that choice costs.**
+CP-SPEC-000 records ~22.5% weak issuer matching **by design** rather than as a
+defect. A spec with no traps section has either a perfect estate or an
+unexamined one.
+
+**C.5 — what this data is.** Restate the synthetic/engineered posture beside the
+figures, per the banner discipline.
+
+### §D · Assembly recipe
+
+**SOURCE: you, entirely. This section is code before it is prose.**
+
+**D.1 — client call.** The literal request, parameters populated. Where the
+product has a forensic and a live case, show the **forensic** one — it exercises
+more surface.
+
+**D.2 — operator step table.** One operator per step:
+
+`# · Operator · Capability class · Inputs · Emits · Failure behavior · p95 budget`
+
+Operators come from the closed vocabulary only: **Resolve · Policy · Projection
+· Traversal · Enrich · Similarity · Evaluate · Federate**. Retired names —
+Batch Enrich, Temporal Traversal, Aggregate/Score/Reconcile/Rank, Compose — are
+not operators. Final step is always contract assembly.
+
+**State the budget total and the envelope it is measured against.** A total at
+97% of envelope is a design finding: say which step dominates and what the first
+optimization would be.
+
+**Mirror this table into `artifacts/assembly-recipe.yaml` with a WITNESS per
+step.** A step nothing executes is RED.
+
+**D.3 — step detail.** Prose only where a step carries a non-obvious discipline.
+Two recur and must be written wherever they apply:
+- **Policy runs first even when it appears to do nothing.** At T1 it is an
+  entitlement check; at T5 it is what makes a restricted edge structurally
+  absent. Learned from the first product or retrofitted painfully.
+- **Two filters on two axes are two filters.** Separately parameterised,
+  separately testable. Applying one silently answers a different question.
+
+**D.4 — determinism class and payload hash.** `deterministic` (Mode 1) or
+`substrate-deterministic` (Modes 2/3) — those exact enum strings; they ship in
+the envelope. Publish a hash over the deterministic portion excluding
+`assembled_at`. **Replay asserts hash equality, not similarity.**
+
+**D.5 — replay statement and falsifiable replay test.** A numbered procedure
+ending in an assertion that can fail: serve and record · mutate state ·
+re-derive live and confirm the new value · re-derive at the recorded snapshot
+and confirm the **original** returns. If the last step returns the new value,
+`graph_snapshot_at` is decorative.
+
+Two time axes ⇒ a second test asserting the axes **disagree** under a
+constructed case. Agreement means a filter was dropped.
+
+**D.6 — emitted contract.** The §8 envelope populated **with types**. This is
+what consuming teams code against and what CI validates. `extra=forbid` is a
+build-time invariant. *Prose describing a payload is not a payload.*
+
+**D.7 — validation gates.** Six universal, without re-argument: empty-operator
+guard · lineage strict equality · TTL bounds · debt gate · suppression silence ·
+classification containment. Then **product-specific gates**, each a testable
+assertion naming the defect it detects, cross-referenced to a fixture ID.
+
+**Error mapping** — condition → raising step → response. `404` unresolvable ·
+`403` not entitled, no detail on what exists · `400 not_supported_at_tier` ·
+`409` debt gate with the debt block · `503` mandatory input unavailable, source
+class named · `200` with notices for non-mandatory. **Silence is not a negative
+answer** — an unretrieved screening source is not a clean screen.
+
+### §E · Volatility, debt & materialization
+
+**SOURCE: dataprep for calibration evidence, you for the model and posture.**
+
+**E.1 — half-life table.** Per signal class: `λ_c` · **calibration basis** ·
+decay driver · supersession event · owner.
+
+> **λ_c is a half-life, not a refresh cadence.** A daily file does not make a
+> legal name decay daily. This is the single most consequential error in the
+> vault's version and it must not propagate.
+
+Calibration basis is `illustrative · expert · measured`. **State plainly where
+no row is measured.** λ_c is Control Plane configuration; your table is a
+proposal.
+
+**E.2 — debt model and per-component debt.** `D_c = 1 − (F · C · S)`,
+multiplicative so a collapsed dimension forces escalation. **Normalize F over
+required signal classes, not over classes present**, or losing a source improves
+the score.
+
+Then the per-component table: `Component · May be absent? · D_c contribution ·
+Behavior when absent`. **Debt decomposes per claim, never only per product** —
+four claims with one input missing returns three evaluated and one
+`NOT_EVALUABLE`, not a product-level failure.
+
+Check your contributions against `debt_tolerance`. A single optional component
+contributing more than the default tolerance means the product refuses to serve
+whenever it is absent — that is a design finding, not an accident.
+
+**E.3 — materialization posture.** `materialized · derived-on-demand · split`.
+The test is mechanical: **if the fastest-moving input's λ_c is shorter than the
+intended cache window, materialization is wrong.** Feed it a real λ_c — fed a
+cadence, it returns the wrong architecture while looking correctly applied.
+
+State the **cache key** explicitly: tenant · schema · plan id · snapshot · time
+parameters · principal binding · every parameter that changes the payload. A
+missing key parameter is a correctness defect presenting as an intermittent one.
+
+**E.4 — supersession triggers.** Each **local** or **cascading**; for cascading,
+the named downstream products. Re-derivation is **lazy** — invalidate for next
+request, never re-materialize eagerly.
+
+**E.5 — the expiry and its refusals.** Per CP-SPEC-000: state what expiry
+actually produces at the delivery boundary and which refusals it can raise.
+
+### §F · Source binding & readiness
+
+**SOURCE: dataprep, entirely.**
+
+**F.1** — per element: system of record · interface & cadence · **available
+today** (`yes · partial (name the fields) · no`) · gap owner · blocker.
+
+**F.2** — **every `[TBC]` in the document, with an owner.** This is the register
+that makes the cross-agent discipline auditable. Each row names the term, the
+owning agent, and what was asked. **No spec passes review with an unowned gap.**
+*"Does not exist yet" is a valid state; unattributed is not.*
+
+**F.3** — access path · **identifier reality** (does the key exist end to end,
+who owns the crosswalk, measured coverage) · **history depth** (where the source
+publishes snapshots without history, say *start retaining deltas now* — history
+not captured cannot be reconstructed later) · text-source boundary ·
+**first-build volumetrics**: the population the first build needs for every gate
+and counterfactual to have something to act on. Where a required case does not
+occur naturally, **widen the sample until it does**.
+
+**F.4** — **recorded findings that are not `[TBC]`**, because they need no
+decision to build. Keep this distinct from F.2; conflating a finding with a
+blocker inflates the blocker list and hides the real ones.
+
+### §G · Operate & govern
+
+**SOURCE: you.**
+
+Accountable owner (roles, not individuals) · service objectives (p50/p95,
+volume, concurrency, payload bound, **absolute** per-call cost alongside the
+relative band) · degradation contract per input class with **mandatory classes
+named** · debt model · observability (per-operator latency, `D_c` distribution,
+gate failures by gate, cache hit rate, entitlement denials, degradation-branch
+frequency, supersession invalidations — this is the evidence base that moves
+λ_c from illustrative to measured) · retention and record of record · test
+fixtures · lifecycle (`draft · in-build · certified · deprecated`).
+
+**G.1** — restate the expiry obligation where an operator will look for it.
+
+**G.2 — acceptance criteria.** Assertions **specific to this product**, each
+independently verifiable, each phrased so it can fail. Close with the **open
+decisions blocking build**, named by their §F.2 row.
+
+**G.3 — catalog contribution.** What this product proves that nothing earlier
+proved, and what it deliberately does not prove. The vault's *primitive taught*
+is your input. A product that proves nothing new is a merge candidate; a product
+whose exclusions are unstated invites a reviewer to read a tier boundary as an
+oversight.
+
+---
+
+## 7 · Where the spec lives, and the artifacts around it
+
+### 7.1 · The spec lives in the example, not in the docs tree
+
+**A product spec belongs at `examples/cp-NN-<slug>/spec/CP-SPEC-NNN_<Name>.md`,
+and is created there at Gate 1.** It is never authored in
+`public/reference/specifications/`.
+
+This follows from §2 rather than from filing preference. A spec whose §D steps
+are discharged by witnesses in `artifacts/assembly-recipe.yaml`, and whose
+emitted contract is validated by CI against code in the same directory, has to
+be **versioned with the thing that proves it**. Move it into a documentation
+tree and the claims and their evidence can drift in separate commits — which is
+the entire failure this recipe exists to prevent.
+
+The two trees have different jobs:
+
+| Path | Holds | Example |
+|---|---|---|
+| `examples/cp-NN-<slug>/spec/` | **product specifications** — one per example, co-versioned with the code that discharges them | `CP-SPEC-000-institutional-holders.md` |
+| `public/reference/specifications/` | **reference documents** — things that govern specs but describe no product | `Context_Product_Specification_Standard_v0-3.md`, this recipe |
+
+**ONE CANONICAL SPEC, AND NO SECOND COPY THAT CAN DRIFT.** A product
+specification lives in its example's `spec/` directory and **is not duplicated
+into `public/`**. There is no second location and no per-spec nav entry.
+
+| | Where |
+|---|---|
+| **Canonical, and the only copy** | `examples/cp-NN-<slug>/spec/`, from Gate 1 onward — versioned with the artifacts and code that discharge it |
+| **`public/reference/specifications/`** | reference documents that **govern** specs and describe no product: the authoring standard, this recipe, the delivery companion |
+
+Public documentation **may reference or summarize** a CP-SPEC — link to it,
+quote a clause, explain what a rung proves. It must not create a second copy of
+the document.
+
+**This corrects what this section used to say, and the correction is a
+documentation-rule fix rather than any product's deviation** (Dave,
+2026-09-12). The previous text directed a copy into
+`public/reference/specifications/` with a nav entry after Gate 2, and cited
+`mkdocs.yml` for it. `mkdocs.yml` says the opposite, in a ruling of the same
+author dated 2026-08-29:
+
+> *"Individual CP-SPECs do NOT live here. A specification lives in its own
+> example's `spec/` directory, beside the artifacts and code it governs.
+> `CP-SPEC-001` sat here only to bootstrap the authoring process and was deleted
+> at `59831ea5` once it had served that purpose — by then it had drifted to 640
+> lines against a 1,355-line canonical source, silently dropping every section
+> that recorded an open question."*
+
+**The precedent is unanimous and was measured before this edit: no CP-SPEC for
+`cp-00` through `cp-08` is published under `public/` at all.** Eight gates
+closed without it. The surviving instruction here was stale, and it was caught
+at rung 9's Gate 2 by an executor who stopped rather than following it.
+
+**Why the deleted copy is the argument.** A specification is proven by the
+artifacts and tests beside it; a copy somewhere else is proven by nothing, and
+the first thing it loses is the sections recording open questions — which is
+exactly what happened, and it happened silently, because a stale copy renders
+perfectly well.
+
+> ⚠️ `public/` has a strict docs build. **Any file you add under `public/`
+> without a nav entry fails `mkdocs build --strict`.** That still holds for the
+> reference documents this directory does carry.
+
+> **`CP-SPEC-001_Counterparty_Reference_Snapshot.md` is a deliberately placed
+> exemplar — *"what a spec would look like for counterparty reference"* (Dave,
+> 2026-08-29) — and it is a **control, not a source.**
+>
+> The plan for rung 01 is that you author the spec **fresh from this recipe**,
+> and Dave then compares your output against that file **by hand**. That
+> comparison is a test of the recipe as much as of your spec, and it only works
+> if you have not read CP-SPEC-001 as an input. **Deltas are expected and are
+> the point.** Where your spec differs, the difference is the finding.
+>
+> So: author at `examples/cp-01-counterparty-reference-snapshot/spec/`. Do not
+> copy from CP-SPEC-001, do not reconcile against it, and do not treat its
+> values as authoritative — it predates the example-based structure, has no
+> `artifacts/`, no witnesses, and the error classes cataloged in §10.2.
+
+### 7.2 · The example layout
+
+The spec is one file in a runnable example. Match `cp-01`'s layout:
+
+```
+examples/cp-NN-<slug>/
+├── spec/CP-SPEC-NNN_<Product_Name>.md
+├── artifacts/
+│   ├── assembly-recipe.yaml   ← §D.2 as data, with a WITNESS per step
+│   ├── expected.yaml          ← what the served product should contain
+│   ├── question.yaml          ← the caller's vocabulary, read-side
+│   └── ttl.yaml               ← the class TTL and its ceiling
+├── assembler.py  produce.py  run.py  deployment.py
+├── backends.yaml  ccf_config.yaml
+├── page/                      ← build_page.py + template.html committed, render is not
+├── README.md
+└── summary_explanations.md    ← the banker-facing document
+```
+
+**The `page/` directory and `summary_explanations.md` are not optional**, and
+what goes in them, plus the `example-cp-NN` target, the venv discipline and
+the validation pass, are governed by
+[How an example is delivered](example_delivery.md) — which is authoritative for
+everything downstream of this section. This diagram is the summary; that
+document is the recipe.
+
+All `artifacts/*.yaml` validate against
+`docs/schemas/ccf.declared-artifact.json`.
+
+Follow `cp-00`'s `expected.yaml` discipline: **it derives nothing from a run.**
+When artifacts change, run the suite, review the failure, and deliberately edit
+the file in the same commit — so an expected-output change is an edit to a
+reviewed artifact rather than a refreshed transcript.
+
+---
+
+## 8 · Definition of done — the specification
+
+Ship when all of these hold. This is the standard's §15, plus what this pipeline
+adds.
+
+**These are the SPECIFICATION's conditions and they are half the deliverable.**
+The example's conditions — the `make` target, the venv, the README run block,
+the documentation page, the banker summary, the verbatim-output check and the
+validation pass — are [How an example is delivered](example_delivery.md) §11.
+Both lists must hold before anything is presented to Dave.
+
+- **The spec was approved by Dave at Gate 1 before any implementation code was
+  written**, and every Gate-2 deviation from the approved design was taken back
+  to him rather than absorbed
+- All seven sections present in order, with §0, front matter, capability gate
+  and the data banner
+- Four-question result carried from the vault **including partials**
+- Nine contract elements populated, Assembly Mode with rationale
+- Classification, residency, information-barrier complete; model-risk complete
+  for Modes 2/3 or "not applicable" for Mode 1
+- Every §C element has SOR, provenance class, classification, capability class,
+  G dimension and ontology IRI — and **no §C row names a database**
+- Capability decomposition present where the estate answer is unknown, with
+  interim posture
+- Correlation key stated with **measured** coverage, or the measurement named as
+  an F.2 gap
+- Every §D step names one closed-vocabulary operator with capability class,
+  emits, failure behavior and budget — **and has a witness in
+  `assembly-recipe.yaml`**
+- The four composition invariants hold: Policy before any graph read · Resolve
+  before Traversal · Enrich always batched · algorithmic substrate before any
+  semantic stage
+- Determinism class stated with an enum value; payload hash defined
+- Replay statement plus a numbered falsifiable replay test that has been **run
+  and observed to fail** when the snapshot is bypassed
+- Emitted contract shown with types, conformant to the §8 envelope, passing
+  `extra=forbid` in CI; error taxonomy mapped to steps
+- Six universal gates plus product-specific gates with fixture IDs, **each made
+  to fail deliberately at least once**
+- Half-life table carries calibration basis and owner per row, and **no λ_c is a
+  publication cadence**
+- Per-component debt table present; contributions checked against
+  `debt_tolerance`
+- Materialization posture derived from measured λ_c against read frequency;
+  cache key complete
+- Every `no` or `partial` in §F has a named gap owner; volumetrics stated
+- §G complete; consumers named individually; cascading supersession targets named
+- **F.2 register complete — every `[TBC]` carries an owning agent**
+- Acceptance criteria are failable assertions; blocking decisions named
+
+---
+
+## 9 · Cross-agent placeholder discipline
+
+| Situation | Write |
+|---|---|
+| Vault has not framed something you need | `[TBC — vault]` + what you asked |
+| Data reality unknown or unmeasured | `[TBC — ccf_dataprep]` + the measurement needed |
+| Vault framing and build evidence conflict | `[TBC — ruling]` + both readings, verbatim |
+| You have not built it yet | `[TBC — this build, phase Pn]` |
+
+Never `[TBC]` bare. An unowned marker is an unassigned risk, and the F.2
+register is what makes it collectable.
+
+---
+
+## 10 · Known conflicts — do not resolve these silently
+
+**10.1 · `counterparty-reference-snapshot` grade and coverage — NOT blocking.
+Author to the vault.**
+
+The vault's scope boundary says *"identity only — no exposure, **no grade**, no
+relationship."* CP-SPEC-001's payload declares `internal_risk_grade`,
+`coverage_rm_id`, `coverage_team`, `coverage_lob` and an `internal_risk_grade`
+freshness class. `ccf_dataprep` built to the vault's reading and carries **none**
+of those fields.
+
+**This is not a conflict between two authorities.** Scope boundary is the
+**vault's term** under §1, and CP-SPEC-001 is an exemplar for later comparison
+(§7.1), not a source. So:
+
+- **Author to the vault's scope.** No internal overlay in rung 01.
+- The overlay is then **not a debt component at all**, so CP-SPEC-001's
+  0.30-against-0.25 `debt_tolerance` collision — and the `409` it implies —
+  **does not arise.** That failure exists only under a per-component table
+  counting a field the spec does not carry.
+- **`ccf_dataprep` is already aligned.** Nothing needs regenerating.
+
+If your build disproves the vault's scope, that is a §11 return, not a reason to
+stop.
+
+> **A ruling that was inferred rather than made.** On 2026-08-29 Dave pasted
+> **both** documents — the vault's `counterparty-reference-snapshot` article at
+> 03:23 MST with *"this is the one we need to build to"*, and the authoring
+> Standard nine minutes later. Together that is the framing input and the
+> structural basis: **the direction was unambiguous.**
+>
+> What it was not is a decision on the grade/coverage conflict, which §10.1 had
+> marked blocking. **A document handover settles what you build to; it does not
+> close a named conflict.** Those are closed by an explicit decision, named, or
+> not at all — so **ask for one by name and wait.** Declining to close it alone
+> was correct, and the inference pointed the right way.
+
+**10.2 · Vault articles carry theoretical values that have been measurably
+wrong.** Documented cases in `counterparty-reference-snapshot`: λ_c set to
+publication cadence (24h vs ~365d); materialization posture inverted as a
+consequence; `operators_invoked` as bare names; missing `payload_hash`,
+`model_record` and the per-attribute authority field; a parameter surface
+missing `debt_tolerance` and the inert `as_of`. **Assume the same class of error
+in the other twenty.** Take framing from the vault; take values from your build.
+
+**10.3 · The `references/` copies are history, not sources.**
+`references/CP-SPEC-001_..._v2.md` and
+`references/CP-SPEC-001_..._v0-3-restructure.md` are prior drafts. Read them for
+audit history; author nothing from them. Same standing as CP-SPEC-001 itself
+(§7.1).
+
+**10.4 · Twenty vault articles are on the Q019 form** where §F means
+*Manufacture envelope*. Resolve by heading name.
+
+**10.5 · The vault's catalog count is stale** — it says 22 product specs in two
+places; the measured figure is **21**, of which **20** declare no Assembly Mode.
+
+---
+
+## 11 · The return path
+
+When your build contradicts an input, **send it back** — the failure this
+pipeline exists to prevent is a correction that stalls at the boundary.
+
+- **To the vault:** write into `~/.agent-exchange/<your-agent-id>/outbox/` as
+  `<YYYY-MM-DDTHH-MM-SSZ>-<slug>.tmp/` containing `message.md` plus attachments,
+  **then rename to drop `.tmp`** — the rename is what publishes it. A message
+  left as `.tmp` never arrives, and this has already happened once: dataprep's
+  2026-08-28 consumer signal sat unpublished until it was found by hand. State
+  what your document **removes**, not only what it adds.
+- **To ccf_dataprep:** same channel, their box is `ccf-dataprep`.
+- **Your box is `ccf-sdk`** — `/home/parkave/.agent-exchange/ccf-sdk/`, with
+  `inbox/`, `outbox/` and `_archive/`. Use that id, not a new one: a duplicate
+  under a different id splits you into two agents.
+
+Send back at minimum: any scope-boundary conflict, any λ_c the build disproves,
+any element the vault names that the estate cannot supply, and any capability
+the estate fails.
+
+---
+
+## 12 · Summary
+
+1. Read the vault article — take **framing**, never values.
+2. Pull the data reality from `ccf_dataprep` — **measure**, never assume.
+3. Structure to the **Standard v0.3**, templated on **CP-SPEC-000**.
+4. **Author the spec first, at `examples/cp-NN-<slug>/spec/`** — it is step one
+   of the example project, and it lives with the code that will prove it. Mark
+   what only the build can know as `[TBC — this build]`.
+5. **▶ Send it to Dave. Stop. Nothing is implemented until he approves it.**
+6. Build the example; fill the measured terms; clear every `[TBC]`. A build that
+   disproves an approved term is a **deviation** — take it back, do not absorb it.
+7. Never write another agent's term. `[TBC — owner]` instead.
+8. Every claim discharged by something that runs; every gate made to fail once.
+9. Send contradictions back, and **remember the rename**.
+10. Work the ladder in order. Complexity is the vault's call, not yours.
+
+``````
+
+</details>
+
+<a id="source-implementation"></a>
+
+<details>
+<summary>Implementation walkthrough — refreshed 18 October 2026, SDK v1.0.2</summary>
+
+Path: `05-reference/02-context-product-producer/examples/CP05_CREDIT_EXPOSURE_ROLLUP.md`
+
+``````text
+# CP-05 — Credit Exposure Rollup
+
+> **Current run instructions — 18 October 2026:** checked against [SDK `v1.0.2@5f85b389`](https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/cp-05-credit-exposure-rollup/README.md). Use [the shared setup and configuration rules](../../../examples/CONFIGURATION.md), Fluree **4.2.4** where required, explicit ports and complete connection strings. The qualified source/specification pins below preserve earlier evidence; they do not select the checkout used by these commands.
+
+**Business-to-spec companion:** [Analysis](CP05_CREDIT_EXPOSURE_ROLLUP_ANALYSIS.md) · [HTML reading edition](CP05_CREDIT_EXPOSURE_ROLLUP_ANALYSIS.html).
+
+**Qualified SDK:** `drcastillo/ccf_code/main@a4cf2fb74af4964dcfee29d210d17d94b909d78d`  
+**README:** `examples/cp-05-credit-exposure-rollup/README.md`  
+**Qualified specification:** `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md`  
+**Qualified source:** `examples/cp-05-credit-exposure-rollup`
+
+> **Read the README and the qualified specification before opening the implementation code.**
+
+## Start with the completed specification
+
+For this shipped example, the design work is already complete. **Do not draft a new spec.**
+
+Open the qualified SDK specification first:
+
+`examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md`
+
+Read it in this order before opening the Python:
+
+| Spec section | What to learn | Where it lands |
+|---|---|---|
+| §A | decision, consumer, counterfactual, scope | README + acceptance tests |
+| §B | product contract, request, TTL, policy/perspective | `ccf_config.yaml` + payload |
+| §C | sources, identity, ontology, data traps | acquisition + environment/source declarations |
+| §D | operators, projection, gates | `acquisition.py`, `deployment.py`, `projection.py`, `produce.py` |
+| §E | half-life, Context Debt, materialization | config + assessment code |
+| §F | source readiness and limitations | environment/source artifacts + findings |
+| §G | acceptance and operational evidence | tests, gates, run evidence |
+
+As you read the code, ask: **which approved spec term is this implementing?**
+
+## Why this example exists
+
+Shows why a business metric such as total exposure is a context question, not a flat sum. It combines traversal, aggregation, guarantee/cross-default semantics, reconciliation, materiality and Debt-driven withholding.
+
+## The question
+
+> What is the bank's actual exposure to this corporate family after traversing the relationships that change the economic obligation and reconciling duplicate risk paths?
+
+## What to understand before you run it
+
+- A borrower-keyed sum can be confidently wrong because economic exposure follows relationships.
+- Materialization can be the wrong posture when the fastest participating signal decays too quickly.
+- A Context Product may refuse/withhold even after the arithmetic is successfully computed if Debt exceeds tolerance.
+
+## Prerequisites
+
+Run from the `ccf_code` repository root.
+
+```bash
+make venv
+```
+
+The source estate is read-only. Supply the environment values below for your restored/qualified estate; placeholders deliberately avoid turning one developer machine into part of the contract.
+
+```bash
+export CCF_CP_05_FLUREE_URL='http://<fluree-host>:<port>'
+export CCF_CP_05_FLUREE_LEDGER='fibo-v2'
+export CCF_CP_05_POSTGRES_DSN='host=<host> port=<port> dbname=<database> user=<read-only-user> password=<password>'
+export CCF_CP_05_POSTGRES_SCHEMA='ccf_v2'
+```
+
+## Files to read
+
+Read these in order if you want to understand the implementation rather than only run it.
+
+| Path | Why |
+|---|---|
+| `examples/cp-05-credit-exposure-rollup/spec/` | Exposure decision, reconciliation and materiality contract. |
+| `examples/cp-05-credit-exposure-rollup/artifacts/` | Question/recipe/gates/expected evidence. |
+| `examples/cp-05-credit-exposure-rollup/deployment.py / acquisition.py` | Source and exposure arithmetic. |
+| `examples/cp-05-credit-exposure-rollup/projection.py` | Exposure payload. |
+| `examples/cp-05-credit-exposure-rollup/produce.py` | Governed assembly. |
+| `examples/cp-05-credit-exposure-rollup/run.py` | Scenarios and variations. |
+| `examples/cp-05-credit-exposure-rollup/server/ / door example` | MCP exposure path. |
+
+## Run it
+
+```bash
+make venv
+make example-cp-05
+make example-cp-05 SCENARIOS=1
+make example-cp-05 INTENT=internal-appetite
+make example-cp-05 DEBT_TOLERANCE=1.0
+make example-cp-05 DEPTH=2
+make example-cp-05 MATERIALITY=0.10
+make example-cp-05 MATERIALITY=0.01
+make example-cp-05 LEI=<lei>
+make example-cp-05-server
+```
+
+Commands that intentionally exercise refusal may exit non-zero. That is correct when the program documents the outcome as a governed refusal rather than a crash.
+
+## What you should observe
+
+- The default demonstration is a governed refusal/withholding, not a crash.
+- At a wider tolerance the same assembled product can serve, making fulfillment policy visible.
+- Changing materiality changes which entities participate in aggregation.
+- The product distinguishes naive borrower-keyed exposure from relationship-aware adjusted exposure.
+- Every served/refused determination carries governed evidence.
+
+Do not compare volatile content addresses or timestamps with prose unless the qualified SDK example itself publishes a pinned transcript. For exact byte-level claims, use the example's committed tests/transcript.
+
+## How the example works
+
+The general path is:
+
+```
+source estate (read only)
+        ↓
+acquisition / source interpretation
+        ↓
+SignalEnvelope(s)
+        ↓
+L2 assembly into governed L3 state
+        ↓
+L4 operators
+        ↓
+L5 projection Π over GraphView
+        ↓
+L6 Context Product gates / fulfillment
+        ↓
+served product OR governed refusal
+```
+
+The product-specific files above show where this rung changes that pattern.
+
+## Variations to try
+
+| Purpose | Command | Expected semantic change |
+|---|---|---|
+| Wide debt tolerance | `make example-cp-05 DEBT_TOLERANCE=1.0` | Allows product that default fulfillment may withhold. |
+| Materiality 10% | `make example-cp-05 MATERIALITY=0.10` | Coarser participating set. |
+| Materiality 1% | `make example-cp-05 MATERIALITY=0.01` | Finer participating set. |
+| Internal-appetite intent | `make example-cp-05 INTENT=internal-appetite` | Changes governed question/policy semantics. |
+
+## Validate it
+
+```bash
+PYTHONPATH=.:src:runtime .venv/bin/python -m pytest tests/examples/test_cp_05_output.py tests/examples/test_cp_05_mcp_door.py -q
+```
+
+These tests are the reproduction backstop. A manual run demonstrates the story; the tests/gates hold the implementation to it.
+
+## What this example proves
+
+- Relationship-aware aggregation can differ dramatically from flat sums.
+- Product-specific reconciliation guard can catch plausible wrong answers.
+- Debt-driven withholding is distinct from computational failure.
+- MCP door can expose the same governed product.
+
+## What it does not prove
+
+- That example exposure amounts or materiality thresholds are production values.
+- That all exposure calculations use the same guarantee/netting rules.
+
+## Spec → code lesson for Cowork
+
+Use CP-05 to learn how a spec turns business aggregation semantics into explicit traversals, reconciliation gates and fulfillment policy. Do not copy its calibration.
+
+When generating a new product, Cowork must take product-specific values from the **approved new spec and source evidence**, never from this demonstration merely because the code is convenient to copy.
+``````
+
+</details>

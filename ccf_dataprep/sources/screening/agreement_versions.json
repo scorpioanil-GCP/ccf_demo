@@ -1,0 +1,369 @@
+{
+  "generated_for": "covenant-cross-reference \u00a7F \u2014 as_of selects which text governs",
+  "note": "agreement_id groups texts of the SAME agreement; as_of picks the latest governs_from at or before the requested instant",
+  "document_count": 36,
+  "agreement_count": 29,
+  "versioned_agreement_count": 5,
+  "documents": [
+    {
+      "document_id": "0000950142-26-001951:eh260800571_ex1001.htm",
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "filed_date": "2026-07-01",
+      "agreement_id": "529900E95812SYWMCE44:2021-07-09",
+      "agreement_date": "2021-07-09",
+      "role": "amendment",
+      "governs_from": "2026-06-29"
+    },
+    {
+      "document_id": "0000950142-26-001753:eh260791788_ex1001.htm",
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "filed_date": "2026-06-12",
+      "agreement_id": "529900E95812SYWMCE44:2026-06-09",
+      "agreement_date": "2026-06-09",
+      "role": "base",
+      "governs_from": "2026-06-09"
+    },
+    {
+      "document_id": "0001213900-26-057808:ea029103901ex10-1.htm",
+      "lei": "2549001IGRCG4F0RLD36",
+      "sec_name": "BGC Group, Inc.",
+      "filed_date": "2026-05-15",
+      "agreement_id": "2549001IGRCG4F0RLD36:2026-05-15",
+      "agreement_date": "2026-05-15",
+      "role": "base",
+      "governs_from": "2026-05-15"
+    },
+    {
+      "document_id": "0001193125-26-296255:d116740dex101.htm",
+      "lei": "5493003QENHHS261UR94",
+      "sec_name": "Targa Resources Corp.",
+      "filed_date": "2026-07-06",
+      "agreement_id": "5493003QENHHS261UR94:2013-01-10",
+      "agreement_date": "2013-01-10",
+      "role": "amendment",
+      "governs_from": "2026-07-01"
+    },
+    {
+      "document_id": "0001140361-25-033513:ef20054891_ex10-1.htm",
+      "lei": "549300D0WZR1VI2QGB24",
+      "sec_name": "Digital Turbine, Inc.",
+      "filed_date": "2025-09-02",
+      "agreement_id": "549300D0WZR1VI2QGB24:2025-08-29",
+      "agreement_date": "2025-08-29",
+      "role": "base",
+      "governs_from": "2025-08-29"
+    },
+    {
+      "document_id": "0001193125-26-269703:d45696dex101.htm",
+      "lei": "54930022CZO1N2UGVW07",
+      "sec_name": "Super Micro Computer, Inc.",
+      "filed_date": "2026-06-12",
+      "agreement_id": "54930022CZO1N2UGVW07:2025-12-29",
+      "agreement_date": "2025-12-29",
+      "role": "amendment",
+      "governs_from": "2026-06-10"
+    },
+    {
+      "document_id": "0001104659-26-068522:tm2616097d1_ex10-1.htm",
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "filed_date": "2026-06-01",
+      "agreement_id": "54930096DB9LCLPN7H13:2015-10-30",
+      "agreement_date": "2015-10-30",
+      "role": "amendment",
+      "governs_from": "2026-05-29"
+    },
+    {
+      "document_id": "0001104659-26-068522:tm2616097d1_ex10-2.htm",
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "filed_date": "2026-06-01",
+      "agreement_id": "54930096DB9LCLPN7H13:2026-05-29",
+      "agreement_date": "2026-05-29",
+      "role": "base",
+      "governs_from": "2026-05-29"
+    },
+    {
+      "document_id": "0001193125-26-340356:d133770dex101.htm",
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "filed_date": "2026-08-07",
+      "agreement_id": "529900VKCYZW8GZ4WW58:2023-02-14",
+      "agreement_date": "2023-02-14",
+      "role": "amendment",
+      "governs_from": "2026-08-04"
+    },
+    {
+      "document_id": "0001104659-26-003739:tm263008d1_ex10-1.htm",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "sec_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "filed_date": "2026-01-14",
+      "agreement_id": "0J0XRGZE3PBRFEZ7MV65:2019-05-23",
+      "agreement_date": "2019-05-23",
+      "role": "base",
+      "governs_from": "2019-05-23"
+    },
+    {
+      "document_id": "0000950103-26-000052:dp239511_ex1001.htm",
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "filed_date": "2026-01-02",
+      "agreement_id": "B3BS7ACMDUWISF18KY76:2022-05-10",
+      "agreement_date": "2022-05-10",
+      "role": "amendment",
+      "governs_from": "2026-01-02"
+    },
+    {
+      "document_id": "0001193125-25-149731:d949183dex101.htm",
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "filed_date": "2025-06-27",
+      "agreement_id": "B3BS7ACMDUWISF18KY76:2022-05-10",
+      "agreement_date": "2022-05-10",
+      "role": "amendment",
+      "governs_from": "2025-06-26"
+    },
+    {
+      "document_id": "0001104659-26-090359:tm2622089d1_ex10-1.htm",
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "filed_date": "2026-08-04",
+      "agreement_id": "549300FHJQTDPPN41627:2025-08-11",
+      "agreement_date": "2025-08-11",
+      "role": "amendment",
+      "governs_from": "2026-07-31"
+    },
+    {
+      "document_id": "0001104659-25-076253:tm2523061d1_ex10-1.htm",
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "filed_date": "2025-08-11",
+      "agreement_id": "549300FHJQTDPPN41627:2025-08-11",
+      "agreement_date": "2025-08-11",
+      "role": "base",
+      "governs_from": "2025-08-11"
+    },
+    {
+      "document_id": "0001104659-26-046064:tm2612273d1_ex10-1.htm",
+      "lei": "529900VN48L8QCMVPV36",
+      "sec_name": "Viskase Holdings, Inc.",
+      "filed_date": "2026-04-21",
+      "agreement_id": "529900VN48L8QCMVPV36:2020-10-09",
+      "agreement_date": "2020-10-09",
+      "role": "amendment",
+      "governs_from": "2026-04-16"
+    },
+    {
+      "document_id": "0001193125-26-161564:d108525dex101.htm",
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "filed_date": "2026-04-17",
+      "agreement_id": "549300EQD0ZXRSMG3549:2014-06-04",
+      "agreement_date": "2014-06-04",
+      "role": "amendment",
+      "governs_from": "2026-04-17"
+    },
+    {
+      "document_id": "0001193125-26-051416:d83933dex101.htm",
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "filed_date": "2026-02-13",
+      "agreement_id": "549300EQD0ZXRSMG3549:2014-06-04",
+      "agreement_date": "2014-06-04",
+      "role": "amendment",
+      "governs_from": "2026-02-13"
+    },
+    {
+      "document_id": "0001193125-25-210057:d26146dex101.htm",
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "filed_date": "2025-09-22",
+      "agreement_id": "5493004HBTOTE9DI9P12:2025-09-22",
+      "agreement_date": "2025-09-22",
+      "role": "base",
+      "governs_from": "2025-09-22"
+    },
+    {
+      "document_id": "0001193125-25-210057:d26146dex102.htm",
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "filed_date": "2025-09-22",
+      "agreement_id": "5493004HBTOTE9DI9P12:2025-09-22",
+      "agreement_date": "2025-09-22",
+      "role": "base",
+      "governs_from": "2025-09-22"
+    },
+    {
+      "document_id": "0001193125-26-324888:extr-ex10_1.htm",
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "filed_date": "2026-07-30",
+      "agreement_id": "549300WRECW11X94UB57:2026-07-29",
+      "agreement_date": "2026-07-29",
+      "role": "base",
+      "governs_from": "2026-07-29"
+    },
+    {
+      "document_id": "0001193125-24-281618:d761586dex101.htm",
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "filed_date": "2024-12-19",
+      "agreement_id": "5493000Q1S5TJIDIQH89:2024-06-24",
+      "agreement_date": "2024-06-24",
+      "role": "amendment",
+      "governs_from": "2024-12-19"
+    },
+    {
+      "document_id": "0001193125-24-281618:d761586dex102.htm",
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "filed_date": "2024-12-19",
+      "agreement_id": "5493000Q1S5TJIDIQH89:2024-12-19",
+      "agreement_date": "2024-12-19",
+      "role": "base",
+      "governs_from": "2024-12-19"
+    },
+    {
+      "document_id": "0001193125-26-088484:d105148dex101.htm",
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "filed_date": "2026-03-03",
+      "agreement_id": "549300KTTIRAOGXCRV69:2026-03-03",
+      "agreement_date": "2026-03-03",
+      "role": "base",
+      "governs_from": "2026-03-03"
+    },
+    {
+      "document_id": "0001193125-25-178982:d25970dex101.htm",
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "filed_date": "2025-08-12",
+      "agreement_id": "549300KTTIRAOGXCRV69:2020-03-02",
+      "agreement_date": "2020-03-02",
+      "role": "amendment",
+      "governs_from": "2025-08-12"
+    },
+    {
+      "document_id": "0001193125-26-297552:d77261dex101.htm",
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "filed_date": "2026-07-07",
+      "agreement_id": "549300TMDIT8WREDOF45:2026-07-07",
+      "agreement_date": "2026-07-07",
+      "role": "base",
+      "governs_from": "2026-07-07"
+    },
+    {
+      "document_id": "0001193125-26-297552:d77261dex102.htm",
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "filed_date": "2026-07-07",
+      "agreement_id": "549300TMDIT8WREDOF45:2025-06-26",
+      "agreement_date": "2025-06-26",
+      "role": "amendment",
+      "governs_from": "2026-07-07"
+    },
+    {
+      "document_id": "0001104659-25-031884:tm2511351d1_ex10-1.htm",
+      "lei": "5493002H8U24DJXQ4886",
+      "sec_name": "RB GLOBAL INC.",
+      "filed_date": "2025-04-04",
+      "agreement_id": "5493002H8U24DJXQ4886:2025-04-03",
+      "agreement_date": "2025-04-03",
+      "role": "base",
+      "governs_from": "2025-04-03"
+    },
+    {
+      "document_id": "0001193125-26-021794:payx-ex10_1.htm",
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "filed_date": "2026-01-26",
+      "agreement_id": "529900K900DW6SUBM174:2017-08-17",
+      "agreement_date": "2017-08-17",
+      "role": "amendment",
+      "governs_from": "2026-01-23"
+    },
+    {
+      "document_id": "0001193125-26-021794:payx-ex10_2.htm",
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "filed_date": "2026-01-26",
+      "agreement_id": "529900K900DW6SUBM174:2019-07-31",
+      "agreement_date": "2019-07-31",
+      "role": "amendment",
+      "governs_from": "2026-01-23"
+    },
+    {
+      "document_id": "0001104659-26-018826:tm267070d1_ex10-1.htm",
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "filed_date": "2026-02-24",
+      "agreement_id": "529900ZNZBBLDE77MZ38:2026-02-23",
+      "agreement_date": "2026-02-23",
+      "role": "base",
+      "governs_from": "2026-02-23"
+    },
+    {
+      "document_id": "0001104659-25-071742:tm2521966d1_ex10-1.htm",
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "filed_date": "2025-07-29",
+      "agreement_id": "529900ZNZBBLDE77MZ38:2025-07-24",
+      "agreement_date": "2025-07-24",
+      "role": "base",
+      "governs_from": "2025-07-24"
+    },
+    {
+      "document_id": "0001104659-25-007267:tm254690d1_ex10-1.htm",
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "filed_date": "2025-01-29",
+      "agreement_id": "529900L7KB2N9KXCDI76:2025-01-28",
+      "agreement_date": "2025-01-28",
+      "role": "base",
+      "governs_from": "2025-01-28"
+    },
+    {
+      "document_id": "0001104659-25-007267:tm254690d1_ex10-2.htm",
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "filed_date": "2025-01-29",
+      "agreement_id": "529900L7KB2N9KXCDI76:2025-01-28",
+      "agreement_date": "2025-01-28",
+      "role": "base",
+      "governs_from": "2025-01-28"
+    },
+    {
+      "document_id": "0000950170-24-117726:agys-ex10_1.htm",
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "filed_date": "2024-10-28",
+      "agreement_id": "5299001XWB5V3B5IPN93:2024-08-16",
+      "agreement_date": "2024-08-16",
+      "role": "base",
+      "governs_from": "2024-08-16"
+    },
+    {
+      "document_id": "0000723531-19-000036:payx-20190731xex10_1.htm",
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "filed_date": "2019-08-01",
+      "agreement_id": "529900K900DW6SUBM174:2019-07-31",
+      "agreement_date": "2019-07-31",
+      "role": "base",
+      "governs_from": "2019-07-31"
+    },
+    {
+      "document_id": "0001628280-20-002714:exhibitno101termloancred.htm",
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "filed_date": "2020-03-03",
+      "agreement_id": "549300KTTIRAOGXCRV69:2020-03-02",
+      "agreement_date": "2020-03-02",
+      "role": "base",
+      "governs_from": "2020-03-02"
+    }
+  ]
+}

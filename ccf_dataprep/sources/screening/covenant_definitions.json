@@ -1,0 +1,2076 @@
+{
+  "generated_for": "covenant-cross-reference, covenant-in-force-as-of",
+  "wave": 15,
+  "provenance": "public \u2014 real spans of filed EX-10 agreements",
+  "method": "three declaration conventions (colon / means / shall mean); components are the document's OWN declared terms found inside a definition body, longest name first",
+  "conventions_seen": {
+    "means": 4898,
+    "colon": 869,
+    "shall_mean": 377
+  },
+  "totals": {
+    "documents": 25,
+    "ratio_definitions": 48,
+    "component_citations": 214,
+    "measurement_periods": 11,
+    "cross_document_definitions": 1
+  },
+  "documents": [
+    {
+      "document_id": "0000950142-26-001951:eh260800571_ex1001.htm",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "accession": "0000950142-26-001951",
+      "filed_date": "2026-07-01",
+      "declaration_count": 474,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Leverage Ratio",
+          "convention": "colon",
+          "decl_offset": 106307,
+          "body_start": 106345,
+          "body_end": 106480,
+          "body_excerpt": " as at the last day of any period, the ratio of (a) Consolidated Secured Debt on such day to (b) Consolidated EBITDA for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Secured Debt",
+              "declared_at": 106115,
+              "cited_at": 106397
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "colon",
+          "decl_offset": 103634,
+          "body_start": 103664,
+          "body_end": 103797,
+          "body_excerpt": " as at the last day of any period, the ratio of (a) Consolidated Total Debt on such day to (b) Consolidated EBITDA for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Total Debt",
+              "declared_at": 106753,
+              "cited_at": 103716
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 96086,
+              "cited_at": 103759
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Reference Period",
+          "decl_offset": 193567,
+          "body_excerpt": " as defined in the definition of \u201cConsolidated EBITDA\u201d. "
+        }
+      ]
+    },
+    {
+      "document_id": "0001213900-26-057808:ea029103901ex10-1.htm",
+      "sec_name": "BGC Group, Inc.",
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "accession": "0001213900-26-057808",
+      "filed_date": "2026-05-15",
+      "declaration_count": 198,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 33599,
+          "body_start": 33634,
+          "body_end": 33941,
+          "body_excerpt": ", as of any fiscal quarter-end for which it is to be determined, the ratio of (a) Consolidated Funded Indebtedness as of such date to (b) Consolidated EBITDA for the period of the four fiscal quarters ending on such date, in each case calculated on a Pro Forma Basis in accordance with Section 1.03(c). ",
+          "components": [
+            {
+              "term": "Consolidated Funded Indebtedness",
+              "declared_at": 32157,
+              "cited_at": 33716
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 29787,
+              "cited_at": 33772
+            },
+            {
+              "term": "Pro Forma Basis",
+              "declared_at": 84464,
+              "cited_at": 33885
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 33154,
+          "body_start": 33198,
+          "body_end": 33599,
+          "body_excerpt": ", as of any fiscal quarter-end for which it is to be determined, the ratio of (a) Consolidated EBITDA for the period of the four fiscal quarters ending on such date to (b) Consolidated Interest Charges with respect to the Borrower and its Subsidiaries for the period of the four fiscal quarters ending on such date, in each case calculated on a Pro Forma Basis in accordance with Section 1.03(c). ",
+          "components": [
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 29787,
+              "cited_at": 33280
+            },
+            {
+              "term": "Consolidated Interest Charges",
+              "declared_at": 32344,
+              "cited_at": 33370
+            },
+            {
+              "term": "Pro Forma Basis",
+              "declared_at": 84464,
+              "cited_at": 33543
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "net_capital",
+          "covenant_clause": {
+            "threshold": 300000000.0,
+            "unit": "usd",
+            "direction": "min",
+            "direction_basis": "covenant type semantics; see docstring",
+            "clause_offset": 293770,
+            "clause_excerpt": "Net Excess Capital with respect to all Regulated Subsidiaries to be less than $300,000,000"
+          },
+          "term": "Net Excess Capital",
+          "convention": "means",
+          "decl_offset": 75277,
+          "body_start": 75303,
+          "body_end": 75710,
+          "body_excerpt": " the aggregate regulatory net capital, as defined in the applicable Capital Requirements, in excess of the aggregate required net capital under the Capital Requirements, as shown on the Borrower\u2019s most recent annual audited financial statements or quarterly management prepared statements delivered pursuant to Section 6.01, and, without duplication, as shown on the Borrower\u2019s SEC Forms 10-Q and 10-",
+          "components": [
+            {
+              "term": "Capital Requirements",
+              "declared_at": 20938,
+              "cited_at": 75371
+            }
+          ],
+          "cross_document_citation": "d financial statements or quarterly management prepared statements delivered pursuant to Section 6.01, and, without duplication, as shown on the Borrower\u2019s SEC Forms 10-Q and 10-K. "
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-145647:ahr-ex10_1.htm",
+      "sec_name": "American Healthcare REIT, Inc.",
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "accession": "0001193125-26-145647",
+      "filed_date": "2026-04-07",
+      "declaration_count": 277,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 109179,
+          "body_start": 109222,
+          "body_end": 109385,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Total Secured Indebtedness as of such date to (b) Consolidated Total Asset Value as of such date. ",
+          "components": [
+            {
+              "term": "Consolidated Total Secured Indebtedness",
+              "declared_at": 112859,
+              "cited_at": 109274
+            },
+            {
+              "term": "Consolidated Total Asset Value",
+              "declared_at": 109965,
+              "cited_at": 109337
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 107449,
+          "body_start": 107484,
+          "body_end": 107639,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Total Indebtedness as of such date to (b) Consolidated Total Asset Value as of such date. ",
+          "components": [
+            {
+              "term": "Consolidated Total Indebtedness",
+              "declared_at": 112666,
+              "cited_at": 107536
+            },
+            {
+              "term": "Consolidated Total Asset Value",
+              "declared_at": 109965,
+              "cited_at": 107591
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Unencumbered Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 113143,
+          "body_start": 113200,
+          "body_end": 113439,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) the product of (i) Unencumbered Net Operating Income for the fiscal quarter ended as of such date, multiplied by (ii) four to (b) the Consolidated Unsecured Debt Service as of such date. ",
+          "components": [
+            {
+              "term": "Unencumbered Net Operating Income",
+              "declared_at": 203734,
+              "cited_at": 113271
+            },
+            {
+              "term": "Consolidated Unsecured Debt Service",
+              "declared_at": 114782,
+              "cited_at": 113386
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 105848,
+          "body_start": 105896,
+          "body_end": 106044,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Adjusted EBITDA as of such date to (b) Consolidated Fixed Charges as of such date. ",
+          "components": [
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 104020,
+              "cited_at": 105948
+            },
+            {
+              "term": "Consolidated Fixed Charges",
+              "declared_at": 106044,
+              "cited_at": 106000
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-269703:d45696dex101.htm",
+      "sec_name": "Super Micro Computer, Inc.",
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "accession": "0001193125-26-269703",
+      "filed_date": "2026-06-12",
+      "declaration_count": 233,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 125510,
+          "body_start": 125532,
+          "body_end": 125772,
+          "body_excerpt": ", as of the date of determination thereof, the ratio of (x) Total Funded Net Debt of the Lead Borrower and its Restricted Subsidiaries as of such date to (y) Consolidated Adjusted EBITDA for the period of four fiscal quarters then ended. ",
+          "components": [
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 68446,
+              "cited_at": 125690
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 119277,
+          "body_start": 119308,
+          "body_end": 119502,
+          "body_excerpt": ", as of the date of determination thereof, the ratio of (x) Consolidated Adjusted EBITDA for the period of four fiscal quarters then ended to (y) Consolidated Interest Expense as of such date. ",
+          "components": [
+            {
+              "term": "Consolidated Interest Expense",
+              "declared_at": 76138,
+              "cited_at": 119454
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 110400,
+          "body_start": 110436,
+          "body_end": 111138,
+          "body_excerpt": ", as at any date of determination thereof, the ratio of (1) Consolidated Adjusted EBITDA of the Lead Borrower and its Restricted Subsidiaries for the period of four fiscal quarters then ended to (2) the sum, without duplication, of (a) Consolidated Interest Expense of the Lead Borrower and its Restricted Subsidiaries for such period and (b) all cash dividend payments (excluding items eliminated in",
+          "components": [
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 68446,
+              "cited_at": 110496
+            },
+            {
+              "term": "Consolidated Interest Expense",
+              "declared_at": 76138,
+              "cited_at": 110672
+            },
+            {
+              "term": "Disqualified Equity Interests",
+              "declared_at": 87486,
+              "cited_at": 110945
+            },
+            {
+              "term": "Permitted Mandatory Convertible Stock",
+              "declared_at": 139886,
+              "cited_at": 110995
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-306100:capl-ex10_1.htm",
+      "sec_name": "CrossAmerica Partners LP",
+      "lei": "549300OUUC900EVOGX10",
+      "skipped": "only 0 declarations; no definitions article",
+      "definitions": [],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-26-068522:tm2616097d1_ex10-1.htm",
+      "sec_name": "XPO, Inc.",
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "accession": "0001104659-26-068522",
+      "filed_date": "2026-06-01",
+      "declaration_count": 317,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 101607,
+          "body_start": 101654,
+          "body_end": 104654,
+          "body_excerpt": ", with respect to any Person, at any date, the ratio of (i) Secured Indebtedness of such Person and its Restricted Subsidiaries as of such date of calculation (determined on a consolidated basis in accordance with GAAP) less the amount of cash and Cash Equivalents in excess of any Restricted Cash that would be stated on the balance sheet of such Person and its Restricted Subsidiaries and held by s",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 240452,
+              "cited_at": 101676
+            },
+            {
+              "term": "Secured Indebtedness",
+              "declared_at": 254248,
+              "cited_at": 101714
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 73491,
+              "cited_at": 101902
+            },
+            {
+              "term": "Restricted Cash",
+              "declared_at": 251500,
+              "cited_at": 101936
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 135253,
+              "cited_at": 102138
+            },
+            {
+              "term": "Fiscal Quarter",
+              "declared_at": 160571,
+              "cited_at": 102178
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 178927,
+              "cited_at": 102305
+            },
+            {
+              "term": "Restricted Subsidiary",
+              "declared_at": 251883,
+              "cited_at": 102369
+            },
+            {
+              "term": "Preferred Stock",
+              "declared_at": 241570,
+              "cited_at": 102503
+            },
+            {
+              "term": "Disqualified Stock",
+              "declared_at": 133183,
+              "cited_at": 103015
+            },
+            {
+              "term": "Officer\u2019s Certificate",
+              "declared_at": 208134,
+              "cited_at": 103253
+            },
+            {
+              "term": "Officer",
+              "declared_at": 207729,
+              "cited_at": 103828
+            },
+            {
+              "term": "Investments",
+              "declared_at": 188673,
+              "cited_at": 104353
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 101607,
+          "body_start": 101654,
+          "body_end": 104654,
+          "body_excerpt": ", with respect to any Person, at any date, the ratio of (i) Secured Indebtedness of such Person and its Restricted Subsidiaries as of such date of calculation (determined on a consolidated basis in accordance with GAAP) less the amount of cash and Cash Equivalents in excess of any Restricted Cash that would be stated on the balance sheet of such Person and its Restricted Subsidiaries and held by s",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 240452,
+              "cited_at": 101676
+            },
+            {
+              "term": "Secured Indebtedness",
+              "declared_at": 254248,
+              "cited_at": 101714
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 73491,
+              "cited_at": 101902
+            },
+            {
+              "term": "Restricted Cash",
+              "declared_at": 251500,
+              "cited_at": 101936
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 135253,
+              "cited_at": 102138
+            },
+            {
+              "term": "Fiscal Quarter",
+              "declared_at": 160571,
+              "cited_at": 102178
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 178927,
+              "cited_at": 102305
+            },
+            {
+              "term": "Restricted Subsidiary",
+              "declared_at": 251883,
+              "cited_at": 102369
+            },
+            {
+              "term": "Preferred Stock",
+              "declared_at": 241570,
+              "cited_at": 102503
+            },
+            {
+              "term": "Disqualified Stock",
+              "declared_at": 133183,
+              "cited_at": 103015
+            },
+            {
+              "term": "Officer\u2019s Certificate",
+              "declared_at": 208134,
+              "cited_at": 103253
+            },
+            {
+              "term": "Officer",
+              "declared_at": 207729,
+              "cited_at": 103828
+            },
+            {
+              "term": "Investments",
+              "declared_at": 188673,
+              "cited_at": 104353
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 160833,
+          "body_start": 160868,
+          "body_end": 163868,
+          "body_excerpt": ", with respect to any Person for any period, the ratio of EBITDA of such Person for such period to the Fixed Charges of such Person for such period. In the event that Borrower or any of its Restricted Subsidiaries Incurs, repays, repurchases or redeems any Indebtedness or issues, repurchases or redeems Disqualified Stock or Preferred Stock subsequent to the commencement of the period for which",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 240452,
+              "cited_at": 160890
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 135253,
+              "cited_at": 160926
+            },
+            {
+              "term": "Fixed Charges",
+              "declared_at": 167831,
+              "cited_at": 160971
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 178927,
+              "cited_at": 161129
+            },
+            {
+              "term": "Disqualified Stock",
+              "declared_at": 133183,
+              "cited_at": 161176
+            },
+            {
+              "term": "Preferred Stock",
+              "declared_at": 241570,
+              "cited_at": 161198
+            },
+            {
+              "term": "Officer\u2019s Certificate",
+              "declared_at": 208134,
+              "cited_at": 161823
+            },
+            {
+              "term": "Limited Condition Acquisition",
+              "declared_at": 194371,
+              "cited_at": 161949
+            },
+            {
+              "term": "Restricted Subsidiary",
+              "declared_at": 251883,
+              "cited_at": 162602
+            },
+            {
+              "term": "Investments",
+              "declared_at": 188673,
+              "cited_at": 163235
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-26-068522:tm2616097d1_ex10-2.htm",
+      "sec_name": "XPO, Inc.",
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "accession": "0001104659-26-068522",
+      "filed_date": "2026-06-01",
+      "declaration_count": 258,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 63506,
+          "body_start": 63553,
+          "body_end": 64253,
+          "body_excerpt": ", with respect to any Person, at any date, the ratio of (i) Secured Indebtedness of such Person and its Restricted Subsidiaries as of such date of calculation (determined on a consolidated basis in accordance with GAAP) less the amount of cash and Cash Equivalents in excess of any Restricted Cash that would be stated on the balance sheet of such Person and its Restricted Subsidiaries and held by s",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 181904,
+              "cited_at": 63575
+            },
+            {
+              "term": "Secured Indebtedness",
+              "declared_at": 191959,
+              "cited_at": 63613
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 41540,
+              "cited_at": 63801
+            },
+            {
+              "term": "Restricted Cash",
+              "declared_at": 189435,
+              "cited_at": 63835
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 83850,
+              "cited_at": 64037
+            },
+            {
+              "term": "Fiscal Quarter",
+              "declared_at": 105026,
+              "cited_at": 64077
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 120060,
+              "cited_at": 64204
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Total Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 65413,
+          "body_start": 65458,
+          "body_end": 66011,
+          "body_excerpt": ", with respect to any Person, at any date, the ratio of (i) Consolidated Total Indebtedness of such Person and its Restricted Subsidiaries as of such date of calculation (determined on a consolidated basis in accordance with GAAP) less the amount of cash and Cash Equivalents in excess of any Restricted Cash that would be stated on the balance sheet of such Person and its Restricted Subsidiaries an",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 181904,
+              "cited_at": 65480
+            },
+            {
+              "term": "Consolidated Total Indebtedness",
+              "declared_at": 64667,
+              "cited_at": 65518
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 41540,
+              "cited_at": 65717
+            },
+            {
+              "term": "Restricted Cash",
+              "declared_at": 189435,
+              "cited_at": 65751
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 83850,
+              "cited_at": 65953
+            },
+            {
+              "term": "Test Period",
+              "declared_at": 209895,
+              "cited_at": 65994
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 126448,
+          "body_start": 126479,
+          "body_end": 129479,
+          "body_excerpt": ", with respect to any Person for any period, the ratio of EBITDA of such Person for such period to the Consolidated Interest Expense (excluding amortization or write-off of deferred financing costs) of such Person for such period. For purposes of making any computation subsequent to the commencement of the period for which the Interest Coverage Ratio is being calculated but prior to the last d",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 181904,
+              "cited_at": 126501
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 83850,
+              "cited_at": 126537
+            },
+            {
+              "term": "Fiscal Quarter",
+              "declared_at": 105026,
+              "cited_at": 126889
+            },
+            {
+              "term": "Investments",
+              "declared_at": 134831,
+              "cited_at": 127030
+            },
+            {
+              "term": "Subsidiary",
+              "declared_at": 202278,
+              "cited_at": 127273
+            },
+            {
+              "term": "Restricted Subsidiary",
+              "declared_at": 189818,
+              "cited_at": 128311
+            },
+            {
+              "term": "Unrestricted Subsidiary",
+              "declared_at": 212903,
+              "cited_at": 128819
+            },
+            {
+              "term": "Officer",
+              "declared_at": 148969,
+              "cited_at": 129278
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 105364,
+          "body_start": 105399,
+          "body_end": 108399,
+          "body_excerpt": ", with respect to any Person for any period, the ratio of EBITDA of such Person for such period to the Fixed Charges of such Person for such period. In the event that Borrower or any of its Restricted Subsidiaries Incurs, repays, repurchases or redeems any Indebtedness or issues, repurchases or redeems Disqualified Stock or Preferred Stock subsequent to the commencement of the period for which",
+          "components": [
+            {
+              "term": "Person",
+              "declared_at": 181904,
+              "cited_at": 105421
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 83850,
+              "cited_at": 105457
+            },
+            {
+              "term": "Fixed Charges",
+              "declared_at": 112364,
+              "cited_at": 105502
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 120060,
+              "cited_at": 105660
+            },
+            {
+              "term": "Preferred Stock",
+              "declared_at": 182598,
+              "cited_at": 105729
+            },
+            {
+              "term": "Disqualified Stock",
+              "declared_at": 81775,
+              "cited_at": 106183
+            },
+            {
+              "term": "Officer\u2019s Certificate",
+              "declared_at": 149372,
+              "cited_at": 106354
+            },
+            {
+              "term": "Limited Condition Acquisition",
+              "declared_at": 139778,
+              "cited_at": 106480
+            },
+            {
+              "term": "Restricted Subsidiary",
+              "declared_at": 189818,
+              "cited_at": 107133
+            },
+            {
+              "term": "Investments",
+              "declared_at": 134831,
+              "cited_at": 107766
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": null,
+          "term": "Liquidity",
+          "convention": "means",
+          "decl_offset": 140270,
+          "body_start": 140287,
+          "body_end": 140951,
+          "body_excerpt": ", on any date of determination, the sum of (i) the aggregate amount of unrestricted cash and Cash Equivalents held by Borrower and its Restricted Subsidiaries (provided that, solely for the purpose of this definition, any cash and Cash Equivalents pledged to secure the Facility, the Term Loan B Facility and/or the Revolving Facility shall be deemed unrestricted) on such date and (ii) the aggregate",
+          "components": [
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 41540,
+              "cited_at": 140380
+            },
+            {
+              "term": "Term Loan B Facility",
+              "declared_at": 206040,
+              "cited_at": 140571
+            },
+            {
+              "term": "Revolving Facility",
+              "declared_at": 191138,
+              "cited_at": 140603
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Test Period",
+          "decl_offset": 209895,
+          "body_excerpt": ", as of any date, for purposes of determining compliance with Section 7.12(a), the calculation of the Applicable Margin, the period of four consecutive Fiscal Quarters then most recently ended for which financial statements under Section 5.1(b) or Section 5.1(c), as applicable, have been delivered ("
+        }
+      ]
+    },
+    {
+      "document_id": "0001474098-26-000011:a021126debtamendmentex101.htm",
+      "sec_name": "Pebblebrook Hotel Trust",
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "accession": "0001474098-26-000011",
+      "filed_date": "2026-02-13",
+      "declaration_count": 337,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 77596,
+          "body_start": 77631,
+          "body_end": 77832,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Funded Indebtedness less Adjusted Unrestricted Cash as of such date to (b) EBITDA for the Calculation Period most recently ended. 12 ",
+          "components": [
+            {
+              "term": "Consolidated Funded Indebtedness",
+              "declared_at": 74562,
+              "cited_at": 77683
+            },
+            {
+              "term": "Adjusted Unrestricted Cash",
+              "declared_at": 44339,
+              "cited_at": 77721
+            },
+            {
+              "term": "EBITDA",
+              "declared_at": 92780,
+              "cited_at": 77771
+            },
+            {
+              "term": "Calculation Period",
+              "declared_at": 62343,
+              "cited_at": 77786
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Unsecured Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 82840,
+          "body_start": 82894,
+          "body_end": 83541,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Net Operating Income from the Unencumbered Borrowing Base Properties for the Calculation Period ending on such date to (b) Unsecured Interest Charges for such period; provided that, unless otherwise approved by the Required Lenders, there shall be excluded from the calculation of Consolidated Unsecured Interest Coverage Ratio: (i) any excess abov",
+          "components": [
+            {
+              "term": "Net Operating Income",
+              "declared_at": 136304,
+              "cited_at": 82946
+            },
+            {
+              "term": "Unencumbered Borrowing Base Properties",
+              "declared_at": 187051,
+              "cited_at": 82976
+            },
+            {
+              "term": "Calculation Period",
+              "declared_at": 62343,
+              "cited_at": 83023
+            },
+            {
+              "term": "Unsecured Interest Charges",
+              "declared_at": 192147,
+              "cited_at": 83069
+            },
+            {
+              "term": "Required Lenders",
+              "declared_at": 157482,
+              "cited_at": 83161
+            },
+            {
+              "term": "Major MSA",
+              "declared_at": 131937,
+              "cited_at": 83395
+            },
+            {
+              "term": "Other MSA",
+              "declared_at": 146536,
+              "cited_at": 83530
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 73214,
+          "body_start": 73262,
+          "body_end": 73441,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Adjusted EBITDA for the Calculation Period ending on such date to (b) Consolidated Fixed Charges for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 73004,
+              "cited_at": 73314
+            },
+            {
+              "term": "Calculation Period",
+              "declared_at": 62343,
+              "cited_at": 73351
+            },
+            {
+              "term": "Consolidated Fixed Charges",
+              "declared_at": 73441,
+              "cited_at": 73397
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-26-090359:tm2622089d1_ex10-1.htm",
+      "sec_name": "Celanese Corp",
+      "lei": "549300FHJQTDPPN41627",
+      "skipped": "only 5 declarations; no definitions article",
+      "definitions": [],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-25-076253:tm2523061d1_ex10-1.htm",
+      "sec_name": "Celanese Corp",
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "accession": "0001104659-25-076253",
+      "filed_date": "2025-08-11",
+      "declaration_count": 236,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 44893,
+          "body_start": 44928,
+          "body_end": 46513,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Funded Indebtedness as of such date to (b) Consolidated EBITDA for the period of the four fiscal quarters ending on such date; provided, that (i) unrestricted cash and cash equivalents of Holdings and its Subsidiaries in excess of $200,000,000 and cash deposited into escrow for purposes of debt repayment, shall, in each case, be dedu",
+          "components": [
+            {
+              "term": "Consolidated Funded Indebtedness",
+              "declared_at": 40341,
+              "cited_at": 44980
+            },
+            {
+              "term": "Investment",
+              "declared_at": 84829,
+              "cited_at": 45446
+            },
+            {
+              "term": "Permitted Receivables Financing",
+              "declared_at": 104375,
+              "cited_at": 45465
+            },
+            {
+              "term": "Receivables Net Investment",
+              "declared_at": 109572,
+              "cited_at": 45642
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 78692,
+              "cited_at": 45870
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 39324,
+          "body_start": 39372,
+          "body_end": 39625,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated EBITDA for the period of the four fiscal quarters ending on such date to (b) Consolidated Fixed Charges for the period of the four fiscal quarters ending on such date. 9 ",
+          "components": [
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 36444,
+              "cited_at": 39424
+            },
+            {
+              "term": "Consolidated Fixed Charges",
+              "declared_at": 39625,
+              "cited_at": 39514
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-26-046064:tm2612273d1_ex10-1.htm",
+      "sec_name": "Viskase Holdings, Inc.",
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "accession": "0001104659-26-046064",
+      "filed_date": "2026-04-21",
+      "declaration_count": 288,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 74854,
+          "body_start": 74889,
+          "body_end": 75354,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Total Funded Debt of the Borrower and its Restricted Subsidiaries as of such date to (b) Consolidated EBITDA of the Borrower and its Restricted Subsidiaries on a Consolidated basis for the most recently completed Measurement Period. For purposes hereof, the Consolidated Leverage Ratio for each Measurement Period ending on March 31, June 30 and Se",
+          "components": [
+            {
+              "term": "Total Funded Debt",
+              "declared_at": 182341,
+              "cited_at": 74941
+            },
+            {
+              "term": "Restricted Subsidiaries",
+              "declared_at": 164072,
+              "cited_at": 74983
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 64614,
+              "cited_at": 75030
+            },
+            {
+              "term": "Consolidated",
+              "declared_at": 64268,
+              "cited_at": 75103
+            },
+            {
+              "term": "Measurement Period",
+              "declared_at": 133977,
+              "cited_at": 75154
+            },
+            {
+              "term": "Annualized Basis",
+              "declared_at": 37166,
+              "cited_at": 75332
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Fixed Charge Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 73567,
+          "body_start": 73615,
+          "body_end": 74854,
+          "body_excerpt": ", for any Measurement Period, the ratio of (a) the sum of (i) Consolidated EBITDA less (ii) the aggregate amount of all Maintenance Capital Expenditures paid with internally generated cash of the Loan Parties or Revolving Loans during such period to (b) the sum of (i) the aggregate principal amount of all redemptions or similar acquisitions for value of outstanding debt for borrowed money or regul",
+          "components": [
+            {
+              "term": "Measurement Period",
+              "declared_at": 133977,
+              "cited_at": 73625
+            },
+            {
+              "term": "Consolidated",
+              "declared_at": 64268,
+              "cited_at": 73677
+            },
+            {
+              "term": "Maintenance Capital Expenditures",
+              "declared_at": 131343,
+              "cited_at": 73735
+            },
+            {
+              "term": "Loan Parties",
+              "declared_at": 131100,
+              "cited_at": 73811
+            },
+            {
+              "term": "Consolidated Net Interest Expense",
+              "declared_at": 77235,
+              "cited_at": 74281
+            },
+            {
+              "term": "Restricted Payment",
+              "declared_at": 163287,
+              "cited_at": 74355
+            },
+            {
+              "term": "through",
+              "declared_at": 193046,
+              "cited_at": 74700
+            },
+            {
+              "term": "Annualized Basis",
+              "declared_at": 37166,
+              "cited_at": 74814
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": {
+            "threshold": 10000000.0,
+            "unit": "usd",
+            "direction": "min",
+            "direction_basis": "covenant type semantics; see docstring",
+            "clause_offset": 148103,
+            "clause_excerpt": "Liquidity shall be greater than $10,000,000"
+          },
+          "term": "Liquidity",
+          "convention": "means",
+          "decl_offset": 128913,
+          "body_start": 128930,
+          "body_end": 129519,
+          "body_excerpt": ", on any date of determination, an amount equal to the excess of (x) the aggregate Revolving Commitments of all Revolving Lenders as of such date plus the aggregate amount of cash and Cash Equivalents, as determined on a bank balance basis (excluding checks issued and collection float), held by the Borrower and its Restricted SubsidiariesU.S. Loan Parties on such date (which shall be determined wi",
+          "components": [
+            {
+              "term": "Revolving Commitment",
+              "declared_at": 164630,
+              "cited_at": 129013
+            },
+            {
+              "term": "Revolving Lender",
+              "declared_at": 165753,
+              "cited_at": 129042
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 54221,
+              "cited_at": 129114
+            },
+            {
+              "term": "Restricted Subsidiaries",
+              "declared_at": 164072,
+              "cited_at": 129247
+            },
+            {
+              "term": "Loan Parties",
+              "declared_at": 131100,
+              "cited_at": 129275
+            },
+            {
+              "term": "Pro Forma Effect",
+              "declared_at": 154432,
+              "cited_at": 129343
+            },
+            {
+              "term": "Indebtedness",
+              "declared_at": 116110,
+              "cited_at": 129383
+            },
+            {
+              "term": "Outstanding Amount",
+              "declared_at": 142647,
+              "cited_at": 129456
+            },
+            {
+              "term": "L/C Obligations",
+              "declared_at": 125886,
+              "cited_at": 129498
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Measurement Period",
+          "decl_offset": 133977,
+          "body_excerpt": ", for any date of determination under this Agreement, the four consecutive fiscal quarters of the Borrower most recently ended as of such date of determination, subject to certain calculations made on an Annualized Basis as set forth in the definitions of \u201cConsolidated Fixed Charge Coverage Ratio\u201d a"
+        }
+      ]
+    },
+    {
+      "document_id": "0001193125-26-161564:d108525dex101.htm",
+      "sec_name": "TransDigm Group INC",
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "accession": "0001193125-26-161564",
+      "filed_date": "2026-04-17",
+      "declaration_count": 323,
+      "definitions": [
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": null,
+          "term": "Available Liquidity",
+          "convention": "means",
+          "decl_offset": 54533,
+          "body_start": 54560,
+          "body_end": 55510,
+          "body_excerpt": ", on any date, an amount equal to the sum of (a) the aggregate Unrestricted Cash of all Loan Parties and their Restricted Subsidiaries on such date, as the same would be reflected on a consolidated balance sheet prepared in accordance with GAAP as of such date, and (b) only if each of the conditions set forth in clauses (b) and (c) of Section 4.01 would be satisfied in connection with a Borrowing ",
+          "components": [
+            {
+              "term": "Unrestricted Cash",
+              "declared_at": 228627,
+              "cited_at": 54623
+            },
+            {
+              "term": "Loan Parties",
+              "declared_at": 146645,
+              "cited_at": 54648
+            },
+            {
+              "term": "Borrowing",
+              "declared_at": 56609,
+              "cited_at": 54950
+            },
+            {
+              "term": "Revolving Credit Commitments",
+              "declared_at": 203275,
+              "cited_at": 55011
+            },
+            {
+              "term": "Excluded Credit Event",
+              "declared_at": 113823,
+              "cited_at": 55277
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-051416:d83933dex101.htm",
+      "sec_name": "TransDigm Group INC",
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "accession": "0001193125-26-051416",
+      "filed_date": "2026-02-13",
+      "declaration_count": 321,
+      "definitions": [
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": null,
+          "term": "Available Liquidity",
+          "convention": "means",
+          "decl_offset": 52098,
+          "body_start": 52125,
+          "body_end": 53089,
+          "body_excerpt": ", on any date, an amount equal to the sum of (a) the aggregate Unrestricted Cash of all Loan Parties and their Restricted Subsidiaries on such date, as the same would be reflected on a consolidated balance sheet prepared in accordance with GAAP as of such date, and (b) only if each of the conditions set forth in clauses (b) and (c) of Section 4.01 would be satisfied in connection with a Borrowing ",
+          "components": [
+            {
+              "term": "Unrestricted Cash",
+              "declared_at": 225503,
+              "cited_at": 52188
+            },
+            {
+              "term": "Loan Parties",
+              "declared_at": 143866,
+              "cited_at": 52213
+            },
+            {
+              "term": "Borrowing",
+              "declared_at": 54188,
+              "cited_at": 52515
+            },
+            {
+              "term": "Revolving Credit Commitments",
+              "declared_at": 200504,
+              "cited_at": 52576
+            },
+            {
+              "term": "Excluded Credit Event",
+              "declared_at": 111060,
+              "cited_at": 52857
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-25-181880:d927791dex101.htm",
+      "sec_name": "City Office REIT, Inc.",
+      "lei": "5493003J7157VP25NL57",
+      "skipped": "only 6 declarations; no definitions article",
+      "definitions": [],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-324888:extr-ex10_1.htm",
+      "sec_name": "EXTREME NETWORKS INC",
+      "lei": "549300WRECW11X94UB57",
+      "cik": 1078271,
+      "accession": "0001193125-26-324888",
+      "filed_date": "2026-07-30",
+      "declaration_count": 275,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Total Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 68519,
+          "body_start": 68564,
+          "body_end": 68828,
+          "body_excerpt": ", as of the last day of any period, the ratio of (a)(i) Consolidated Total Funded Indebtedness as of such date minus (ii) Liquidity as of such date to (b) Consolidated EBITDA for the Reference Period ended on or most recently prior to such date. 16 ",
+          "components": [
+            {
+              "term": "Consolidated Total Funded Indebtedness",
+              "declared_at": 68062,
+              "cited_at": 68620
+            },
+            {
+              "term": "Liquidity",
+              "declared_at": 128819,
+              "cited_at": 68686
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 55742,
+              "cited_at": 68719
+            },
+            {
+              "term": "Reference Period",
+              "declared_at": 155767,
+              "cited_at": 68747
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": null,
+          "term": "Liquidity",
+          "convention": "shall_mean",
+          "decl_offset": 128819,
+          "body_start": 128841,
+          "body_end": 129158,
+          "body_excerpt": " at any time the lesser of (i) $250,000,000 and (ii) the aggregate amount of unrestricted and unencumbered (other than Liens securing the Secured Obligations and Permitted Encumbrances) cash and Cash Equivalent Investments maintained by the Borrower and its Restricted Subsidiaries as of such date. 31 ",
+          "components": [
+            {
+              "term": "Secured Obligations",
+              "declared_at": 168125,
+              "cited_at": 128979
+            },
+            {
+              "term": "Permitted Encumbrances",
+              "declared_at": 146115,
+              "cited_at": 129003
+            },
+            {
+              "term": "Cash Equivalent Investments",
+              "declared_at": 41530,
+              "cited_at": 129036
+            },
+            {
+              "term": "Borrower",
+              "declared_at": 38973,
+              "cited_at": 129082
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Reference Period",
+          "decl_offset": 155767,
+          "body_excerpt": ", as of the last day of any fiscal quarter, the period of four (4) consecutive fiscal quarters of the Borrower ending on such date. \u201cReference Time\u201d with respect to any setting of the then-current Benchmark means (i) if such Benchmark is the Term SOFR Rate, 5:00 a.m., Chicago time, on the day that i"
+        }
+      ]
+    },
+    {
+      "document_id": "0001193125-26-088484:d105148dex101.htm",
+      "sec_name": "Vertiv Holdings Co",
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "accession": "0001193125-26-088484",
+      "filed_date": "2026-03-03",
+      "declaration_count": 218,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 56385,
+          "body_start": 56420,
+          "body_end": 56626,
+          "body_excerpt": ", for any Test Period, the ratio of (a) Net Debt of the Company and its Subsidiaries as of the end of such Test Period to (b) Consolidated EBITDA of the Company and its Subsidiaries for such Test Period. ",
+          "components": [
+            {
+              "term": "Test Period",
+              "declared_at": 123036,
+              "cited_at": 56430
+            },
+            {
+              "term": "Net Debt",
+              "declared_at": 94339,
+              "cited_at": 56460
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 48856,
+              "cited_at": 56546
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Test Period",
+          "decl_offset": 123036,
+          "body_excerpt": ", as of any date, the period of four consecutive fiscal quarters of the Company then most recently ended for which financial statements have been delivered (or are required to have been delivered) under Section 5.01(a) or Section 5.01(b), as applicable, (or, prior to the first such delivery, the per"
+        }
+      ]
+    },
+    {
+      "document_id": "0001193125-25-178982:d25970dex101.htm",
+      "sec_name": "Vertiv Holdings Co",
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "accession": "0001193125-25-178982",
+      "filed_date": "2025-08-12",
+      "declaration_count": 324,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Total Net Leverage Ratio",
+          "convention": "shall_mean",
+          "decl_offset": 85989,
+          "body_start": 86039,
+          "body_end": 87125,
+          "body_excerpt": ", at any time, the ratio of (x) Consolidated Indebtedness at such time, less the aggregate amount of (a) unrestricted cash and Cash Equivalents and (b) cash and Cash Equivalents restricted solely in favor of or pursuant to the ABL Credit Agreement and the credit documents related thereto, any Credit Document, any Permitted Pari Passu Notes Documents, any Permitted Pari Passu Loan Documents, any Re",
+          "components": [
+            {
+              "term": "Indebtedness",
+              "declared_at": 141502,
+              "cited_at": 86084
+            },
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 57151,
+              "cited_at": 86166
+            },
+            {
+              "term": "ABL Credit Agreement",
+              "declared_at": 30524,
+              "cited_at": 86266
+            },
+            {
+              "term": "Permitted Pari Passu Notes Documents",
+              "declared_at": 185173,
+              "cited_at": 86354
+            },
+            {
+              "term": "Permitted Pari Passu Loan Documents",
+              "declared_at": 178095,
+              "cited_at": 86396
+            },
+            {
+              "term": "Refinancing Note Documents",
+              "declared_at": 203206,
+              "cited_at": 86437
+            },
+            {
+              "term": "Refinancing Term Loan Documents",
+              "declared_at": 204400,
+              "cited_at": 86467
+            },
+            {
+              "term": "Refinancing Notes",
+              "declared_at": 203581,
+              "cited_at": 86513
+            },
+            {
+              "term": "Term Loans",
+              "declared_at": 225762,
+              "cited_at": 86562
+            },
+            {
+              "term": "Permitted Junior Debt Documents",
+              "declared_at": 168862,
+              "cited_at": 86622
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 67555,
+              "cited_at": 86774
+            },
+            {
+              "term": "Test Period",
+              "declared_at": 228939,
+              "cited_at": 86850
+            },
+            {
+              "term": "Consolidated Indebtedness",
+              "declared_at": 74911,
+              "cited_at": 86978
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Test Period",
+          "decl_offset": 228939,
+          "body_excerpt": " each period of four consecutive fiscal quarters of the Borrower (in each case taken as one accounting period) for which Section 9.01 Financials have been (or were required to be) delivered or are otherwise internally available; provided that, until the first such Section 9.01 Financials are (or are"
+        }
+      ]
+    },
+    {
+      "document_id": "0001193125-26-297552:d77261dex102.htm",
+      "sec_name": "MASTEC INC",
+      "lei": "549300TMDIT8WREDOF45",
+      "skipped": "only 0 declarations; no definitions article",
+      "definitions": [],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-25-031884:tm2511351d1_ex10-1.htm",
+      "sec_name": "RB GLOBAL INC.",
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "accession": "0001104659-25-031884",
+      "filed_date": "2025-04-04",
+      "declaration_count": 366,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Net Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 73716,
+          "body_start": 73755,
+          "body_end": 73945,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Funded Net Indebtedness as of such date to (b) Consolidated EBITDA for the most recently completed four fiscal quarters. ",
+          "components": [
+            {
+              "term": "Consolidated Funded Net Indebtedness",
+              "declared_at": 72350,
+              "cited_at": 73807
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 67148,
+              "cited_at": 73867
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 73428,
+          "body_start": 73472,
+          "body_end": 73716,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) the sum of Consolidated EBITDA for the most recently completed four fiscal quarters to (b) Consolidated Interest Charges paid in cash for the most recently completed four fiscal quarters. ",
+          "components": [
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 67148,
+              "cited_at": 73535
+            },
+            {
+              "term": "Consolidated Interest Charges",
+              "declared_at": 72759,
+              "cited_at": 73615
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-021794:payx-ex10_1.htm",
+      "sec_name": "PAYCHEX INC",
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "accession": "0001193125-26-021794",
+      "filed_date": "2026-01-26",
+      "declaration_count": 242,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 75093,
+          "body_start": 75128,
+          "body_end": 75333,
+          "body_excerpt": ", as of the end of any fiscal quarter of the Parent, the ratio of (a) Consolidated Total Indebtedness as of the end of such fiscal quarter, to (b) Consolidated EBITDA for the Reference Period then ending. ",
+          "components": [
+            {
+              "term": "Parent",
+              "declared_at": 126298,
+              "cited_at": 75173
+            },
+            {
+              "term": "Consolidated Total Indebtedness",
+              "declared_at": 76103,
+              "cited_at": 75198
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 66012,
+              "cited_at": 75275
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 73718,
+          "body_start": 73762,
+          "body_end": 73974,
+          "body_excerpt": ", as of the end of any fiscal quarter of the Parent, the ratio of (a) Consolidated EBITDA for the Reference Period then ending to (b) Consolidated Interest Expense paid or required to be paid during such period. ",
+          "components": [
+            {
+              "term": "Parent",
+              "declared_at": 126298,
+              "cited_at": 73807
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 66012,
+              "cited_at": 73832
+            },
+            {
+              "term": "Consolidated Interest Expense",
+              "declared_at": 73974,
+              "cited_at": 73896
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001193125-26-021794:payx-ex10_2.htm",
+      "sec_name": "PAYCHEX INC",
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "accession": "0001193125-26-021794",
+      "filed_date": "2026-01-26",
+      "declaration_count": 242,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 75516,
+          "body_start": 75551,
+          "body_end": 75756,
+          "body_excerpt": ", as of the end of any fiscal quarter of the Parent, the ratio of (a) Consolidated Total Indebtedness as of the end of such fiscal quarter, to (b) Consolidated EBITDA for the Reference Period then ending. ",
+          "components": [
+            {
+              "term": "Parent",
+              "declared_at": 126945,
+              "cited_at": 75596
+            },
+            {
+              "term": "Consolidated Total Indebtedness",
+              "declared_at": 76526,
+              "cited_at": 75621
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 66435,
+              "cited_at": 75698
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 74141,
+          "body_start": 74185,
+          "body_end": 74397,
+          "body_excerpt": ", as of the end of any fiscal quarter of the Parent, the ratio of (a) Consolidated EBITDA for the Reference Period then ending to (b) Consolidated Interest Expense paid or required to be paid during such period. ",
+          "components": [
+            {
+              "term": "Parent",
+              "declared_at": 126945,
+              "cited_at": 74230
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 66435,
+              "cited_at": 74255
+            },
+            {
+              "term": "Consolidated Interest Expense",
+              "declared_at": 74397,
+              "cited_at": 74319
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": []
+    },
+    {
+      "document_id": "0001104659-25-071742:tm2521966d1_ex10-1.htm",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "accession": "0001104659-25-071742",
+      "filed_date": "2025-07-29",
+      "declaration_count": 431,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Leverage Ratio",
+          "convention": "colon",
+          "decl_offset": 70027,
+          "body_start": 70065,
+          "body_end": 70203,
+          "body_excerpt": " as at the last day of any period, the ratio of (a) Consolidated Secured Debt on such day to (b) Consolidated EBITDA for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Secured Debt",
+              "declared_at": 69881,
+              "cited_at": 70117
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "colon",
+          "decl_offset": 68996,
+          "body_start": 69026,
+          "body_end": 69224,
+          "body_excerpt": " as at the last day of any period, the ratio of (a) the excess of Consolidated Total Debt on such day less the Offsetting Cash Amount as of such date to (b) Consolidated EBITDA for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Total Debt",
+              "declared_at": 70535,
+              "cited_at": 69092
+            },
+            {
+              "term": "Offsetting Cash Amount",
+              "declared_at": 139520,
+              "cited_at": 69137
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 58508,
+              "cited_at": 69183
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "fixed_charge_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Fixed Charge Coverage Ratio",
+          "convention": "colon",
+          "decl_offset": 67280,
+          "body_start": 67323,
+          "body_end": 67435,
+          "body_excerpt": " for any period, the ratio of (a) Consolidated Cash Flow to (b) Consolidated Fixed Charges for such period. ",
+          "components": [
+            {
+              "term": "Consolidated Cash Flow",
+              "declared_at": 58243,
+              "cited_at": 67357
+            },
+            {
+              "term": "Consolidated Fixed Charges",
+              "declared_at": 67435,
+              "cited_at": 67387
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Applicable Reference Period",
+          "decl_offset": 22293,
+          "body_excerpt": " as at any date of determination, the most recently ended Reference Period for which financial statements with respect to each fiscal quarter included in such Reference Period have been delivered pursuant to Section 6.1. "
+        },
+        {
+          "term": "Reference Period",
+          "decl_offset": 160510,
+          "body_excerpt": " as defined in the definition of \u201cConsolidated EBITDA\u201d. "
+        }
+      ]
+    },
+    {
+      "document_id": "0001104659-25-007267:tm254690d1_ex10-1.htm",
+      "sec_name": "Container Store Group, Inc.",
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "accession": "0001104659-25-007267",
+      "filed_date": "2025-01-29",
+      "declaration_count": 263,
+      "definitions": [
+        {
+          "covenant_type": "secured_leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Secured Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 62694,
+          "body_start": 62737,
+          "body_end": 62959,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Total Debt as of such date that is secured by a Lien on any of the Collateral to (b) Consolidated Adjusted EBITDA for the most recently completed Measurement Period. ",
+          "components": [
+            {
+              "term": "Total Debt",
+              "declared_at": 154652,
+              "cited_at": 62789
+            },
+            {
+              "term": "Collateral",
+              "declared_at": 49102,
+              "cited_at": 62856
+            },
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 51457,
+              "cited_at": 62874
+            },
+            {
+              "term": "Measurement Period",
+              "declared_at": 112871,
+              "cited_at": 62935
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 60314,
+          "body_start": 60349,
+          "body_end": 60539,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Total Debt as of such date to (b) Consolidated Adjusted EBITDA for the most recently completed Measurement Period. -14- ",
+          "components": [
+            {
+              "term": "Total Debt",
+              "declared_at": 154652,
+              "cited_at": 60401
+            },
+            {
+              "term": "Consolidated Adjusted EBITDA",
+              "declared_at": 51457,
+              "cited_at": 60435
+            },
+            {
+              "term": "Measurement Period",
+              "declared_at": 112871,
+              "cited_at": 60496
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "minimum_liquidity",
+          "covenant_clause": null,
+          "term": "Liquidity",
+          "convention": "means",
+          "decl_offset": 108406,
+          "body_start": 108423,
+          "body_end": 109037,
+          "body_excerpt": ", as of any date of determination, the sum of (i) unrestricted cash and Cash Equivalents of the Loan Parties (it being understood that (a) whether cash and Cash Equivalents is restricted or unrestricted shall be determined in accordance with GAAP and (b) cash and Cash Equivalents shall not be deemed restricted solely as a result of being subject to a Lien securing the Obligations and the Obligatio",
+          "components": [
+            {
+              "term": "Cash Equivalents",
+              "declared_at": 40867,
+              "cited_at": 108495
+            },
+            {
+              "term": "Loan Parties",
+              "declared_at": 109236,
+              "cited_at": 108519
+            },
+            {
+              "term": "Obligations",
+              "declared_at": 117923,
+              "cited_at": 108794
+            },
+            {
+              "term": "ABL Facility",
+              "declared_at": 14711,
+              "cited_at": 108836
+            },
+            {
+              "term": "Borrowing",
+              "declared_at": 38454,
+              "cited_at": 108937
+            },
+            {
+              "term": "Aggregate Commitments",
+              "declared_at": 16557,
+              "cited_at": 108964
+            },
+            {
+              "term": "ABL Credit Agreement",
+              "declared_at": 13673,
+              "cited_at": 109010
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Measurement Period",
+          "decl_offset": 112871,
+          "body_excerpt": ", at any date of determination, the most recently completed four consecutive Fiscal Quarters of Holdings and its Subsidiaries for which financial statements pursuant to Section 6.01(a) or (b) have been, or were required to have been, delivered for the applicable fiscal period. "
+        }
+      ]
+    },
+    {
+      "document_id": "0001104659-25-007267:tm254690d1_ex10-2.htm",
+      "sec_name": "Container Store Group, Inc.",
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "accession": "0001104659-25-007267",
+      "filed_date": "2025-01-29",
+      "declaration_count": 290,
+      "definitions": [],
+      "measurement_periods": [
+        {
+          "term": "Measurement Period",
+          "decl_offset": 131216,
+          "body_excerpt": ", at any date of determination, the most recently completed four consecutive Fiscal Quarters of Holdings and its Subsidiaries for which financial statements pursuant to Section 6.01(a) or (b) have been, or were required to have been, delivered for the applicable fiscal period. "
+        }
+      ]
+    },
+    {
+      "document_id": "0000950170-24-117726:agys-ex10_1.htm",
+      "sec_name": "AGILYSYS INC",
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "accession": "0000950170-24-117726",
+      "filed_date": "2024-10-28",
+      "declaration_count": 231,
+      "definitions": [
+        {
+          "covenant_type": "leverage",
+          "covenant_clause": null,
+          "term": "Consolidated Leverage Ratio",
+          "convention": "means",
+          "decl_offset": 42503,
+          "body_start": 42538,
+          "body_end": 42795,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated Funded Indebtedness as of such date to (b) Consolidated EBITDA of the Borrower and its Subsidiaries on a consolidated basis for the most recently completed Measurement Period. 9 ",
+          "components": [
+            {
+              "term": "Consolidated Funded Indebtedness",
+              "declared_at": 38592,
+              "cited_at": 42590
+            },
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 35075,
+              "cited_at": 42646
+            },
+            {
+              "term": "Measurement Period",
+              "declared_at": 93469,
+              "cited_at": 42759
+            }
+          ],
+          "cross_document_citation": null
+        },
+        {
+          "covenant_type": "interest_coverage",
+          "covenant_clause": null,
+          "term": "Consolidated Interest Coverage Ratio",
+          "convention": "means",
+          "decl_offset": 42163,
+          "body_start": 42207,
+          "body_end": 42503,
+          "body_excerpt": ", as of any date of determination, the ratio of (a) Consolidated EBITDA for the most recently completed Measurement Period to (b) Consolidated Interest Charges, in each case, of or by the Borrower and its Subsidiaries on a consolidated basis for the most recently completed Measurement Period. ",
+          "components": [
+            {
+              "term": "Consolidated EBITDA",
+              "declared_at": 35075,
+              "cited_at": 42259
+            },
+            {
+              "term": "Measurement Period",
+              "declared_at": 93469,
+              "cited_at": 42311
+            },
+            {
+              "term": "Consolidated Interest Charges",
+              "declared_at": 40722,
+              "cited_at": 42337
+            }
+          ],
+          "cross_document_citation": null
+        }
+      ],
+      "measurement_periods": [
+        {
+          "term": "Measurement Period",
+          "decl_offset": 93469,
+          "body_excerpt": ", at any date of determination, the most recently completed four (4) fiscal quarters of the Borrower (or, for purposes of determining Pro Forma Compliance, the most recently completed four (4) fiscal quarters of the Borrower for which financial statements have been delivered pursuant to Section 6.01"
+        }
+      ]
+    }
+  ]
+}

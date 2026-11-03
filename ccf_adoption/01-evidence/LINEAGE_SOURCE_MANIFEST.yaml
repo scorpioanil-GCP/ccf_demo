@@ -1,0 +1,52 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+phase: 1C
+status: in-progress
+purpose: "Pin the read-only evidence snapshots used to derive Financial Services lineage records."
+sources:
+  whitepaper:
+    repository: drcastillo/ccf
+    branch: master
+    commit: ac81805d0e400da15f860eed8c39a132af3ce945
+    role: "architectural concept and whitepaper lineage"
+  vault:
+    repository: drcastillo/obsidian-vault
+    branch: main
+    commit: e10add2edc85efe8e355844edfecc492bcf9fa65
+    role: "implementation-independent Context Product decision frames and catalog requirements"
+  dataprep:
+    repository: drcastillo/ccf_dataprep
+    branch: main
+    commit: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+    role: "public-source acquisition, engineered estate, measured coverage, limitations and known issues"
+  sdk:
+    repository: drcastillo/ccf_code
+    branch: main
+    commit: 1a04e565504f712350b51777cfe398be46d5e157
+    role: "approved implementation baseline through CP-12"
+    note: "Example 13 of 24 is in progress outside this pinned approved baseline; later work may change SDK behavior."
+canonical_example_rules:
+  cp-04:
+    path: examples/cp-04-canonical-corporate-family-tree
+    historical_path: examples/cp-04-corporate-family-tree
+    policy: "Only the canonical path is used for adoption guidance. The historical path may be cited only as preserved evidence of prior SDK shape."
+specification_templates:
+  standard:
+    path: public/reference/specifications/Context_Product_Specification_Standard_v0-3.md
+    status_at_sdk_baseline: "draft for Data Engineering review"
+  generation_recipe:
+    path: public/reference/specifications/spec_generation.md
+  delivery_recipe:
+    path: public/reference/specifications/example_delivery.md
+refresh_rules:
+  - "If a source repository changes a term used in an approved lineage record, reconcile that record before affected adoption content is declared current."
+  - "SDK work-in-progress branches are not adoption authority until merged through the project's approval discipline."
+  - "Public-data limitations and engineered conditions remain visible even if the example executes successfully."

@@ -1,0 +1,347 @@
+{
+  "generated_at": "2026-08-23",
+  "window": [
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "deals": [
+    {
+      "deal_id": "SDART-2022-6",
+      "slug": "sdart-2022-6",
+      "cik": "1943670",
+      "legal_name": "Santander Drive Auto Receivables Trust 2022-6",
+      "credit_tier": "subprime",
+      "vintage": 2022,
+      "servicer": "Santander Consumer USA Inc.",
+      "depositor_cik": "1383094",
+      "prospectus_filed": "2022-09-14",
+      "prospectus": [
+        "0001193125-22-244774",
+        "d399127d424b5.htm"
+      ],
+      "periods": {
+        "2025-07": {
+          "absee_accession": "0000950131-25-003267",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0000950131-25-003264",
+          "servicer_file": "d63901dex991.htm"
+        },
+        "2025-08": {
+          "absee_accession": "0001193125-25-202450",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-25-202446",
+          "servicer_file": "d57891dex991.htm"
+        },
+        "2025-09": {
+          "absee_accession": "0001193125-25-239275",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-25-239273",
+          "servicer_file": "d46366dex991.htm"
+        },
+        "2025-10": {
+          "absee_accession": "0001193125-25-283494",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-25-283489",
+          "servicer_file": "d23614dex991.htm"
+        },
+        "2025-11": {
+          "absee_accession": "0001193125-25-317935",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-25-317930",
+          "servicer_file": "d52565dex991.htm"
+        },
+        "2025-12": {
+          "absee_accession": "0001193125-26-013235",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-013233",
+          "servicer_file": "d91481dex991.htm"
+        },
+        "2026-01": {
+          "absee_accession": "0001193125-26-051953",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-051950",
+          "servicer_file": "d22565dex991.htm"
+        },
+        "2026-02": {
+          "absee_accession": "0001193125-26-106781",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-106778",
+          "servicer_file": "d112068dex991.htm"
+        },
+        "2026-03": {
+          "absee_accession": "0001193125-26-155232",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-155227",
+          "servicer_file": "d137980dex991.htm"
+        },
+        "2026-04": {
+          "absee_accession": "0001193125-26-224540",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-224533",
+          "servicer_file": "d143974dex991.htm"
+        },
+        "2026-05": {
+          "absee_accession": "0001193125-26-269881",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-269877",
+          "servicer_file": "d227786dex991.htm"
+        },
+        "2026-06": {
+          "absee_accession": "0001193125-26-303520",
+          "absee_file": "sdart226ex102.xml",
+          "servicer_accession": "0001193125-26-303515",
+          "servicer_file": "d111626dex991.htm"
+        }
+      },
+      "prospectus_url": "https://www.sec.gov/Archives/edgar/data/1943670/000119312522244774/d399127d424b5.htm"
+    },
+    {
+      "deal_id": "TAOT-2022-B",
+      "slug": "taot-2022-b",
+      "cik": "1914281",
+      "legal_name": "Toyota Auto Receivables 2022-B Owner Trust",
+      "credit_tier": "prime",
+      "vintage": 2022,
+      "servicer": "Toyota Motor Credit Corporation",
+      "depositor_cik": "1131131",
+      "prospectus_filed": "2022-04-11",
+      "prospectus": [
+        "0000929638-22-000773",
+        "a424b5.htm"
+      ],
+      "periods": {
+        "2025-07": {
+          "absee_accession": "0000950131-25-003490",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0000950131-25-003486",
+          "servicer_file": "d66350dex991.htm"
+        },
+        "2025-08": {
+          "absee_accession": "0001193125-25-219447",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-25-219415",
+          "servicer_file": "d938407dex991.htm"
+        },
+        "2025-09": {
+          "absee_accession": "0001193125-25-255453",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-25-255446",
+          "servicer_file": "d939448dex991.htm"
+        },
+        "2025-10": {
+          "absee_accession": "0001193125-25-295319",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-25-295313",
+          "servicer_file": "d28714dex991.htm"
+        },
+        "2025-11": {
+          "absee_accession": "0001193125-25-327910",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-25-327903",
+          "servicer_file": "d911394dex991.htm"
+        },
+        "2025-12": {
+          "absee_accession": "0001193125-26-026444",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-026437",
+          "servicer_file": "d47196dex991.htm"
+        },
+        "2026-01": {
+          "absee_accession": "0001193125-26-069126",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-069115",
+          "servicer_file": "d917049dex991.htm"
+        },
+        "2026-02": {
+          "absee_accession": "0001193125-26-127862",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-127854",
+          "servicer_file": "d43447dex991.htm"
+        },
+        "2026-03": {
+          "absee_accession": "0001193125-26-184550",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-184543",
+          "servicer_file": "d141578dex991.htm"
+        },
+        "2026-04": {
+          "absee_accession": "0001193125-26-240773",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-240769",
+          "servicer_file": "d135286dex991.htm"
+        },
+        "2026-05": {
+          "absee_accession": "0001193125-26-284181",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-284175",
+          "servicer_file": "d948146dex991.htm"
+        },
+        "2026-06": {
+          "absee_accession": "0001193125-26-322411",
+          "absee_file": "taot22bex102.xml",
+          "servicer_accession": "0001193125-26-322407",
+          "servicer_file": "d70261dex991.htm"
+        }
+      },
+      "prospectus_url": "https://www.sec.gov/Archives/edgar/data/1914281/000092963822000773/a424b5.htm"
+    },
+    {
+      "deal_id": "SDART-2024-1",
+      "slug": "sdart-2024-1",
+      "cik": "2004812",
+      "legal_name": "Santander Drive Auto Receivables Trust 2024-1",
+      "credit_tier": "subprime",
+      "vintage": 2024,
+      "servicer": "Santander Consumer USA Inc.",
+      "depositor_cik": "1383094",
+      "prospectus_filed": "2024-01-16",
+      "prospectus": [
+        "0001193125-24-008591",
+        "d605182d424b5.htm"
+      ],
+      "periods": {
+        "2025-07": {
+          "absee_accession": "0000950131-25-003287",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0000950131-25-003283",
+          "servicer_file": "d82736dex991.htm"
+        },
+        "2025-08": {
+          "absee_accession": "0001193125-25-202477",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-25-202472",
+          "servicer_file": "d32602dex991.htm"
+        },
+        "2025-09": {
+          "absee_accession": "0001193125-25-239315",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-25-239308",
+          "servicer_file": "d67309dex991.htm"
+        },
+        "2025-10": {
+          "absee_accession": "0001193125-25-283543",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-25-283538",
+          "servicer_file": "d52204dex991.htm"
+        },
+        "2025-11": {
+          "absee_accession": "0001193125-25-317993",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-25-317989",
+          "servicer_file": "d55333dex991.htm"
+        },
+        "2025-12": {
+          "absee_accession": "0001193125-26-013275",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-013270",
+          "servicer_file": "d57557dex991.htm"
+        },
+        "2026-01": {
+          "absee_accession": "0001193125-26-052009",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-052005",
+          "servicer_file": "d201690dex991.htm"
+        },
+        "2026-02": {
+          "absee_accession": "0001193125-26-106794",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-106789",
+          "servicer_file": "d108803dex991.htm"
+        },
+        "2026-03": {
+          "absee_accession": "0001193125-26-155325",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-155322",
+          "servicer_file": "d121531dex991.htm"
+        },
+        "2026-04": {
+          "absee_accession": "0001193125-26-224593",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-224587",
+          "servicer_file": "d948677dex991.htm"
+        },
+        "2026-05": {
+          "absee_accession": "0001193125-26-269921",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-269917",
+          "servicer_file": "d136361dex991.htm"
+        },
+        "2026-06": {
+          "absee_accession": "0001193125-26-303567",
+          "absee_file": "sdart241ex102.xml",
+          "servicer_accession": "0001193125-26-303563",
+          "servicer_file": "d117519dex991.htm"
+        }
+      },
+      "prospectus_url": "https://www.sec.gov/Archives/edgar/data/2004812/000119312524008591/d605182d424b5.htm"
+    }
+  ],
+  "repurchase": [
+    {
+      "depositor_cik": "1383094",
+      "form": "ABS-15G",
+      "accession": "0001193125-26-044055",
+      "filed_date": "2026-02-10",
+      "file": "d87098dabs15g.htm"
+    },
+    {
+      "depositor_cik": "1383094",
+      "form": "ABS-15G",
+      "accession": "0001193125-26-041173",
+      "filed_date": "2026-02-06",
+      "file": "d62940dabs15g.htm"
+    },
+    {
+      "depositor_cik": "1383094",
+      "form": "ABS-15G",
+      "accession": "0001193125-25-260799",
+      "filed_date": "2025-10-31",
+      "file": "d942876dabs15g.htm"
+    },
+    {
+      "depositor_cik": "1383094",
+      "form": "ABS-15G",
+      "accession": "0001193125-25-197230",
+      "filed_date": "2025-09-05",
+      "file": "d806390dabs15g.htm"
+    },
+    {
+      "depositor_cik": "1131131",
+      "form": "ABS-15G",
+      "accession": "0000929638-26-002488",
+      "filed_date": "2026-07-02",
+      "file": "taot2026-c_abs15g.htm"
+    },
+    {
+      "depositor_cik": "1131131",
+      "form": "ABS-15G",
+      "accession": "0000929638-26-001401",
+      "filed_date": "2026-04-03",
+      "file": "taot2026-b_abs15g.htm"
+    },
+    {
+      "depositor_cik": "1131131",
+      "form": "ABS-15G",
+      "accession": "0000929638-26-000004",
+      "filed_date": "2026-01-02",
+      "file": "taot2026-a_abs15g.htm"
+    },
+    {
+      "depositor_cik": "1131131",
+      "form": "ABS-15G",
+      "accession": "0000929638-25-003747",
+      "filed_date": "2025-10-03",
+      "file": "taot2025d_abs15g.htm"
+    }
+  ]
+}

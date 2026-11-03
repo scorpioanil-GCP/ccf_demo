@@ -1,0 +1,17 @@
+{
+  "source": "psc",
+  "description": "UK Companies House PSC snapshot, part 1 of 32. PROVENANCE ONLY \u2014 the payload is fetched outside the repository, pseudonymized in the reading pass, and deleted. No PSC person name is stored here or anywhere this repository tracks.",
+  "licence": "Companies House data is published under the Open Government Licence v3.0. The OGL permits reuse; UK data protection law still governs the personal data within it, which is why this project pseudonymizes at ingestion.",
+  "fetches": [
+    {
+      "url": "https://download.companieshouse.gov.uk/psc-snapshot-2026-08-22_1of32.zip",
+      "path": "[outside repo] /tmp/claude-1000/-home-parkave-ccf-dataprep/a76f9e18-95c3-45b9-ae6a-6447d9e1b3dd/scratchpad/psc_raw/psc-2026-08-22_1of32.zip",
+      "retrieved_at": "2026-08-22T21:00:47+00:00",
+      "sha256": "255f58b49a5b613ada99635d46123f0b9141ae783eaf952fadcd7f2d49beb8a2",
+      "bytes": 72759173,
+      "http_status": 200,
+      "content_type": "application/zip",
+      "notes": ""
+    }
+  ]
+}

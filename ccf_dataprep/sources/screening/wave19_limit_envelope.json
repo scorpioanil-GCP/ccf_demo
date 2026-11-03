@@ -1,0 +1,91 @@
+{
+  "regime_versions": [
+    {
+      "key": "crr-2014-2021",
+      "label": "CRR (assimilated UK law) — large exposures",
+      "regime": "crr",
+      "effective_from": "2014-01-01",
+      "effective_to": "2021-12-31",
+      "limit_pct_of_capital": 25.0,
+      "limit_absolute_usd": null,
+      "citations": [
+        {
+          "regime": "crr",
+          "provision": "Article 395(1)",
+          "passage_id": "crr-art-395-2021-12-31#491d3c2ccd3e",
+          "document_id": "crr-art-395-2021-12-31",
+          "role": "states the 25% limit",
+          "first_line": "An institution shall not incur an exposure, after taking into account the effect of the credit risk mitigation in accordance with Articles 399 to 403, to a clie"
+        }
+      ],
+      "effective_from_is_retrieval_snapshot": false,
+      "provenance": "public"
+    },
+    {
+      "key": "pra-2022",
+      "label": "PRA Large Exposures Part",
+      "regime": "pra",
+      "effective_from": "2022-01-01",
+      "effective_to": null,
+      "limit_pct_of_capital": 25.0,
+      "limit_absolute_usd": null,
+      "citations": [
+        {
+          "regime": "crr",
+          "provision": "Article 395(1)",
+          "passage_id": "crr-art-395-2021-12-31#491d3c2ccd3e",
+          "document_id": "crr-art-395-2021-12-31",
+          "role": "states the 25% limit (same provision the CRR version cites)",
+          "first_line": "An institution shall not incur an exposure, after taking into account the effect of the credit risk mitigation in accordance with Articles 399 to 403, to a clie"
+        },
+        {
+          "regime": "pra",
+          "provision": "LE 2.4",
+          "passage_id": "pra-large-exposures-01-01-2022#1ee205cc4796",
+          "document_id": "pra-large-exposures-01-01-2022",
+          "role": "the PRA instrument that applies/modifies that limit for a UK firm",
+          "first_line": "A firm must exclude from the limit in Article 395(1) of the CRR resolution exposures to:"
+        }
+      ],
+      "effective_from_is_retrieval_snapshot": false,
+      "provenance": "public"
+    },
+    {
+      "key": "reg-o",
+      "label": "Regulation O (12 CFR 215.4(b))",
+      "regime": "reg-o",
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "limit_pct_of_capital": null,
+      "limit_absolute_usd": 500000.0,
+      "citations": [
+        {
+          "regime": "reg-o",
+          "provision": "215.4(b)(2)",
+          "passage_id": "reg-o-12cfr215#f8f8d951ecdb",
+          "document_id": "reg-o-12cfr215",
+          "role": "states the $500,000 absolute cap",
+          "first_line": "(2) In no event may a member bank extend credit to any insider of the bank or insider of its affiliates in an amount that, when aggregated with all other extens"
+        }
+      ],
+      "effective_from_is_retrieval_snapshot": true,
+      "provenance": "public"
+    }
+  ],
+  "internal_appetite": {
+    "key": "internal-appetite",
+    "label": "Internal large-exposure appetite",
+    "limit_pct_of_capital": 5.0,
+    "limit_absolute_usd": null,
+    "effective_from": "2026-01-01",
+    "effective_to": null,
+    "governed_by_regime": "pra-2022",
+    "provenance": "synthetic — internal",
+    "derivation": {
+      "tier1_usd": 295758000000.0,
+      "largest_control_group_pct": 5.41482394390008,
+      "transdigm_alone_pct": 4.936468328836414,
+      "transdigm_vertiv_merged_pct": 7.603008289209422
+    }
+  }
+}

@@ -1,0 +1,69 @@
+manual: ccf-sdk-reference
+status: release_candidate
+qualified_sdk:
+  repository: drcastillo/ccf_code
+  branch: main
+  commit: ff470d400976815e9a1e49176ca51f97e4e691b1
+  writable: false
+
+mechanical_surface_source:
+  path: docs/surface/v0.2-surface.json
+  public_module_count: 208
+  use: public name and shape inventory
+
+primary_specification_sources:
+  - public/reference/specifications/Context_Product_Specification_Standard_v0-3.md
+  - public/reference/specifications/spec_generation.md
+  - public/reference/specifications/example_delivery.md
+
+canonical_implementation_examples:
+  spec_template:
+    - examples/cp-00-institutional-holders/spec
+  paved_road:
+    - examples/cp-03-canonical-obligor-financial-spread
+    - examples/cp-04-canonical-corporate-family-tree
+    - examples/cp-06-canonical-collateral-and-setoff-coverage
+    - examples/cp-13-canonical-covenant-cross-reference
+  composition:
+    - examples/cp-14-credit-memo-context
+  hitl:
+    - examples/cp-15-kyc-refresh-beneficial-ownership
+  policy_perspective:
+    - examples/cp-17-mnpi-wall-enforcement
+    - examples/cp-18-ib-opportunity-synthesis
+    - examples/cp-19-aml-typology-match
+  federation:
+    - examples/cp-20-syndicated-lending-co-lender
+  agent_internal:
+    - examples/cp-22-agent-internal-assembly
+  portfolio:
+    - examples/cp-23-portfolio-early-warning
+    - examples/cp-24-portfolio-what-if
+  decision_replay:
+    - examples/dr-01-replay-a-governed-determination
+    - examples/dr-02-package-a-context-product
+  consumer:
+    - examples/hw1-companies-over-revenue
+    - examples/hw1-harness-clients
+
+catalog:
+  warmup: cp-00
+  context_products:
+    first: cp-01
+    last: cp-24
+    count: 24
+  final_capability_examples:
+    - dr-01
+    - dr-02
+
+replay_surface:
+  supported_environment: ccf.replay.environment.RecordedEnvironment
+  served_replay: ccf.replay.engine.replay
+  refusal_replay: ccf.replay.engine.replay_refusal
+  packaging_trace: ccf.replay.record.PackagingTrace
+  control_plane_binding: ccf.controlplane.artifacts.ReplayBinding
+
+manual_authoring_rule:
+  statement: >-
+    Current code, tests, surface manifest and qualified examples outrank stale
+    explanatory prose. Historical specimens are evidence, not copy targets.

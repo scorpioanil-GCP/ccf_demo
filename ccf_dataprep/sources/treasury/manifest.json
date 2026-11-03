@@ -1,0 +1,37 @@
+{
+  "source": "treasury",
+  "description": "US Treasury daily par yield curve \u2014 benchmark leg for spreads",
+  "licence": "US Government work, public domain",
+  "fetches": [
+    {
+      "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2024/all?type=daily_treasury_yield_curve&field_tdr_date_value=2024&page&_format=csv",
+      "path": "sources/treasury/treasury-2024.csv",
+      "retrieved_at": "2026-08-19T21:58:19+00:00",
+      "sha256": "6775840b76cd7fd41121f61d6f6c60184eca6b2ba49954ec7372c463cbeef34d",
+      "bytes": 19098,
+      "http_status": 200,
+      "content_type": "text/csv; charset=UTF-8",
+      "notes": ""
+    },
+    {
+      "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all?type=daily_treasury_yield_curve&field_tdr_date_value=2025&page&_format=csv",
+      "path": "sources/treasury/treasury-2025.csv",
+      "retrieved_at": "2026-08-19T21:58:29+00:00",
+      "sha256": "cf2fa3da7f160384b63d2ead698532b1d76cd9f789ce4911e2304db85b14e6d5",
+      "bytes": 20155,
+      "http_status": 200,
+      "content_type": "text/csv; charset=UTF-8",
+      "notes": ""
+    },
+    {
+      "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2026/all?type=daily_treasury_yield_curve&field_tdr_date_value=2026&page&_format=csv",
+      "path": "sources/treasury/treasury-2026.csv",
+      "retrieved_at": "2026-08-19T21:58:38+00:00",
+      "sha256": "1281101d3c53a4699aa6d91d2c90239bca18cf17155dd91c6bc768c2b0eb6053",
+      "bytes": 12908,
+      "http_status": 200,
+      "content_type": "text/csv; charset=UTF-8",
+      "notes": ""
+    }
+  ]
+}

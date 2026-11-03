@@ -1,0 +1,5606 @@
+{
+ "generated_for": "Wave 13b — resolution layer (kyc-refresh-beneficial-ownership §C/§F5/§F6)",
+ "generated_at": "2026-08-22T20:05:01+00:00",
+ "thresholds": {
+  "auto_clear": 0.95,
+  "review_floor": 0.7,
+  "merge_threshold": 0.9,
+  "policy_version": "kyc-resolution-v1",
+  "source": "ccf_v2.resolution_policy — read, not hardcoded"
+ },
+ "variant_rules": [
+  {
+   "rule_name": "transliteration",
+   "description": "A name whose native form is non-Latin admits several Latin renderings; treat them as the same token, not as a spelling error.",
+   "provenance": "synthetic — internal"
+  },
+  {
+   "rule_name": "particle_spacing",
+   "description": "Nobiliary and patronymic particles (van der, de la, al-, O', Mc) vary in spacing and capitalization between registries.",
+   "provenance": "synthetic — internal"
+  },
+  {
+   "rule_name": "rendering_order",
+   "description": "Registries publish either 'First Last' or 'LAST, First'; token order carries no identity information.",
+   "provenance": "synthetic — internal"
+  },
+  {
+   "rule_name": "initial_expansion",
+   "description": "A middle initial and a full middle name are the same element rendered at different precision.",
+   "provenance": "synthetic — internal"
+  },
+  {
+   "rule_name": "diacritic_folding",
+   "description": "Fold combining marks before comparison. Deleting them instead splits the token: 'Müller' becomes 'm ller'.",
+   "provenance": "synthetic — internal"
+  }
+ ],
+ "variant_count": 426,
+ "persons_in_multiple_registries": 129,
+ "transliteration_person_count": 18,
+ "false_positive_count": 74,
+ "sanctions_hit_count": 19,
+ "sanctions_review_count": 19,
+ "variants": [
+  {
+   "person_key": "PSC-0001",
+   "variant_name": "Xiuying Huang",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0001",
+   "variant_name": "WONG, Xiuying",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0002",
+   "variant_name": "Suresh Priya Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0002",
+   "variant_name": "MUKHERJEE, Suresh Priya",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0002",
+   "variant_name": "MUKERJI, SURESHE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0003",
+   "variant_name": "Krzysztof Ingeborg Lindqvist",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0004",
+   "variant_name": "Joaquim Anneliese Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0004",
+   "variant_name": "BRANDEIS, Joaquim Anneliese",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0004",
+   "variant_name": "J. A. Brandeis",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0005",
+   "variant_name": "Natalya Sergey Solovyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0005",
+   "variant_name": "N. S. Solovyev",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0005",
+   "variant_name": "SOLOVIEV, Natalia Sergey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0005",
+   "variant_name": "SOLOVYOV, NATALYA",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0006",
+   "variant_name": "Mathilde Ingeborg Vandersteen-Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0007",
+   "variant_name": "Xiuying Zhiqiang Zhang",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0007",
+   "variant_name": "ZHANG, XIUYING",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0007",
+   "variant_name": "CHANG, Hsiu-ying Zhiqiang",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0007",
+   "variant_name": "X. Z. Cheung",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0008",
+   "variant_name": "Priya Suresh Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0009",
+   "variant_name": "Ingeborg Joaquim Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0009",
+   "variant_name": "I. J. Brandeis",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0010",
+   "variant_name": "Suresh Priya Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0011",
+   "variant_name": "Xiuying Zhang",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0011",
+   "variant_name": "ZHANG, XIUYING",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0012",
+   "variant_name": "Zaynab Yusuf Qasim",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0012",
+   "variant_name": "Z. Y. Qasim",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0013",
+   "variant_name": "Dimitrios Georgios Papadopoulos",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0014",
+   "variant_name": "Georgios Vasileiou",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0014",
+   "variant_name": "G. Basileiou",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0014",
+   "variant_name": "VASILEIOU, Georgios",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0014",
+   "variant_name": "VASSILIOU, YIORGOS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0015",
+   "variant_name": "Mathilde Ingeborg Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0015",
+   "variant_name": "BRANDEIS, MATILDE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0016",
+   "variant_name": "Henrik Bergkamp",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0016",
+   "variant_name": "H. Bergkamp",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0016",
+   "variant_name": "BERGKAMP, HENRICK",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0016",
+   "variant_name": "BERGKAMP, Henrick",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0017",
+   "variant_name": "Oleksandr Yekaterina Melnyk",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0018",
+   "variant_name": "Georgios Eleni Papadopoulos-Vasileiou",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0018",
+   "variant_name": "PAPADOPOULOS-VASILEIOU, GEORGIOS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0018",
+   "variant_name": "PAPADOPOULOS, George Eleni",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0018",
+   "variant_name": "Y. E. Papadopulos",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0019",
+   "variant_name": "Georgios Vasileiou",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0020",
+   "variant_name": "Eleni Papadopoulos",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0020",
+   "variant_name": "PAPADOPOULOS, ELENI",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0020",
+   "variant_name": "E. Papadopoulos",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0021",
+   "variant_name": "Zaynab Muhammad Husseini",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0022",
+   "variant_name": "Krzysztof Lindqvist",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0022",
+   "variant_name": "LINDQVIST, Krzysztof",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0022",
+   "variant_name": "K. Lindquist",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0023",
+   "variant_name": "Zaynab Muhammad Qasim",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0023",
+   "variant_name": "KACEM, ZAINAB",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0023",
+   "variant_name": "Z. M. Kassem",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0024",
+   "variant_name": "Priya Sharma",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0025",
+   "variant_name": "Zaynab Muhammad Najjar",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0026",
+   "variant_name": "Oleksandr Sergey Kovalyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0027",
+   "variant_name": "Zhiqiang Huang",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0027",
+   "variant_name": "WONG, ZHIQIANG",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0027",
+   "variant_name": "Z. Wong",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0028",
+   "variant_name": "Muhammad Zaynab Najjar",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0028",
+   "variant_name": "M. Z. Nadjar",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0029",
+   "variant_name": "Mathilde Henrik Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0029",
+   "variant_name": "BRANDEIS, MATILDE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0029",
+   "variant_name": "M. H. Brandeis",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0030",
+   "variant_name": "Priya Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0030",
+   "variant_name": "P. Mukhopadhyay",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0031",
+   "variant_name": "Zaynab Husseini",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0031",
+   "variant_name": "HUSSAINI, ZAINAB",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0032",
+   "variant_name": "Sergey Melnyk",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0033",
+   "variant_name": "Ingeborg Mathilde Wojciechowski",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0033",
+   "variant_name": "WOJCIECHOWSKI, INGEBORD",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0034",
+   "variant_name": "Fatima Husseini",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0035",
+   "variant_name": "Natalya Yekaterina Solovyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0036",
+   "variant_name": "Natalya Zakharova",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0036",
+   "variant_name": "ZAKHAROVA, NATALYA",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0037",
+   "variant_name": "Dmitry Natalya Zakharova",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0037",
+   "variant_name": "D. N. Zaharova",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 3,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0037",
+   "variant_name": "ZAHAROVA, Dimitri Natalya",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 3,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0038",
+   "variant_name": "Joaquim Krzysztof Steenkamp",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0038",
+   "variant_name": "J. K. Steenkamp",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0038",
+   "variant_name": "STEENKAMP, Joaquim Krzysztof",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0038",
+   "variant_name": "STEENKAMP, JOAQUIM",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0039",
+   "variant_name": "Xiuying Junjie Huang",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0039",
+   "variant_name": "WONG, Xiuying Junjie",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0039",
+   "variant_name": "WONG, XIUYING",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0039",
+   "variant_name": "H. J. Hwang",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0040",
+   "variant_name": "Ingeborg Bergkamp",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0041",
+   "variant_name": "Junjie Wei Li",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0041",
+   "variant_name": "LEE, CHUN-CHIEH",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0042",
+   "variant_name": "Joaquim Anneliese Steenkamp",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0043",
+   "variant_name": "Siobhan Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0043",
+   "variant_name": "BARROWMAN, Siobhan",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0044",
+   "variant_name": "Siobhan Geoffrey Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0044",
+   "variant_name": "S. G. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0045",
+   "variant_name": "Eleanor Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0045",
+   "variant_name": "ASHWORTH, Elinor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0046",
+   "variant_name": "Rhiannon Eleanor Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0046",
+   "variant_name": "R. E. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0046",
+   "variant_name": "THORNE, RHIANON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0047",
+   "variant_name": "Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0047",
+   "variant_name": "PENNINGTON, Siobhan",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0047",
+   "variant_name": "S. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0048",
+   "variant_name": "Eleanor Alistair Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0049",
+   "variant_name": "Margaret Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0050",
+   "variant_name": "Geoffrey Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0050",
+   "variant_name": "HOLLINGSWORTH, Jeffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0051",
+   "variant_name": "Eleanor Margaret Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0052",
+   "variant_name": "Geoffrey Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0052",
+   "variant_name": "WYCLIFFE, Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0053",
+   "variant_name": "Margaret Katherine Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0054",
+   "variant_name": "Alistair Rhiannon Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0054",
+   "variant_name": "PENNINGTON, Alastair Rhiannon",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0054",
+   "variant_name": "PENNINGTON, ALASTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0055",
+   "variant_name": "Nicholas Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0056",
+   "variant_name": "Yekaterina Kovalyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0057",
+   "variant_name": "Anneliese Mathilde Wojciechowski",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0058",
+   "variant_name": "Nicholas Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0058",
+   "variant_name": "PENNINGTON, Nicolas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0058",
+   "variant_name": "N. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0058",
+   "variant_name": "PENNINGTON, NICOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0059",
+   "variant_name": "Geoffrey Nicholas Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0059",
+   "variant_name": "PENNINGTON, JEFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0059",
+   "variant_name": "PENNINGTON, Geoffrey Nicholas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0060",
+   "variant_name": "Alistair Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0060",
+   "variant_name": "A. S. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0061",
+   "variant_name": "Katherine Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0061",
+   "variant_name": "K. Ashworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0062",
+   "variant_name": "Geoffrey Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0062",
+   "variant_name": "HOLLINGSWORTH, JEFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0062",
+   "variant_name": "HOLLINGSWORTH, Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0062",
+   "variant_name": "J. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0063",
+   "variant_name": "Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0064",
+   "variant_name": "Katherine Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0064",
+   "variant_name": "K. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0064",
+   "variant_name": "HOLLINGSWORTH, Catherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0064",
+   "variant_name": "HOLLINGSWORTH, CATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0065",
+   "variant_name": "Margaret Eleanor Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0066",
+   "variant_name": "Eleanor Rhiannon Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0067",
+   "variant_name": "Katherine Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0067",
+   "variant_name": "WYCLIFFE, Catherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0067",
+   "variant_name": "WYCLIFFE, CATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0067",
+   "variant_name": "K. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0068",
+   "variant_name": "Siobhan Rhiannon St Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0069",
+   "variant_name": "Katherine Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0069",
+   "variant_name": "PENNINGTON, KATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0069",
+   "variant_name": "C. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0070",
+   "variant_name": "Margaret Siobhan Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0071",
+   "variant_name": "Katherine Eleanor Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0072",
+   "variant_name": "Siobhan Katherine Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0072",
+   "variant_name": "THORNE, SIOBHAN",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0072",
+   "variant_name": "THORNE, Shivaun Katherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0072",
+   "variant_name": "S. K. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0073",
+   "variant_name": "Alistair Margaret Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0073",
+   "variant_name": "A. M. Barrowman",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0073",
+   "variant_name": "BARROWMAN, ALISTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0074",
+   "variant_name": "Katherine Nicholas St Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0075",
+   "variant_name": "Nicholas Rhiannon Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0076",
+   "variant_name": "Margaret Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0077",
+   "variant_name": "Margaret Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0078",
+   "variant_name": "Rhiannon Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0078",
+   "variant_name": "FAIRBAIRN, RHIANON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0078",
+   "variant_name": "R. Fairbairn",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0078",
+   "variant_name": "FAIRBAIRN, Rhiannon",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0079",
+   "variant_name": "Katherine Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0080",
+   "variant_name": "Margaret Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0080",
+   "variant_name": "ASHWORTH, Maggie",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0080",
+   "variant_name": "ASHWORTH, PEGGY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0081",
+   "variant_name": "Siobhan Eleanor Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0081",
+   "variant_name": "ASHWORTH, Siobhan Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0082",
+   "variant_name": "Alistair Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0082",
+   "variant_name": "THORNE, ALASTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0082",
+   "variant_name": "A. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0083",
+   "variant_name": "Eleanor Alistair Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0083",
+   "variant_name": "E. A. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0083",
+   "variant_name": "PENNINGTON, Elinor Alistair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0083",
+   "variant_name": "PENNINGTON, ELINOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0084",
+   "variant_name": "Eleanor Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0084",
+   "variant_name": "THORNE, Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0084",
+   "variant_name": "THORNE, ELEANOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0085",
+   "variant_name": "Katherine Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0085",
+   "variant_name": "LEDBETTER, CATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0085",
+   "variant_name": "K. Ledbetter",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0085",
+   "variant_name": "LEDBETTER, Katherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0086",
+   "variant_name": "Rhiannon Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0087",
+   "variant_name": "Geoffrey Eleanor Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0087",
+   "variant_name": "G. E. Ledbetter",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0088",
+   "variant_name": "Rhiannon Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0089",
+   "variant_name": "Eleanor Margaret Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0090",
+   "variant_name": "Katherine Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0090",
+   "variant_name": "WYCLIFFE, Catherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0091",
+   "variant_name": "Margaret Eleanor Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0091",
+   "variant_name": "THORNE, MARGARET",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0091",
+   "variant_name": "THORNE, Margaret Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0092",
+   "variant_name": "Alistair Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0092",
+   "variant_name": "BARROWMAN, ALASDAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0093",
+   "variant_name": "Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0093",
+   "variant_name": "S. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0094",
+   "variant_name": "Nicholas Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0094",
+   "variant_name": "N. Ledbetter",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0094",
+   "variant_name": "LEDBETTER, Nicolas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0095",
+   "variant_name": "Margaret Nicholas Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0096",
+   "variant_name": "Katherine Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0097",
+   "variant_name": "Priya Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0098",
+   "variant_name": "Nicholas Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0098",
+   "variant_name": "ASHWORTH, NICHOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0098",
+   "variant_name": "ASHWORTH, Nicolas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0098",
+   "variant_name": "N. Ashworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0099",
+   "variant_name": "Rhiannon Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0099",
+   "variant_name": "R. S. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0099",
+   "variant_name": "PENNINGTON, Rhianon Siobhan",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0100",
+   "variant_name": "Siobhan Nicholas Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0101",
+   "variant_name": "Siobhan Geoffrey Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0101",
+   "variant_name": "WYCLIFFE, SHIVAUN",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0102",
+   "variant_name": "Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0102",
+   "variant_name": "PENNINGTON, Shivaun",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0103",
+   "variant_name": "Alistair Margaret Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0103",
+   "variant_name": "BARROWMAN, ALASTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0104",
+   "variant_name": "Rhiannon Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0104",
+   "variant_name": "R. Barrowman",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0105",
+   "variant_name": "Nicholas Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0106",
+   "variant_name": "Margaret Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0106",
+   "variant_name": "M. Barrowman",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0107",
+   "variant_name": "Margaret Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0107",
+   "variant_name": "ASHWORTH, PEGGY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0108",
+   "variant_name": "Margaret Katherine Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0109",
+   "variant_name": "Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0109",
+   "variant_name": "THORNE, JEFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0109",
+   "variant_name": "J. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0110",
+   "variant_name": "Alistair Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0111",
+   "variant_name": "Katherine Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0111",
+   "variant_name": "THORNE, CATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0111",
+   "variant_name": "THORNE, Kathryn Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0112",
+   "variant_name": "Rhiannon Katherine Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0112",
+   "variant_name": "THORNE, Rhianon Katherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0113",
+   "variant_name": "Katherine Eleanor Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0113",
+   "variant_name": "WYCLIFFE, Kathryn Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0114",
+   "variant_name": "Eleanor Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0114",
+   "variant_name": "BARROWMAN, ELINOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0115",
+   "variant_name": "Nicholas Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0115",
+   "variant_name": "LEDBETTER, Nicolas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0116",
+   "variant_name": "Alistair Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0116",
+   "variant_name": "HOLLINGSWORTH, ALASTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0116",
+   "variant_name": "A. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0117",
+   "variant_name": "Nicholas Alistair Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0117",
+   "variant_name": "N. A. Ledbetter",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0117",
+   "variant_name": "LEDBETTER, NICOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0118",
+   "variant_name": "Nicholas Siobhan Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0118",
+   "variant_name": "N. S. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0119",
+   "variant_name": "Henrik Wojciechowski",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0120",
+   "variant_name": "Eleanor Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0121",
+   "variant_name": "Katherine Geoffrey Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0121",
+   "variant_name": "PENNINGTON, KATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0122",
+   "variant_name": "Siobhan Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0122",
+   "variant_name": "S. Ledbetter",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0123",
+   "variant_name": "Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0123",
+   "variant_name": "J. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0123",
+   "variant_name": "THORNE, Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0124",
+   "variant_name": "Siobhan Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0125",
+   "variant_name": "Rhiannon Alistair Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0125",
+   "variant_name": "PENNINGTON, RHIANON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0125",
+   "variant_name": "PENNINGTON, Rhianon Alistair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0126",
+   "variant_name": "Eleanor Thorne-Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0126",
+   "variant_name": "THORNE-FAIRBAIRN, ELEANOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0126",
+   "variant_name": "THORNE-FAIRBAIRN, Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0127",
+   "variant_name": "Katherine Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0127",
+   "variant_name": "HOLLINGSWORTH, CATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0128",
+   "variant_name": "Rajesh Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0129",
+   "variant_name": "Ingeborg Joaquim Vandersteen",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0130",
+   "variant_name": "Suresh Rajesh Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0130",
+   "variant_name": "MUKERJI, SURESHE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0131",
+   "variant_name": "Eleanor Nicholas Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0131",
+   "variant_name": "FAIRBAIRN, Eleanor Nicholas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0131",
+   "variant_name": "FAIRBAIRN, ELEANOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0131",
+   "variant_name": "E. N. Fairbairn",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0132",
+   "variant_name": "Alistair Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0133",
+   "variant_name": "Margaret Rhiannon Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0133",
+   "variant_name": "M. R. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0133",
+   "variant_name": "HOLLINGSWORTH, MAGGIE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0133",
+   "variant_name": "HOLLINGSWORTH, Peggy Rhiannon",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0134",
+   "variant_name": "Margaret Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0134",
+   "variant_name": "PENNINGTON, Maggie",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0135",
+   "variant_name": "Rhiannon Nicholas Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0135",
+   "variant_name": "FAIRBAIRN, RHIANNON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0136",
+   "variant_name": "Rhiannon Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0136",
+   "variant_name": "FAIRBAIRN, RHIANON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0136",
+   "variant_name": "R. Fairbairn",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0137",
+   "variant_name": "Alistair Katherine Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0138",
+   "variant_name": "Ingeborg Wojciechowski",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0139",
+   "variant_name": "Krzysztof Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0140",
+   "variant_name": "Eleanor Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0140",
+   "variant_name": "BARROWMAN, Elinor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0140",
+   "variant_name": "E. Barrowman",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0141",
+   "variant_name": "Rhiannon Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0142",
+   "variant_name": "Eleanor Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0143",
+   "variant_name": "Siobhan Thorne-Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0143",
+   "variant_name": "S. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0143",
+   "variant_name": "THORNE, SHIVAUN",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0144",
+   "variant_name": "Oleksandr Dmitry Zakharova",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0144",
+   "variant_name": "ZAHAROVA, OLEXANDR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0144",
+   "variant_name": "ZAKHAROVA, Oleksandr Dmitry",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0145",
+   "variant_name": "Siobhan Margaret Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0145",
+   "variant_name": "WYCLIFFE, Siobhan Margaret",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0145",
+   "variant_name": "S. M. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0146",
+   "variant_name": "Eleanor Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0147",
+   "variant_name": "Rhiannon McFairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0147",
+   "variant_name": "MACFAIRBAIRN, RHIANON",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0148",
+   "variant_name": "Geoffrey Margaret Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0149",
+   "variant_name": "Katherine Margaret Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0150",
+   "variant_name": "Nicholas Siobhan Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0150",
+   "variant_name": "WYCLIFFE, NICOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0151",
+   "variant_name": "Rajesh Priya Sharma",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0151",
+   "variant_name": "SARMA, Rajes Priya",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0151",
+   "variant_name": "R. P. Sarma",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0151",
+   "variant_name": "SARMA, RAJES",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0152",
+   "variant_name": "Oleksandr Kovalyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0152",
+   "variant_name": "KOVALEV, Olexandr",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": true,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0153",
+   "variant_name": "Alistair Geoffrey Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0154",
+   "variant_name": "Rhiannon Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0154",
+   "variant_name": "R. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0155",
+   "variant_name": "Margaret Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0155",
+   "variant_name": "WYCLIFFE, MAGGIE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0156",
+   "variant_name": "Siobhan Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0157",
+   "variant_name": "Eleanor Alistair Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0157",
+   "variant_name": "THORNE, Eleanor Alistair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0158",
+   "variant_name": "Katherine Geoffrey Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0158",
+   "variant_name": "FAIRBAIRN, KATHERINE",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0159",
+   "variant_name": "Eleanor Nicholas Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0160",
+   "variant_name": "Geoffrey Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0160",
+   "variant_name": "WYCLIFFE, JEFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0161",
+   "variant_name": "Alistair Geoffrey Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0161",
+   "variant_name": "LEDBETTER, ALASDAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0162",
+   "variant_name": "Alistair Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0163",
+   "variant_name": "Priya Suresh Sharma",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0164",
+   "variant_name": "Eleanor Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0165",
+   "variant_name": "Alistair Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0166",
+   "variant_name": "Eleanor Katherine Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0167",
+   "variant_name": "Geoffrey Margaret Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0168",
+   "variant_name": "Siobhan Alistair Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0168",
+   "variant_name": "FAIRBAIRN, SHIVAUN",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0169",
+   "variant_name": "Alistair Eleanor Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0169",
+   "variant_name": "A. E. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0170",
+   "variant_name": "Krzysztof Vandersteen",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0171",
+   "variant_name": "Geoffrey Katherine Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0171",
+   "variant_name": "PENNINGTON, Jeffrey Katherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0171",
+   "variant_name": "G. K. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0171",
+   "variant_name": "PENNINGTON, GEOFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0172",
+   "variant_name": "Siobhan Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0173",
+   "variant_name": "Krzysztof Brandeis",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0173",
+   "variant_name": "BRANDEIS, KRZYSZTOF",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0173",
+   "variant_name": "K. Brandeis",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0174",
+   "variant_name": "Rhiannon Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0174",
+   "variant_name": "LEDBETTER, Rhiannon",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0175",
+   "variant_name": "Oleksandr Solovyov",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0175",
+   "variant_name": "O. Solovyov",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0176",
+   "variant_name": "Alistair Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0176",
+   "variant_name": "WYCLIFFE, Alastair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0176",
+   "variant_name": "A. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0176",
+   "variant_name": "WYCLIFFE, ALISTAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0177",
+   "variant_name": "Eleanor Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0177",
+   "variant_name": "E. Ashworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0177",
+   "variant_name": "ASHWORTH, Elinor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0178",
+   "variant_name": "Margaret Geoffrey Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0178",
+   "variant_name": "M. G. Fairbairn",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0178",
+   "variant_name": "FAIRBAIRN, Margaret Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0179",
+   "variant_name": "Alistair Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0179",
+   "variant_name": "ASHWORTH, Alasdair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0180",
+   "variant_name": "Margaret Katherine Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0180",
+   "variant_name": "M. K. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0181",
+   "variant_name": "Katherine Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0182",
+   "variant_name": "Nicholas Alistair Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0182",
+   "variant_name": "N. A. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0182",
+   "variant_name": "WYCLIFFE, NICOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0182",
+   "variant_name": "WYCLIFFE, Nicholas Alistair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0183",
+   "variant_name": "Eleanor Alistair McThorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0183",
+   "variant_name": "MACTHORNE, ELINOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0184",
+   "variant_name": "Margaret Eleanor Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0184",
+   "variant_name": "HOLLINGSWORTH, Margaret Eleanor",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0185",
+   "variant_name": "Geoffrey Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0186",
+   "variant_name": "Geoffrey Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0186",
+   "variant_name": "WYCLIFFE, JEFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0187",
+   "variant_name": "Rajesh Priya Mukherjee",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0188",
+   "variant_name": "Rhiannon Siobhan Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0188",
+   "variant_name": "THORNE, Rhianon Siobhan",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0188",
+   "variant_name": "R. S. Thorne",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0189",
+   "variant_name": "Alistair Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0189",
+   "variant_name": "A. Fairbairn",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0189",
+   "variant_name": "FAIRBAIRN, ALASDAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0190",
+   "variant_name": "Geoffrey Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0190",
+   "variant_name": "HOLLINGSWORTH, GEOFFREY",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0190",
+   "variant_name": "HOLLINGSWORTH, Geoffrey",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0191",
+   "variant_name": "Henrik Wojciechowski",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0192",
+   "variant_name": "Nicholas Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0192",
+   "variant_name": "WYCLIFFE, NICHOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0192",
+   "variant_name": "WYCLIFFE, Nicholas",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0193",
+   "variant_name": "Nicholas Katherine St Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0193",
+   "variant_name": "N. K. St. Ashworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0193",
+   "variant_name": "ST ASHWORTH, NICHOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0193",
+   "variant_name": "ST ASHWORTH, Nicholas Katherine",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0194",
+   "variant_name": "Mathilde Henrik Bergkamp",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0194",
+   "variant_name": "BERGKAMP, Matilde Henrik",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0195",
+   "variant_name": "Rhiannon Margaret Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0196",
+   "variant_name": "Nicholas Eleanor Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0196",
+   "variant_name": "LEDBETTER, NICOLAS",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0197",
+   "variant_name": "Margaret Alistair St Fairbairn",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0198",
+   "variant_name": "Rhiannon Katherine Wycliffe",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0198",
+   "variant_name": "R. K. Wycliffe",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0199",
+   "variant_name": "Margaret Nicholas Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0199",
+   "variant_name": "M. N. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0200",
+   "variant_name": "Siobhan Thorne",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0201",
+   "variant_name": "Eleanor Siobhan Hollingsworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0201",
+   "variant_name": "HOLLINGSWORTH, ELEANOR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0201",
+   "variant_name": "E. S. Hollingsworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0202",
+   "variant_name": "Alistair Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0202",
+   "variant_name": "BARROWMAN, ALASDAIR",
+   "source": "sanctions_watchlist",
+   "rendering": "upper_surname_first",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0203",
+   "variant_name": "Margaret Rhiannon Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0203",
+   "variant_name": "M. R. Ashworth",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0204",
+   "variant_name": "Katherine Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0205",
+   "variant_name": "Katherine Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0205",
+   "variant_name": "C. Pennington",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0206",
+   "variant_name": "Alistair Barrowman",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0206",
+   "variant_name": "BARROWMAN, Alastair",
+   "source": "uk_companies_house",
+   "rendering": "surname_first",
+   "rendering_index": 2,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0206",
+   "variant_name": "A. Barrowman",
+   "source": "us_state_registry",
+   "rendering": "initials",
+   "rendering_index": 1,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0207",
+   "variant_name": "Siobhan Pennington",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0208",
+   "variant_name": "Eleanor Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0209",
+   "variant_name": "Nicholas Siobhan Ledbetter",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key": "PSC-0210",
+   "variant_name": "Eleanor Ashworth",
+   "source": "psc_register",
+   "rendering": "display_order",
+   "rendering_index": 0,
+   "is_transliteration": false,
+   "provenance": "synthetic — engineered"
+  }
+ ],
+ "false_positives": [
+  {
+   "person_key_a": "PSC-0001",
+   "person_key_b": "PSC-0011",
+   "name_a": "Xiuying Huang",
+   "name_b": "Xiuying Zhang",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.9231,
+   "token": 0.3333,
+   "score": 0.9231,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0002",
+   "person_key_b": "PSC-0008",
+   "name_a": "Suresh Priya Mukherjee",
+   "name_b": "Priya Suresh Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.7273,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0002",
+   "person_key_b": "PSC-0010",
+   "name_a": "Suresh Priya Mukherjee",
+   "name_b": "Suresh Priya Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0002",
+   "person_key_b": "PSC-0187",
+   "name_a": "Suresh Priya Mukherjee",
+   "name_b": "Rajesh Priya Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.9091,
+   "token": 0.5,
+   "score": 0.9091,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0008",
+   "person_key_b": "PSC-0010",
+   "name_a": "Priya Suresh Mukherjee",
+   "name_b": "Suresh Priya Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.7273,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0010",
+   "person_key_b": "PSC-0187",
+   "name_a": "Suresh Priya Mukherjee",
+   "name_b": "Rajesh Priya Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.9091,
+   "token": 0.5,
+   "score": 0.9091,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0014",
+   "person_key_b": "PSC-0019",
+   "name_a": "Georgios Vasileiou",
+   "name_b": "Georgios Vasileiou",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0025",
+   "person_key_b": "PSC-0028",
+   "name_a": "Zaynab Muhammad Najjar",
+   "name_b": "Muhammad Zaynab Najjar",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.6818,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0030",
+   "person_key_b": "PSC-0097",
+   "name_a": "Priya Mukherjee",
+   "name_b": "Priya Mukherjee",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0045",
+   "person_key_b": "PSC-0177",
+   "name_a": "Eleanor Ashworth",
+   "name_b": "Eleanor Ashworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0045",
+   "person_key_b": "PSC-0210",
+   "name_a": "Eleanor Ashworth",
+   "name_b": "Eleanor Ashworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0047",
+   "person_key_b": "PSC-0063",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0047",
+   "person_key_b": "PSC-0093",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0047",
+   "person_key_b": "PSC-0102",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0047",
+   "person_key_b": "PSC-0207",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0049",
+   "person_key_b": "PSC-0134",
+   "name_a": "Margaret Pennington",
+   "name_b": "Margaret Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0050",
+   "person_key_b": "PSC-0062",
+   "name_a": "Geoffrey Hollingsworth",
+   "name_b": "Geoffrey Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0050",
+   "person_key_b": "PSC-0190",
+   "name_a": "Geoffrey Hollingsworth",
+   "name_b": "Geoffrey Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0051",
+   "person_key_b": "PSC-0091",
+   "name_a": "Eleanor Margaret Thorne",
+   "name_b": "Margaret Eleanor Thorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.6522,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0052",
+   "person_key_b": "PSC-0160",
+   "name_a": "Geoffrey Wycliffe",
+   "name_b": "Geoffrey Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0052",
+   "person_key_b": "PSC-0186",
+   "name_a": "Geoffrey Wycliffe",
+   "name_b": "Geoffrey Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0054",
+   "person_key_b": "PSC-0125",
+   "name_a": "Alistair Rhiannon Pennington",
+   "name_b": "Rhiannon Alistair Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.6786,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0055",
+   "person_key_b": "PSC-0098",
+   "name_a": "Nicholas Ashworth",
+   "name_b": "Nicholas Ashworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0062",
+   "person_key_b": "PSC-0190",
+   "name_a": "Geoffrey Hollingsworth",
+   "name_b": "Geoffrey Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0063",
+   "person_key_b": "PSC-0093",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0063",
+   "person_key_b": "PSC-0102",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0063",
+   "person_key_b": "PSC-0207",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0064",
+   "person_key_b": "PSC-0096",
+   "name_a": "Katherine Hollingsworth",
+   "name_b": "Katherine Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0064",
+   "person_key_b": "PSC-0127",
+   "name_a": "Katherine Hollingsworth",
+   "name_b": "Katherine Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0067",
+   "person_key_b": "PSC-0090",
+   "name_a": "Katherine Wycliffe",
+   "name_b": "Katherine Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0069",
+   "person_key_b": "PSC-0205",
+   "name_a": "Katherine Pennington",
+   "name_b": "Katherine Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0070",
+   "person_key_b": "PSC-0145",
+   "name_a": "Margaret Siobhan Wycliffe",
+   "name_b": "Siobhan Margaret Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_month"
+   ],
+   "sequence": 0.68,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0071",
+   "person_key_b": "PSC-0113",
+   "name_a": "Katherine Eleanor Wycliffe",
+   "name_b": "Katherine Eleanor Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0073",
+   "person_key_b": "PSC-0103",
+   "name_a": "Alistair Margaret Barrowman",
+   "name_b": "Alistair Margaret Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0076",
+   "person_key_b": "PSC-0155",
+   "name_a": "Margaret Wycliffe",
+   "name_b": "Margaret Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0077",
+   "person_key_b": "PSC-0106",
+   "name_a": "Margaret Barrowman",
+   "name_b": "Margaret Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0078",
+   "person_key_b": "PSC-0136",
+   "name_a": "Rhiannon Fairbairn",
+   "name_b": "Rhiannon Fairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0078",
+   "person_key_b": "PSC-0147",
+   "name_a": "Rhiannon Fairbairn",
+   "name_b": "Rhiannon McFairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.9474,
+   "token": 0.3333,
+   "score": 0.9474,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0079",
+   "person_key_b": "PSC-0181",
+   "name_a": "Katherine Fairbairn",
+   "name_b": "Katherine Fairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0080",
+   "person_key_b": "PSC-0107",
+   "name_a": "Margaret Ashworth",
+   "name_b": "Margaret Ashworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0088",
+   "person_key_b": "PSC-0141",
+   "name_a": "Rhiannon Geoffrey Thorne",
+   "name_b": "Rhiannon Geoffrey Thorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0092",
+   "person_key_b": "PSC-0202",
+   "name_a": "Alistair Barrowman",
+   "name_b": "Alistair Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0092",
+   "person_key_b": "PSC-0206",
+   "name_a": "Alistair Barrowman",
+   "name_b": "Alistair Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0093",
+   "person_key_b": "PSC-0102",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0093",
+   "person_key_b": "PSC-0207",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0094",
+   "person_key_b": "PSC-0115",
+   "name_a": "Nicholas Ledbetter",
+   "name_b": "Nicholas Ledbetter",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0096",
+   "person_key_b": "PSC-0127",
+   "name_a": "Katherine Hollingsworth",
+   "name_b": "Katherine Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0102",
+   "person_key_b": "PSC-0207",
+   "name_a": "Siobhan Pennington",
+   "name_b": "Siobhan Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0108",
+   "person_key_b": "PSC-0149",
+   "name_a": "Margaret Katherine Ledbetter",
+   "name_b": "Katherine Margaret Ledbetter",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.6786,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0109",
+   "person_key_b": "PSC-0123",
+   "name_a": "Geoffrey Thorne",
+   "name_b": "Geoffrey Thorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0109",
+   "person_key_b": "PSC-0185",
+   "name_a": "Geoffrey Thorne",
+   "name_b": "Geoffrey Thorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0110",
+   "person_key_b": "PSC-0132",
+   "name_a": "Alistair Fairbairn",
+   "name_b": "Alistair Fairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0110",
+   "person_key_b": "PSC-0189",
+   "name_a": "Alistair Fairbairn",
+   "name_b": "Alistair Fairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0114",
+   "person_key_b": "PSC-0140",
+   "name_a": "Eleanor Barrowman",
+   "name_b": "Eleanor Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0114",
+   "person_key_b": "PSC-0164",
+   "name_a": "Eleanor Barrowman",
+   "name_b": "Eleanor Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0116",
+   "person_key_b": "PSC-0162",
+   "name_a": "Alistair Hollingsworth",
+   "name_b": "Alistair Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0116",
+   "person_key_b": "PSC-0165",
+   "name_a": "Alistair Hollingsworth",
+   "name_b": "Alistair Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0118",
+   "person_key_b": "PSC-0150",
+   "name_a": "Nicholas Siobhan Wycliffe",
+   "name_b": "Nicholas Siobhan Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0119",
+   "person_key_b": "PSC-0191",
+   "name_a": "Henrik Wojciechowski",
+   "name_b": "Henrik Wojciechowski",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0120",
+   "person_key_b": "PSC-0146",
+   "name_a": "Eleanor Wycliffe",
+   "name_b": "Eleanor Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0121",
+   "person_key_b": "PSC-0171",
+   "name_a": "Katherine Geoffrey Pennington",
+   "name_b": "Geoffrey Katherine Pennington",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.6897,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0123",
+   "person_key_b": "PSC-0185",
+   "name_a": "Geoffrey Thorne",
+   "name_b": "Geoffrey Thorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0124",
+   "person_key_b": "PSC-0172",
+   "name_a": "Siobhan Hollingsworth",
+   "name_b": "Siobhan Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0132",
+   "person_key_b": "PSC-0189",
+   "name_a": "Alistair Fairbairn",
+   "name_b": "Alistair Fairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0133",
+   "person_key_b": "PSC-0195",
+   "name_a": "Margaret Rhiannon Hollingsworth",
+   "name_b": "Rhiannon Margaret Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 0.7097,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "token",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0136",
+   "person_key_b": "PSC-0147",
+   "name_a": "Rhiannon Fairbairn",
+   "name_b": "Rhiannon McFairbairn",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.9474,
+   "token": 0.3333,
+   "score": 0.9474,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0139",
+   "person_key_b": "PSC-0173",
+   "name_a": "Krzysztof Brandeis",
+   "name_b": "Krzysztof Brandeis",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0140",
+   "person_key_b": "PSC-0164",
+   "name_a": "Eleanor Barrowman",
+   "name_b": "Eleanor Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0142",
+   "person_key_b": "PSC-0208",
+   "name_a": "Eleanor Ledbetter",
+   "name_b": "Eleanor Ledbetter",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0157",
+   "person_key_b": "PSC-0183",
+   "name_a": "Eleanor Alistair Thorne",
+   "name_b": "Eleanor Alistair McThorne",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 0.9583,
+   "token": 0.5,
+   "score": 0.9583,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0160",
+   "person_key_b": "PSC-0186",
+   "name_a": "Geoffrey Wycliffe",
+   "name_b": "Geoffrey Wycliffe",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month",
+    "nationality"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0162",
+   "person_key_b": "PSC-0165",
+   "name_a": "Alistair Hollingsworth",
+   "name_b": "Alistair Hollingsworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0177",
+   "person_key_b": "PSC-0210",
+   "name_a": "Eleanor Ashworth",
+   "name_b": "Eleanor Ashworth",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "person_key_a": "PSC-0202",
+   "person_key_b": "PSC-0206",
+   "name_a": "Alistair Barrowman",
+   "name_b": "Alistair Barrowman",
+   "corroboration": "conflict",
+   "conflicting_on": [
+    "dob_year",
+    "dob_month"
+   ],
+   "sequence": 1.0,
+   "token": 1.0,
+   "score": 1.0,
+   "carried_by": "sequence",
+   "band": "false_positive",
+   "provenance": "synthetic — engineered"
+  }
+ ],
+ "sanctions_hits": [
+  {
+   "person_key": "PSC-0001",
+   "person_name": "Xiuying Huang",
+   "entry_id": "SDN-50867",
+   "listed_name": "Xiaojun HUANG",
+   "name_kind": "primary",
+   "alias_category": "",
+   "programs": [
+    "ILLICIT-DRUGS-EO14059"
+   ],
+   "listed_nationalities": [
+    "China"
+   ],
+   "listed_dates_of_birth": [
+    "28 Nov 1988"
+   ],
+   "sequence": 0.7692,
+   "token": 0.3333,
+   "score": 0.7692,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0011",
+   "person_name": "Xiuying Zhang",
+   "entry_id": "CONS-29259",
+   "listed_name": "Xiaoming ZHANG",
+   "name_kind": "primary",
+   "alias_category": "",
+   "programs": [
+    "HKAA"
+   ],
+   "listed_nationalities": [
+    "China"
+   ],
+   "listed_dates_of_birth": [
+    "03 Sep 1963"
+   ],
+   "sequence": 0.8148,
+   "token": 0.3333,
+   "score": 0.8148,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0014",
+   "person_name": "Georgios Vasileiou",
+   "entry_id": "SDN-42067",
+   "listed_name": "Giorgos VASILEIADIS",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "RUSSIA-EO14024"
+   ],
+   "listed_nationalities": [
+    "Cyprus"
+   ],
+   "listed_dates_of_birth": [
+    "22 Feb 1991"
+   ],
+   "sequence": 0.7568,
+   "token": 0.0,
+   "score": 0.7568,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0019",
+   "person_name": "Georgios Vasileiou",
+   "entry_id": "SDN-42067",
+   "listed_name": "Giorgos VASILEIADIS",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "RUSSIA-EO14024"
+   ],
+   "listed_nationalities": [
+    "Cyprus"
+   ],
+   "listed_dates_of_birth": [
+    "22 Feb 1991"
+   ],
+   "sequence": 0.7568,
+   "token": 0.0,
+   "score": 0.7568,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0021",
+   "person_name": "Zaynab Muhammad Husseini",
+   "entry_id": "SDN-6905",
+   "listed_name": "Zayn al-Abidin Muhammad HUSSEIN",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SDGT"
+   ],
+   "listed_nationalities": [
+    "Palestinian"
+   ],
+   "listed_dates_of_birth": [
+    "12 Mar 1971"
+   ],
+   "sequence": 0.8364,
+   "token": 0.1429,
+   "score": 0.8364,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0023",
+   "person_name": "Zaynab Muhammad Qasim",
+   "entry_id": "SDN-15581",
+   "listed_name": "Muhammad QASIM",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SDGT"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "1976",
+    "1965"
+   ],
+   "sequence": 0.8,
+   "token": 0.6667,
+   "score": 0.8,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0025",
+   "person_name": "Zaynab Muhammad Najjar",
+   "entry_id": "SDN-22823",
+   "listed_name": "Ayad Muhammad MAHAR",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SDGT"
+   ],
+   "listed_nationalities": [
+    "Iraq"
+   ],
+   "listed_dates_of_birth": [
+    "01 Jan 1977",
+    "01 Jul 1972"
+   ],
+   "sequence": 0.7805,
+   "token": 0.2,
+   "score": 0.7805,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0026",
+   "person_name": "Oleksandr Sergey Kovalyov",
+   "entry_id": "SDN-52196",
+   "listed_name": "Aleksandr Sergeyevich KOZLOV",
+   "name_kind": "primary",
+   "alias_category": "",
+   "programs": [
+    "RUSSIA-EO14024"
+   ],
+   "listed_nationalities": [
+    "Russia"
+   ],
+   "listed_dates_of_birth": [
+    "07 Aug 1969"
+   ],
+   "sequence": 0.7925,
+   "token": 0.0,
+   "score": 0.7925,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0027",
+   "person_name": "Zhiqiang Huang",
+   "entry_id": "SDN-50866",
+   "listed_name": "Zhanpeng HUANG",
+   "name_kind": "primary",
+   "alias_category": "",
+   "programs": [
+    "ILLICIT-DRUGS-EO14059"
+   ],
+   "listed_nationalities": [
+    "China"
+   ],
+   "listed_dates_of_birth": [
+    "20 May 1994"
+   ],
+   "sequence": 0.7857,
+   "token": 0.3333,
+   "score": 0.7857,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0028",
+   "person_name": "Muhammad Zaynab Najjar",
+   "entry_id": "SDN-19669",
+   "listed_name": "Muhammad Ijaz NASAR",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SDGT"
+   ],
+   "listed_nationalities": [
+    "Pakistan"
+   ],
+   "listed_dates_of_birth": [
+    "16 Jun 1976",
+    "01 Jan 1976"
+   ],
+   "sequence": 0.7317,
+   "token": 0.2,
+   "score": 0.7317,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0031",
+   "person_name": "Zaynab Husseini",
+   "entry_id": "CONS-9695",
+   "listed_name": "Wael AL-HUSSEINI",
+   "name_kind": "primary",
+   "alias_category": "",
+   "programs": [
+    "NS-PLC"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "1962"
+   ],
+   "sequence": 0.7097,
+   "token": 0.25,
+   "score": 0.7097,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0032",
+   "person_name": "Sergey Melnyk",
+   "entry_id": "SDN-23578",
+   "listed_name": "Sergey MELNICHUK",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "UKRAINE-EO13660"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "30 Sep 1976"
+   ],
+   "sequence": 0.8276,
+   "token": 0.3333,
+   "score": 0.8276,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0034",
+   "person_name": "Fatima Husseini",
+   "entry_id": "SDN-18051",
+   "listed_name": "Atris HUSSEIN",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SDGT"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "11 Nov 1964"
+   ],
+   "sequence": 0.7857,
+   "token": 0.0,
+   "score": 0.7857,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0036",
+   "person_name": "Natalya Zakharova",
+   "entry_id": "SDN-31950",
+   "listed_name": "Natalya KOCHANOVA",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "BELARUS"
+   ],
+   "listed_nationalities": [
+    "Belarus"
+   ],
+   "listed_dates_of_birth": [
+    "25 Sep 1960"
+   ],
+   "sequence": 0.8235,
+   "token": 0.3333,
+   "score": 0.8235,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0056",
+   "person_name": "Yekaterina Kovalyov",
+   "entry_id": "SDN-35304",
+   "listed_name": "Yekaterina IGNATOVA",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "RUSSIA-EO14024"
+   ],
+   "listed_nationalities": [
+    "Russia"
+   ],
+   "listed_dates_of_birth": [
+    "21 Mar 1968"
+   ],
+   "sequence": 0.7368,
+   "token": 0.3333,
+   "score": 0.7368,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0084",
+   "person_name": "Eleanor Thorne",
+   "entry_id": "SDN-43291",
+   "listed_name": "Eleanor FEDORENKO",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "RUSSIA-EO14024"
+   ],
+   "listed_nationalities": [
+    "Russia"
+   ],
+   "listed_dates_of_birth": [
+    "28 Oct 1972"
+   ],
+   "sequence": 0.7097,
+   "token": 0.3333,
+   "score": 0.7097,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0144",
+   "person_name": "Oleksandr Dmitry Zakharova",
+   "entry_id": "SDN-17188",
+   "listed_name": "Oleksandr KHRYAKOV",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "UKRAINE-EO13660"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "06 Nov 1958"
+   ],
+   "sequence": 0.7273,
+   "token": 0.25,
+   "score": 0.7273,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0152",
+   "person_name": "Oleksandr Kovalyov",
+   "entry_id": "SDN-40809",
+   "listed_name": "Aleksandr NIKOLOV",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "GLOMAG"
+   ],
+   "listed_nationalities": [
+    "Bulgaria"
+   ],
+   "listed_dates_of_birth": [
+    "19 Feb 1962"
+   ],
+   "sequence": 0.8,
+   "token": 0.0,
+   "score": 0.8,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  },
+  {
+   "person_key": "PSC-0175",
+   "person_name": "Oleksandr Solovyov",
+   "entry_id": "SDN-25436",
+   "listed_name": "Oleksandr BASOV",
+   "name_kind": "a.k.a.",
+   "alias_category": "strong",
+   "programs": [
+    "SSIDES"
+   ],
+   "listed_nationalities": [],
+   "listed_dates_of_birth": [
+    "16 Oct 1971"
+   ],
+   "sequence": 0.7879,
+   "token": 0.3333,
+   "score": 0.7879,
+   "carried_by": "sequence",
+   "in_review_band": true,
+   "disposition": "review",
+   "provenance": "synthetic — engineered (person) / public (listing)"
+  }
+ ]
+}

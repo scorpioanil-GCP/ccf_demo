@@ -1,0 +1,317 @@
+{
+  "source": "regimes",
+  "description": "Large-exposure regime text: Regulation O (eCFR), CRR as assimilated UK law (legislation.gov.uk, EUR-Lex blocked), and the PRA Rulebook Large Exposures Part",
+  "licence": "US government work; UK Open Government Licence v3.0",
+  "fetches": [
+    {
+      "url": "https://www.ecfr.gov/api/versioner/v1/full/2026-01-01/title-12.xml?part=215",
+      "path": "sources/regimes/reg-o-12cfr215.xml",
+      "retrieved_at": "2026-08-27T18:02:16+00:00",
+      "sha256": "119f727f471a384aaf1e930e2aa4dc1e5a48109e6092add9c67ad5b2ae03e6ae",
+      "bytes": 50406,
+      "http_status": 200,
+      "content_type": "application/xml; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/392/2020-12-31",
+      "path": "sources/regimes/crr-art-392-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:02:17+00:00",
+      "sha256": "2114cfca1238c3cdfccc4e8fc2e76aded7b9a5930fd78bdc76e513bce7c33890",
+      "bytes": 43155,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/393/2020-12-31",
+      "path": "sources/regimes/crr-art-393-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:03:54+00:00",
+      "sha256": "49f34aeefbf89e0ce5e29ebf9c804756214f1631d13028f34264a7e8dfad713e",
+      "bytes": 43278,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/394/2020-12-31",
+      "path": "sources/regimes/crr-art-394-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:03:55+00:00",
+      "sha256": "dc9adeb5eb45a1a9f4a903fdc2933f0117dbd556f03acf72e9e2ea762a427f33",
+      "bytes": 61522,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/395/2020-12-31",
+      "path": "sources/regimes/crr-art-395-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:03:57+00:00",
+      "sha256": "9bf1806ad0a4d58407e8df7271cdb9971ffd193d4a463f68d0dd6287b29e10a2",
+      "bytes": 69369,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/396/2020-12-31",
+      "path": "sources/regimes/crr-art-396-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:03:59+00:00",
+      "sha256": "c440443777e0e03629e74b52c5bd54648bed4d3117b22e12f10d1c45dc0d60aa",
+      "bytes": 48228,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/397/2020-12-31",
+      "path": "sources/regimes/crr-art-397-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:04:03+00:00",
+      "sha256": "57ea11676d062a1c2c48125573c1339c29c67f8fad74ad7c61b983692cb87e80",
+      "bytes": 47060,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/398/2020-12-31",
+      "path": "sources/regimes/crr-art-398-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:04:05+00:00",
+      "sha256": "8182da31491a177995bffa8b7e328b00681a6d3f3cc163a430c7eb3a1fcaa797",
+      "bytes": 43796,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/399/2020-12-31",
+      "path": "sources/regimes/crr-art-399-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:04:09+00:00",
+      "sha256": "24e94f92bd2a72e8ac2a64c472c4fca2c2b3a34c566a3630d825d0bf19a78dbe",
+      "bytes": 45093,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/400/2020-12-31",
+      "path": "sources/regimes/crr-art-400-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:05:12+00:00",
+      "sha256": "02b8d5b0d222508d486f325f10ec9220a7573454e3f7283be967f65d7d6b829d",
+      "bytes": 68783,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/401/2020-12-31",
+      "path": "sources/regimes/crr-art-401-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:06:30+00:00",
+      "sha256": "ed145fbd9346a4831b166613377bec8cb0f5863953ebe9a13c4f1efcdffc883f",
+      "bytes": 48768,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/402/2020-12-31",
+      "path": "sources/regimes/crr-art-402-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:06:31+00:00",
+      "sha256": "c8fb48eb7924172cb8bfb474c1dffacd5f2c0c7a4c4f99d6a986fa6a55ed99ba",
+      "bytes": 58487,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/403/2020-12-31",
+      "path": "sources/regimes/crr-art-403-2020-12-31.html",
+      "retrieved_at": "2026-08-27T18:06:36+00:00",
+      "sha256": "fa7c588dbe70ea004ae9aa2cc19696f457d3493bbd04af3e534589cdd3c9125f",
+      "bytes": 48761,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/392/2021-12-31",
+      "path": "sources/regimes/crr-art-392-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:06:41+00:00",
+      "sha256": "f6273a5246f06273545fe3565d6ff53837d36912fbe1f722ddd5daa9028b25d4",
+      "bytes": 43123,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/393/2021-12-31",
+      "path": "sources/regimes/crr-art-393-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:06:45+00:00",
+      "sha256": "d5c739d2cfc0149a7af634d3d684dea859964ef3964f776ad4e0ec6c205b1084",
+      "bytes": 43246,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/394/2021-12-31",
+      "path": "sources/regimes/crr-art-394-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:07:58+00:00",
+      "sha256": "802823843c848bac5adbf5e904870959e991673da2c6313221a9a7c11aa541b4",
+      "bytes": 61490,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/395/2021-12-31",
+      "path": "sources/regimes/crr-art-395-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:07:58+00:00",
+      "sha256": "cb0e93ff3120d7137be376105d46deb25c83c76cb771238fc982dcf3744d12d9",
+      "bytes": 69337,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/396/2021-12-31",
+      "path": "sources/regimes/crr-art-396-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:00+00:00",
+      "sha256": "a64cdbed99762d65bbecc92396209ca2f60e7f868b7d3b2cc0079d5e12faff79",
+      "bytes": 48196,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/397/2021-12-31",
+      "path": "sources/regimes/crr-art-397-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:02+00:00",
+      "sha256": "74a1905f74772394443fe0e435c1522e0d6627e45e115faeafa592eae63281cb",
+      "bytes": 47028,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/398/2021-12-31",
+      "path": "sources/regimes/crr-art-398-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:03+00:00",
+      "sha256": "09c76b68a56c9b6f1dd511f023a092f15df40e86d88afa0c2690aa9fd4a5fbe3",
+      "bytes": 43764,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/399/2021-12-31",
+      "path": "sources/regimes/crr-art-399-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:04+00:00",
+      "sha256": "49138b1592773f4ddf03a2b736351951ff0908b14d8487e3a26ac80dfd871f2d",
+      "bytes": 45061,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/400/2021-12-31",
+      "path": "sources/regimes/crr-art-400-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:06+00:00",
+      "sha256": "e4d70776a92f0188ce6f7d0979c2dfaeea411584b1c5a8ddcf0bc7d4cfe4f217",
+      "bytes": 68751,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/401/2021-12-31",
+      "path": "sources/regimes/crr-art-401-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:07+00:00",
+      "sha256": "f9dca45167e0788aea49419c1f898b926fbbbf5dfe8b64e40ff5038fc38968f3",
+      "bytes": 48736,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/402/2021-12-31",
+      "path": "sources/regimes/crr-art-402-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:08+00:00",
+      "sha256": "ab56452332a413a01c44e16c71bd38ecbcf47079f42098108d33b1c83ae41718",
+      "bytes": 58455,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/403/2021-12-31",
+      "path": "sources/regimes/crr-art-403-2021-12-31.html",
+      "retrieved_at": "2026-08-27T18:08:10+00:00",
+      "sha256": "722c141a825f63dc1ccf7b1c404b74cade4f4adb012191a8af3dc0dbbd006115",
+      "bytes": 48729,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.legislation.gov.uk/eur/2013/575/article/395/2022-01-01",
+      "path": "sources/regimes/crr-art-395-2022-01-01.html",
+      "retrieved_at": "2026-08-27T18:08:11+00:00",
+      "sha256": "306e4ede40e494537241dd66d39e340f853adf02682aac007c30975c911cfc40",
+      "bytes": 43449,
+      "http_status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.prarulebook.co.uk/pra-rules/large-exposures/01-01-2020",
+      "path": "sources/regimes/pra-large-exposures-01-01-2020.html",
+      "retrieved_at": "2026-08-27T18:09:15+00:00",
+      "sha256": "7b307268a27e8d19c2ea150bf3c68d722c68ae6af3912c438193baaed1efe421",
+      "bytes": 135245,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.prarulebook.co.uk/pra-rules/large-exposures/01-01-2022",
+      "path": "sources/regimes/pra-large-exposures-01-01-2022.html",
+      "retrieved_at": "2026-08-27T18:09:15+00:00",
+      "sha256": "f4bbd490d4b7537c7daf0e627e82888534120782c09316e9def49fc503494bdb",
+      "bytes": 137157,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.prarulebook.co.uk/pra-rules/large-exposures/01-01-2026",
+      "path": "sources/regimes/pra-large-exposures-01-01-2026.html",
+      "retrieved_at": "2026-08-27T18:09:16+00:00",
+      "sha256": "6fd2b463f153ba921643b8f72238ceb65bf299f2c592bf3e17735e5c77b328e7",
+      "bytes": 122067,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.prarulebook.co.uk/guidance/supervisory-statements/ss16-13---large-exposures",
+      "path": "sources/regimes/pra-ss16-13.html",
+      "retrieved_at": "2026-08-27T18:09:17+00:00",
+      "sha256": "01a156b8ab8edd4231e5154cb46434ac45e5f8dcd32955e207369ae7f7ec19de",
+      "bytes": 103541,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://www.prarulebook.co.uk/guidance/supervisory-statements/ss03-25---identification-of-groups-of-connected-clients-for-large-exposures-purposes",
+      "path": "sources/regimes/pra-ss03-25.html",
+      "retrieved_at": "2026-08-27T18:09:17+00:00",
+      "sha256": "f984228fe9fe06a5b9a955c6bc2d67717375772e6d5c07f5cebd63199acbed73",
+      "bytes": 122238,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    }
+  ]
+}

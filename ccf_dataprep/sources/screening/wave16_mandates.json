@@ -1,0 +1,405 @@
+{
+ "mandates": [
+  {
+   "mandate_id": "MDT-0001",
+   "lei": "5493004PFHUPOR1PWN79",
+   "mandate_type": "dcm-bond",
+   "stage": "lost",
+   "opened_date": "2026-07-01",
+   "stated_appetite": "acquisitive",
+   "last_outcome": "lost-to-competitor",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0002",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "dcm-loan",
+   "stage": "in-execution",
+   "opened_date": "2026-06-27",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0003",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "dcm-bond",
+   "stage": "in-execution",
+   "opened_date": "2026-01-30",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0004",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "dcm-loan",
+   "stage": "mandated",
+   "opened_date": "2026-02-19",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0005",
+   "lei": "JJAX4X60DE65EYFOTY73",
+   "mandate_type": "ratings-advisory",
+   "stage": "mandated",
+   "opened_date": "2026-06-09",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0006",
+   "lei": "JJAX4X60DE65EYFOTY73",
+   "mandate_type": "m&a-sellside",
+   "stage": "pitched",
+   "opened_date": "2025-10-06",
+   "stated_appetite": "opportunistic",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0007",
+   "lei": "54930022CZO1N2UGVW07",
+   "mandate_type": "m&a-buyside",
+   "stage": "mandated",
+   "opened_date": "2025-11-12",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0008",
+   "lei": "54930096DB9LCLPN7H13",
+   "mandate_type": "dcm-loan",
+   "stage": "pitched",
+   "opened_date": "2025-09-27",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0009",
+   "lei": "54930096DB9LCLPN7H13",
+   "mandate_type": "dcm-loan",
+   "stage": "pitched",
+   "opened_date": "2026-04-09",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0010",
+   "lei": "5493000C2SGNC7ZN3242",
+   "mandate_type": "dcm-loan",
+   "stage": "pitched",
+   "opened_date": "2026-04-14",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0011",
+   "lei": "5493000C2SGNC7ZN3242",
+   "mandate_type": "m&a-sellside",
+   "stage": "closed",
+   "opened_date": "2026-07-26",
+   "stated_appetite": "no-appetite",
+   "last_outcome": "won",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0012",
+   "lei": "549300D3L3G0R4U4VT04",
+   "mandate_type": "ratings-advisory",
+   "stage": "lost",
+   "opened_date": "2026-03-02",
+   "stated_appetite": "deleveraging",
+   "last_outcome": "client-withdrew",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0013",
+   "lei": "0IDE18EMH1CUKQCUYE69",
+   "mandate_type": "ratings-advisory",
+   "stage": "mandated",
+   "opened_date": "2026-06-30",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0014",
+   "lei": "549300Z3L8NU44NQEB29",
+   "mandate_type": "ratings-advisory",
+   "stage": "mandated",
+   "opened_date": "2025-12-19",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0015",
+   "lei": "549300Z3L8NU44NQEB29",
+   "mandate_type": "ratings-advisory",
+   "stage": "pitched",
+   "opened_date": "2026-05-29",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0016",
+   "lei": "5493000S8QXWHLIXDP75",
+   "mandate_type": "dcm-loan",
+   "stage": "pitched",
+   "opened_date": "2025-10-22",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0017",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "mandate_type": "dcm-loan",
+   "stage": "in-execution",
+   "opened_date": "2026-07-17",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0018",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "mandate_type": "m&a-buyside",
+   "stage": "in-execution",
+   "opened_date": "2026-06-19",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0019",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "mandate_type": "ecm-follow-on",
+   "stage": "pitched",
+   "opened_date": "2025-10-23",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0020",
+   "lei": "549300XN70JLF94XKX80",
+   "mandate_type": "dcm-bond",
+   "stage": "in-execution",
+   "opened_date": "2026-03-21",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0021",
+   "lei": "549300UZHTN0CNKBOB19",
+   "mandate_type": "ratings-advisory",
+   "stage": "mandated",
+   "opened_date": "2026-04-17",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0022",
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "mandate_type": "m&a-sellside",
+   "stage": "pitched",
+   "opened_date": "2026-03-31",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0023",
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "mandate_type": "ecm-follow-on",
+   "stage": "in-execution",
+   "opened_date": "2025-10-16",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0024",
+   "lei": "5493002H8U24DJXQ4886",
+   "mandate_type": "ratings-advisory",
+   "stage": "pitched",
+   "opened_date": "2026-01-17",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0025",
+   "lei": "5493003QENHHS261UR94",
+   "mandate_type": "m&a-buyside",
+   "stage": "mandated",
+   "opened_date": "2025-12-24",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0026",
+   "lei": "529900L7KB2N9KXCDI76",
+   "mandate_type": "dcm-loan",
+   "stage": "lost",
+   "opened_date": "2025-12-18",
+   "stated_appetite": "no-appetite",
+   "last_outcome": "mandate-declined",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0027",
+   "lei": "549300FHJQTDPPN41627",
+   "mandate_type": "ratings-advisory",
+   "stage": "pitched",
+   "opened_date": "2025-11-22",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0028",
+   "lei": "549300FHJQTDPPN41627",
+   "mandate_type": "m&a-buyside",
+   "stage": "closed",
+   "opened_date": "2025-09-05",
+   "stated_appetite": "no-appetite",
+   "last_outcome": "won",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0029",
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "mandate_type": "dcm-bond",
+   "stage": "pitched",
+   "opened_date": "2025-10-03",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0030",
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "mandate_type": "dcm-bond",
+   "stage": "in-execution",
+   "opened_date": "2025-12-26",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0031",
+   "lei": "5493005IZFE4VJLLYG84",
+   "mandate_type": "m&a-buyside",
+   "stage": "in-execution",
+   "opened_date": "2026-04-08",
+   "stated_appetite": null,
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0032",
+   "lei": "5493005IZFE4VJLLYG84",
+   "mandate_type": "dcm-loan",
+   "stage": "mandated",
+   "opened_date": "2025-10-04",
+   "stated_appetite": null,
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0033",
+   "lei": "5493005IZFE4VJLLYG84",
+   "mandate_type": "ratings-advisory",
+   "stage": "in-execution",
+   "opened_date": "2026-07-29",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0034",
+   "lei": "5493004PFHUPOR1PWN79",
+   "mandate_type": "m&a-sellside",
+   "stage": "pitched",
+   "opened_date": "2025-09-20",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0035",
+   "lei": "5493004PFHUPOR1PWN79",
+   "mandate_type": "ecm-follow-on",
+   "stage": "mandated",
+   "opened_date": "2025-10-15",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0036",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "dcm-bond",
+   "stage": "mandated",
+   "opened_date": "2025-09-27",
+   "stated_appetite": "no-appetite",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0037",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "dcm-loan",
+   "stage": "pitched",
+   "opened_date": "2025-08-31",
+   "stated_appetite": "deleveraging",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0038",
+   "lei": "549300EC266625K12S42",
+   "mandate_type": "m&a-buyside",
+   "stage": "in-execution",
+   "opened_date": "2026-03-15",
+   "stated_appetite": "opportunistic",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0039",
+   "lei": "JJAX4X60DE65EYFOTY73",
+   "mandate_type": "m&a-sellside",
+   "stage": "in-execution",
+   "opened_date": "2026-07-18",
+   "stated_appetite": "opportunistic",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MDT-0040",
+   "lei": "JJAX4X60DE65EYFOTY73",
+   "mandate_type": "ratings-advisory",
+   "stage": "pitched",
+   "opened_date": "2025-11-08",
+   "stated_appetite": "acquisitive",
+   "last_outcome": null,
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "generated_at": "2026-08-24T22:25:46.082841+00:00"
+}

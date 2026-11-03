@@ -1,0 +1,98 @@
+{
+  "typologies": [
+    {
+      "typology_id": "TYP-STRUCT",
+      "typology": "structuring",
+      "advisory_number": "FIN-2009-A003",
+      "advisory_url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2009-a003",
+      "passage_id": "fincen-advisory-fin-2009-a003#f86ed792d5f4",
+      "params": {
+        "threshold_usd": 10000,
+        "band_low": 0.8,
+        "band_high": 0.99,
+        "min_transactions": 4,
+        "window_days": 10,
+        "abstracted_from_advisory": "the advisory's own case is casino patrons and personnel (\"Structuring by Casino Patrons and Personnel\"); this estate exhibits the threshold-avoidance mechanism with the casino setting abstracted"
+      },
+      "params_source": {
+        "threshold_usd": "advisory",
+        "band_low": "chosen",
+        "band_high": "chosen",
+        "min_transactions": "chosen",
+        "window_days": "chosen",
+        "abstracted_from_advisory": "narrative"
+      },
+      "params_locator": {
+        "threshold_usd": "fincen-advisory-fin-2009-a003#f86ed792d5f4"
+      },
+      "provenance": "public"
+    },
+    {
+      "typology_id": "TYP-FUNNEL",
+      "typology": "funnel_account",
+      "advisory_number": "FIN-2014-A005",
+      "advisory_url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2014-a005",
+      "passage_id": "fincen-advisory-fin-2014-a005#c3631708d875",
+      "params": {
+        "threshold_usd": 10000,
+        "min_deposit_locations": 2,
+        "max_window_days": 5,
+        "channel": "cash_deposit_geographic_dispersion"
+      },
+      "params_source": {
+        "threshold_usd": "advisory",
+        "min_deposit_locations": "chosen",
+        "max_window_days": "chosen",
+        "channel": "chosen"
+      },
+      "params_locator": {
+        "threshold_usd": "fincen-advisory-fin-2014-a005#cca080fb109e"
+      },
+      "provenance": "public"
+    },
+    {
+      "typology_id": "TYP-TBML",
+      "typology": "trade_based",
+      "advisory_number": "FIN-2010-A001",
+      "advisory_url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2010-a001",
+      "passage_id": "fincen-advisory-fin-2010-a001#f4682dbfa492",
+      "params": {
+        "invoice_price_variance_pct": 30,
+        "min_shipments": 2,
+        "channel": "over_under_invoicing",
+        "double_invoice": true
+      },
+      "params_source": {
+        "invoice_price_variance_pct": "chosen",
+        "min_shipments": "chosen",
+        "channel": "chosen",
+        "double_invoice": "chosen"
+      },
+      "params_locator": {},
+      "provenance": "public"
+    },
+    {
+      "typology_id": "TYP-SHELL",
+      "typology": "shell_company_ownership",
+      "advisory_number": "FIN-2017-A003",
+      "advisory_url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2017-a003",
+      "passage_id": "fincen-advisory-fin-2017-a003#32607b95aa14",
+      "params": {
+        "min_ownership_hops": 2,
+        "channel": "asset_purchase",
+        "min_amount_usd": 500000,
+        "financing_leg": false,
+        "abstracted_from_advisory": "the advisory's own case is residential real estate; this estate models no property register, so the concealment mechanism is exhibited with the asset class abstracted"
+      },
+      "params_source": {
+        "min_ownership_hops": "chosen",
+        "channel": "chosen",
+        "min_amount_usd": "chosen",
+        "financing_leg": "chosen",
+        "abstracted_from_advisory": "narrative"
+      },
+      "params_locator": {},
+      "provenance": "public"
+    }
+  ]
+}

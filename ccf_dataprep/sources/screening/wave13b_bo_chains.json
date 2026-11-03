@@ -1,0 +1,3755 @@
+{
+ "generated_for": "Wave 13b \u2014 beneficial-ownership chains and cycles (\u00a7F1, \u00a7F3, \u00a7F4, \u00a7F7). All engineered; GLEIF's real maximum depth for this cast is 4 and its chains never reach a natural person.",
+ "generated_at": "2026-08-22T20:22:49+00:00",
+ "provenance": "synthetic \u2014 engineered",
+ "chain_count": 50,
+ "deep_chain_count": 8,
+ "eu_resident_chain_count": 10,
+ "holdco_count": 119,
+ "holdcos": [
+  {
+   "entity_id": "HLD-0001",
+   "name": "Ravenswood Partners GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0002",
+   "name": "Tenby Holdings Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0003",
+   "name": "Netherby Trust Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0004",
+   "name": "Lockhart Investments S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0005",
+   "name": "Lockhart Nominees Ltd",
+   "jurisdiction": "JE",
+   "country": "Jersey",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0006",
+   "name": "Inverness Participations Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0007",
+   "name": "Foxglove Participations Ltd",
+   "jurisdiction": "JE",
+   "country": "Jersey",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0008",
+   "name": "Tenby Capital Ltd",
+   "jurisdiction": "JE",
+   "country": "Jersey",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0009",
+   "name": "Ullswater Nominees Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0010",
+   "name": "Ptarmigan Nominees Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0011",
+   "name": "Jessamine Investments Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0012",
+   "name": "Ravenswood Capital Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0013",
+   "name": "Eastcliff Capital DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0014",
+   "name": "Beacon Nominees DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0015",
+   "name": "Ptarmigan Capital GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0016",
+   "name": "Ptarmigan Trust Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0017",
+   "name": "Ullswater Partners Ltd",
+   "jurisdiction": "CY",
+   "country": "Cyprus",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0018",
+   "name": "Jessamine Trust Ltd",
+   "jurisdiction": "CY",
+   "country": "Cyprus",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0019",
+   "name": "Halcyon Equity Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0020",
+   "name": "Marchmont Investments B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0021",
+   "name": "Netherby Trust B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0022",
+   "name": "Beacon Nominees S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0023",
+   "name": "Ardent Holdings AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0024",
+   "name": "Jessamine Nominees Ltd",
+   "jurisdiction": "JE",
+   "country": "Jersey",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0025",
+   "name": "Inverness Trust GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0026",
+   "name": "Inverness Capital GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0027",
+   "name": "Inverness Investments GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0028",
+   "name": "Eastcliff Participations Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0029",
+   "name": "Ullswater Equity B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0030",
+   "name": "Oakhurst Capital Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0031",
+   "name": "Foxglove Capital GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0032",
+   "name": "Marchmont Trust S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0033",
+   "name": "Ardent Nominees DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0034",
+   "name": "Crestline Partners Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0035",
+   "name": "Eastcliff Holdings Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0036",
+   "name": "Ullswater Nominees GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0037",
+   "name": "Kingsmoor Trust Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0038",
+   "name": "Ravenswood Partners S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0039",
+   "name": "Ardent Nominees AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0040",
+   "name": "Marchmont Holdings S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0041",
+   "name": "Foxglove Participations DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0042",
+   "name": "Stanhope Holdings Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0043",
+   "name": "Granton Trust S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0044",
+   "name": "Foxglove Investments Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0045",
+   "name": "Netherby Participations B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0046",
+   "name": "Lockhart Participations Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0047",
+   "name": "Ravenswood Nominees DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0048",
+   "name": "Kingsmoor Holdings DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0049",
+   "name": "Oakhurst Partners Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0050",
+   "name": "Ullswater Capital Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0051",
+   "name": "Granton Nominees B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0052",
+   "name": "Tenby Investments Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0053",
+   "name": "Tenby Partners S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0054",
+   "name": "Kingsmoor Partners Ltd",
+   "jurisdiction": "CY",
+   "country": "Cyprus",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0055",
+   "name": "Jessamine Holdings AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0056",
+   "name": "Stanhope Trust S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0057",
+   "name": "Ptarmigan Equity S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0058",
+   "name": "Netherby Capital Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0059",
+   "name": "Ptarmigan Capital Ltd",
+   "jurisdiction": "CY",
+   "country": "Cyprus",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0060",
+   "name": "Jessamine Participations AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0061",
+   "name": "Kingsmoor Equity Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0062",
+   "name": "Netherby Equity DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0063",
+   "name": "Lockhart Investments Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0064",
+   "name": "Lockhart Trust Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0065",
+   "name": "Tenby Investments Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0066",
+   "name": "Ullswater Trust AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0067",
+   "name": "Inverness Capital Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0068",
+   "name": "Dunmore Equity S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0069",
+   "name": "Inverness Holdings Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0070",
+   "name": "Halcyon Holdings GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0071",
+   "name": "Eastcliff Trust S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0072",
+   "name": "Oakhurst Trust DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0073",
+   "name": "Kingsmoor Nominees Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0074",
+   "name": "Ullswater Equity Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0075",
+   "name": "Ullswater Participations Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0076",
+   "name": "Ravenswood Investments S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0077",
+   "name": "Marchmont Partners AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0078",
+   "name": "Oakhurst Holdings Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0079",
+   "name": "Granton Participations B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0080",
+   "name": "Lockhart Holdings DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0081",
+   "name": "Beacon Equity Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0082",
+   "name": "Halcyon Partners GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0083",
+   "name": "Tenby Partners B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0084",
+   "name": "Lockhart Equity Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0085",
+   "name": "Beacon Partners Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0086",
+   "name": "Oakhurst Partners B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0087",
+   "name": "Jessamine Holdings B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0088",
+   "name": "Crestline Capital B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0089",
+   "name": "Ravenswood Equity S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0090",
+   "name": "Ravenswood Nominees B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0091",
+   "name": "Lockhart Partners Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0092",
+   "name": "Eastcliff Trust Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0093",
+   "name": "Netherby Trust S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0094",
+   "name": "Ullswater Equity GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0095",
+   "name": "Crestline Equity AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0096",
+   "name": "Inverness Holdings Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0097",
+   "name": "Beacon Investments GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0098",
+   "name": "Netherby Holdings AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0099",
+   "name": "Crestline Participations GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0100",
+   "name": "Stanhope Partners Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0101",
+   "name": "Ardent Equity Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0102",
+   "name": "Tenby Equity GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0103",
+   "name": "Ptarmigan Partners Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0104",
+   "name": "Beacon Investments Ltd",
+   "jurisdiction": "MT",
+   "country": "Malta",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0105",
+   "name": "Halcyon Nominees GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0106",
+   "name": "Crestline Nominees Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0107",
+   "name": "Eastcliff Nominees GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0108",
+   "name": "Netherby Holdings Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0109",
+   "name": "Tenby Holdings B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0110",
+   "name": "Ptarmigan Partners DAC",
+   "jurisdiction": "IE",
+   "country": "Ireland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0111",
+   "name": "Inverness Partners S.a r.l.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0112",
+   "name": "Foxglove Equity Ltd",
+   "jurisdiction": "CY",
+   "country": "Cyprus",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0113",
+   "name": "Halcyon Trust Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0114",
+   "name": "Ardent Capital Ltd",
+   "jurisdiction": "JE",
+   "country": "Jersey",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0115",
+   "name": "Stanhope Investments Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0116",
+   "name": "Ptarmigan Equity Ltd",
+   "jurisdiction": "VGB",
+   "country": "British Virgin Islands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0117",
+   "name": "Oakhurst Partners AG",
+   "jurisdiction": "CH",
+   "country": "Switzerland",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0118",
+   "name": "Crestline Equity B.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "HLD-0119",
+   "name": "Ardent Capital Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "holding_company",
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "chains": [
+  {
+   "chain_id": "BOC-0001",
+   "entity_id": "ICJ-SPV-136",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Thornhill Investments Pte Ltd",
+   "person_key": "PSC-0113",
+   "person_name": "Katherine Eleanor Wycliffe",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 40.9781,
+   "jurisdiction_path": [
+    "British",
+    "DE",
+    "MT",
+    "SGP"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0002",
+   "entity_id": "ICJ-SPV-028",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Zephyr Ventures Ltd",
+   "person_key": "PSC-0041",
+   "person_name": "Junjie Wei Li",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 43.6811,
+   "jurisdiction_path": [
+    "Singaporean",
+    "GB",
+    "CYM"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0003",
+   "entity_id": "ICJ-SPV-033",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Driftwood Nominees FZE",
+   "person_key": "PSC-0050",
+   "person_name": "Geoffrey Hollingsworth",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 24.7179,
+   "jurisdiction_path": [
+    "British",
+    "LU",
+    "JE",
+    "ARE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0004",
+   "entity_id": "ICJ-SPV-147",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Goldcrest Assets AG",
+   "person_key": "PSC-0204",
+   "person_name": "Katherine Barrowman",
+   "person_residence": "India",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 28.3836,
+   "jurisdiction_path": [
+    "British",
+    "KY",
+    "JE",
+    "JE",
+    "CHE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0005",
+   "entity_id": "ICJ-SPV-037",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Westbourne Trading LLC",
+   "person_key": "PSC-0061",
+   "person_name": "Katherine Ashworth",
+   "person_residence": "Germany",
+   "person_is_eu_resident": true,
+   "depth": 3,
+   "effective_pct": 48.9666,
+   "jurisdiction_path": [
+    "British",
+    "KY",
+    "MT",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0006",
+   "entity_id": "ICJ-SPV-146",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Driftwood Enterprises Ltd",
+   "person_key": "PSC-0001",
+   "person_name": "Xiuying Huang",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 33.2685,
+   "jurisdiction_path": [
+    "Chinese",
+    "GB",
+    "SG",
+    "GBR"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0007",
+   "entity_id": "ICJ-SPV-001",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Orchard Capital S.A.",
+   "person_key": "PSC-0128",
+   "person_name": "Rajesh Mukherjee",
+   "person_residence": "Bosnia And Herzegovina",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 35.2922,
+   "jurisdiction_path": [
+    "Indian",
+    "IE",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "entity_id": "ICJ-SPV-069",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Kestrel Management AG",
+   "person_key": "PSC-0102",
+   "person_name": "Siobhan Pennington",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 5,
+   "effective_pct": 5.1127,
+   "jurisdiction_path": [
+    "British",
+    "IE",
+    "DE",
+    "MT",
+    "CY",
+    "CHE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0009",
+   "entity_id": "ICJ-SPV-088",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Sundial Partners Ltd",
+   "person_key": "PSC-0121",
+   "person_name": "Katherine Geoffrey Pennington",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 24.8821,
+   "jurisdiction_path": [
+    "British",
+    "CY",
+    "BLZ"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0010",
+   "entity_id": "ICJ-SPV-059",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Sundial Capital Ltd",
+   "person_key": "PSC-0185",
+   "person_name": "Geoffrey Thorne",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 4.451,
+   "jurisdiction_path": [
+    "British",
+    "MT",
+    "NL",
+    "SYC"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "entity_id": "ICJ-SPV-019",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Quarry Group FZE",
+   "person_key": "PSC-0053",
+   "person_name": "Margaret Katherine Pennington",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 6,
+   "effective_pct": 5.661,
+   "jurisdiction_path": [
+    "British",
+    "NL",
+    "LU",
+    "CH",
+    "JE",
+    "DE",
+    "ARE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "entity_id": "ICJ-SPV-127",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Larkspur Investments Limited",
+   "person_key": "PSC-0153",
+   "person_name": "Alistair Geoffrey Pennington",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 6,
+   "effective_pct": 1.8596,
+   "jurisdiction_path": [
+    "Pakistani",
+    "DE",
+    "DE",
+    "KY",
+    "NL",
+    "GB",
+    "HKG"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0013",
+   "entity_id": "ICJ-SPV-130",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Larkspur Nominees LLC",
+   "person_key": "PSC-0133",
+   "person_name": "Margaret Rhiannon Hollingsworth",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 14.016,
+   "jurisdiction_path": [
+    "British",
+    "DE",
+    "LU",
+    "IE",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0014",
+   "entity_id": "ICJ-SPV-006",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Alderway Group Ltd",
+   "person_key": "PSC-0063",
+   "person_name": "Siobhan Pennington",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 9.5066,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "VGB"
+   ],
+   "crosses_jurisdictions": false,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0015",
+   "entity_id": "ICJ-SPV-092",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Orchard Trustees Ltd",
+   "person_key": "PSC-0158",
+   "person_name": "Katherine Geoffrey Fairbairn",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 12.9422,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "BHS"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0016",
+   "entity_id": "ICJ-SPV-097",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Sundial Capital Pte Ltd",
+   "person_key": "PSC-0151",
+   "person_name": "Rajesh Priya Sharma",
+   "person_residence": "Scotland",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 5.258,
+   "jurisdiction_path": [
+    "Bangladeshi",
+    "DE",
+    "KY",
+    "SGP"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0017",
+   "entity_id": "ICJ-SPV-012",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Northgate Enterprises Ltd",
+   "person_key": "PSC-0015",
+   "person_name": "Mathilde Ingeborg Brandeis",
+   "person_residence": "Italy",
+   "person_is_eu_resident": true,
+   "depth": 2,
+   "effective_pct": 67.2255,
+   "jurisdiction_path": [
+    "Italian",
+    "LU",
+    "MLT"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "entity_id": "ICJ-SPV-148",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Highmark Trading Ltd",
+   "person_key": "PSC-0089",
+   "person_name": "Eleanor Margaret Wycliffe",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 6,
+   "effective_pct": 4.3209,
+   "jurisdiction_path": [
+    "Vietnamese",
+    "CH",
+    "LU",
+    "IE",
+    "GB",
+    "LU",
+    "BLZ"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0019",
+   "entity_id": "ICJ-SPV-142",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Alderway Nominees AG",
+   "person_key": "PSC-0066",
+   "person_name": "Eleanor Rhiannon Wycliffe",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 3.0892,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "GB",
+    "CHE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0020",
+   "entity_id": "ICJ-SPV-027",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Redstone Ventures S.A.",
+   "person_key": "PSC-0026",
+   "person_name": "Oleksandr Sergey Kovalyov",
+   "person_residence": "Bulgaria",
+   "person_is_eu_resident": true,
+   "depth": 3,
+   "effective_pct": 12.5935,
+   "jurisdiction_path": [
+    "Bulgarian",
+    "IE",
+    "IE",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0021",
+   "entity_id": "ICJ-SPV-065",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Highmark Enterprises Ltd",
+   "person_key": "PSC-0180",
+   "person_name": "Margaret Katherine Thorne",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 25.9869,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "SG",
+    "BLZ"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0022",
+   "entity_id": "ICJ-SPV-005",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Larkspur Capital LLC",
+   "person_key": "PSC-0050",
+   "person_name": "Geoffrey Hollingsworth",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 11.3575,
+   "jurisdiction_path": [
+    "British",
+    "NL",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "entity_id": "ICJ-SPV-099",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Driftwood Holdings S.A.",
+   "person_key": "PSC-0018",
+   "person_name": "Georgios Eleni Papadopoulos-Vasileiou",
+   "person_residence": "Greece",
+   "person_is_eu_resident": true,
+   "depth": 6,
+   "effective_pct": 9.8568,
+   "jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0024",
+   "entity_id": "ICJ-SPV-004",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Alderway Trustees S.A.",
+   "person_key": "PSC-0137",
+   "person_name": "Alistair Katherine Ashworth",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 11.8102,
+   "jurisdiction_path": [
+    "British",
+    "LU",
+    "MT",
+    "CY",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0025",
+   "entity_id": "ICJ-SPV-115",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Pinnacle Enterprises S.A.",
+   "person_key": "PSC-0135",
+   "person_name": "Rhiannon Nicholas Fairbairn",
+   "person_residence": "France",
+   "person_is_eu_resident": true,
+   "depth": 2,
+   "effective_pct": 58.1225,
+   "jurisdiction_path": [
+    "British",
+    "CH",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0026",
+   "entity_id": "ICJ-SPV-042",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Juniper Ventures Ltd",
+   "person_key": "PSC-0088",
+   "person_name": "Rhiannon Geoffrey Thorne",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 5.7936,
+   "jurisdiction_path": [
+    "British",
+    "GB",
+    "IE",
+    "GB",
+    "CYM"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0027",
+   "entity_id": "ICJ-SPV-080",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Ironbridge Holdings Ltd",
+   "person_key": "PSC-0157",
+   "person_name": "Eleanor Alistair Thorne",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 5.5109,
+   "jurisdiction_path": [
+    "British",
+    "KY",
+    "SG",
+    "CH",
+    "MLT"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0028",
+   "entity_id": "ICJ-SPV-137",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Fairhaven Holdings Ltd",
+   "person_key": "PSC-0026",
+   "person_name": "Oleksandr Sergey Kovalyov",
+   "person_residence": "Bulgaria",
+   "person_is_eu_resident": true,
+   "depth": 4,
+   "effective_pct": 17.5589,
+   "jurisdiction_path": [
+    "Bulgarian",
+    "KY",
+    "LU",
+    "KY",
+    "GBR"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "entity_id": "ICJ-SPV-022",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Yardley Enterprises Ltd",
+   "person_key": "PSC-0037",
+   "person_name": "Dmitry Natalya Zakharova",
+   "person_residence": "Bulgaria",
+   "person_is_eu_resident": true,
+   "depth": 6,
+   "effective_pct": 23.1557,
+   "jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "LU",
+    "IE",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0030",
+   "entity_id": "ICJ-SPV-082",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Juniper Group LLC",
+   "person_key": "PSC-0125",
+   "person_name": "Rhiannon Alistair Pennington",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 37.6903,
+   "jurisdiction_path": [
+    "British",
+    "GB",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0031",
+   "entity_id": "ICJ-SPV-026",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Cobalt Investments LLC",
+   "person_key": "PSC-0023",
+   "person_name": "Zaynab Muhammad Qasim",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 63.6171,
+   "jurisdiction_path": [
+    "Libyan",
+    "LU",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0032",
+   "entity_id": "ICJ-SPV-046",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Pinnacle Partners S.A.",
+   "person_key": "PSC-0193",
+   "person_name": "Nicholas Katherine St Ashworth",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 20.3793,
+   "jurisdiction_path": [
+    "British",
+    "CH",
+    "GB",
+    "NL",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "entity_id": "ICJ-SPV-107",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Ironbridge Management Ltd",
+   "person_key": "PSC-0140",
+   "person_name": "Eleanor Barrowman",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 6,
+   "effective_pct": 1.9411,
+   "jurisdiction_path": [
+    "British",
+    "IE",
+    "MT",
+    "DE",
+    "NL",
+    "MT",
+    "CYM"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0034",
+   "entity_id": "ICJ-SPV-135",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Fairhaven Investments AG",
+   "person_key": "PSC-0148",
+   "person_name": "Geoffrey Margaret Pennington",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 54.7907,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "CHE"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0035",
+   "entity_id": "ICJ-SPV-110",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Thornhill Trustees S.A.",
+   "person_key": "PSC-0077",
+   "person_name": "Margaret Barrowman",
+   "person_residence": "Morocco",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 7.593,
+   "jurisdiction_path": [
+    "Canadian",
+    "NL",
+    "NL",
+    "LU",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0036",
+   "entity_id": "ICJ-SPV-143",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Yardley Trading Ltd",
+   "person_key": "PSC-0092",
+   "person_name": "Alistair Barrowman",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 56.5096,
+   "jurisdiction_path": [
+    "British",
+    "NL",
+    "VGB"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0037",
+   "entity_id": "ICJ-SPV-038",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Evergreen Holdings Ltd",
+   "person_key": "PSC-0126",
+   "person_name": "Eleanor Thorne-Fairbairn",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 20.3248,
+   "jurisdiction_path": [
+    "British",
+    "SG",
+    "MT",
+    "LU",
+    "SYC"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0038",
+   "entity_id": "ICJ-SPV-018",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Silverbirch Management Ltd",
+   "person_key": "PSC-0078",
+   "person_name": "Rhiannon Fairbairn",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 8.1135,
+   "jurisdiction_path": [
+    "British",
+    "DE",
+    "BHS"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0039",
+   "entity_id": "ICJ-SPV-043",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Goldcrest Investments Ltd",
+   "person_key": "PSC-0052",
+   "person_name": "Geoffrey Wycliffe",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 55.9743,
+   "jurisdiction_path": [
+    "English",
+    "CH",
+    "SG",
+    "BHS"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0040",
+   "entity_id": "ICJ-SPV-066",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Juniper Trading Ltd",
+   "person_key": "PSC-0037",
+   "person_name": "Dmitry Natalya Zakharova",
+   "person_residence": "Bulgaria",
+   "person_is_eu_resident": true,
+   "depth": 4,
+   "effective_pct": 14.0439,
+   "jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "CH",
+    "DE",
+    "GBR"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0041",
+   "entity_id": "ICJ-SPV-134",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Harbourline Trading Ltd",
+   "person_key": "PSC-0032",
+   "person_name": "Sergey Melnyk",
+   "person_residence": "Pakistan",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 26.1685,
+   "jurisdiction_path": [
+    "Ukrainian",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0042",
+   "entity_id": "ICJ-SPV-068",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Millstone Partners Ltd",
+   "person_key": "PSC-0152",
+   "person_name": "Oleksandr Kovalyov",
+   "person_residence": "Bulgaria",
+   "person_is_eu_resident": true,
+   "depth": 2,
+   "effective_pct": 21.1559,
+   "jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "VGB"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0043",
+   "entity_id": "ICJ-SPV-007",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Zephyr Management LLC",
+   "person_key": "PSC-0091",
+   "person_name": "Margaret Eleanor Thorne",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 16.0386,
+   "jurisdiction_path": [
+    "British",
+    "SG",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0044",
+   "entity_id": "ICJ-SPV-055",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Yardley Trading Pte Ltd",
+   "person_key": "PSC-0069",
+   "person_name": "Katherine Pennington",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 51.529,
+   "jurisdiction_path": [
+    "British",
+    "MT",
+    "SGP"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "entity_id": "ICJ-SPV-118",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Fairhaven Enterprises LLC",
+   "person_key": "PSC-0124",
+   "person_name": "Siobhan Hollingsworth",
+   "person_residence": "Northern Ireland",
+   "person_is_eu_resident": false,
+   "depth": 6,
+   "effective_pct": 4.8648,
+   "jurisdiction_path": [
+    "British",
+    "DE",
+    "KY",
+    "DE",
+    "KY",
+    "NL",
+    "USA"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0046",
+   "entity_id": "ICJ-SPV-050",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Goldcrest Management Ltd",
+   "person_key": "PSC-0205",
+   "person_name": "Katherine Pennington",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 4,
+   "effective_pct": 9.6161,
+   "jurisdiction_path": [
+    "British",
+    "IE",
+    "LU",
+    "CY",
+    "BHS"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0047",
+   "entity_id": "ICJ-SPV-025",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Harbourline Enterprises Ltd",
+   "person_key": "PSC-0196",
+   "person_name": "Nicholas Eleanor Ledbetter",
+   "person_residence": "Germany",
+   "person_is_eu_resident": true,
+   "depth": 3,
+   "effective_pct": 19.9889,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "JE",
+    "BLZ"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0048",
+   "entity_id": "ICJ-SPV-149",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Thornhill Nominees S.A.",
+   "person_key": "PSC-0101",
+   "person_name": "Siobhan Geoffrey Wycliffe",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 2,
+   "effective_pct": 17.7507,
+   "jurisdiction_path": [
+    "British",
+    "GB",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0049",
+   "entity_id": "ICJ-SPV-133",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Sundial Ventures Ltd",
+   "person_key": "PSC-0193",
+   "person_name": "Nicholas Katherine St Ashworth",
+   "person_residence": "United Kingdom",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 18.2386,
+   "jurisdiction_path": [
+    "British",
+    "VGB",
+    "CH",
+    "GBR"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0050",
+   "entity_id": "ICJ-SPV-044",
+   "entity_kind": "offshore_vehicle",
+   "entity_name": "Pinnacle Assets S.A.",
+   "person_key": "PSC-0027",
+   "person_name": "Zhiqiang Huang",
+   "person_residence": "England",
+   "person_is_eu_resident": false,
+   "depth": 3,
+   "effective_pct": 26.7331,
+   "jurisdiction_path": [
+    "Chinese",
+    "NL",
+    "SG",
+    "PAN"
+   ],
+   "crosses_jurisdictions": true,
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "hops": [
+  {
+   "chain_id": "BOC-0001",
+   "hop_index": 0,
+   "owner_id": "PSC-0113",
+   "owner_kind": "person",
+   "owned_id": "HLD-0001",
+   "owned_kind": "holding_company",
+   "stake_pct": 80.08,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0001",
+   "hop_index": 1,
+   "owner_id": "HLD-0001",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0002",
+   "owned_kind": "holding_company",
+   "stake_pct": 74.14,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0001",
+   "hop_index": 2,
+   "owner_id": "HLD-0002",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-136",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 69.02,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0002",
+   "hop_index": 0,
+   "owner_id": "PSC-0041",
+   "owner_kind": "person",
+   "owned_id": "HLD-0003",
+   "owned_kind": "holding_company",
+   "stake_pct": 75.73,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0002",
+   "hop_index": 1,
+   "owner_id": "HLD-0003",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-028",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 57.68,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0003",
+   "hop_index": 0,
+   "owner_id": "PSC-0050",
+   "owner_kind": "person",
+   "owned_id": "HLD-0004",
+   "owned_kind": "holding_company",
+   "stake_pct": 47.84,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0003",
+   "hop_index": 1,
+   "owner_id": "HLD-0004",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0005",
+   "owned_kind": "holding_company",
+   "stake_pct": 60.03,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0003",
+   "hop_index": 2,
+   "owner_id": "HLD-0005",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-033",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 86.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0004",
+   "hop_index": 0,
+   "owner_id": "PSC-0204",
+   "owner_kind": "person",
+   "owned_id": "HLD-0006",
+   "owned_kind": "holding_company",
+   "stake_pct": 99.93,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0004",
+   "hop_index": 1,
+   "owner_id": "HLD-0006",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0007",
+   "owned_kind": "holding_company",
+   "stake_pct": 65.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0004",
+   "hop_index": 2,
+   "owner_id": "HLD-0007",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0008",
+   "owned_kind": "holding_company",
+   "stake_pct": 54.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0004",
+   "hop_index": 3,
+   "owner_id": "HLD-0008",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-147",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 80.73,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0005",
+   "hop_index": 0,
+   "owner_id": "PSC-0061",
+   "owner_kind": "person",
+   "owned_id": "HLD-0009",
+   "owned_kind": "holding_company",
+   "stake_pct": 70.23,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0005",
+   "hop_index": 1,
+   "owner_id": "HLD-0009",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0010",
+   "owned_kind": "holding_company",
+   "stake_pct": 96.17,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0005",
+   "hop_index": 2,
+   "owner_id": "HLD-0010",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-037",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 72.5,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0006",
+   "hop_index": 0,
+   "owner_id": "PSC-0001",
+   "owner_kind": "person",
+   "owned_id": "HLD-0011",
+   "owned_kind": "holding_company",
+   "stake_pct": 81.92,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0006",
+   "hop_index": 1,
+   "owner_id": "HLD-0011",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0012",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.76,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0006",
+   "hop_index": 2,
+   "owner_id": "HLD-0012",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-146",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 62.71,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0007",
+   "hop_index": 0,
+   "owner_id": "PSC-0128",
+   "owner_kind": "person",
+   "owned_id": "HLD-0013",
+   "owned_kind": "holding_company",
+   "stake_pct": 83.06,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0007",
+   "hop_index": 1,
+   "owner_id": "HLD-0013",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-001",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 42.49,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "hop_index": 0,
+   "owner_id": "PSC-0102",
+   "owner_kind": "person",
+   "owned_id": "HLD-0014",
+   "owned_kind": "holding_company",
+   "stake_pct": 26.16,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "hop_index": 1,
+   "owner_id": "HLD-0014",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0015",
+   "owned_kind": "holding_company",
+   "stake_pct": 71.42,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "hop_index": 2,
+   "owner_id": "HLD-0015",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0016",
+   "owned_kind": "holding_company",
+   "stake_pct": 77.05,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "hop_index": 3,
+   "owner_id": "HLD-0016",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0017",
+   "owned_kind": "holding_company",
+   "stake_pct": 61.68,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0008",
+   "hop_index": 4,
+   "owner_id": "HLD-0017",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-069",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 57.58,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0009",
+   "hop_index": 0,
+   "owner_id": "PSC-0121",
+   "owner_kind": "person",
+   "owned_id": "HLD-0018",
+   "owned_kind": "holding_company",
+   "stake_pct": 25.9,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0009",
+   "hop_index": 1,
+   "owner_id": "HLD-0018",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-088",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 96.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0010",
+   "hop_index": 0,
+   "owner_id": "PSC-0185",
+   "owner_kind": "person",
+   "owned_id": "HLD-0019",
+   "owned_kind": "holding_company",
+   "stake_pct": 16.73,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0010",
+   "hop_index": 1,
+   "owner_id": "HLD-0019",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0020",
+   "owned_kind": "holding_company",
+   "stake_pct": 41.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0010",
+   "hop_index": 2,
+   "owner_id": "HLD-0020",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-059",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 64.78,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 0,
+   "owner_id": "PSC-0053",
+   "owner_kind": "person",
+   "owned_id": "HLD-0021",
+   "owned_kind": "holding_company",
+   "stake_pct": 34.88,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 1,
+   "owner_id": "HLD-0021",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0022",
+   "owned_kind": "holding_company",
+   "stake_pct": 47.75,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 2,
+   "owner_id": "HLD-0022",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0023",
+   "owned_kind": "holding_company",
+   "stake_pct": 65.75,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 3,
+   "owner_id": "HLD-0023",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0024",
+   "owned_kind": "holding_company",
+   "stake_pct": 83.18,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 4,
+   "owner_id": "HLD-0024",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0025",
+   "owned_kind": "holding_company",
+   "stake_pct": 87.14,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0011",
+   "hop_index": 5,
+   "owner_id": "HLD-0025",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-019",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 71.32,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 0,
+   "owner_id": "PSC-0153",
+   "owner_kind": "person",
+   "owned_id": "HLD-0026",
+   "owned_kind": "holding_company",
+   "stake_pct": 63.58,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 1,
+   "owner_id": "HLD-0026",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0027",
+   "owned_kind": "holding_company",
+   "stake_pct": 36.33,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 2,
+   "owner_id": "HLD-0027",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0028",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.97,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 3,
+   "owner_id": "HLD-0028",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0029",
+   "owned_kind": "holding_company",
+   "stake_pct": 48.39,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 4,
+   "owner_id": "HLD-0029",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0030",
+   "owned_kind": "holding_company",
+   "stake_pct": 41.07,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0012",
+   "hop_index": 5,
+   "owner_id": "HLD-0030",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-127",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 62.35,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0013",
+   "hop_index": 0,
+   "owner_id": "PSC-0133",
+   "owner_kind": "person",
+   "owned_id": "HLD-0031",
+   "owned_kind": "holding_company",
+   "stake_pct": 97.44,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0013",
+   "hop_index": 1,
+   "owner_id": "HLD-0031",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0032",
+   "owned_kind": "holding_company",
+   "stake_pct": 41.17,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0013",
+   "hop_index": 2,
+   "owner_id": "HLD-0032",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0033",
+   "owned_kind": "holding_company",
+   "stake_pct": 67.75,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0013",
+   "hop_index": 3,
+   "owner_id": "HLD-0033",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-130",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 51.57,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0014",
+   "hop_index": 0,
+   "owner_id": "PSC-0063",
+   "owner_kind": "person",
+   "owned_id": "HLD-0034",
+   "owned_kind": "holding_company",
+   "stake_pct": 28.6,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0014",
+   "hop_index": 1,
+   "owner_id": "HLD-0034",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-006",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 33.24,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0015",
+   "hop_index": 0,
+   "owner_id": "PSC-0158",
+   "owner_kind": "person",
+   "owned_id": "HLD-0035",
+   "owned_kind": "holding_company",
+   "stake_pct": 15.47,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0015",
+   "hop_index": 1,
+   "owner_id": "HLD-0035",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-092",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 83.66,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0016",
+   "hop_index": 0,
+   "owner_id": "PSC-0151",
+   "owner_kind": "person",
+   "owned_id": "HLD-0036",
+   "owned_kind": "holding_company",
+   "stake_pct": 41.53,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0016",
+   "hop_index": 1,
+   "owner_id": "HLD-0036",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0037",
+   "owned_kind": "holding_company",
+   "stake_pct": 39.27,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0016",
+   "hop_index": 2,
+   "owner_id": "HLD-0037",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-097",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 32.24,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0017",
+   "hop_index": 0,
+   "owner_id": "PSC-0015",
+   "owner_kind": "person",
+   "owned_id": "HLD-0038",
+   "owned_kind": "holding_company",
+   "stake_pct": 69.02,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0017",
+   "hop_index": 1,
+   "owner_id": "HLD-0038",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-012",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 97.4,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 0,
+   "owner_id": "PSC-0089",
+   "owner_kind": "person",
+   "owned_id": "HLD-0039",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.26,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 1,
+   "owner_id": "HLD-0039",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0040",
+   "owned_kind": "holding_company",
+   "stake_pct": 95.1,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 2,
+   "owner_id": "HLD-0040",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0041",
+   "owned_kind": "holding_company",
+   "stake_pct": 54.9,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 3,
+   "owner_id": "HLD-0041",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0042",
+   "owned_kind": "holding_company",
+   "stake_pct": 30.48,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 4,
+   "owner_id": "HLD-0042",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0043",
+   "owned_kind": "holding_company",
+   "stake_pct": 46.28,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0018",
+   "hop_index": 5,
+   "owner_id": "HLD-0043",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-148",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 91.3,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0019",
+   "hop_index": 0,
+   "owner_id": "PSC-0066",
+   "owner_kind": "person",
+   "owned_id": "HLD-0044",
+   "owned_kind": "holding_company",
+   "stake_pct": 18.05,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0019",
+   "hop_index": 1,
+   "owner_id": "HLD-0044",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0045",
+   "owned_kind": "holding_company",
+   "stake_pct": 53.38,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0019",
+   "hop_index": 2,
+   "owner_id": "HLD-0045",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0046",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.46,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0019",
+   "hop_index": 3,
+   "owner_id": "HLD-0046",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-142",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 49.74,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0020",
+   "hop_index": 0,
+   "owner_id": "PSC-0026",
+   "owner_kind": "person",
+   "owned_id": "HLD-0047",
+   "owned_kind": "holding_company",
+   "stake_pct": 29.41,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0020",
+   "hop_index": 1,
+   "owner_id": "HLD-0047",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0048",
+   "owned_kind": "holding_company",
+   "stake_pct": 55.64,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0020",
+   "hop_index": 2,
+   "owner_id": "HLD-0048",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-027",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 76.96,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0021",
+   "hop_index": 0,
+   "owner_id": "PSC-0180",
+   "owner_kind": "person",
+   "owned_id": "HLD-0049",
+   "owned_kind": "holding_company",
+   "stake_pct": 75.58,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0021",
+   "hop_index": 1,
+   "owner_id": "HLD-0049",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0050",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.1,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0021",
+   "hop_index": 2,
+   "owner_id": "HLD-0050",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-065",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 53.64,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0022",
+   "hop_index": 0,
+   "owner_id": "PSC-0050",
+   "owner_kind": "person",
+   "owned_id": "HLD-0051",
+   "owned_kind": "holding_company",
+   "stake_pct": 30.49,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0022",
+   "hop_index": 1,
+   "owner_id": "HLD-0051",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-005",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 37.25,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 0,
+   "owner_id": "PSC-0018",
+   "owner_kind": "person",
+   "owned_id": "HLD-0052",
+   "owned_kind": "holding_company",
+   "stake_pct": 59.26,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 1,
+   "owner_id": "HLD-0052",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0053",
+   "owned_kind": "holding_company",
+   "stake_pct": 62.74,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 2,
+   "owner_id": "HLD-0053",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0054",
+   "owned_kind": "holding_company",
+   "stake_pct": 98.81,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 3,
+   "owner_id": "HLD-0054",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0055",
+   "owned_kind": "holding_company",
+   "stake_pct": 71.82,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 4,
+   "owner_id": "HLD-0055",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0056",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.2,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0023",
+   "hop_index": 5,
+   "owner_id": "HLD-0056",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-099",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 58.19,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0024",
+   "hop_index": 0,
+   "owner_id": "PSC-0137",
+   "owner_kind": "person",
+   "owned_id": "HLD-0057",
+   "owned_kind": "holding_company",
+   "stake_pct": 48.11,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0024",
+   "hop_index": 1,
+   "owner_id": "HLD-0057",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0058",
+   "owned_kind": "holding_company",
+   "stake_pct": 82.45,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0024",
+   "hop_index": 2,
+   "owner_id": "HLD-0058",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0059",
+   "owned_kind": "holding_company",
+   "stake_pct": 50.09,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0024",
+   "hop_index": 3,
+   "owner_id": "HLD-0059",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-004",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 59.44,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0025",
+   "hop_index": 0,
+   "owner_id": "PSC-0135",
+   "owner_kind": "person",
+   "owned_id": "HLD-0060",
+   "owned_kind": "holding_company",
+   "stake_pct": 58.9,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0025",
+   "hop_index": 1,
+   "owner_id": "HLD-0060",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-115",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 98.68,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0026",
+   "hop_index": 0,
+   "owner_id": "PSC-0088",
+   "owner_kind": "person",
+   "owned_id": "HLD-0061",
+   "owned_kind": "holding_company",
+   "stake_pct": 31.17,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0026",
+   "hop_index": 1,
+   "owner_id": "HLD-0061",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0062",
+   "owned_kind": "holding_company",
+   "stake_pct": 37.26,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0026",
+   "hop_index": 2,
+   "owner_id": "HLD-0062",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0063",
+   "owned_kind": "holding_company",
+   "stake_pct": 74.2,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0026",
+   "hop_index": 3,
+   "owner_id": "HLD-0063",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-042",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 67.23,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0027",
+   "hop_index": 0,
+   "owner_id": "PSC-0157",
+   "owner_kind": "person",
+   "owned_id": "HLD-0064",
+   "owned_kind": "holding_company",
+   "stake_pct": 17.81,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0027",
+   "hop_index": 1,
+   "owner_id": "HLD-0064",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0065",
+   "owned_kind": "holding_company",
+   "stake_pct": 64.78,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0027",
+   "hop_index": 2,
+   "owner_id": "HLD-0065",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0066",
+   "owned_kind": "holding_company",
+   "stake_pct": 53.15,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0027",
+   "hop_index": 3,
+   "owner_id": "HLD-0066",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-080",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 89.87,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0028",
+   "hop_index": 0,
+   "owner_id": "PSC-0026",
+   "owner_kind": "person",
+   "owned_id": "HLD-0067",
+   "owned_kind": "holding_company",
+   "stake_pct": 95.8,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0028",
+   "hop_index": 1,
+   "owner_id": "HLD-0067",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0068",
+   "owned_kind": "holding_company",
+   "stake_pct": 63.76,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0028",
+   "hop_index": 2,
+   "owner_id": "HLD-0068",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0069",
+   "owned_kind": "holding_company",
+   "stake_pct": 55.71,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0028",
+   "hop_index": 3,
+   "owner_id": "HLD-0069",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-137",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 51.6,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 0,
+   "owner_id": "PSC-0037",
+   "owner_kind": "person",
+   "owned_id": "HLD-0070",
+   "owned_kind": "holding_company",
+   "stake_pct": 49.9,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 1,
+   "owner_id": "HLD-0070",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0071",
+   "owned_kind": "holding_company",
+   "stake_pct": 88.87,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 2,
+   "owner_id": "HLD-0071",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0072",
+   "owned_kind": "holding_company",
+   "stake_pct": 92.33,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 3,
+   "owner_id": "HLD-0072",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0073",
+   "owned_kind": "holding_company",
+   "stake_pct": 74.76,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 4,
+   "owner_id": "HLD-0073",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0074",
+   "owned_kind": "holding_company",
+   "stake_pct": 90.12,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0029",
+   "hop_index": 5,
+   "owner_id": "HLD-0074",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-022",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 83.94,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0030",
+   "hop_index": 0,
+   "owner_id": "PSC-0125",
+   "owner_kind": "person",
+   "owned_id": "HLD-0075",
+   "owned_kind": "holding_company",
+   "stake_pct": 40.87,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0030",
+   "hop_index": 1,
+   "owner_id": "HLD-0075",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-082",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 92.22,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0031",
+   "hop_index": 0,
+   "owner_id": "PSC-0023",
+   "owner_kind": "person",
+   "owned_id": "HLD-0076",
+   "owned_kind": "holding_company",
+   "stake_pct": 66.42,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0031",
+   "hop_index": 1,
+   "owner_id": "HLD-0076",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-026",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 95.78,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0032",
+   "hop_index": 0,
+   "owner_id": "PSC-0193",
+   "owner_kind": "person",
+   "owned_id": "HLD-0077",
+   "owned_kind": "holding_company",
+   "stake_pct": 68.11,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0032",
+   "hop_index": 1,
+   "owner_id": "HLD-0077",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0078",
+   "owned_kind": "holding_company",
+   "stake_pct": 57.88,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0032",
+   "hop_index": 2,
+   "owner_id": "HLD-0078",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0079",
+   "owned_kind": "holding_company",
+   "stake_pct": 65.52,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0032",
+   "hop_index": 3,
+   "owner_id": "HLD-0079",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-046",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 78.9,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 0,
+   "owner_id": "PSC-0140",
+   "owner_kind": "person",
+   "owned_id": "HLD-0080",
+   "owned_kind": "holding_company",
+   "stake_pct": 23.42,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 1,
+   "owner_id": "HLD-0080",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0081",
+   "owned_kind": "holding_company",
+   "stake_pct": 73.26,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 2,
+   "owner_id": "HLD-0081",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0082",
+   "owned_kind": "holding_company",
+   "stake_pct": 93.53,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 3,
+   "owner_id": "HLD-0082",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0083",
+   "owned_kind": "holding_company",
+   "stake_pct": 34.24,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 4,
+   "owner_id": "HLD-0083",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0084",
+   "owned_kind": "holding_company",
+   "stake_pct": 69.5,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0033",
+   "hop_index": 5,
+   "owner_id": "HLD-0084",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-107",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 50.83,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0034",
+   "hop_index": 0,
+   "owner_id": "PSC-0148",
+   "owner_kind": "person",
+   "owned_id": "HLD-0085",
+   "owned_kind": "holding_company",
+   "stake_pct": 79.41,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0034",
+   "hop_index": 1,
+   "owner_id": "HLD-0085",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0086",
+   "owned_kind": "holding_company",
+   "stake_pct": 90.5,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0034",
+   "hop_index": 2,
+   "owner_id": "HLD-0086",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-135",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 76.24,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0035",
+   "hop_index": 0,
+   "owner_id": "PSC-0077",
+   "owner_kind": "person",
+   "owned_id": "HLD-0087",
+   "owned_kind": "holding_company",
+   "stake_pct": 72.32,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0035",
+   "hop_index": 1,
+   "owner_id": "HLD-0087",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0088",
+   "owned_kind": "holding_company",
+   "stake_pct": 65.21,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0035",
+   "hop_index": 2,
+   "owner_id": "HLD-0088",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0089",
+   "owned_kind": "holding_company",
+   "stake_pct": 38.89,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0035",
+   "hop_index": 3,
+   "owner_id": "HLD-0089",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-110",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 41.4,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0036",
+   "hop_index": 0,
+   "owner_id": "PSC-0092",
+   "owner_kind": "person",
+   "owned_id": "HLD-0090",
+   "owned_kind": "holding_company",
+   "stake_pct": 85.92,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0036",
+   "hop_index": 1,
+   "owner_id": "HLD-0090",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-143",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 65.77,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0037",
+   "hop_index": 0,
+   "owner_id": "PSC-0126",
+   "owner_kind": "person",
+   "owned_id": "HLD-0091",
+   "owned_kind": "holding_company",
+   "stake_pct": 48.67,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0037",
+   "hop_index": 1,
+   "owner_id": "HLD-0091",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0092",
+   "owned_kind": "holding_company",
+   "stake_pct": 89.75,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0037",
+   "hop_index": 2,
+   "owner_id": "HLD-0092",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0093",
+   "owned_kind": "holding_company",
+   "stake_pct": 66.49,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0037",
+   "hop_index": 3,
+   "owner_id": "HLD-0093",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-038",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 69.98,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0038",
+   "hop_index": 0,
+   "owner_id": "PSC-0078",
+   "owner_kind": "person",
+   "owned_id": "HLD-0094",
+   "owned_kind": "holding_company",
+   "stake_pct": 23.03,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0038",
+   "hop_index": 1,
+   "owner_id": "HLD-0094",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-018",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 35.23,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0039",
+   "hop_index": 0,
+   "owner_id": "PSC-0052",
+   "owner_kind": "person",
+   "owned_id": "HLD-0095",
+   "owned_kind": "holding_company",
+   "stake_pct": 95.41,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0039",
+   "hop_index": 1,
+   "owner_id": "HLD-0095",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0096",
+   "owned_kind": "holding_company",
+   "stake_pct": 99.91,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0039",
+   "hop_index": 2,
+   "owner_id": "HLD-0096",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-043",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 58.72,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0040",
+   "hop_index": 0,
+   "owner_id": "PSC-0037",
+   "owner_kind": "person",
+   "owned_id": "HLD-0097",
+   "owned_kind": "holding_company",
+   "stake_pct": 87.06,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0040",
+   "hop_index": 1,
+   "owner_id": "HLD-0097",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0098",
+   "owned_kind": "holding_company",
+   "stake_pct": 96.0,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0040",
+   "hop_index": 2,
+   "owner_id": "HLD-0098",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0099",
+   "owned_kind": "holding_company",
+   "stake_pct": 38.54,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0040",
+   "hop_index": 3,
+   "owner_id": "HLD-0099",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-066",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 43.6,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0041",
+   "hop_index": 0,
+   "owner_id": "PSC-0032",
+   "owner_kind": "person",
+   "owned_id": "HLD-0100",
+   "owned_kind": "holding_company",
+   "stake_pct": 69.71,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0041",
+   "hop_index": 1,
+   "owner_id": "HLD-0100",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0101",
+   "owned_kind": "holding_company",
+   "stake_pct": 69.35,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0041",
+   "hop_index": 2,
+   "owner_id": "HLD-0101",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-134",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 54.13,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0042",
+   "hop_index": 0,
+   "owner_id": "PSC-0152",
+   "owner_kind": "person",
+   "owned_id": "HLD-0102",
+   "owned_kind": "holding_company",
+   "stake_pct": 59.36,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0042",
+   "hop_index": 1,
+   "owner_id": "HLD-0102",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-068",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 35.64,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0043",
+   "hop_index": 0,
+   "owner_id": "PSC-0091",
+   "owner_kind": "person",
+   "owned_id": "HLD-0103",
+   "owned_kind": "holding_company",
+   "stake_pct": 18.09,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0043",
+   "hop_index": 1,
+   "owner_id": "HLD-0103",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-007",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 88.66,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0044",
+   "hop_index": 0,
+   "owner_id": "PSC-0069",
+   "owner_kind": "person",
+   "owned_id": "HLD-0104",
+   "owned_kind": "holding_company",
+   "stake_pct": 56.8,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0044",
+   "hop_index": 1,
+   "owner_id": "HLD-0104",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-055",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 90.72,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 0,
+   "owner_id": "PSC-0124",
+   "owner_kind": "person",
+   "owned_id": "HLD-0105",
+   "owned_kind": "holding_company",
+   "stake_pct": 52.98,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 1,
+   "owner_id": "HLD-0105",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0106",
+   "owned_kind": "holding_company",
+   "stake_pct": 75.61,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 2,
+   "owner_id": "HLD-0106",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0107",
+   "owned_kind": "holding_company",
+   "stake_pct": 35.25,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 3,
+   "owner_id": "HLD-0107",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0108",
+   "owned_kind": "holding_company",
+   "stake_pct": 58.29,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 4,
+   "owner_id": "HLD-0108",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0109",
+   "owned_kind": "holding_company",
+   "stake_pct": 97.02,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0045",
+   "hop_index": 5,
+   "owner_id": "HLD-0109",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-118",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 60.92,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0046",
+   "hop_index": 0,
+   "owner_id": "PSC-0205",
+   "owner_kind": "person",
+   "owned_id": "HLD-0110",
+   "owned_kind": "holding_company",
+   "stake_pct": 68.6,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0046",
+   "hop_index": 1,
+   "owner_id": "HLD-0110",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0111",
+   "owned_kind": "holding_company",
+   "stake_pct": 61.81,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0046",
+   "hop_index": 2,
+   "owner_id": "HLD-0111",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0112",
+   "owned_kind": "holding_company",
+   "stake_pct": 33.96,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0046",
+   "hop_index": 3,
+   "owner_id": "HLD-0112",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-050",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 66.78,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0047",
+   "hop_index": 0,
+   "owner_id": "PSC-0196",
+   "owner_kind": "person",
+   "owned_id": "HLD-0113",
+   "owned_kind": "holding_company",
+   "stake_pct": 80.85,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0047",
+   "hop_index": 1,
+   "owner_id": "HLD-0113",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0114",
+   "owned_kind": "holding_company",
+   "stake_pct": 46.49,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0047",
+   "hop_index": 2,
+   "owner_id": "HLD-0114",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-025",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 53.18,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0048",
+   "hop_index": 0,
+   "owner_id": "PSC-0101",
+   "owner_kind": "person",
+   "owned_id": "HLD-0115",
+   "owned_kind": "holding_company",
+   "stake_pct": 30.86,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0048",
+   "hop_index": 1,
+   "owner_id": "HLD-0115",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-149",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 57.52,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0049",
+   "hop_index": 0,
+   "owner_id": "PSC-0193",
+   "owner_kind": "person",
+   "owned_id": "HLD-0116",
+   "owned_kind": "holding_company",
+   "stake_pct": 72.77,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0049",
+   "hop_index": 1,
+   "owner_id": "HLD-0116",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0117",
+   "owned_kind": "holding_company",
+   "stake_pct": 67.23,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0049",
+   "hop_index": 2,
+   "owner_id": "HLD-0117",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-133",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 37.28,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0050",
+   "hop_index": 0,
+   "owner_id": "PSC-0027",
+   "owner_kind": "person",
+   "owned_id": "HLD-0118",
+   "owned_kind": "holding_company",
+   "stake_pct": 83.88,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0050",
+   "hop_index": 1,
+   "owner_id": "HLD-0118",
+   "owner_kind": "holding_company",
+   "owned_id": "HLD-0119",
+   "owned_kind": "holding_company",
+   "stake_pct": 61.55,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "chain_id": "BOC-0050",
+   "hop_index": 2,
+   "owner_id": "HLD-0119",
+   "owner_kind": "holding_company",
+   "owned_id": "ICJ-SPV-044",
+   "owned_kind": "offshore_vehicle",
+   "stake_pct": 51.78,
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "cycle_entities": [
+  {
+   "entity_id": "CycCalderIndustrialNv",
+   "name": "Calder Industrial N.V.",
+   "jurisdiction": "NL",
+   "country": "Netherlands",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-1",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "CycMeridianHoldingsSa",
+   "name": "Meridian Holdings S.A.",
+   "jurisdiction": "LU",
+   "country": "Luxembourg",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-1",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "CycThornburyCapitalLtd",
+   "name": "Thornbury Capital Ltd",
+   "jurisdiction": "GB",
+   "country": "United Kingdom",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-1",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "CycHarborstoneKy",
+   "name": "Harborstone Trustees Ltd",
+   "jurisdiction": "KY",
+   "country": "Cayman Islands",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-2",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "CycLindenfeldGmbh",
+   "name": "Lindenfeld Beteiligungen GmbH",
+   "jurisdiction": "DE",
+   "country": "Germany",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-2",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "entity_id": "CycPahangPteLtd",
+   "name": "Pahang Nominees Pte Ltd",
+   "jurisdiction": "SG",
+   "country": "Singapore",
+   "kind": "cycle_member",
+   "cycle_group": "CYCLE-2",
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "cycle_edges": [
+  {
+   "cycle_group": "CYCLE-2",
+   "owner_id": "CycHarborstoneKy",
+   "owned_id": "CycLindenfeldGmbh",
+   "stake_pct": 38.28,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "cycle_group": "CYCLE-2",
+   "owner_id": "CycLindenfeldGmbh",
+   "owned_id": "CycPahangPteLtd",
+   "stake_pct": 34.31,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "cycle_group": "CYCLE-2",
+   "owner_id": "CycPahangPteLtd",
+   "owned_id": "CycHarborstoneKy",
+   "stake_pct": 36.85,
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ]
+}

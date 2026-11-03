@@ -1,0 +1,146 @@
+version: 1
+status: phase-2a-proposal
+
+primary_navigation:
+  - id: start-here
+    label: Start Here
+    purpose: Orient newcomers and route by intent.
+    children:
+      - what-is-ccf
+      - why-context-fails
+      - architecture-in-one-view
+      - overview-video
+      - whitepaper
+      - choose-your-path
+      - terminology
+
+  - id: learn-ccf
+    label: Learn CCF
+    purpose: Explain concepts and architecture without requiring SDK knowledge.
+    children:
+      - systems-of-cognition
+      - context-products
+      - six-tuple
+      - context-graph
+      - projection
+      - half-life
+      - context-debt
+      - decision-replay
+      - control-data-plane
+      - l1-l6
+      - layering-not-replatforming
+      - architecture-patterns
+
+  - id: build-with-ccf
+    label: Build with CCF
+    purpose: Task-oriented SDK learning.
+    children:
+      - consume-context-products
+      - assemble-context-products
+      - specification-standard
+      - spec-generation
+      - example-delivery
+      - tutorials
+      - advanced-sdk-patterns
+
+  - id: reference
+    label: Reference
+    purpose: Version-pinned technical reference.
+    children:
+      - consumer-api
+      - products-contracts
+      - assembly
+      - graph
+      - operators
+      - projection
+      - freshness-debt
+      - control-plane
+      - replay
+      - deployment-configuration
+      - transports-runtime
+      - specification-reference
+      - glossary
+
+  - id: financial-services
+    label: Financial Services
+    purpose: Real-world decision problems and end-to-end implementations.
+    children:
+      - use-case-catalog
+      - by-domain
+      - by-capability
+      - by-control
+      - example-methodology
+
+  - id: govern-operate
+    label: Govern & Operate
+    purpose: Enterprise controls, reproducibility, assurance, and operations.
+    children:
+      - governance-controls
+      - data-environments
+      - security-assurance
+      - production-operations
+
+  - id: adopt-ccf
+    label: Adopt CCF
+    purpose: Evaluation-to-production operating model.
+    children:
+      - evaluate
+      - select-pilot
+      - team-roles
+      - data-readiness
+      - specification-workflow
+      - governance-readiness
+      - production-readiness
+      - scale-program
+      - faq
+
+learning_paths:
+  - evaluate-ccf
+  - consume-context-product
+  - assemble-context-product
+  - architect-ccf
+  - review-controls-governance
+  - operate-ccf
+  - adopt-as-team
+
+content_types:
+  - landing
+  - concept
+  - tutorial
+  - reference
+  - financial-services-use-case
+  - governance-control
+  - data-environment
+  - adoption-guide
+  - security-assurance
+
+global_features:
+  - search
+  - breadcrumb
+  - learning-path-context
+  - next-recommended-page
+  - evidence-baseline
+  - source-trail
+  - maturity-status
+  - canonical-superseded-status
+
+search_facets:
+  - Concept
+  - Tutorial
+  - Reference
+  - Financial Services
+  - Governance & Controls
+  - Data Environment
+  - Adoption
+
+publication_rules:
+  - Consumer paths do not require assembler internals.
+  - Assembler paths begin with the business decision and specification, not code.
+  - Data-estate setup is visible before any tutorial that assumes loaded data.
+  - Financial Services pages open with the business problem and decision.
+  - Controls and governance are first-class personas and page content.
+  - Tutorials link to reference rather than duplicating API definitions.
+  - Financial Services examples link to small SDK lessons rather than teaching primitives from scratch.
+  - Reference material is pinned to an approved SDK evidence baseline.
+  - Superseded examples are not normal navigation targets.
+  - Security assurance is distinct from CP-ladder control evidence.

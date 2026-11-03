@@ -1,0 +1,636 @@
+{
+  "case_count": 24,
+  "cases": [
+    {
+      "case_id": "CASE-001",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 17264.94,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "GBR",
+          "NLD",
+          "USA"
+        ],
+        "deposit_window_days_measured": 5
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0057",
+      "txn_ids": [
+        "TXN-004290",
+        "TXN-004292",
+        "TXN-004298",
+        "TXN-004299"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-002",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 12529.0,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "DEU",
+          "IMN",
+          "MHL"
+        ],
+        "deposit_window_days_measured": 2
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0060",
+      "txn_ids": [
+        "TXN-004264",
+        "TXN-004265",
+        "TXN-004268",
+        "TXN-004269"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-003",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 20504.21,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "GBR",
+          "HKG",
+          "JPN"
+        ],
+        "deposit_window_days_measured": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0075",
+      "txn_ids": [
+        "TXN-004207",
+        "TXN-004211",
+        "TXN-004212",
+        "TXN-004214"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-004",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 20551.43,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "HKG",
+          "MLT",
+          "SGP"
+        ],
+        "deposit_window_days_measured": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0141",
+      "txn_ids": [
+        "TXN-004174",
+        "TXN-004175",
+        "TXN-004176",
+        "TXN-004179"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-005",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 18069.93,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "CHE",
+          "JEY",
+          "MHL"
+        ],
+        "deposit_window_days_measured": 1
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0193",
+      "txn_ids": [
+        "TXN-004178",
+        "TXN-004180",
+        "TXN-004181",
+        "TXN-004183"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-006",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "aggregated_out_usd": 9855.39,
+        "deposit_count": 3,
+        "deposit_locations": [
+          "AUS",
+          "SGP",
+          "VGB"
+        ],
+        "deposit_window_days_measured": 2
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0200",
+      "txn_ids": [
+        "TXN-004188",
+        "TXN-004189",
+        "TXN-004192",
+        "TXN-004193"
+      ],
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "case_id": "CASE-007",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 1294693.29,
+        "intermediaries": [
+          "AMLP-0109"
+        ],
+        "ownership_hops": 2,
+        "purchase_usd": 1233041.23,
+        "seller": "AMLP-0060"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 2,
+      "subject_party": "AMLP-0036",
+      "txn_ids": [
+        "TXN-004335",
+        "TXN-004342"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-008",
+      "depth_three_counterparty": "AMLP-0166",
+      "pattern": {
+        "chain": [
+          "AMLP-0049",
+          "AMLP-0003",
+          "AMLP-0005",
+          "AMLP-0166"
+        ],
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 1363352.14,
+        "intermediaries": [
+          "AMLP-0003",
+          "AMLP-0005"
+        ],
+        "ownership_hops": 3,
+        "purchase_usd": 1298430.61,
+        "seller": "AMLP-0166"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 3,
+      "subject_party": "AMLP-0049",
+      "txn_ids": [
+        "TXN-004317",
+        "TXN-004318",
+        "TXN-004330"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-009",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 762967.2,
+        "intermediaries": [
+          "AMLP-0082"
+        ],
+        "ownership_hops": 3,
+        "purchase_usd": 726635.43,
+        "seller": "AMLP-0106"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 2,
+      "subject_party": "AMLP-0074",
+      "txn_ids": [
+        "TXN-004099",
+        "TXN-004101"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-010",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 1867013.44,
+        "intermediaries": [
+          "AMLP-0016"
+        ],
+        "ownership_hops": 6,
+        "purchase_usd": 1778108.04,
+        "seller": "AMLP-0049"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 2,
+      "subject_party": "AMLP-0082",
+      "txn_ids": [
+        "TXN-004166",
+        "TXN-004168"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-011",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 1868484.33,
+        "intermediaries": [
+          "AMLP-0074"
+        ],
+        "ownership_hops": 4,
+        "purchase_usd": 1779508.89,
+        "seller": "AMLP-0142"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 2,
+      "subject_party": "AMLP-0180",
+      "txn_ids": [
+        "TXN-004294",
+        "TXN-004303"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-012",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "financing_leg": false,
+        "funded_by_upstream_transfer_usd": 1046089.14,
+        "intermediaries": [
+          "AMLP-0082"
+        ],
+        "ownership_hops": 2,
+        "purchase_usd": 996275.37,
+        "seller": "AMLP-0110"
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 2,
+      "subject_party": "AMLP-0192",
+      "txn_ids": [
+        "TXN-004146",
+        "TXN-004151"
+      ],
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "case_id": "CASE-013",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "wire_transfer",
+        "in_band_transactions": 6,
+        "window_days_measured": 9
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0012",
+      "txn_ids": [
+        "TXN-004271",
+        "TXN-004274",
+        "TXN-004275",
+        "TXN-004276",
+        "TXN-004277",
+        "TXN-004278"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-014",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "wire_transfer",
+        "in_band_transactions": 4,
+        "window_days_measured": 6
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0023",
+      "txn_ids": [
+        "TXN-004132",
+        "TXN-004135",
+        "TXN-004137",
+        "TXN-004138"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-015",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "wire_transfer",
+        "in_band_transactions": 4,
+        "window_days_measured": 5
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0054",
+      "txn_ids": [
+        "TXN-004326",
+        "TXN-004331",
+        "TXN-004332",
+        "TXN-004336"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-016",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "check_payment",
+        "in_band_transactions": 4,
+        "window_days_measured": 10
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0071",
+      "txn_ids": [
+        "TXN-004333",
+        "TXN-004337",
+        "TXN-004338",
+        "TXN-004339"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-017",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "wire_transfer",
+        "in_band_transactions": 6,
+        "window_days_measured": 6
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0140",
+      "txn_ids": [
+        "TXN-004106",
+        "TXN-004108",
+        "TXN-004112",
+        "TXN-004114",
+        "TXN-004115",
+        "TXN-004116"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-018",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "band_usd": [
+          8000.0,
+          9900.0
+        ],
+        "channel_used": "wire_transfer",
+        "in_band_transactions": 6,
+        "window_days_measured": 8
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0175",
+      "txn_ids": [
+        "TXN-004323",
+        "TXN-004324",
+        "TXN-004325",
+        "TXN-004327",
+        "TXN-004328",
+        "TXN-004329"
+      ],
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "case_id": "CASE-019",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0077",
+        "shipment_variance": [
+          {
+            "value_date": "2025-08-25",
+            "variance_pct": 73.3
+          },
+          {
+            "value_date": "2025-09-23",
+            "variance_pct": 41.68
+          },
+          {
+            "value_date": "2025-10-20",
+            "variance_pct": 83.68
+          }
+        ],
+        "shipments": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0007",
+      "txn_ids": [
+        "TXN-004186",
+        "TXN-004187",
+        "TXN-004201",
+        "TXN-004202",
+        "TXN-004216",
+        "TXN-004217"
+      ],
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "case_id": "CASE-020",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0049",
+        "shipment_variance": [
+          {
+            "value_date": "2026-01-06",
+            "variance_pct": 105.89
+          },
+          {
+            "value_date": "2026-01-29",
+            "variance_pct": 39.94
+          }
+        ],
+        "shipments": 2
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0150",
+      "txn_ids": [
+        "TXN-004256",
+        "TXN-004257",
+        "TXN-004266",
+        "TXN-004267"
+      ],
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "case_id": "CASE-021",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0168",
+        "shipment_variance": [
+          {
+            "value_date": "2025-07-28",
+            "variance_pct": 41.97
+          },
+          {
+            "value_date": "2025-08-27",
+            "variance_pct": 57.02
+          },
+          {
+            "value_date": "2025-09-02",
+            "variance_pct": 87.35
+          }
+        ],
+        "shipments": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0151",
+      "txn_ids": [
+        "TXN-004164",
+        "TXN-004165",
+        "TXN-004190",
+        "TXN-004191",
+        "TXN-004194",
+        "TXN-004195"
+      ],
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "case_id": "CASE-022",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0199",
+        "shipment_variance": [
+          {
+            "value_date": "2025-04-10",
+            "variance_pct": 50.47
+          },
+          {
+            "value_date": "2025-05-22",
+            "variance_pct": 94.65
+          }
+        ],
+        "shipments": 2
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0178",
+      "txn_ids": [
+        "TXN-004118",
+        "TXN-004119",
+        "TXN-004133",
+        "TXN-004134"
+      ],
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "case_id": "CASE-023",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0016",
+        "shipment_variance": [
+          {
+            "value_date": "2025-10-22",
+            "variance_pct": 69.7
+          },
+          {
+            "value_date": "2025-11-11",
+            "variance_pct": 37.75
+          },
+          {
+            "value_date": "2025-12-13",
+            "variance_pct": 44.41
+          }
+        ],
+        "shipments": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0185",
+      "txn_ids": [
+        "TXN-004219",
+        "TXN-004220",
+        "TXN-004228",
+        "TXN-004229",
+        "TXN-004246",
+        "TXN-004247"
+      ],
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "case_id": "CASE-024",
+      "depth_three_counterparty": null,
+      "pattern": {
+        "double_invoice": true,
+        "importer": "AMLP-0089",
+        "shipment_variance": [
+          {
+            "value_date": "2025-09-08",
+            "variance_pct": 112.04
+          },
+          {
+            "value_date": "2025-10-22",
+            "variance_pct": 63.24
+          },
+          {
+            "value_date": "2025-11-03",
+            "variance_pct": 69.73
+          }
+        ],
+        "shipments": 3
+      },
+      "provenance": "synthetic — engineered",
+      "requires_depth": 1,
+      "subject_party": "AMLP-0186",
+      "txn_ids": [
+        "TXN-004197",
+        "TXN-004198",
+        "TXN-004221",
+        "TXN-004222",
+        "TXN-004226",
+        "TXN-004227"
+      ],
+      "typology_id": "TYP-TBML"
+    }
+  ],
+  "generated_for": "Wave 17 Task 11 — engineered typology cases injected into the Task 10 transaction population. Every threshold is read from wave17_typologies.json at run time.",
+  "injected_transaction_count": 263,
+  "ordinary_transaction_count": 4095,
+  "provenance": "synthetic — engineered",
+  "seed": 170110
+}

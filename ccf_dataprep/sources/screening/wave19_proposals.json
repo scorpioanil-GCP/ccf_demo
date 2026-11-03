@@ -1,0 +1,40 @@
+{
+  "proposals": [
+    {
+      "proposal_id": "PROP-B3BS7ACMDUWISF18KY76-BREACHES",
+      "subject_lei": "B3BS7ACMDUWISF18KY76",
+      "label": "Bausch Health Companies Inc.",
+      "facility_type": "Term Loan",
+      "commitment_amount": "75000000000",
+      "currency": "USD",
+      "is_hypothetical": true,
+      "expected_outcome": "breaches",
+      "provenance": "synthetic — engineered",
+      "existing_group_members": [
+        "335800AZT6EBS5WNGK55",
+        "549300JPRACCHT4C0232",
+        "549300NY6OZM39SO6475",
+        "894500KLOKHY6FFDSA39",
+        "B3BS7ACMDUWISF18KY76"
+      ],
+      "existing_exposure_usd": 16014775000.0,
+      "existing_collateral_usd": 12584879292.378
+    },
+    {
+      "proposal_id": "PROP-549300EQD0ZXRSMG3549-FITS_AFTER_MITIGATION",
+      "subject_lei": "549300EQD0ZXRSMG3549",
+      "label": "TransDigm Group Inc",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": "59400000000",
+      "currency": "USD",
+      "is_hypothetical": true,
+      "expected_outcome": "fits_after_mitigation",
+      "provenance": "synthetic — engineered",
+      "existing_group_members": [
+        "549300EQD0ZXRSMG3549"
+      ],
+      "existing_exposure_usd": 14600000000.0,
+      "existing_collateral_usd": 12898951671.5415
+    }
+  ]
+}

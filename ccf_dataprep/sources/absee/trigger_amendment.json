@@ -1,0 +1,16 @@
+{
+  "deal_id": "SDART-2022-6",
+  "trigger_id": "SDART-2022-6-delinquency",
+  "effective_from": "2025-11-01",
+  "asserted_at": "2026-01-11",
+  "new_threshold": "13.50",
+  "provenance": "synthetic — engineered",
+  "passage_anchor": null,
+  "label": "Delinquency Trigger (amended)",
+  "rationale": "Engineered so as-of and known-as-of evaluation diverge. Auto ABS triggers are fixed at issuance; no real amendment exists to load. The threshold sits just above the deal's observed delinquency maximum in the window, so proximity narrows without breaching.",
+  "prior_threshold": "24.00",
+  "observed_peak_percent": "11.30",
+  "observed_peak_period": "2025-11",
+  "headroom_over_peak": "2.20",
+  "lag_days": 71
+}

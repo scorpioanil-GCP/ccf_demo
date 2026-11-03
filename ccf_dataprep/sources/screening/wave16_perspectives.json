@@ -1,0 +1,668 @@
+{
+ "perspectives": [
+  {
+   "perspective_id": "PSP-MA",
+   "label": "M&A originator",
+   "ranks_on": "strategic catalyst, sponsor activity, sector consolidation",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "label": "DCM banker",
+   "ranks_on": "maturity walls, refinancing windows, rate sensitivity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "label": "sector strategist",
+   "ranks_on": "thematic movement across the sector",
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "signal_classes": [
+  {
+   "signal_type": "activist_stake_13d",
+   "half_life_days": 30,
+   "note": "SE: catalyst value decays as the market absorbs it"
+  },
+  {
+   "signal_type": "ma_event_8k",
+   "half_life_days": 14,
+   "note": "SE"
+  },
+  {
+   "signal_type": "merger_proxy",
+   "half_life_days": 30,
+   "note": "deal terms filed"
+  },
+  {
+   "signal_type": "registration_s4",
+   "half_life_days": 30,
+   "note": "merger registration"
+  },
+  {
+   "signal_type": "insider_activity_form4",
+   "half_life_days": 14,
+   "note": "insider transactions"
+  },
+  {
+   "signal_type": "institutional_positioning_13f",
+   "half_life_days": 90,
+   "note": "quarterly filing cadence sets the floor"
+  },
+  {
+   "signal_type": "maturity_wall",
+   "half_life_days": 90,
+   "note": "SE"
+  },
+  {
+   "signal_type": "spread_trajectory",
+   "half_life_days": 1,
+   "note": "SE"
+  },
+  {
+   "signal_type": "sector_news_gdelt",
+   "half_life_days": 7,
+   "note": "SE"
+  },
+  {
+   "signal_type": "gov_revenue_concentration",
+   "half_life_days": 180,
+   "note": "contract awards move slowly"
+  },
+  {
+   "signal_type": "banker_local_note",
+   "half_life_days": 60,
+   "note": "SD step 6: local knowledge the fabric must reach"
+  }
+ ],
+ "weights": [
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v1",
+   "weight": 0.45,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "banker_local_note",
+   "weight_version": "v1",
+   "weight": 0.6,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v1",
+   "weight": 0.2,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v1",
+   "weight": 0.85,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v1",
+   "weight": 0.4,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v1",
+   "weight": 0.9,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "maturity_wall",
+   "weight_version": "v1",
+   "weight": 0.05,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "merger_proxy",
+   "weight_version": "v1",
+   "weight": 0.55,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "registration_s4",
+   "weight_version": "v1",
+   "weight": 0.75,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v1",
+   "weight": 0.3,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v1",
+   "weight": 0.05,
+   "rationale": "pre-2026 policy: activist stakes under-weighted",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v1",
+   "weight": 0.1,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "banker_local_note",
+   "weight_version": "v1",
+   "weight": 0.6,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v1",
+   "weight": 0.1,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v1",
+   "weight": 0.1,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v1",
+   "weight": 0.25,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v1",
+   "weight": 0.2,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "maturity_wall",
+   "weight_version": "v1",
+   "weight": 0.8,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "merger_proxy",
+   "weight_version": "v1",
+   "weight": 0.15,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "registration_s4",
+   "weight_version": "v1",
+   "weight": 0.4,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v1",
+   "weight": 0.15,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v1",
+   "weight": 0.5,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v1",
+   "weight": 0.35,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "banker_local_note",
+   "weight_version": "v1",
+   "weight": 0.3,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v1",
+   "weight": 0.35,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v1",
+   "weight": 0.25,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v1",
+   "weight": 0.9,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v1",
+   "weight": 0.4,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "maturity_wall",
+   "weight_version": "v1",
+   "weight": 0.3,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "merger_proxy",
+   "weight_version": "v1",
+   "weight": 0.4,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "registration_s4",
+   "weight_version": "v1",
+   "weight": 0.3,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v1",
+   "weight": 0.6,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v1",
+   "weight": 0.45,
+   "rationale": "pre-2026 policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v2",
+   "weight": 1.0,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "banker_local_note",
+   "weight_version": "v2",
+   "weight": 0.6,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v2",
+   "weight": 0.2,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v2",
+   "weight": 0.5,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v2",
+   "weight": 0.4,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v2",
+   "weight": 0.9,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "maturity_wall",
+   "weight_version": "v2",
+   "weight": 0.05,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "merger_proxy",
+   "weight_version": "v2",
+   "weight": 0.85,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "registration_s4",
+   "weight_version": "v2",
+   "weight": 0.75,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v2",
+   "weight": 0.3,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-MA",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v2",
+   "weight": 0.05,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v2",
+   "weight": 0.1,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "banker_local_note",
+   "weight_version": "v2",
+   "weight": 0.6,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v2",
+   "weight": 0.3,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v2",
+   "weight": 0.1,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v2",
+   "weight": 0.25,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v2",
+   "weight": 0.2,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "maturity_wall",
+   "weight_version": "v2",
+   "weight": 1.0,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "merger_proxy",
+   "weight_version": "v2",
+   "weight": 0.15,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "registration_s4",
+   "weight_version": "v2",
+   "weight": 0.4,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v2",
+   "weight": 0.15,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-DCM",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v2",
+   "weight": 0.9,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "activist_stake_13d",
+   "weight_version": "v2",
+   "weight": 0.35,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "banker_local_note",
+   "weight_version": "v2",
+   "weight": 0.3,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "gov_revenue_concentration",
+   "weight_version": "v2",
+   "weight": 0.35,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "insider_activity_form4",
+   "weight_version": "v2",
+   "weight": 0.25,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "institutional_positioning_13f",
+   "weight_version": "v2",
+   "weight": 0.7,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "ma_event_8k",
+   "weight_version": "v2",
+   "weight": 0.4,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "maturity_wall",
+   "weight_version": "v2",
+   "weight": 0.3,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "merger_proxy",
+   "weight_version": "v2",
+   "weight": 0.4,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "registration_s4",
+   "weight_version": "v2",
+   "weight": 0.3,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "sector_news_gdelt",
+   "weight_version": "v2",
+   "weight": 1.0,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "perspective_id": "PSP-SECTOR",
+   "signal_type": "spread_trajectory",
+   "weight_version": "v2",
+   "weight": 0.45,
+   "rationale": "2026 origination policy",
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "projection_plans": [
+  {
+   "projection_plan_id": "PP-IB-MA-v1",
+   "perspective_id": "PSP-MA",
+   "plan_version": "v1",
+   "permitted_signal_types": [
+    "activist_stake_13d",
+    "banker_local_note",
+    "gov_revenue_concentration",
+    "insider_activity_form4",
+    "institutional_positioning_13f",
+    "ma_event_8k",
+    "maturity_wall",
+    "merger_proxy",
+    "registration_s4",
+    "sector_news_gdelt",
+    "spread_trajectory"
+   ],
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "projection_plan_id": "PP-IB-DCM-v1",
+   "perspective_id": "PSP-DCM",
+   "plan_version": "v1",
+   "permitted_signal_types": [
+    "activist_stake_13d",
+    "banker_local_note",
+    "gov_revenue_concentration",
+    "insider_activity_form4",
+    "institutional_positioning_13f",
+    "ma_event_8k",
+    "maturity_wall",
+    "merger_proxy",
+    "registration_s4",
+    "sector_news_gdelt",
+    "spread_trajectory"
+   ],
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "projection_plan_id": "PP-IB-SECTOR-v1",
+   "perspective_id": "PSP-SECTOR",
+   "plan_version": "v1",
+   "permitted_signal_types": [
+    "activist_stake_13d",
+    "banker_local_note",
+    "gov_revenue_concentration",
+    "insider_activity_form4",
+    "institutional_positioning_13f",
+    "ma_event_8k",
+    "maturity_wall",
+    "merger_proxy",
+    "registration_s4",
+    "sector_news_gdelt",
+    "spread_trajectory"
+   ],
+   "provenance": "synthetic \u2014 internal"
+  }
+ ]
+}

@@ -1,0 +1,55 @@
+version: 3
+status: release-candidate
+qualified_sdk: ff470d400976815e9a1e49176ca51f97e4e691b1
+
+landing: 05-reference/README.md
+
+learning_paths:
+  client_developer:
+    landing: 05-reference/01-client-developer/README.md
+    hello_world: 05-reference/01-client-developer/01-hello-world.md
+    productclient_result: 05-reference/01-client-developer/02-productclient-and-result.md
+    transports: 05-reference/01-client-developer/03-inprocess-vs-mcp.md
+    harnesses: 05-reference/01-client-developer/04-agent-harnesses.md
+
+  context_product_producer:
+    landing: 05-reference/02-context-product-producer/README.md
+    how_to_read_example: 05-reference/02-context-product-producer/00-how-to-read-an-example.md
+    examples_root: 05-reference/02-context-product-producer/examples
+    sequence: cp00_through_cp24
+    rule: >-
+      Shipped CP examples start from their completed approved specification.
+      Learners read the README and spec before the implementation.
+
+  decision_replay:
+    landing: 05-reference/03-decision-replay/README.md
+    dr01: 05-reference/03-decision-replay/DR01_REPLAY_A_GOVERNED_DETERMINATION.md
+    dr02: 05-reference/03-decision-replay/DR02_PACKAGE_A_CONTEXT_PRODUCT.md
+    technical_reference: 05-reference/05-technical-reference/DECISION_REPLAY.md
+    rule: >-
+      DR-01 and DR-02 are final capabilities exercised over Context Products.
+      They do not extend the CP-00 through CP-24 ladder.
+
+  create_your_own:
+    landing: 05-reference/04-create-your-own/README.md
+    standard: 05-reference/04-create-your-own/01-standard-and-specification.md
+    ai_spec: 05-reference/04-create-your-own/02-ai-assisted-spec.md
+    spec_to_code: 05-reference/04-create-your-own/03-spec-to-code-map.md
+    ai_codegen: 05-reference/04-create-your-own/04-ai-assisted-codegen.md
+    validation_gate2: 05-reference/04-create-your-own/05-validation-and-gate2.md
+    paved_road_example: 05-reference/04-create-your-own/06-paved-road-codegen-example.md
+    end_to_end: 05-reference/04-create-your-own/07-end-to-end-cowork-workflow.md
+
+  technical_reference:
+    landing: 05-reference/05-technical-reference/README.md
+    decision_replay: 05-reference/05-technical-reference/DECISION_REPLAY.md
+    api_signatures: 05-reference/05-technical-reference/api/README.md
+    public_surface: 05-reference/05-technical-reference/PUBLIC_SURFACE_INDEX.md
+
+publication_rule:
+  - Consumption comes before production.
+  - Production examples use completed specs; learners do not recreate them.
+  - Decision Replay follows CP-24 as a capability path, not additional CP rungs.
+  - New-product spec authoring is taught only in Create Your Own.
+  - Exact API material is reference, not the learning-path front door.
+  - Qualified current code/tests/examples outrank stale explanatory prose.

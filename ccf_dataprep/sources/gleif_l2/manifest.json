@@ -1,0 +1,17 @@
+{
+  "source": "gleif_l2",
+  "description": "GLEIF Level 2 (RR-CDF) relationship golden copy \u2014 the daily full file of every published entity relationship.",
+  "licence": "GLEIF publishes LEI and relationship data under CC0 1.0.",
+  "fetches": [
+    {
+      "url": "https://goldencopy.gleif.org/storage/golden-copy-files/2026/08/22/1267085/20260822-1600-gleif-goldencopy-rr-golden-copy.csv.zip",
+      "path": "sources/gleif_l2/rr-golden-copy.csv.zip",
+      "retrieved_at": "2026-08-22T19:23:56+00:00",
+      "sha256": "832353a342fb4dda368af62210743e1af9d00fb17f7b6721506bf6960c991d94",
+      "bytes": 24219717,
+      "http_status": 200,
+      "content_type": "application/zip",
+      "notes": ""
+    }
+  ]
+}

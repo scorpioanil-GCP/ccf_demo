@@ -1,0 +1,27 @@
+{
+  "source": "nic_hierarchy",
+  "description": "FFIEC NIC RSSD hierarchy under holding company 1039502 (FDIC BankFind institutions, RSSDHCR filter) and Dearborn's GLEIF LEI record",
+  "licence": "US government work / public register data",
+  "fetches": [
+    {
+      "url": "https://api.fdic.gov/banks/institutions?filters=RSSDHCR:1039502&fields=NAME,CERT,FED_RSSD,ACTIVE,BKCLASS,CHARTER,ESTYMD&limit=100",
+      "path": "sources/nic_hierarchy/fdic_institutions.json",
+      "retrieved_at": "2026-08-27T19:23:40+00:00",
+      "sha256": "ea4c93d2abbd4900da5b62e23ce5f14341cc4cd8d51cd5636db332d1879df8d5",
+      "bytes": 9030,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gleif.org/api/v1/lei-records?filter%5Bentity.names%5D=JPMorgan%20Chase%20Bank%2C%20Dearborn&page%5Bsize%5D=5",
+      "path": "sources/nic_hierarchy/gleif_dearborn.json",
+      "retrieved_at": "2026-08-27T19:23:41+00:00",
+      "sha256": "85d4e96db11d39e8d0302d33fa824f87f9e6d232e1b6f8148b33756ff7e3295f",
+      "bytes": 16269,
+      "http_status": 200,
+      "content_type": "application/vnd.api+json",
+      "notes": ""
+    }
+  ]
+}

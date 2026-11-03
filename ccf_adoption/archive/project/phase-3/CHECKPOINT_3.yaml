@@ -1,0 +1,14 @@
+checkpoint: 3
+name: CCF Story Approval
+status: APPROVED
+approved_by: David Castillo
+date: 2026-09-13
+branch: phase-3-start-here
+reviewed_commit: c63a520d6f958d26789974573f1e3b9ddb9d10a6
+source_snapshots:
+  ccf: ac81805d0e400da15f860eed8c39a132af3ce945
+notes:
+  - Start Here / CCF Story approved for promotion to main.
+  - Preserve canonical G(E,R,T,P,Pi,L) semantics and L1-L6 layer names.
+  - Keep SDK behavior claims out of Phase 3 unless separately grounded in ccf_code.
+  - Continue link completion in the phase that owns each destination.

@@ -1,0 +1,17 @@
+{
+  "source": "ucc_fl",
+  "description": "Florida Secured Transaction Registry -- UCC-1 financing statements and UCC-3 amendments, organisation-debtor index. Unauthenticated public JSON API.",
+  "licence": "Florida public record. Non-certified search results.",
+  "fetches": [
+    {
+      "url": "https://publicsearchapi.floridaucc.com/search",
+      "path": "sources/ucc_fl/mastec.json",
+      "retrieved_at": "2026-09-10T21:12:00+00:00",
+      "sha256": "a047392471f5a5628b4efb70f09e818870539384676683a2bbcbe4e0f954f64a",
+      "bytes": 103776,
+      "http_status": 200,
+      "content_type": "application/json",
+      "notes": "composed pull: 63 names searched, 61 succeeded, 2 failed; 65 filings; searchCategory=Exact; registry complete through 2026-09-08T04:00:00Z"
+    }
+  ]
+}

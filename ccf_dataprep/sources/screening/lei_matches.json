@@ -1,0 +1,1504 @@
+{
+  "generated_for": "Wave 1 \u2014 GLEIF LEI resolution for anchor cast",
+  "source": "https://api.gleif.org/api/v1/lei-records",
+  "total": 50,
+  "resolved": 45,
+  "bands": {
+    "exact": 44,
+    "poor": 3,
+    "weak": 2,
+    "strong": 1
+  },
+  "matches": [
+    {
+      "cik": 1008654,
+      "sec_name": "TUPPERWARE BRANDS CORP",
+      "tickers": [],
+      "sic": "3089",
+      "seated_for": "core:credit_agreement",
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "gleif_legal_name": "Tupperware Brands Corporation",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2024-01-27T09:38:10Z",
+      "initial_registration_date": "2012-10-31T19:35:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Wilmington",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1375365,
+      "sec_name": "Super Micro Computer, Inc.",
+      "tickers": [
+        "SMCI",
+        "SMCIP"
+      ],
+      "sic": "3571",
+      "seated_for": "core:credit_agreement",
+      "lei": "54930022CZO1N2UGVW07",
+      "gleif_legal_name": "SUPER MICRO COMPUTER, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-02-20T18:01:21Z",
+      "initial_registration_date": "2013-11-02T03:09:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "DOVER",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "549300F16C4PEFXU0S92",
+          "name": "SUPER MICRO COMPUTER B.V.",
+          "score": 0.909
+        },
+        {
+          "lei": "549300ENOEHGKHS76N23",
+          "name": "SUPER MICRO COMPUTER TAIWAN INC.",
+          "score": 0.851
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1166003,
+      "sec_name": "XPO, Inc.",
+      "tickers": [
+        "XPO"
+      ],
+      "sic": "4700",
+      "seated_for": "core:credit_agreement",
+      "lei": "54930096DB9LCLPN7H13",
+      "gleif_legal_name": "XPO, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-15T11:54:45Z",
+      "initial_registration_date": "2014-08-14T01:44:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "DOVER",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "213800ZUZKSWEGWZP459",
+          "name": "XPO HEALTH LIMITED",
+          "score": 0.462
+        },
+        {
+          "lei": "254900M6ROCBRVV4QU15",
+          "name": "XPO TRADING LTD",
+          "score": 0.429
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 885590,
+      "sec_name": "Bausch Health Companies Inc.",
+      "tickers": [
+        "BHC"
+      ],
+      "sic": "2834",
+      "seated_for": "core:credit_agreement",
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "gleif_legal_name": "BAUSCH HEALTH COMPANIES INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-21T20:18:18Z",
+      "initial_registration_date": "2012-06-06T15:52:00Z",
+      "legal_form": "YG5M",
+      "legal_jurisdiction": "CA-BC",
+      "legal_address_country": "CA",
+      "legal_address_city": "Vancouver",
+      "legal_address_region": "CA-BC",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1590895,
+      "sec_name": "Caesars Entertainment, Inc.",
+      "tickers": [
+        "CZR"
+      ],
+      "sic": "7011",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300FA4CTCW903Y781",
+      "gleif_legal_name": "CAESARS ENTERTAINMENT, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2022-08-25T18:59:00Z",
+      "initial_registration_date": "2020-09-28T14:29:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "529900CJT4VQO26ONP04",
+          "name": "Caesars Entertainment Corporation",
+          "score": 1.0
+        },
+        {
+          "lei": "WT53GLWHTG4D2V42T650",
+          "name": "Caesars Entertainment Operating Company, Inc.",
+          "score": 0.808
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1091667,
+      "sec_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "tickers": [
+        "CHTR"
+      ],
+      "sic": "4841",
+      "seated_for": "core:credit_agreement",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "gleif_legal_name": "CHARTER COMMUNICATIONS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-07-29T20:36:52Z",
+      "initial_registration_date": "2012-06-06T15:51:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "549300TPZNMN50BJ3745",
+          "name": "CHARTER COMMUNICATIONS OPERATING, LLC",
+          "score": 0.815
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.279
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1593222,
+      "sec_name": "City Office REIT, Inc.",
+      "tickers": [],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "5493003J7157VP25NL57",
+      "gleif_legal_name": "City Office REIT, Inc.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2016-01-19T09:00:00Z",
+      "initial_registration_date": "2014-03-06T15:33:00Z",
+      "legal_form": "9999",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "Baltimore",
+      "legal_address_region": "US-MD",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.216
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.129
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1574085,
+      "sec_name": "Braemar Hotels & Resorts Inc.",
+      "tickers": [
+        "BHR",
+        "BHR-PB",
+        "BHR-PD"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300JDUUEBN868C776",
+      "gleif_legal_name": "BRAEMAR HOTELS & RESORTS INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2018-12-02T00:31:00Z",
+      "initial_registration_date": "2013-10-23T03:06:00Z",
+      "legal_form": "9999",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1582982,
+      "sec_name": "CareCloud, Inc.",
+      "tickers": [
+        "CCLD"
+      ],
+      "sic": "7372",
+      "seated_for": "core:credit_agreement",
+      "lei": "984500709537ED52D307",
+      "gleif_legal_name": "RIVERSOFT INCORPORATED",
+      "match_score": 0.333,
+      "match_band": "poor",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-06-26T11:09:38Z",
+      "initial_registration_date": "2026-06-26T11:09:36Z",
+      "legal_form": "QJVN",
+      "legal_jurisdiction": "AE-RK",
+      "legal_address_country": "AE",
+      "legal_address_city": "Dubai",
+      "legal_address_region": "AE-DU",
+      "alternatives": [
+        {
+          "lei": "2549001707BBX5BXCW19",
+          "name": "SAFESEA INCORPORATED",
+          "score": 0.25
+        },
+        {
+          "lei": "9845004A7F9PD60C0F49",
+          "name": "DELIFLAIR INCORPORATED",
+          "score": 0.222
+        }
+      ],
+      "accepted": false,
+      "rejection_reason": "match band 'poor' below threshold 'strong'"
+    },
+    {
+      "cik": 723612,
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "tickers": [
+        "CAR"
+      ],
+      "sic": "7510",
+      "seated_for": "core:credit_agreement",
+      "lei": "529900E95812SYWMCE44",
+      "gleif_legal_name": "AVIS BUDGET GROUP, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-02-28T19:05:10Z",
+      "initial_registration_date": "2018-11-23T09:34:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.312
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.308
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1533615,
+      "sec_name": "Chiron Real Estate Inc.",
+      "tickers": [
+        "XRN",
+        "XRN-PA",
+        "XRN-PB"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "8156009715FED9C19E19",
+      "gleif_legal_name": "CHIRON ENERGY REAL ESTATE 02 S.R.L.",
+      "match_score": 0.692,
+      "match_band": "poor",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-03-04T16:07:00Z",
+      "initial_registration_date": "2022-03-04T16:07:00Z",
+      "legal_form": "OV32",
+      "legal_jurisdiction": "IT",
+      "legal_address_country": "IT",
+      "legal_address_city": "MILANO",
+      "legal_address_region": "IT-MI",
+      "alternatives": [
+        {
+          "lei": "815600B762EA6F223557",
+          "name": "CHIRON ENERGY REAL ESTATE S.R.L. PER BREVITA' CRE S.R.L.",
+          "score": 0.507
+        }
+      ],
+      "accepted": false,
+      "rejection_reason": "match band 'poor' below threshold 'strong'"
+    },
+    {
+      "cik": 1022321,
+      "sec_name": "GENESIS ENERGY LP",
+      "tickers": [
+        "GEL"
+      ],
+      "sic": "4610",
+      "seated_for": "core:credit_agreement",
+      "lei": "254900HM1ABRDJ7T5718",
+      "gleif_legal_name": "Genesis Energy Limited",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2026-08-26T10:14:11Z",
+      "initial_registration_date": "2021-06-22T12:36:45Z",
+      "legal_form": "P2R9",
+      "legal_jurisdiction": "NZ",
+      "legal_address_country": "NZ",
+      "legal_address_city": "Auckland",
+      "legal_address_region": "NZ-AUK",
+      "alternatives": [
+        {
+          "lei": "549300VJ5D6MDK138782",
+          "name": "GENESIS ENERGY, L.P.",
+          "score": 0.875
+        },
+        {
+          "lei": "98450037E0B69C0LC295",
+          "name": "GREEN GENESIS ENERGY LLP",
+          "score": 0.737
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1632970,
+      "sec_name": "American Healthcare REIT, Inc.",
+      "tickers": [
+        "AHR"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "2549004GGE2APGNT6O92",
+      "gleif_legal_name": "AMERICAN HEALTHCARE REIT, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2026-10-15T14:36:11Z",
+      "initial_registration_date": "2024-11-15T14:36:11Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [
+        {
+          "lei": "549300MT2BJOE8RTBA12",
+          "name": "AMERICAN HEALTHCARE REIT HOLDINGS, LP",
+          "score": 1.0
+        },
+        {
+          "lei": "54930037JNT49G406255",
+          "name": "GRIFFIN-AMERICAN HEALTHCARE REIT IV HOLDINGS, LP",
+          "score": 0.814
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1466085,
+      "sec_name": "INDEPENDENCE REALTY TRUST, INC.",
+      "tickers": [
+        "IRT"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300Z3L8NU44NQEB29",
+      "gleif_legal_name": "INDEPENDENCE REALTY TRUST, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2023-06-21T11:31:00Z",
+      "initial_registration_date": "2020-03-09T15:34:00Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.217
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.2
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 820313,
+      "sec_name": "AMPHENOL CORP /DE/",
+      "tickers": [
+        "APH"
+      ],
+      "sic": "3678",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300D3L3G0R4U4VT04",
+      "gleif_legal_name": "AMPHENOL CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-01-09T12:57:44Z",
+      "initial_registration_date": "2013-08-06T22:51:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "5493006HM6D1P37XKD33",
+          "name": "AMPHENOL CANADA CORP.",
+          "score": 0.696
+        },
+        {
+          "lei": "549300LLX83STQXIA642",
+          "name": "Amphenol Corporation Master Retirement Trust",
+          "score": 0.4
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1600626,
+      "sec_name": "Peakstone Realty Trust",
+      "tickers": [
+        "PKST"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300EZQXWQI2YL1T80",
+      "gleif_legal_name": "PEAKSTONE REALTY TRUST",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2026-07-15T12:37:47Z",
+      "initial_registration_date": "2015-05-20T01:45:00Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1597033,
+      "sec_name": "Sabre Corp",
+      "tickers": [
+        "SABR"
+      ],
+      "sic": "7370",
+      "seated_for": "core:credit_agreement",
+      "lei": "529900VKCYZW8GZ4WW58",
+      "gleif_legal_name": "SABRE CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2026-11-03T14:29:54Z",
+      "initial_registration_date": "2019-01-03T09:10:48Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "984500E01AC1D45C8794",
+          "name": "SABRE CORPORATION PTY LTD",
+          "score": 0.714
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1585389,
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "tickers": [
+        "SMA"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300EC266625K12S42",
+      "gleif_legal_name": "SMARTSTOP SELF STORAGE REIT, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-01-28T12:39:50Z",
+      "initial_registration_date": "2014-08-29T01:45:00Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.292
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.095
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1260221,
+      "sec_name": "TransDigm Group INC",
+      "tickers": [
+        "TDG"
+      ],
+      "sic": "3728",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300EQD0ZXRSMG3549",
+      "gleif_legal_name": "Transdigm Inc.,",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "NULL",
+      "registration_status": "DUPLICATE",
+      "next_renewal_date": "2014-04-24T17:35:00Z",
+      "initial_registration_date": "2013-04-24T17:37:00Z",
+      "legal_form": "8888",
+      "legal_jurisdiction": "US",
+      "legal_address_country": "US",
+      "legal_address_city": "Cleveland",
+      "legal_address_region": "US-OH",
+      "alternatives": [
+        {
+          "lei": "88Q84GB3X55CF5OC7582",
+          "name": "TRANSDIGM INC.",
+          "score": 1.0
+        },
+        {
+          "lei": "549300JTYP71LZZSE903",
+          "name": "TRANSDIGM UK HOLDINGS LIMITED",
+          "score": 0.857
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1717547,
+      "sec_name": "BrightSpire Capital, Inc.",
+      "tickers": [
+        "BRSP"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300REDWPQ6LWGTI54",
+      "gleif_legal_name": "BRIGHTSPIRE CAPITAL OPERATING COMPANY, LLC",
+      "match_score": 0.792,
+      "match_band": "weak",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2022-04-07T17:55:00Z",
+      "initial_registration_date": "2018-04-10T15:31:00Z",
+      "legal_form": "HZEH",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "254900OWQX222XRHQO96",
+          "name": "LiveKit Incorporated",
+          "score": 0.308
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.25
+        }
+      ],
+      "accepted": false,
+      "rejection_reason": "match band 'weak' below threshold 'strong'"
+    },
+    {
+      "cik": 1534254,
+      "sec_name": "CION Investment Corp",
+      "tickers": [
+        "CION",
+        "CICC",
+        "CICB"
+      ],
+      "sic": "",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300XN70JLF94XKX80",
+      "gleif_legal_name": "CION INVESTMENT CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-24T17:50:57Z",
+      "initial_registration_date": "2021-09-23T21:31:00Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "BALTIMORE",
+      "legal_address_region": "US-MD",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1300514,
+      "sec_name": "LAS VEGAS SANDS CORP",
+      "tickers": [
+        "LVS"
+      ],
+      "sic": "7011",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300DUOO1KXOHPM605",
+      "gleif_legal_name": "LAS VEGAS SANDS CORP.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-08T17:48:04Z",
+      "initial_registration_date": "2019-08-06T14:34:00Z",
+      "legal_form": "8WM4",
+      "legal_jurisdiction": "US-NV",
+      "legal_address_country": "US",
+      "legal_address_city": "CARSON CITY",
+      "legal_address_region": "US-NV",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1389170,
+      "sec_name": "Targa Resources Corp.",
+      "tickers": [
+        "TRGP"
+      ],
+      "sic": "4922",
+      "seated_for": "core:credit_agreement",
+      "lei": "5493003QENHHS261UR94",
+      "gleif_legal_name": "TARGA RESOURCES CORP.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-05-31T21:32:25Z",
+      "initial_registration_date": "2015-06-09T01:37:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1407623,
+      "sec_name": "RETAIL OPPORTUNITY INVESTMENTS CORP",
+      "tickers": [],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300KH0PNTJK9NTE57",
+      "gleif_legal_name": "RETAIL OPPORTUNITY INVESTMENTS PARTNERSHIP, LP",
+      "match_score": 0.833,
+      "match_band": "weak",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2026-01-03T20:35:00Z",
+      "initial_registration_date": "2013-06-06T22:23:00Z",
+      "legal_form": "T91T",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Wilmington",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": false,
+      "rejection_reason": "match band 'weak' below threshold 'strong'"
+    },
+    {
+      "cik": 1538849,
+      "sec_name": "CrossAmerica Partners LP",
+      "tickers": [
+        "CAPL"
+      ],
+      "sic": "5172",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300OUUC900EVOGX10",
+      "gleif_legal_name": "CROSSAMERICA PARTNERS LP",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2024-03-02T13:53:03Z",
+      "initial_registration_date": "2020-03-18T15:33:00Z",
+      "legal_form": "T91T",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1474098,
+      "sec_name": "Pebblebrook Hotel Trust",
+      "tickers": [
+        "PEB",
+        "PEB-PF",
+        "PEB-PE",
+        "PEB-PG",
+        "PEB-PH"
+      ],
+      "sic": "6798",
+      "seated_for": "core:credit_agreement",
+      "lei": "5493004Q1NNH6JXCSI52",
+      "gleif_legal_name": "PEBBLEBROOK HOTEL TRUST",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-10T22:10:29Z",
+      "initial_registration_date": "2018-11-22T15:31:00Z",
+      "legal_form": "HLR4",
+      "legal_jurisdiction": "US-MD",
+      "legal_address_country": "US",
+      "legal_address_city": "LUTHERVILLE TIMONIUM",
+      "legal_address_region": "US-MD",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1306830,
+      "sec_name": "Celanese Corp",
+      "tickers": [
+        "CE"
+      ],
+      "sic": "2820",
+      "seated_for": "core:credit_agreement",
+      "lei": "549300FHJQTDPPN41627",
+      "gleif_legal_name": "CELANESE CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-03-05T18:41:10Z",
+      "initial_registration_date": "2017-04-20T02:12:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "549300HL8ESACQCOXL24",
+          "name": "CELANESE INTERNATIONAL CORPORATION",
+          "score": 1.0
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 948320,
+      "sec_name": "LifeMD, Inc.",
+      "tickers": [
+        "LFMD",
+        "LFMDP"
+      ],
+      "sic": "8011",
+      "seated_for": "core:credit_agreement",
+      "lei": "254900OWQX222XRHQO96",
+      "gleif_legal_name": "LiveKit Incorporated",
+      "match_score": 0.462,
+      "match_band": "poor",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-05-25T11:32:36Z",
+      "initial_registration_date": "2026-05-25T11:32:36Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "CAMDEN",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "9845004A7F9PD60C0F49",
+          "name": "DELIFLAIR INCORPORATED",
+          "score": 0.4
+        },
+        {
+          "lei": "2549001707BBX5BXCW19",
+          "name": "SAFESEA INCORPORATED",
+          "score": 0.308
+        }
+      ],
+      "accepted": false,
+      "rejection_reason": "match band 'poor' below threshold 'strong'"
+    },
+    {
+      "cik": 1398987,
+      "sec_name": "Anywhere Real Estate Inc.",
+      "tickers": [],
+      "sic": "6531",
+      "seated_for": "core:credit_agreement",
+      "lei": "5493004HBTOTE9DI9P12",
+      "gleif_legal_name": "ANYWHERE REAL ESTATE INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2024-05-16T15:10:28Z",
+      "initial_registration_date": "2017-06-13T01:49:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1136869,
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "tickers": [
+        "ZBH"
+      ],
+      "sic": "3842",
+      "seated_for": "core:credit_agreement",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "gleif_legal_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-05-03T18:06:32Z",
+      "initial_registration_date": "2012-06-06T15:56:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.294
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.214
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 15615,
+      "sec_name": "MASTEC INC",
+      "tickers": [
+        "MTZ"
+      ],
+      "sic": "1623",
+      "seated_for": "scarce:acceleration",
+      "lei": "549300TMDIT8WREDOF45",
+      "gleif_legal_name": "MASTEC, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2023-06-22T15:13:00Z",
+      "initial_registration_date": "2015-01-29T15:39:00Z",
+      "legal_form": "TRI2",
+      "legal_jurisdiction": "US-FL",
+      "legal_address_country": "US",
+      "legal_address_city": "TALLAHASSEE",
+      "legal_address_region": "US-FL",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1278027,
+      "sec_name": "B&G Foods, Inc.",
+      "tickers": [
+        "BGS"
+      ],
+      "sic": "2000",
+      "seated_for": "scarce:acceleration",
+      "lei": "549300TRW1LZMDJZAQ78",
+      "gleif_legal_name": "B&G Foods, Inc.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2017-10-24T20:06:00Z",
+      "initial_registration_date": "2016-10-26T01:50:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Wilmington",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "5493008XIFPIXY34GV44",
+          "name": "B&G Foods North America, Inc.",
+          "score": 0.562
+        },
+        {
+          "lei": "5493000TZP6ZHMP10R44",
+          "name": "B&G Foods Manufacturing Mexico, S. de R.L. de C.V.",
+          "score": 0.327
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 50725,
+      "sec_name": "GRIFFON CORP",
+      "tickers": [
+        "GFF"
+      ],
+      "sic": "3442",
+      "seated_for": "scarce:acceleration",
+      "lei": "5493000C2SGNC7ZN3242",
+      "gleif_legal_name": "GRIFFON CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-06-10T20:11:44Z",
+      "initial_registration_date": "2015-08-07T01:40:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "549300UADKERAH43RA92",
+          "name": "GRIFFON PARTNERS OPERATION CORP.",
+          "score": 0.424
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1489096,
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "tickers": [],
+      "sic": "3620",
+      "seated_for": "scarce:acceleration",
+      "lei": "529900ZNZBBLDE77MZ38",
+      "gleif_legal_name": "THERMON GROUP HOLDINGS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2020-04-30T13:51:52Z",
+      "initial_registration_date": "2019-04-30T13:51:52Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.273
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.071
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 105016,
+      "sec_name": "WATSCO INC",
+      "tickers": [
+        "WSO",
+        "WSO-B"
+      ],
+      "sic": "5070",
+      "seated_for": "scarce:acceleration",
+      "lei": "549300F1Y3LN5BX5WN75",
+      "gleif_legal_name": "Watsco, Inc.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2014-04-09T21:23:00Z",
+      "initial_registration_date": "2013-04-09T21:31:00Z",
+      "legal_form": "TRI2",
+      "legal_jurisdiction": "US-FL",
+      "legal_address_country": "US",
+      "legal_address_city": "Tallahassee",
+      "legal_address_region": "US-FL",
+      "alternatives": [
+        {
+          "lei": "54930086ZP6YQRBVWH44",
+          "name": "Watsco Canada, Inc.",
+          "score": 0.632
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1094831,
+      "sec_name": "BGC Group, Inc.",
+      "tickers": [
+        "BGC"
+      ],
+      "sic": "6200",
+      "seated_for": "scarce:acceleration",
+      "lei": "2549001IGRCG4F0RLD36",
+      "gleif_legal_name": "BGC Group, Inc.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2026-09-05T14:52:19Z",
+      "initial_registration_date": "2023-10-05T14:52:19Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "9845003ED395EFA3B526",
+          "name": "BGC GROUP PTE. LTD.",
+          "score": 0.6
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.083
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1005210,
+      "sec_name": "SUBURBAN PROPANE PARTNERS LP",
+      "tickers": [
+        "SPH"
+      ],
+      "sic": "5900",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "gleif_legal_name": "SUBURBAN PROPANE PARTNERS, L.P.",
+      "match_score": 0.926,
+      "match_band": "strong",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2024-06-08T14:42:05Z",
+      "initial_registration_date": "2012-06-27T08:43:00Z",
+      "legal_form": "T91T",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 910406,
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "tickers": [
+        "HAIN"
+      ],
+      "sic": "2000",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "5493000S8QXWHLIXDP75",
+      "gleif_legal_name": "THE HAIN CELESTIAL GROUP, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-02-06T21:59:54Z",
+      "initial_registration_date": "2012-12-06T21:18:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1078271,
+      "sec_name": "EXTREME NETWORKS INC",
+      "tickers": [
+        "EXTR"
+      ],
+      "sic": "3576",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "549300WRECW11X94UB57",
+      "gleif_legal_name": "EXTREME NETWORKS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-07-07T18:09:18Z",
+      "initial_registration_date": "2013-03-08T19:47:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 105132,
+      "sec_name": "WD 40 CO",
+      "tickers": [
+        "WDFC"
+      ],
+      "sic": "2890",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "549300UZHTN0CNKBOB19",
+      "gleif_legal_name": "WD-40 Company",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2018-07-11T22:08:00Z",
+      "initial_registration_date": "2016-08-23T01:44:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Camden",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "2138003OH6E57UMQAM23",
+          "name": "WD-40 COMPANY LIMITED",
+          "score": 1.0
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1423221,
+      "sec_name": "Quanex Building Products CORP",
+      "tickers": [
+        "NX"
+      ],
+      "sic": "3350",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "5493000TL30VL5WOAW87",
+      "gleif_legal_name": "QUANEX BUILDING PRODUCTS CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-08-13T15:05:10Z",
+      "initial_registration_date": "2015-12-23T02:03:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1092796,
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "tickers": [
+        "SWBI"
+      ],
+      "sic": "3480",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "5493004PFHUPOR1PWN79",
+      "gleif_legal_name": "SMITH & WESSON BRANDS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2023-09-06T13:10:00Z",
+      "initial_registration_date": "2013-04-18T00:08:00Z",
+      "legal_form": "8WM4",
+      "legal_jurisdiction": "US-NV",
+      "legal_address_country": "US",
+      "legal_address_city": "Las Vegas",
+      "legal_address_region": "US-NV",
+      "alternatives": [
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.25
+        },
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.235
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 723531,
+      "sec_name": "PAYCHEX INC",
+      "tickers": [
+        "PAYX"
+      ],
+      "sic": "8700",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "529900K900DW6SUBM174",
+      "gleif_legal_name": "Paychex, Inc.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2019-11-02T11:02:44Z",
+      "initial_registration_date": "2018-11-02T11:02:44Z",
+      "legal_form": "8888",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Wilmington",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 78749,
+      "sec_name": "AGILYSYS INC",
+      "tickers": [
+        "AGYS"
+      ],
+      "sic": "7373",
+      "seated_for": "scarce:non_dec_fye",
+      "lei": "5299001XWB5V3B5IPN93",
+      "gleif_legal_name": "AGILYSYS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2020-02-22T08:08:38Z",
+      "initial_registration_date": "2019-02-22T08:08:38Z",
+      "legal_form": "8888",
+      "legal_jurisdiction": "US-OH",
+      "legal_address_country": "US",
+      "legal_address_city": "Columbus",
+      "legal_address_region": "US-OH",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 317788,
+      "sec_name": "Digital Turbine, Inc.",
+      "tickers": [
+        "APPS"
+      ],
+      "sic": "6794",
+      "seated_for": "scarce:restatement",
+      "lei": "549300D0WZR1VI2QGB24",
+      "gleif_legal_name": "DIGITAL TURBINE, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2026-09-13T09:12:10Z",
+      "initial_registration_date": "2013-04-30T09:30:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "Wilmington",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "529900Z6WVU8JWAGRM34",
+          "name": "Digital Turbine Media, Inc.",
+          "score": 0.833
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.167
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 861459,
+      "sec_name": "GRANITE CONSTRUCTION INC",
+      "tickers": [
+        "GVA"
+      ],
+      "sic": "1600",
+      "seated_for": "scarce:restatement",
+      "lei": "549300OM4BWMCIXVCZ39",
+      "gleif_legal_name": "GRANITE CONSTRUCTION INCORPORATED",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "ISSUED",
+      "next_renewal_date": "2027-05-12T13:03:13Z",
+      "initial_registration_date": "2013-06-05T00:42:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 716643,
+      "sec_name": "REGIS CORP",
+      "tickers": [
+        "RGS"
+      ],
+      "sic": "7200",
+      "seated_for": "scarce:restatement",
+      "lei": "5493000Q1S5TJIDIQH89",
+      "gleif_legal_name": "Regis Corporation",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2014-04-19T17:05:00Z",
+      "initial_registration_date": "2013-04-25T16:40:00Z",
+      "legal_form": "8888",
+      "legal_jurisdiction": "US-MN",
+      "legal_address_country": "US",
+      "legal_address_city": "Minneapolis",
+      "legal_address_region": "US-MN",
+      "alternatives": [
+        {
+          "lei": "549300KTIGABTMFF8F41",
+          "name": "Regis Jesuit High School Corporation",
+          "score": 0.345
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 727510,
+      "sec_name": "Viskase Holdings, Inc.",
+      "tickers": [
+        "ENZN"
+      ],
+      "sic": "2836",
+      "seated_for": "scarce:restatement",
+      "lei": "529900VN48L8QCMVPV36",
+      "gleif_legal_name": "VISKASE HOLDINGS, INC.",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2020-03-29T15:32:40Z",
+      "initial_registration_date": "2019-03-29T16:32:40Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [
+        {
+          "lei": "2549009DDQMA6IJTTB95",
+          "name": "Pruvations Inc 401K Inc",
+          "score": 0.364
+        },
+        {
+          "lei": "2549000CDYS5YH6XDR52",
+          "name": "Gazelle.ia Inc. / Gazelle.ai Inc.",
+          "score": 0.214
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "cik": 1059262,
+      "sec_name": "SP Plus Corp",
+      "tickers": [],
+      "sic": "7510",
+      "seated_for": "scarce:restatement",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "gleif_legal_name": "SP PLUS CORPORATION",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2020-05-13T00:18:00Z",
+      "initial_registration_date": "2012-06-06T15:51:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    },
+    {
+      "cik": 1494582,
+      "sec_name": "BOSTON OMAHA Corp",
+      "tickers": [
+        "BOC"
+      ],
+      "sic": "6510",
+      "seated_for": "scarce:restatement",
+      "lei": "54930002FEWTYF4YFF19",
+      "gleif_legal_name": "Boston Omaha Corporation",
+      "match_score": 1.0,
+      "match_band": "exact",
+      "entity_status": "ACTIVE",
+      "registration_status": "LAPSED",
+      "next_renewal_date": "2022-05-14T10:59:00Z",
+      "initial_registration_date": "2016-05-14T01:54:00Z",
+      "legal_form": "XTIQ",
+      "legal_jurisdiction": "US-DE",
+      "legal_address_country": "US",
+      "legal_address_city": "WILMINGTON",
+      "legal_address_region": "US-DE",
+      "alternatives": [],
+      "accepted": true
+    }
+  ]
+}

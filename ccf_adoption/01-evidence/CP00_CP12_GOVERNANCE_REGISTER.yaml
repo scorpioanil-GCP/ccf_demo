@@ -1,0 +1,298 @@
+version: 1
+checkpoint: phase-1c3
+scope: cp-00-through-cp-12
+purpose: >-
+  Machine-readable adoption register for demonstration-data limitations, SDK/control
+  boundaries, backend/substrate quirks, process/metadata-governance conditions, and
+  publication rules. Source specs and issue/gate records remain authoritative for
+  exhaustive TBCs and implementation findings.
+
+baselines:
+  vault:
+    repository: drcastillo/obsidian-vault
+    ref: main
+    commit: e10add2edc85efe8e355844edfecc492bcf9fa65
+  dataprep:
+    repository: drcastillo/ccf_dataprep
+    ref: main
+    commit: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+  sdk:
+    repository: drcastillo/ccf_code
+    ref: main
+    commit: 1a04e565504f712350b51777cfe398be46d5e157
+    latest_approved_rung: cp-12
+
+limitation_classes:
+  demonstration_data:
+    definition: public/reproducible estate substitutes engineered or synthetic-internal values for production-only information
+  sdk_scope:
+    definition: approved SDK baseline deliberately does not provide or does not yet evidence a behavior
+  backend_substrate:
+    definition: concrete database/runtime behavior changes implementation technique without changing the CCF semantic requirement
+  process_metadata:
+    definition: evidence carries historical workflow status, retrospective authoring, canonical-successor, or other governance condition
+
+cross_cutting:
+  - id: F-01
+    class: demonstration_data
+    title: Demonstration values are not production facts
+    publication_rule: preserve public/synthetic-internal/engineered/derived provenance and do not present demo values as facts about a real institution
+  - id: F-02
+    class: demonstration_data
+    title: Engineered condition is not an SDK limitation
+    publication_rule: describe why a fixture was engineered and what mechanism it exercises
+  - id: F-03
+    class: process_metadata
+    title: Historical spec status is not release authority
+    publication_rule: use the pinned approved ccf_code/main baseline as release authority; retain spec frontmatter as workflow evidence
+  - id: F-04
+    class: process_metadata
+    title: CP-00 has no Vault lineage
+    publication_rule: present CP-00 as an SDK/specification warm-up; never invent a whitepaper/Vault origin
+  - id: F-05
+    class: process_metadata
+    title: CP-04 canonical-only
+    publication_rule: use examples/cp-04-canonical-corporate-family-tree; predecessor is historical evidence only
+  - id: F-06
+    class: sdk_scope
+    title: CP-00 through CP-12 do not evidence Assembly Mode 2/3 model-risk controls
+    publication_rule: defer demonstrated model-risk claims until later approved evidence exists
+  - id: F-07
+    class: demonstration_data
+    title: Synthetic policy fixtures do not prove enterprise IAM integration
+    publication_rule: claim the control behavior, not production integration with an institution's IAM/policy stack
+  - id: F-08
+    class: process_metadata
+    title: Curated source estate is read-only evidence
+    publication_rule: reproduction guidance must not mutate source evidence to manufacture expected results
+  - id: F-09
+    class: backend_substrate
+    title: Backend quirks are not CCF semantics
+    publication_rule: keep substrate-specific workarounds in backend/sample-database guidance
+  - id: F-10
+    class: sdk_scope
+    title: Current control boundaries must be adjacent to success claims
+    publication_rule: surface deferred or bounded controls next to the mechanism they qualify
+  - id: F-11
+    class: demonstration_data
+    title: Licensed/unavailable market data requires honest substitution
+    publication_rule: never relabel engineered/decomposed data as TRACE, agency ratings, or another unavailable source
+  - id: F-12
+    class: sdk_scope
+    title: Control evidence is not security assurance
+    publication_rule: Security and Assurance must assess a named later SDK release under its own methodology
+
+control_coverage:
+  provenance_lineage:
+    posture: demonstrated_repeatedly
+    rungs: [cp-00, cp-01, cp-02, cp-03, cp-04, cp-05, cp-06, cp-07, cp-08, cp-09, cp-10, cp-11, cp-12]
+  decision_replay:
+    posture: demonstrated_repeatedly
+    rungs: [cp-00, cp-01, cp-02, cp-03, cp-04, cp-05, cp-06, cp-07, cp-08, cp-09, cp-10, cp-11, cp-12]
+  temporal_validity_freshness:
+    posture: strongly_demonstrated
+    rungs: [cp-00, cp-01, cp-02, cp-03, cp-08, cp-09, cp-10, cp-11, cp-12]
+  entitlement_suppression_policy:
+    posture: demonstrated_enterprise_integration_not_proven
+    rungs: [cp-01, cp-05, cp-06, cp-07]
+  bounded_graph_traversal:
+    posture: demonstrated
+    rungs: [cp-04, cp-05, cp-06, cp-07]
+  context_debt:
+    posture: demonstrated_exact_scoring_change_sensitive
+    rungs: [cp-04, cp-05, cp-06, cp-07, cp-08, cp-09, cp-10, cp-11, cp-12]
+  policy_versioning_intent:
+    posture: demonstrated
+    rungs: [cp-05, cp-06, cp-09, cp-10, cp-11, cp-12]
+  supersession_dependency_invalidation:
+    posture: validated_current_bounded
+    rungs: [cp-11]
+    boundaries: [no_push_recall, no_v1_a2a_invalidation]
+  observation_time_clock_alignment:
+    posture: demonstrated
+    rungs: [cp-12]
+  full_mnpi_information_barrier:
+    posture: deferred_on_this_baseline
+    precursor_rungs: [cp-07]
+  assembly_mode_2_3_model_risk:
+    posture: not_evidenced_here
+    rungs: []
+  production_workflow_hitl:
+    posture: provisional_for_adoption_docs
+    rungs: []
+  security_assurance:
+    posture: separate_future_phase
+    rungs: []
+
+rungs:
+  cp-00:
+    canonical_example: examples/cp-00-institutional-holders
+    limitation_classes: [demonstration_data, process_metadata]
+    data_reality:
+      - quarterly 13F archive rather than live ownership feed
+      - deliberately weak issuer matches exercise match-quality behavior
+    sdk_control_boundary:
+      - low-complexity single-store warm-up; not evidence for multi-store composition
+    process_boundary:
+      - no Vault/whitepaper origin
+    required_disclosure:
+      - label as pre-ladder SDK warm-up
+      - do not present figures as real-company facts
+  cp-01:
+    canonical_example: examples/cp-01-counterparty-reference-snapshot
+    limitation_classes: [demonstration_data, process_metadata]
+    data_reality:
+      - internal client master, crosswalk and principal/jurisdiction records are synthetic-internal
+      - no-LEI population is engineered to demonstrate exclusion risk
+    sdk_control_boundary:
+      - proves identity-authority and suppression behavior, not production IAM integration
+    required_disclosure:
+      - distinguish public legal-entity data from synthetic institutional controls
+  cp-02:
+    canonical_example: examples/cp-02-facility-terms-snapshot
+    limitation_classes: [demonstration_data, process_metadata]
+    data_reality:
+      - balances, undrawn availability, ratings, pricing margins and internal crosswalk are synthetic
+      - known extraction defects remain visible in the demonstration estate
+    sdk_control_boundary:
+      - does not prove production loan-system correctness
+    required_disclosure:
+      - separate filed public terms from invented internal state
+  cp-03:
+    canonical_example: examples/cp-03-obligor-financial-spread
+    limitation_classes: [demonstration_data]
+    data_reality:
+      - internal spreading convention and adjustments are engineered or synthetic
+    sdk_control_boundary:
+      - perspective/policy leg intentionally near-inert
+    required_disclosure:
+      - teach per-claim temporal validity, not production credit methodology
+  cp-04:
+    canonical_example: examples/cp-04-canonical-corporate-family-tree
+    historical_example: examples/cp-04-corporate-family-tree
+    limitation_classes: [demonstration_data, process_metadata]
+    data_reality:
+      - thin graph/relational attribute coverage
+      - engineered cycle and bridging conditions
+    sdk_control_boundary:
+      - Context Debt exposes incomplete coverage; no claim of complete corporate-family truth
+    process_boundary:
+      - canonical successor only
+    required_disclosure:
+      - never route adoption content to historical predecessor
+  cp-05:
+    canonical_example: examples/cp-05-credit-exposure-rollup
+    limitation_classes: [demonstration_data, process_metadata]
+    data_reality:
+      - balances, limits and parts of guarantee/cross-default topology are synthetic or engineered
+    sdk_control_boundary:
+      - proves graph-aware aggregation and intent-bound counting, not production exposure values
+    required_disclosure:
+      - present gross and adjusted evidence side by side
+  cp-06:
+    canonical_example: examples/cp-06-collateral-and-setoff-coverage
+    limitation_classes: [demonstration_data, backend_substrate, process_metadata]
+    data_reality:
+      - valuations, set-off/netting, haircuts and enforceability are substantially synthetic/internal
+    sdk_control_boundary:
+      - does not certify real-jurisdiction legal enforceability
+    backend_boundary:
+      - typed xsd:date writes are not relied upon in the demonstration Fluree build
+      - certain relevant counts are computed client-side because backend count behavior is unreliable
+    process_boundary:
+      - implementation preceded the v0.3 specification; retrospective spec authoring is explicitly disclosed
+    required_disclosure:
+      - keep process deviation and backend quirks explicit and non-generalized
+  cp-07:
+    canonical_example: examples/cp-07-client-360-coverage-graph
+    limitation_classes: [demonstration_data, sdk_scope, backend_substrate]
+    data_reality:
+      - bank-side people, interactions, assignments and deals are synthetic
+    sdk_control_boundary:
+      - need-to-know and fan-out bounds are exercised
+      - full MNPI wall behavior belongs to a later rung
+    backend_boundary:
+      - date handling follows the demonstration backend workaround
+    required_disclosure:
+      - limit and since are correctness bounds, not convenience filters
+      - do not claim full information-barrier implementation
+  cp-08:
+    canonical_example: examples/cp-08-covenant-in-force-as-of
+    limitation_classes: [demonstration_data, sdk_scope]
+    data_reality:
+      - booking lags are engineered
+      - facility, drawdown and internal policy data are synthetic where public equivalents do not exist
+      - covenant terms are not historically versioned in the estate
+    sdk_control_boundary:
+      - bitemporal amendment mechanism is demonstrated; historical term reconstruction is limited by source data
+    required_disclosure:
+      - distinguish valid time from assertion/known time
+      - label covenant terms as unversioned where applicable
+  cp-09:
+    canonical_example: examples/cp-09-treasury-liquidity-position
+    limitation_classes: [demonstration_data, sdk_scope]
+    data_reality:
+      - intraday rate and FX paths are engineered from public daily anchors
+      - balances, limits and mandates are synthetic/internal
+      - holdings leg lacks an observed timestamp in the demonstration estate
+    sdk_control_boundary:
+      - per-signal temporal semantics are demonstrated; missing freshness evidence is surfaced rather than invented
+    required_disclosure:
+      - never describe synthetic ticks as observed market feed
+      - treat half-lives/calibration as illustrative demonstration choices
+  cp-10:
+    canonical_example: examples/cp-10-rating-and-spread-migration
+    limitation_classes: [demonstration_data]
+    data_reality:
+      - no agency ratings
+      - no FINRA TRACE
+      - issuer-specific spread, instruments and internal grade history are engineered or synthetic
+    sdk_control_boundary:
+      - licensing/provenance boundary is part of the example's correctness
+    required_disclosure:
+      - never relabel decomposed spread as TRACE or internal grade as agency rating
+  cp-11:
+    canonical_example: examples/cp-11-credit-surveillance-early-warning
+    limitation_classes: [demonstration_data, sdk_scope, process_metadata]
+    data_reality:
+      - some signal chains and prior-observation anchors are synthetic
+      - no usable per-mention sentiment
+      - no dated Item 4.02 event in the demonstration window
+      - no TRACE; spread leg inherits CP-10 decomposition
+    sdk_control_boundary:
+      - dependency invalidation prevents future re-serving of an obsolete product
+      - no push notification or recall of a copy already held by a consumer
+      - no A2A invalidation rule in v1
+    process_boundary:
+      - original SDK gap was closed; adoption wording must use the final approved mechanism rather than superseded pre-gap prose
+    required_disclosure:
+      - place no-recall and no-A2A boundary beside the invalidation success claim
+  cp-12:
+    canonical_example: examples/cp-12-fx-post-trade-reconciliation
+    limitation_classes: [demonstration_data]
+    data_reality:
+      - timing/genuine-break cases and clock offsets are engineered
+      - public Part 43 data patterns trade structure rather than supplying the designed cases
+    sdk_control_boundary:
+      - no new SDK gap on this rung
+      - does not prove production clock-quality controls
+    required_disclosure:
+      - explain that break magnitude cannot distinguish timing artifacts from genuine errors
+      - preserve engineered-case provenance
+
+publication_contract:
+  required:
+    - pin evidence baseline
+    - identify canonical implementation path and superseded path where one exists
+    - state business decision before SDK mechanism
+    - separate public, synthetic-internal, engineered and derived data
+    - name the control mechanism actually demonstrated
+    - state what the control does not cover
+    - distinguish data, SDK, backend and process limitations
+    - state what the example proves and does not prove
+    - treat historical specification status as workflow evidence, not current release authority
+    - do not promote mechanism evidence into production certification
+    - do not claim Assembly Mode 2/3 model-risk coverage from CP-00 through CP-12
+    - do not claim security assurance from the CP ladder
+    - place known limitations adjacent to the qualified success claim
+    - prefer refusal, TBC or explicit absence over invented completeness

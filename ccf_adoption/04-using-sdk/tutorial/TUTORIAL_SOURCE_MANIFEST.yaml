@@ -1,0 +1,69 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+tutorial: cp01-progressive-assembler
+status: ready-for-review
+adoption_branch: phase-4c-progressive-tutorial
+
+sources:
+  ccf_code:
+    repository: drcastillo/ccf_code
+    commit: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+    approved_state: "CP-13 gated and merged; CP-14 excluded from settled tutorial claims"
+    example_root: examples/cp-01-counterparty-reference-snapshot
+    files:
+      readme: examples/cp-01-counterparty-reference-snapshot/README.md
+      spec: examples/cp-01-counterparty-reference-snapshot/spec/CP-SPEC-001_Counterparty_Reference_Snapshot.md
+      config: examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml
+      backends: examples/cp-01-counterparty-reference-snapshot/backends.yaml
+      caller: examples/cp-01-counterparty-reference-snapshot/run.py
+      assembler: examples/cp-01-counterparty-reference-snapshot/assembler.py
+      spine: examples/cp-01-counterparty-reference-snapshot/produce.py
+      deployment: examples/cp-01-counterparty-reference-snapshot/deployment.py
+    validation:
+      example_command: make example-cp-01
+      quiet_example_command: make -s example-cp-01
+      test_command: .venv/bin/python -m pytest tests/examples/test_cp_01_output.py
+      session_execution_status: not-rerun-by-adoption-session
+      note: >-
+        The tutorial is grounded in the approved runnable example and its documented tests. This adoption session did not have a mounted copy of the private runtime estate and therefore does not claim an independent execution result.
+
+  ccf_dataprep:
+    repository: drcastillo/ccf_dataprep
+    commit: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+    portable_root: portable
+    bundle_docs:
+      readme: portable/bundle/README.md
+      macos: portable/bundle/INSTALL-macos.md
+      ubuntu: portable/bundle/INSTALL-ubuntu.md
+      verifier: portable/verify_install.py
+    cross_repo_confirmation:
+      - "portable/verify_install.py explicitly checks the ccf_v2 PostgreSQL estate and legal_entity/crosswalk landmarks."
+      - "Dataprep contains ccf_v2.principal_jurisdiction entitlement data/validation used by CP-01 policy shaping."
+      - "Dataprep store catalog identifies PostgreSQL schema ccf_v2 as part of the v2 portable estate."
+    known_reproducibility_note: >-
+      The repository records maintenance debt around fixed restore landmarks on a moving append-only estate. A published tutorial run must record the exact bundle snapshot and verifier result rather than treating a historical count as authoritative.
+
+boundaries:
+  composite_context_products:
+    status: excluded
+    reason: >-
+      This single-product tutorial excludes composites. Its original pre-CP14 source pin had only partial composition helpers; current main includes CP-14 and composite replay, documented in the current technical reference.
+  operator_composition:
+    status: included
+    note: "L4 operator composition is not composite Context Product composition."
+  data_reality:
+    note: >-
+      CP-01 combines public legal-entity data with synthetic internal client, crosswalk, and entitlement fixtures.
+  production_iam:
+    status: not_proven
+  assembly_mode:
+    value: 1
+    meaning: algorithmic

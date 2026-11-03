@@ -1,0 +1,166 @@
+{
+ "source": "SEC EDGAR submissions index + Archives",
+ "forms": [
+  "DEFM14A",
+  "PREM14A",
+  "S-4",
+  "S-4/A"
+ ],
+ "window": {
+  "start": "2024-08-19",
+  "end": "2026-08-24"
+ },
+ "s1_excluded_because": "43 lifetime, 0 since 2023 across the anchor set",
+ "documents": [
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "cik": 1091667,
+   "form": "DEFM14A",
+   "accession": "0001140361-25-024665",
+   "filing_date": "2025-07-02",
+   "primary_document": "ny20049200x2_defm14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001091667_0001140361-25-024665_ny20049200x2_defm14a.htm"
+  },
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "cik": 1091667,
+   "form": "PREM14A",
+   "accession": "0001140361-25-022987",
+   "filing_date": "2025-06-18",
+   "primary_document": "ny20049200x1_prem14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001091667_0001140361-25-022987_ny20049200x1_prem14a.htm"
+  },
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "cik": 1091667,
+   "form": "S-4/A",
+   "accession": "0001140361-25-001415",
+   "filing_date": "2025-01-17",
+   "primary_document": "ny20038391x10_s4a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001091667_0001140361-25-001415_ny20038391x10_s4a.htm"
+  },
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "cik": 1091667,
+   "form": "S-4/A",
+   "accession": "0001140361-25-000773",
+   "filing_date": "2025-01-10",
+   "primary_document": "ny20038391x8_s4a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001091667_0001140361-25-000773_ny20038391x8_s4a.htm"
+  },
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "cik": 1091667,
+   "form": "S-4",
+   "accession": "0001140361-24-049322",
+   "filing_date": "2024-12-13",
+   "primary_document": "ny20038391x3_s4.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001091667_0001140361-24-049322_ny20038391x3_s4.htm"
+  },
+  {
+   "lei": "2549001IGRCG4F0RLD36",
+   "cik": 1094831,
+   "form": "S-4",
+   "accession": "0001213900-25-074401",
+   "filing_date": "2025-08-11",
+   "primary_document": "ea0249196-01.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001094831_0001213900-25-074401_ea0249196-01.htm"
+  },
+  {
+   "lei": "529900VN48L8QCMVPV36",
+   "cik": 727510,
+   "form": "S-4/A",
+   "accession": "0001104659-26-008573",
+   "filing_date": "2026-01-30",
+   "primary_document": "tm2521156-9_s4a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0000727510_0001104659-26-008573_tm2521156-9_s4a.htm"
+  },
+  {
+   "lei": "529900VN48L8QCMVPV36",
+   "cik": 727510,
+   "form": "S-4",
+   "accession": "0001104659-26-007463",
+   "filing_date": "2026-01-28",
+   "primary_document": "enzn-20250930xs4.htm",
+   "provenance": "public",
+   "path": "merger_docs/0000727510_0001104659-26-007463_enzn-20250930xs4.htm"
+  },
+  {
+   "lei": "529900ZNZBBLDE77MZ38",
+   "cik": 1489096,
+   "form": "DEFM14A",
+   "accession": "0001104659-26-047723",
+   "filing_date": "2026-04-23",
+   "primary_document": "tm2612301-1_defm14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001489096_0001104659-26-047723_tm2612301-1_defm14a.htm"
+  },
+  {
+   "lei": "5493003J7157VP25NL57",
+   "cik": 1593222,
+   "form": "DEFM14A",
+   "accession": "0001193125-25-198418",
+   "filing_date": "2025-09-08",
+   "primary_document": "d78875ddefm14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001593222_0001193125-25-198418_d78875ddefm14a.htm"
+  },
+  {
+   "lei": "5493003J7157VP25NL57",
+   "cik": 1593222,
+   "form": "PREM14A",
+   "accession": "0001193125-25-186443",
+   "filing_date": "2025-08-22",
+   "primary_document": "d78875dprem14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001593222_0001193125-25-186443_d78875dprem14a.htm"
+  },
+  {
+   "lei": "5493004HBTOTE9DI9P12",
+   "cik": 1398987,
+   "form": "DEFM14A",
+   "accession": "0001628280-25-054793",
+   "filing_date": "2025-12-02",
+   "primary_document": "anywhereredefm14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001398987_0001628280-25-054793_anywhereredefm14a.htm"
+  },
+  {
+   "lei": "549300EZQXWQI2YL1T80",
+   "cik": 1600626,
+   "form": "DEFM14A",
+   "accession": "0001140361-26-009458",
+   "filing_date": "2026-03-16",
+   "primary_document": "ny20064692x2_defm14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001600626_0001140361-26-009458_ny20064692x2_defm14a.htm"
+  },
+  {
+   "lei": "549300EZQXWQI2YL1T80",
+   "cik": 1600626,
+   "form": "PREM14A",
+   "accession": "0001140361-26-008099",
+   "filing_date": "2026-03-05",
+   "primary_document": "ny20064692x1_prem14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001600626_0001140361-26-008099_ny20064692x1_prem14a.htm"
+  },
+  {
+   "lei": "549300FA4CTCW903Y781",
+   "cik": 1590895,
+   "form": "PREM14A",
+   "accession": "0001193125-26-345336",
+   "filing_date": "2026-08-12",
+   "primary_document": "d143368dprem14a.htm",
+   "provenance": "public",
+   "path": "merger_docs/0001590895_0001193125-26-345336_d143368dprem14a.htm"
+  }
+ ]
+}

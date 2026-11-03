@@ -1,0 +1,3443 @@
+{
+  "generated_for": "Wave 5 \u2014 bitemporal covenant layer",
+  "seed": 20260817,
+  "counts": {
+    "covenants": 180,
+    "amendments": 25,
+    "drawdowns": 151,
+    "policy_versions": 2,
+    "breach_events": 2
+  },
+  "engineered_elements": [
+    "FAC-01BB3F amendment 2: effective 2025-08-14, booked 2025-10-05 (52d = 7.4 weeks), drawdown 2025-09-09 in gap",
+    "FAC-2A2C38 amendment 3: effective 2025-09-05, booked 2025-10-19 (44d = 6.3 weeks), drawdown 2025-09-27 in gap",
+    "FAC-405B7A amendment 3: effective 2026-02-04, booked 2026-03-21 (45d = 6.4 weeks), drawdown 2026-02-26 in gap",
+    "FAC-01BB3F leverage breached 2025-05-27, cured, compliant today",
+    "FAC-044206 leverage breached 2025-04-15, cured, compliant today"
+  ],
+  "covenants": [
+    {
+      "facility_id": "FAC-01BB3F",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.07,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.11,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.1,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 45000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144603
+    },
+    {
+      "facility_id": "FAC-044206",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144595
+    },
+    {
+      "facility_id": "FAC-044206",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.53,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.24,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 958357
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 982804
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.12,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 45000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 10000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "public",
+      "source_accession": "0001193125-25-181880",
+      "source_offset": 403681
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.83,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.89,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.34,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246776
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246768
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.17,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.37,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 958357
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 982804
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.13,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 55000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.55,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.17,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.31,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 53000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144603
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144595
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.67,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.49,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 167809
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 440676
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 400245
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 167801
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246776
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246768
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.39,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.4,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.79,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.12,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.18,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 51000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.3,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "public",
+      "source_accession": "0001193125-25-178982",
+      "source_offset": 41515
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.9,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.16,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 59000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.19,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.05,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.16,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 55000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-36D0CC",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "public",
+      "source_accession": "0001193125-26-324888",
+      "source_offset": 442867
+    },
+    {
+      "facility_id": "FAC-36D0CC",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.85,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-36D0CC",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.26,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-36D0CC",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 49000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-385962",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 167809
+    },
+    {
+      "facility_id": "FAC-385962",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 440676
+    },
+    {
+      "facility_id": "FAC-385962",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 400245
+    },
+    {
+      "facility_id": "FAC-385962",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-29",
+      "provenance": "public",
+      "source_accession": "0001104659-26-068522",
+      "source_offset": 167801
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "public",
+      "source_accession": "0001193125-26-161564",
+      "source_offset": 49860
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.96,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.13,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 42000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.3,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "public",
+      "source_accession": "0001193125-25-178982",
+      "source_offset": 41515
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.71,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.42,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 56000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.58,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.17,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 56000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-02-14",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.18,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.22,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.27,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 54000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.3,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "public",
+      "source_accession": "0001193125-25-178982",
+      "source_offset": 41515
+    },
+    {
+      "facility_id": "FAC-427357",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.89,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.34,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 57000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-12",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-15",
+      "provenance": "public",
+      "source_accession": "0001213900-26-057808",
+      "source_offset": 292318
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 4.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-15",
+      "provenance": "public",
+      "source_accession": "0001213900-26-057808",
+      "source_offset": 292597
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.08,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-15",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 45000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-05-15",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.2,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "public",
+      "source_accession": "0001104659-26-046064",
+      "source_offset": 496886
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.1,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.18,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 46000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.19,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.21,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.47,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 47000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144603
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144595
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.6,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.26,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.97,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.99,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.38,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 48000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "public",
+      "source_accession": "0001104659-25-031884",
+      "source_offset": 573237
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.75,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "public",
+      "source_accession": "0001104659-25-031884",
+      "source_offset": 581338
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.24,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 46000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-756912",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "public",
+      "source_accession": "0001193125-26-324888",
+      "source_offset": 442867
+    },
+    {
+      "facility_id": "FAC-756912",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.58,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-756912",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.38,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-756912",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 48000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "public",
+      "source_accession": "0001193125-26-051416",
+      "source_offset": 47437
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.98,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.45,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 43000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144603
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "public",
+      "source_accession": "0000950142-26-001951",
+      "source_offset": 144595
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.56,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.37,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-06-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 7.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 439105
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 441076
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 440814
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 59000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.93,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.68,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.1,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 55000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "public",
+      "source_accession": "0001193125-26-051416",
+      "source_offset": 47437
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.82,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.17,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 55000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "public",
+      "source_accession": "0001104659-25-031884",
+      "source_offset": 573237
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.75,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "public",
+      "source_accession": "0001104659-25-031884",
+      "source_offset": 581338
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.32,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 57000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-04-03",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 10000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "public",
+      "source_accession": "0001193125-25-181880",
+      "source_offset": 403681
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.98,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.29,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.38,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2021-11-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.2,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "public",
+      "source_accession": "0001104659-26-046064",
+      "source_offset": 496886
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.9,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.49,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 54000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-16",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.06,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.05,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.12,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 46000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-11",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246776
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246768
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.21,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.13,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246776
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "covenant_type": "secured_leverage",
+      "direction": "max",
+      "threshold": 4.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "public",
+      "source_accession": "0000950103-26-000052",
+      "source_offset": 246768
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.13,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.43,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-01-02",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-D49042",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "public",
+      "source_accession": "0001193125-26-324888",
+      "source_offset": 442867
+    },
+    {
+      "facility_id": "FAC-D49042",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.11,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-D49042",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.31,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-D49042",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 48000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-07-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 7.25,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 439105
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 441076
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "public",
+      "source_accession": "0001474098-26-000011",
+      "source_offset": 440814
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 57000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2022-10-13",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 958357
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 982804
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.41,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 43000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.5,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 958357
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 3.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "public",
+      "source_accession": "0001193125-25-149731",
+      "source_offset": 982804
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.2,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 56000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-06-26",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.07,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.78,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.19,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 49000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2024-12-19",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 3.43,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.93,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.46,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 43000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2025-08-29",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "covenant_type": "leverage",
+      "direction": "max",
+      "threshold": 4.0,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "public",
+      "source_accession": "0001193125-26-161564",
+      "source_offset": 49860
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "covenant_type": "interest_coverage",
+      "direction": "min",
+      "threshold": 2.87,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "covenant_type": "fixed_charge_coverage",
+      "direction": "min",
+      "threshold": 1.07,
+      "unit": "ratio",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "covenant_type": "minimum_liquidity",
+      "direction": "min",
+      "threshold": 51000000,
+      "unit": "USD",
+      "test_frequency": "fiscal quarter",
+      "effective_from": "2026-04-17",
+      "provenance": "synthetic \u2014 internal",
+      "note": "engineered to reach \u00a7F's >= 4 covenant types per facility; EX-10 extraction yielded fewer"
+    }
+  ],
+  "amendments": [
+    {
+      "facility_id": "FAC-01BB3F",
+      "amendment_number": 1,
+      "effective_date": "2025-05-17",
+      "booked_date": "2025-05-21",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "amendment_number": 2,
+      "effective_date": "2025-08-14",
+      "booked_date": "2025-10-05",
+      "booking_lag_days": 52,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 engineered",
+      "is_engineered_lag": true
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "amendment_number": 1,
+      "effective_date": "2022-04-12",
+      "booked_date": "2022-04-16",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "amendment_number": 1,
+      "effective_date": "2026-08-05",
+      "booked_date": "2026-08-06",
+      "booking_lag_days": 1,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "amendment_number": 1,
+      "effective_date": "2026-01-19",
+      "booked_date": "2026-01-21",
+      "booking_lag_days": 2,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "amendment_number": 1,
+      "effective_date": "2026-01-07",
+      "booked_date": "2026-01-08",
+      "booking_lag_days": 1,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "amendment_number": 2,
+      "effective_date": "2026-06-05",
+      "booked_date": "2026-06-08",
+      "booking_lag_days": 3,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "amendment_number": 1,
+      "effective_date": "2024-11-14",
+      "booked_date": "2024-11-17",
+      "booking_lag_days": 3,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "amendment_number": 2,
+      "effective_date": "2025-03-18",
+      "booked_date": "2025-03-21",
+      "booking_lag_days": 3,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "amendment_number": 3,
+      "effective_date": "2025-09-05",
+      "booked_date": "2025-10-19",
+      "booking_lag_days": 44,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 engineered",
+      "is_engineered_lag": true
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "amendment_number": 1,
+      "effective_date": "2026-05-21",
+      "booked_date": "2026-05-25",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "amendment_number": 1,
+      "effective_date": "2025-02-23",
+      "booked_date": "2025-02-23",
+      "booking_lag_days": 0,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "amendment_number": 2,
+      "effective_date": "2025-07-12",
+      "booked_date": "2025-07-12",
+      "booking_lag_days": 0,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "amendment_number": 3,
+      "effective_date": "2026-02-04",
+      "booked_date": "2026-03-21",
+      "booking_lag_days": 45,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 engineered",
+      "is_engineered_lag": true
+    },
+    {
+      "facility_id": "FAC-427357",
+      "amendment_number": 1,
+      "effective_date": "2026-03-17",
+      "booked_date": "2026-03-18",
+      "booking_lag_days": 1,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "amendment_number": 1,
+      "effective_date": "2025-08-28",
+      "booked_date": "2025-08-28",
+      "booking_lag_days": 0,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "amendment_number": 1,
+      "effective_date": "2025-12-28",
+      "booked_date": "2025-12-28",
+      "booking_lag_days": 0,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "amendment_number": 2,
+      "effective_date": "2026-07-30",
+      "booked_date": "2026-08-01",
+      "booking_lag_days": 2,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "amendment_number": 1,
+      "effective_date": "2026-04-07",
+      "booked_date": "2026-04-07",
+      "booking_lag_days": 0,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "amendment_number": 1,
+      "effective_date": "2023-07-07",
+      "booked_date": "2023-07-11",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "amendment_number": 1,
+      "effective_date": "2026-07-26",
+      "booked_date": "2026-07-30",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "amendment_number": 1,
+      "effective_date": "2025-09-12",
+      "booked_date": "2025-09-14",
+      "booking_lag_days": 2,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "amendment_number": 1,
+      "effective_date": "2022-09-16",
+      "booked_date": "2022-09-20",
+      "booking_lag_days": 4,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "amendment_number": 1,
+      "effective_date": "2023-09-30",
+      "booked_date": "2023-10-03",
+      "booking_lag_days": 3,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "amendment_number": 1,
+      "effective_date": "2025-10-10",
+      "booked_date": "2025-10-12",
+      "booking_lag_days": 2,
+      "effective_date_provenance": "synthetic \u2014 internal",
+      "effective_date_note": "derived by stepping forward from the facility's public effective date; NOT the 8-K Item 1.01 filing date. Amendment COUNT is public; amendment DATES are not.",
+      "booking_date_provenance": "synthetic \u2014 internal",
+      "is_engineered_lag": false
+    }
+  ],
+  "drawdowns": [
+    {
+      "facility_id": "FAC-01BB3F",
+      "drawdown_date": "2025-09-09",
+      "amount": 4500000,
+      "falls_in_booking_gap": true,
+      "amendment_number": 2,
+      "provenance": "synthetic \u2014 engineered",
+      "note": "inside the 52-day gap between amendment 2 effective 2025-08-14 and booked 2025-10-05 \u2014 as_of and known_as_of diverge here"
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "drawdown_date": "2025-02-12",
+      "amount": 3572937,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-01BB3F",
+      "drawdown_date": "2026-03-02",
+      "amount": 4114385,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "drawdown_date": "2026-07-23",
+      "amount": 47055800,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "drawdown_date": "2026-07-31",
+      "amount": 98782175,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "drawdown_date": "2026-07-19",
+      "amount": 113821877,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "drawdown_date": "2026-07-29",
+      "amount": 53516343,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "drawdown_date": "2026-08-08",
+      "amount": 61035604,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "drawdown_date": "2026-03-06",
+      "amount": 368432294,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "drawdown_date": "2025-11-21",
+      "amount": 414039359,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "drawdown_date": "2025-09-13",
+      "amount": 294718465,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "drawdown_date": "2026-01-31",
+      "amount": 398018203,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "drawdown_date": "2024-12-09",
+      "amount": 1854945,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "drawdown_date": "2025-11-11",
+      "amount": 3512606,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "drawdown_date": "2025-12-20",
+      "amount": 5365710,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "drawdown_date": "2026-02-02",
+      "amount": 146368768,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "drawdown_date": "2026-06-12",
+      "amount": 236851197,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "drawdown_date": "2026-07-07",
+      "amount": 207009631,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "drawdown_date": "2026-08-06",
+      "amount": 253891772,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "drawdown_date": "2026-04-23",
+      "amount": 546479008,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "drawdown_date": "2026-03-23",
+      "amount": 277132262,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "drawdown_date": "2026-02-12",
+      "amount": 346889339,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "drawdown_date": "2026-01-20",
+      "amount": 225982842,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "drawdown_date": "2025-09-16",
+      "amount": 426616922,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "drawdown_date": "2025-10-12",
+      "amount": 249602193,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "drawdown_date": "2025-11-30",
+      "amount": 38886547,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "drawdown_date": "2026-03-07",
+      "amount": 36745445,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "drawdown_date": "2026-07-10",
+      "amount": 46355552,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "drawdown_date": "2026-05-18",
+      "amount": 53284847,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "drawdown_date": "2026-07-11",
+      "amount": 28411590,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "drawdown_date": "2026-07-24",
+      "amount": 68826058,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "drawdown_date": "2026-07-15",
+      "amount": 120708399,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "drawdown_date": "2026-07-22",
+      "amount": 161758897,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "drawdown_date": "2026-06-30",
+      "amount": 231254912,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "drawdown_date": "2026-08-04",
+      "amount": 212893891,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "drawdown_date": "2026-06-16",
+      "amount": 123525177,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "drawdown_date": "2026-06-23",
+      "amount": 233369124,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "drawdown_date": "2026-08-03",
+      "amount": 321776600,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "drawdown_date": "2026-07-13",
+      "amount": 481894270,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "drawdown_date": "2026-06-22",
+      "amount": 6794248,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "drawdown_date": "2025-10-25",
+      "amount": 2946664,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "drawdown_date": "2026-03-08",
+      "amount": 7374532,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "drawdown_date": "2025-08-21",
+      "amount": 4441468,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "drawdown_date": "2026-04-25",
+      "amount": 190706397,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "drawdown_date": "2026-01-26",
+      "amount": 482408989,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "drawdown_date": "2025-10-29",
+      "amount": 188169238,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "drawdown_date": "2025-09-27",
+      "amount": 6300000,
+      "falls_in_booking_gap": true,
+      "amendment_number": 3,
+      "provenance": "synthetic \u2014 engineered",
+      "note": "inside the 44-day gap between amendment 3 effective 2025-09-05 and booked 2025-10-19 \u2014 as_of and known_as_of diverge here"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "drawdown_date": "2024-12-11",
+      "amount": 3023208,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "drawdown_date": "2025-09-11",
+      "amount": 4944307,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "drawdown_date": "2024-06-18",
+      "amount": 1691819,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "drawdown_date": "2024-05-08",
+      "amount": 2733229,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-385962",
+      "drawdown_date": "2026-07-11",
+      "amount": 216164238,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-385962",
+      "drawdown_date": "2026-06-25",
+      "amount": 243122434,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "drawdown_date": "2026-08-11",
+      "amount": 1010238040,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "drawdown_date": "2026-07-26",
+      "amount": 566433494,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "drawdown_date": "2026-03-26",
+      "amount": 244677037,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "drawdown_date": "2026-03-28",
+      "amount": 537775449,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "drawdown_date": "2026-08-06",
+      "amount": 333579883,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "drawdown_date": "2026-02-26",
+      "amount": 99000000,
+      "falls_in_booking_gap": true,
+      "amendment_number": 3,
+      "provenance": "synthetic \u2014 engineered",
+      "note": "inside the 45-day gap between amendment 3 effective 2026-02-04 and booked 2026-03-21 \u2014 as_of and known_as_of diverge here"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "drawdown_date": "2025-07-06",
+      "amount": 44038851,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "drawdown_date": "2025-05-16",
+      "amount": 59564405,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "drawdown_date": "2026-07-28",
+      "amount": 121214735,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "drawdown_date": "2025-12-05",
+      "amount": 199991666,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "drawdown_date": "2026-07-28",
+      "amount": 116207053,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "drawdown_date": "2026-04-16",
+      "amount": 99150733,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-427357",
+      "drawdown_date": "2026-06-05",
+      "amount": 106013751,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "drawdown_date": "2026-07-19",
+      "amount": 4242334,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "drawdown_date": "2026-06-06",
+      "amount": 3927309,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "drawdown_date": "2026-06-02",
+      "amount": 3558059,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "drawdown_date": "2026-07-10",
+      "amount": 5942741,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "drawdown_date": "2026-05-05",
+      "amount": 952166,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "drawdown_date": "2026-07-03",
+      "amount": 4299629,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "drawdown_date": "2026-06-12",
+      "amount": 3701279,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "drawdown_date": "2025-02-05",
+      "amount": 1663146,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "drawdown_date": "2026-01-28",
+      "amount": 2250142,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "drawdown_date": "2025-09-23",
+      "amount": 2427724,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "drawdown_date": "2025-05-03",
+      "amount": 2732981,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "drawdown_date": "2025-08-23",
+      "amount": 1761142,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "drawdown_date": "2026-07-24",
+      "amount": 213762896,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "drawdown_date": "2026-07-20",
+      "amount": 425849590,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "drawdown_date": "2026-08-06",
+      "amount": 416242401,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "drawdown_date": "2026-08-06",
+      "amount": 135753067,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "drawdown_date": "2026-07-29",
+      "amount": 317850669,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "drawdown_date": "2025-09-14",
+      "amount": 18309053,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "drawdown_date": "2026-06-25",
+      "amount": 11297742,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "drawdown_date": "2026-05-20",
+      "amount": 49072058,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "drawdown_date": "2025-08-11",
+      "amount": 22758732,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "drawdown_date": "2026-04-06",
+      "amount": 46379312,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "drawdown_date": "2026-06-14",
+      "amount": 106186403,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "drawdown_date": "2025-09-23",
+      "amount": 54837102,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "drawdown_date": "2026-07-01",
+      "amount": 272815057,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "drawdown_date": "2026-05-12",
+      "amount": 505274067,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "drawdown_date": "2026-08-09",
+      "amount": 320614463,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "drawdown_date": "2026-08-05",
+      "amount": 39571896,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "drawdown_date": "2026-07-27",
+      "amount": 21707164,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "drawdown_date": "2022-11-29",
+      "amount": 2136422,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "drawdown_date": "2026-02-24",
+      "amount": 2080761,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "drawdown_date": "2022-10-31",
+      "amount": 1876146,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "drawdown_date": "2023-06-03",
+      "amount": 553958,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "drawdown_date": "2026-05-25",
+      "amount": 2277787,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "drawdown_date": "2026-06-10",
+      "amount": 2047591,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "drawdown_date": "2025-11-21",
+      "amount": 1662429,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "drawdown_date": "2026-02-14",
+      "amount": 3017413,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "drawdown_date": "2026-08-09",
+      "amount": 5034680,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "drawdown_date": "2026-07-02",
+      "amount": 232692762,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "drawdown_date": "2026-05-05",
+      "amount": 433605835,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "drawdown_date": "2026-03-08",
+      "amount": 63172270,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "drawdown_date": "2026-05-20",
+      "amount": 14439583,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "drawdown_date": "2026-02-27",
+      "amount": 12110297,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "drawdown_date": "2026-06-28",
+      "amount": 23803641,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "drawdown_date": "2023-11-14",
+      "amount": 12993146,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "drawdown_date": "2024-12-26",
+      "amount": 23745705,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "drawdown_date": "2026-05-03",
+      "amount": 44695465,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "drawdown_date": "2026-05-13",
+      "amount": 43308842,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "drawdown_date": "2026-06-30",
+      "amount": 41165455,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "drawdown_date": "2026-06-13",
+      "amount": 25554789,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "drawdown_date": "2026-07-15",
+      "amount": 8076321,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "drawdown_date": "2026-04-06",
+      "amount": 95437556,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "drawdown_date": "2026-02-05",
+      "amount": 136871386,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "drawdown_date": "2026-08-11",
+      "amount": 61994493,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "drawdown_date": "2026-06-25",
+      "amount": 91837990,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "drawdown_date": "2026-06-23",
+      "amount": 87087471,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "drawdown_date": "2026-04-30",
+      "amount": 129654336,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "drawdown_date": "2026-06-07",
+      "amount": 127966052,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "drawdown_date": "2026-05-30",
+      "amount": 354443723,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "drawdown_date": "2026-08-05",
+      "amount": 410095807,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "drawdown_date": "2023-07-16",
+      "amount": 2234330,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "drawdown_date": "2025-03-30",
+      "amount": 630623,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "drawdown_date": "2023-02-09",
+      "amount": 755991,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "drawdown_date": "2026-01-12",
+      "amount": 24753708,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "drawdown_date": "2026-04-07",
+      "amount": 140868588,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "drawdown_date": "2025-08-06",
+      "amount": 156092256,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "drawdown_date": "2025-11-15",
+      "amount": 158373766,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "drawdown_date": "2026-04-22",
+      "amount": 263135205,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "drawdown_date": "2026-05-12",
+      "amount": 254555329,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "drawdown_date": "2026-03-13",
+      "amount": 434698094,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "drawdown_date": "2025-05-26",
+      "amount": 15200648,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "drawdown_date": "2025-04-25",
+      "amount": 3331393,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "drawdown_date": "2025-11-09",
+      "amount": 16438632,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "drawdown_date": "2026-03-21",
+      "amount": 11565237,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "drawdown_date": "2026-05-06",
+      "amount": 6488023,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "drawdown_date": "2026-01-11",
+      "amount": 5350250,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "drawdown_date": "2026-01-26",
+      "amount": 9916601,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "drawdown_date": "2026-07-31",
+      "amount": 3243288,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "drawdown_date": "2026-03-25",
+      "amount": 4478880,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "drawdown_date": "2026-01-02",
+      "amount": 4111157,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "drawdown_date": "2026-08-02",
+      "amount": 578332783,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "drawdown_date": "2026-06-11",
+      "amount": 146988284,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "drawdown_date": "2026-05-14",
+      "amount": 538976808,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "drawdown_date": "2026-05-25",
+      "amount": 302187370,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "drawdown_date": "2026-06-05",
+      "amount": 156585552,
+      "falls_in_booking_gap": false,
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "policy_versions": [
+    {
+      "policy_version": "credit-policy-v1.0",
+      "effective_from": "2023-08-13",
+      "effective_to": "2025-06-23",
+      "leverage_breach_buffer": 0.0,
+      "cure_period_days": 30,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "policy_version": "credit-policy-v1.1",
+      "effective_from": "2025-06-24",
+      "effective_to": null,
+      "leverage_breach_buffer": 0.25,
+      "cure_period_days": 45,
+      "provenance": "synthetic \u2014 internal",
+      "note": "buffer widened; evaluating a pre-2025 covenant against this version produces an anachronism that reads as a finding \u2014 which is why step 2 loads policy AS AT as_of"
+    }
+  ],
+  "breach_events": [
+    {
+      "facility_id": "FAC-01BB3F",
+      "covenant_type": "leverage",
+      "breach_date": "2025-05-27",
+      "observed_value": 3.62,
+      "threshold_at_breach": 3.07,
+      "cured_date": "2025-07-18",
+      "compliant_today": true,
+      "provenance": "synthetic \u2014 engineered",
+      "note": "breached at a past date, compliant now \u2014 so a forensic query and a live query genuinely disagree"
+    },
+    {
+      "facility_id": "FAC-044206",
+      "covenant_type": "leverage",
+      "breach_date": "2025-04-15",
+      "observed_value": 5.31,
+      "threshold_at_breach": 4.5,
+      "cured_date": "2025-06-06",
+      "compliant_today": true,
+      "provenance": "synthetic \u2014 engineered",
+      "note": "breached at a past date, compliant now \u2014 so a forensic query and a live query genuinely disagree"
+    }
+  ]
+}

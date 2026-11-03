@@ -1,0 +1,27 @@
+{
+  "source": "ofac",
+  "description": "OFAC Specially Designated Nationals (SDN) and Consolidated (non-SDN) sanctions lists, legacy sdnList XML format.",
+  "licence": "US Government work \u2014 public domain. Published daily by the Office of Foreign Assets Control, US Department of the Treasury.",
+  "fetches": [
+    {
+      "url": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML",
+      "path": "sources/ofac/sdn.xml",
+      "retrieved_at": "2026-08-22T19:13:44+00:00",
+      "sha256": "899d1d3766f88a4c4289b86226130548ebe1d6d0a9712e925c910cd61971a6d2",
+      "bytes": 28875846,
+      "http_status": 200,
+      "content_type": "text/xml",
+      "notes": ""
+    },
+    {
+      "url": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML",
+      "path": "sources/ofac/consolidated.xml",
+      "retrieved_at": "2026-08-22T19:14:54+00:00",
+      "sha256": "5e0ca94cdcf4677ad2b5b2e2d50923a94f5fdb55294d52f1b52d46657e428b61",
+      "bytes": 1062621,
+      "http_status": 200,
+      "content_type": "text/xml",
+      "notes": ""
+    }
+  ]
+}

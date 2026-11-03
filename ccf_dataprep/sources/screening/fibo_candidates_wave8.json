@@ -1,0 +1,2631 @@
+{
+  "source": "https://spec.edmcouncil.org/fibo/ontology/ (Production)",
+  "wave": 8,
+  "modules_attempted": [
+    "SEC/Debt/AssetBackedSecurities",
+    "SEC/Debt/StructuredFinance",
+    "SEC/Debt/Securitization",
+    "SEC/Securitization/Securitization",
+    "SEC/Debt/DebtInstruments",
+    "SEC/Debt/Bonds",
+    "SEC/Debt/PoolsFundsAndREITs",
+    "DER/DerivativesContracts/ContractualProducts",
+    "DER/DerivativesContracts/Options",
+    "DER/DerivativesContracts/Forwards",
+    "DER/DerivativesContracts/Swaps",
+    "DER/DerivativesContracts/Futures",
+    "DER/RateDerivatives/RateDerivatives",
+    "DER/CreditDerivatives/CreditDefaultSwaps",
+    "DER/ForeignExchangeDerivatives/ForeignExchangeDerivatives",
+    "IND/InterestRates/InterestRates",
+    "IND/ForeignExchange/ForeignExchange",
+    "IND/MarketIndices/MarketIndices",
+    "IND/Indicators/BusinessIndicators",
+    "FBC/FinancialInstruments/FinancialInstruments",
+    "FBC/ProductsAndServices/ClientsAndAccounts",
+    "FBC/ProductsAndServices/FinancialProductsAndServices",
+    "FND/AgentsAndPeople/People",
+    "FND/AgentsAndPeople/Agents",
+    "FND/Parties/Parties",
+    "FND/Parties/Roles",
+    "FND/Organizations/FormalOrganizations",
+    "FND/Law/LegalCapacity",
+    "BE/LegalEntities/LegalPersons",
+    "BE/LegalEntities/FormalBusinessOrganizations",
+    "BE/Corporations/Corporations",
+    "BE/OwnershipAndControl/Ownership",
+    "BE/OwnershipAndControl/Control",
+    "BE/OwnershipAndControl/ControlParties",
+    "BE/OwnershipAndControl/CorporateControl",
+    "BE/GovernmentEntities/GovernmentEntities"
+  ],
+  "modules_fetched": [
+    "SEC/Debt/AssetBackedSecurities",
+    "SEC/Debt/DebtInstruments",
+    "SEC/Debt/Bonds",
+    "DER/DerivativesContracts/Options",
+    "DER/DerivativesContracts/Swaps",
+    "DER/RateDerivatives/RateDerivatives",
+    "DER/CreditDerivatives/CreditDefaultSwaps",
+    "IND/InterestRates/InterestRates",
+    "IND/ForeignExchange/ForeignExchange",
+    "FBC/FinancialInstruments/FinancialInstruments",
+    "FBC/ProductsAndServices/ClientsAndAccounts",
+    "FBC/ProductsAndServices/FinancialProductsAndServices",
+    "FND/AgentsAndPeople/People",
+    "FND/AgentsAndPeople/Agents",
+    "FND/Parties/Parties",
+    "FND/Organizations/FormalOrganizations",
+    "FND/Law/LegalCapacity",
+    "BE/LegalEntities/LegalPersons",
+    "BE/LegalEntities/FormalBusinessOrganizations",
+    "BE/Corporations/Corporations",
+    "BE/OwnershipAndControl/ControlParties",
+    "BE/OwnershipAndControl/CorporateControl",
+    "BE/GovernmentEntities/GovernmentEntities"
+  ],
+  "classes": [
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account",
+      "local_name": "Account",
+      "label": "account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountAsAnAsset",
+      "local_name": "AccountAsAnAsset",
+      "label": "account as an asset",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/FinancialAsset"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountHolder",
+      "local_name": "AccountHolder",
+      "label": "account holder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Owner"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountIdentifier",
+      "local_name": "AccountIdentifier",
+      "label": "account identifier",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/RegistrationAuthorities/RegisteredIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountOwnership",
+      "local_name": "AccountOwnership",
+      "label": "account ownership",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Ownership"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountProvider",
+      "local_name": "AccountProvider",
+      "label": "account provider",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/ServiceProvider"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountSpecificServiceAgreement",
+      "local_name": "AccountSpecificServiceAgreement",
+      "label": "account-specific service agreement",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/ProductsAndServices/ServiceAgreement"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountStatement",
+      "local_name": "AccountStatement",
+      "label": "account statement",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Documents/LegalDocument",
+        "https://www.omg.org/spec/Commons/Documents/Record"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountingTransaction",
+      "local_name": "AccountingTransaction",
+      "label": "accounting transaction",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/ProductsAndServices/TransactionEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/AmortizingBond",
+      "local_name": "AmortizingBond",
+      "label": "amortizing bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/AssetBackedCreditDefaultSwap",
+      "local_name": "AssetBackedCreditDefaultSwap",
+      "label": "asset-backed credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/AutoAssetBackedSecurity",
+      "local_name": "AutoAssetBackedSecurity",
+      "label": "auto asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/BankAccountIdentifier",
+      "local_name": "BankAccountIdentifier",
+      "label": "bank account identifier",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/BasicBankAccountIdentifier",
+      "local_name": "BasicBankAccountIdentifier",
+      "label": "basic bank account identifier",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/BankAccountIdentifier",
+        "https://www.omg.org/spec/Commons/ContextualIdentifiers/StructuredIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/BasisSwap",
+      "local_name": "BasisSwap",
+      "label": "basis swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/RatesSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/BasketCreditDefaultSwap",
+      "local_name": "BasketCreditDefaultSwap",
+      "label": "basket credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/MultiNameCreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/BasketOfCreditDefaultSwaps",
+      "local_name": "BasketOfCreditDefaultSwaps",
+      "label": "basket of credit default swaps",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/WeightedBasket",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DatedStructuredCollection"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/BasketOption",
+      "local_name": "BasketOption",
+      "label": "basket option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/ExoticOption"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+      "local_name": "Bond",
+      "label": "bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreementRepaidAtMaturity",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/TradableDebtInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondAmortizationPaymentTerms",
+      "local_name": "BondAmortizationPaymentTerms",
+      "label": "bond amortization payment terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondPrincipalRepaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondConversionTerms",
+      "local_name": "BondConversionTerms",
+      "label": "bond conversion terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIssuance/ConversionTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondCoupon",
+      "local_name": "BondCoupon",
+      "label": "bond coupon",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/InterestRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondInsurance",
+      "local_name": "BondInsurance",
+      "label": "bond insurance",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Guaranty/InsurancePolicy"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/BondOption",
+      "local_name": "BondOption",
+      "label": "bond option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/FixedIncomeOption"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/BondPool",
+      "local_name": "BondPool",
+      "label": "bond pool",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/Pools/DebtPool"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondPrincipalRepaymentTerms",
+      "local_name": "BondPrincipalRepaymentTerms",
+      "label": "bond principal repayment terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PrincipalRepaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondRegistrar",
+      "local_name": "BondRegistrar",
+      "label": "bond registrar",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/LegalAgent",
+        "https://www.omg.org/spec/Commons/RegistrationAuthorities/Registrar"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondVariableCoupon",
+      "local_name": "BondVariableCoupon",
+      "label": "bond variable coupon",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/VariableInterestRate",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondCoupon"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondWithPartialCall",
+      "local_name": "BondWithPartialCall",
+      "label": "bond with partial call",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CallableBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondWithPublishedSinkingFund",
+      "local_name": "BondWithPublishedSinkingFund",
+      "label": "bond with published sinking fund",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/AmortizingBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondWithWarrant",
+      "local_name": "BondWithWarrant",
+      "label": "bond with warrant",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/BrokerageAccount",
+      "local_name": "BrokerageAccount",
+      "label": "brokerage account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BuildAmericaBond",
+      "local_name": "BuildAmericaBond",
+      "label": "Build America Bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BulletBond",
+      "local_name": "BulletBond",
+      "label": "bullet bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/CallOption",
+      "local_name": "CallOption",
+      "label": "call option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CallableBond",
+      "local_name": "CallableBond",
+      "label": "callable bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CallableConvertibleBond",
+      "local_name": "CallableConvertibleBond",
+      "label": "callable convertible bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CallableBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ConvertibleBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/CappedOption",
+      "local_name": "CappedOption",
+      "label": "capped option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CashSettlementMethod",
+      "local_name": "CashSettlementMethod",
+      "label": "cash settlement method",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/InstrumentPricing/PriceDeterminationMethod"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/Settlement/CashSettlementTerms",
+      "local_name": "CashSettlementTerms",
+      "label": "",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CertificateOfDeposit",
+      "local_name": "CertificateOfDeposit",
+      "label": "certificate of deposit",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/ChartOfAccounts",
+      "local_name": "ChartOfAccounts",
+      "label": "chart of accounts",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Documents/FinancialRecord",
+        "https://www.omg.org/spec/Commons/Collections/Arrangement"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/CharteredLegalPerson",
+      "local_name": "CharteredLegalPerson",
+      "label": "chartered legal person",
+      "module": "BE/LegalEntities/LegalPersons",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/ConsumerAssetBackedSecurity",
+      "local_name": "ConsumerAssetBackedSecurity",
+      "label": "consumer asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/StructuredFinanceInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/ContingentCreditDefaultSwap",
+      "local_name": "ContingentCreditDefaultSwap",
+      "label": "contingent credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ContractualControl",
+      "local_name": "ContractualControl",
+      "label": "contractual control",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/DeJureControl"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Law/LegalCapacity/ContractualOption",
+      "local_name": "ContractualOption",
+      "label": "contractual option",
+      "module": "FND/Law/LegalCapacity",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Law/LegalCapacity/ContractualRight"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControlledAffiliate",
+      "local_name": "ControlledAffiliate",
+      "label": "controlled affiliate",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ControlledParty",
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/Affiliate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/ControlledAmortizationAssetBackedSecurity",
+      "local_name": "ControlledAmortizationAssetBackedSecurity",
+      "label": "controlled amortization asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ControlledParty",
+      "local_name": "ControlledParty",
+      "label": "controlled party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/ControlledThing"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControllingAffiliate",
+      "local_name": "ControllingAffiliate",
+      "label": "controlling affiliate",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/MajorityControllingParty",
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/Affiliate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ControllingAlliance",
+      "local_name": "ControllingAlliance",
+      "label": "controlling alliance",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Group"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ConvertibleBond",
+      "local_name": "ConvertibleBond",
+      "label": "convertible bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIssuance/ConvertibleSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CorporateBond",
+      "local_name": "CorporateBond",
+      "label": "corporate bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/CorrelationSwap",
+      "local_name": "CorrelationSwap",
+      "label": "correlation swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/StatisticalSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms",
+      "local_name": "CouponPaymentTerms",
+      "label": "coupon payment terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/InterestPaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/CourtAppointedControl",
+      "local_name": "CourtAppointedControl",
+      "label": "court appointed control",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/DeJureControl"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/CreditCardAccountPool",
+      "local_name": "CreditCardAccountPool",
+      "label": "credit card account pool",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/Pools/DebtPool"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/CreditCardAssetBackedSecurity",
+      "local_name": "CreditCardAssetBackedSecurity",
+      "label": "credit card asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap",
+      "local_name": "CreditDefaultSwap",
+      "label": "credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/CreditDerivative",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwapIndex",
+      "local_name": "CreditDefaultSwapIndex",
+      "label": "credit default swap index",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/MarketIndices/BasketIndices/ReferenceIndex"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencyForwardRate",
+      "local_name": "CurrencyForwardRate",
+      "label": "currency forward rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencyForwardRateVolatility",
+      "local_name": "CurrencyForwardRateVolatility",
+      "label": "currency forward rate volatility",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ExchangeRateVolatility",
+        "https://spec.edmcouncil.org/fibo/ontology/IND/Indicators/Indicators/ImpliedVolatility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotBuyRate",
+      "local_name": "CurrencySpotBuyRate",
+      "label": "currency spot buy rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotMidRate",
+      "local_name": "CurrencySpotMidRate",
+      "label": "currency spot mid rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotRate",
+      "local_name": "CurrencySpotRate",
+      "label": "currency spot rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotSellRate",
+      "local_name": "CurrencySpotSellRate",
+      "label": "currency spot sell rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotVolatility",
+      "local_name": "CurrencySpotVolatility",
+      "label": "currency spot volatility",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ExchangeRateVolatility",
+        "https://spec.edmcouncil.org/fibo/ontology/IND/Indicators/Indicators/HistoricalVolatility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
+      "local_name": "CustomerAccount",
+      "label": "customer account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccountHolder",
+      "local_name": "CustomerAccountHolder",
+      "label": "customer account holder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountHolder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/DeFactoControllingInterestParty",
+      "local_name": "DeFactoControllingInterestParty",
+      "label": "de facto controlling interest party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/ControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/DeJureControllingInterestParty",
+      "local_name": "DeJureControllingInterestParty",
+      "label": "de jure controlling interest party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/ControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument",
+      "local_name": "DebtInstrument",
+      "label": "debt instrument",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreement",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DemandDepositAccount",
+      "local_name": "DemandDepositAccount",
+      "label": "demand deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TransactionDepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DepositAccount",
+      "local_name": "DepositAccount",
+      "label": "deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentOrDepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/DepositoryInstitution",
+      "local_name": "DepositoryInstitution",
+      "label": "",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DerivativeInstrument",
+      "local_name": "DerivativeInstrument",
+      "label": "derivative instrument",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/DerivativesClearingOrganization",
+      "local_name": "DerivativesClearingOrganization",
+      "label": "",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/DispersionSwap",
+      "local_name": "DispersionSwap",
+      "label": "dispersion swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/StatisticalSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/EconomicRateBasedDerivativeInstrument",
+      "local_name": "EconomicRateBasedDerivativeInstrument",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee",
+      "local_name": "Employee",
+      "label": "employee",
+      "module": "FND/Organizations/FormalOrganizations",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/OrganizationMember"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer",
+      "local_name": "Employer",
+      "label": "employer",
+      "module": "FND/Organizations/FormalOrganizations",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/MemberBearingOrganization"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment",
+      "local_name": "Employment",
+      "label": "employment",
+      "module": "FND/Organizations/FormalOrganizations",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/Membership"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/EntityControllingParty",
+      "local_name": "EntityControllingParty",
+      "label": "entity controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/ControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/EquityLinkedBond",
+      "local_name": "EquityLinkedBond",
+      "label": "equity linked bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableCouponBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/EquityOption",
+      "local_name": "EquityOption",
+      "label": "equity option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/SecurityBasedDerivatives/SecurityBasedDerivatives/EquityDerivative"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/ExcessReturnSwap",
+      "local_name": "ExcessReturnSwap",
+      "label": "excess return swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/IndexReturnSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ExchangeRateStructure",
+      "local_name": "ExchangeRateStructure",
+      "label": "exchange rate structure",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DatedStructuredCollection"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ExchangeRateVolatility",
+      "local_name": "ExchangeRateVolatility",
+      "label": "exchange rate volatility",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/Indicators/Indicators/Volatility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/ExoticOption",
+      "local_name": "ExoticOption",
+      "label": "exotic option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/OverTheCounterDerivativeInstrument",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FirstRegularCouponDate",
+      "local_name": "FirstRegularCouponDate",
+      "label": "first regular coupon date",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FixedCouponBond",
+      "local_name": "FixedCouponBond",
+      "label": "fixed coupon bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/FixedIncomeSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FixedCouponTerms",
+      "local_name": "FixedCouponTerms",
+      "label": "fixed coupon terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/FixedIncomeOption",
+      "local_name": "FixedIncomeOption",
+      "label": "fixed income option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/SecurityBasedDerivatives/SecurityBasedDerivatives/DebtInstrumentDerivative"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/FloatingInterestRate",
+      "local_name": "FloatingInterestRate",
+      "label": "",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FloatingRateNote",
+      "local_name": "FloatingRateNote",
+      "label": "floating rate note",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableCouponBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/ForeignExchangeRateObservable",
+      "local_name": "ForeignExchangeRateObservable",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ForeignExchangeService",
+      "local_name": "ForeignExchangeService",
+      "label": "foreign exchange service",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/FinancialService"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/ForwardRateAgreement",
+      "local_name": "ForwardRateAgreement",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FullFaithCreditBond",
+      "local_name": "FullFaithCreditBond",
+      "label": "full faith credit bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/UnsecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/FullyAmortizingAssetBackedSecurity",
+      "local_name": "FullyAmortizingAssetBackedSecurity",
+      "label": "fully amortizing asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/FullyIndexedInterestRate",
+      "local_name": "FullyIndexedInterestRate",
+      "label": "fully-indexed interest rate",
+      "module": "SEC/Debt/DebtInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/FloatingInterestRate",
+        "https://www.omg.org/spec/Commons/QuantitiesAndUnits/Expression"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Future",
+      "local_name": "Future",
+      "label": "future",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DerivativeInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GeneralObligationMunicipalBond",
+      "local_name": "GeneralObligationMunicipalBond",
+      "label": "general obligation municipal bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FullFaithCreditBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GovernmentBond",
+      "local_name": "GovernmentBond",
+      "label": "government bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GovernmentIssuedDebtSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GreenBond",
+      "local_name": "GreenBond",
+      "label": "green bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/HomeEquityLoanAssetBackedSecurity",
+      "local_name": "HomeEquityLoanAssetBackedSecurity",
+      "label": "home equity loan asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ImplicitFullFaithCreditBond",
+      "local_name": "ImplicitFullFaithCreditBond",
+      "label": "implicit full faith credit bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/UnsecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/IndexCreditDefaultSwap",
+      "local_name": "IndexCreditDefaultSwap",
+      "label": "index credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/MultiNameCreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/IndexLinkedBond",
+      "local_name": "IndexLinkedBond",
+      "label": "index-linked bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableIncomeBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/IndexReturnSwap",
+      "local_name": "IndexReturnSwap",
+      "label": "index return swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/ReturnSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/IndexTrancheCreditDefaultSwap",
+      "local_name": "IndexTrancheCreditDefaultSwap",
+      "label": "index tranche credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/MultiNameCreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/InflationLinkedBond",
+      "local_name": "InflationLinkedBond",
+      "label": "inflation-linked bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/IndexLinkedBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/InfluenceBasedDeFactoControl",
+      "local_name": "InfluenceBasedDeFactoControl",
+      "label": "influence-based de facto control",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/DeFactoControl"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/InfluenceBasedDeFactoControllingParty",
+      "local_name": "InfluenceBasedDeFactoControllingParty",
+      "label": "influence-based de facto controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/DeFactoControllingInterestParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateAuthority",
+      "local_name": "InterestRateAuthority",
+      "label": "interest rate authority",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/FunctionalEntities/Publishers/Publisher",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/FinancialServiceProvider"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark",
+      "local_name": "InterestRateBenchmark",
+      "label": "interest rate benchmark",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/QuantitiesAndUnits/QuantityKind"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmarkClassificationScheme",
+      "local_name": "InterestRateBenchmarkClassificationScheme",
+      "label": "interest rate benchmark classification scheme",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Classifiers/ClassificationScheme"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/InterestRateDerivativeInstrument",
+      "local_name": "InterestRateDerivativeInstrument",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/InterestRateObservable",
+      "local_name": "InterestRateObservable",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/InterestRateOption",
+      "local_name": "InterestRateOption",
+      "label": "interest rate option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/InterestRateDerivative",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InternationalBankAccountIdentifier",
+      "local_name": "InternationalBankAccountIdentifier",
+      "label": "international bank account identifier",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/BankAccountIdentifier",
+        "https://www.omg.org/spec/Commons/ContextualIdentifiers/StructuredIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentAccount",
+      "local_name": "InvestmentAccount",
+      "label": "investment account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentOrDepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/InvestmentBasedDeFactoControl",
+      "local_name": "InvestmentBasedDeFactoControl",
+      "label": "investment-based de facto control",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/DeFactoControl"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/InvestmentBasedDeFactoControllingInterestParty",
+      "local_name": "InvestmentBasedDeFactoControllingInterestParty",
+      "label": "investment-based de facto controlling interest party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/DeFactoControllingInterestParty",
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/Investor"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentOrDepositAccount",
+      "local_name": "InvestmentOrDepositAccount",
+      "label": "investment or deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/JointControllingParty",
+      "local_name": "JointControllingParty",
+      "label": "joint controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/EntityControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/LastRegularCouponDate",
+      "local_name": "LastRegularCouponDate",
+      "label": "last regular coupon date",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LedgerAccount",
+      "local_name": "LedgerAccount",
+      "label": "ledger account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LedgerAccountClassifier",
+      "local_name": "LedgerAccountClassifier",
+      "label": "ledger account classifier",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Classifiers/Classifier"
+      ]
+    },
+    {
+      "iri": "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+      "local_name": "LegalPerson",
+      "label": "",
+      "module": "BE/LegalEntities/LegalPersons",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/LegalWorkingAgePerson",
+      "local_name": "LegalWorkingAgePerson",
+      "label": "legal working age person",
+      "module": "FND/AgentsAndPeople/People",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/LegallyCompetentNaturalPerson",
+      "local_name": "LegallyCompetentNaturalPerson",
+      "label": "legally competent natural person",
+      "module": "BE/LegalEntities/LegalPersons",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LendingOfficer",
+      "local_name": "LendingOfficer",
+      "label": "lending officer",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/CorporateOfficer",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/RelationshipManager"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ListedBond",
+      "local_name": "ListedBond",
+      "label": "listed bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesListings/ListedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/LoanCreditDefaultSwap",
+      "local_name": "LoanCreditDefaultSwap",
+      "label": "loan credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LoanOrCreditAccount",
+      "local_name": "LoanOrCreditAccount",
+      "label": "loan or credit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/MajorSwapParticipant",
+      "local_name": "MajorSwapParticipant",
+      "label": "major swap participant",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/NonDepositoryInstitution"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/MajorityControllingParty",
+      "local_name": "MajorityControllingParty",
+      "label": "majority controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/EntityControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MandatoryConvertibleBond",
+      "local_name": "MandatoryConvertibleBond",
+      "label": "mandatory convertible bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ConvertibleBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MediumTermNote",
+      "local_name": "MediumTermNote",
+      "label": "medium term note",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/MultiNameCreditDefaultSwap",
+      "local_name": "MultiNameCreditDefaultSwap",
+      "label": "multi-name credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond",
+      "local_name": "MunicipalBond",
+      "label": "municipal bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GovernmentBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalNote",
+      "local_name": "MunicipalNote",
+      "label": "municipal note",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/NonTradableDebtInstrument",
+      "local_name": "NonTradableDebtInstrument",
+      "label": "non-tradable debt instrument",
+      "module": "SEC/Debt/DebtInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/WrittenContract"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/NonTransactionDepositAccount",
+      "local_name": "NonTransactionDepositAccount",
+      "label": "non-transaction deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option",
+      "local_name": "Option",
+      "label": "option",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DerivativeInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionHolder",
+      "local_name": "OptionHolder",
+      "label": "option holder",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Owner"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionIssuer",
+      "local_name": "OptionIssuer",
+      "label": "option issuer",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Issuer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionOnFuture",
+      "local_name": "OptionOnFuture",
+      "label": "option on future",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionPremium",
+      "local_name": "OptionPremium",
+      "label": "option premium",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/InstrumentPricing/MarketPrice"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionPremiumFormula",
+      "local_name": "OptionPremiumFormula",
+      "label": "option premium formula",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/QuantitiesAndUnits/Expression"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionTradingStrategy",
+      "local_name": "OptionTradingStrategy",
+      "label": "option trading strategy",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradingStrategy"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/OriginalIssueDiscountBond",
+      "local_name": "OriginalIssueDiscountBond",
+      "label": "original issue discount bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/PartyRoleIdentificationScheme",
+      "local_name": "PartyRoleIdentificationScheme",
+      "label": "party role identification scheme",
+      "module": "FND/Parties/Parties",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Identifiers/IdentificationScheme"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/PartyRoleIdentifier",
+      "local_name": "PartyRoleIdentifier",
+      "label": "party role identifier",
+      "module": "FND/Parties/Parties",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Identifiers/Identifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/PerpetualBond",
+      "local_name": "PerpetualBond",
+      "label": "perpetual bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person",
+      "local_name": "Person",
+      "label": "person",
+      "module": "FND/AgentsAndPeople/People",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/PersonName",
+      "local_name": "PersonName",
+      "label": "person name",
+      "module": "FND/AgentsAndPeople/People",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/ContextualDesignators/ContextualName"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/Settlement/PhysicalSettlementTerms",
+      "local_name": "PhysicalSettlementTerms",
+      "label": "",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/PromissoryNote",
+      "local_name": "PromissoryNote",
+      "label": "promissory note",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/PutOption",
+      "local_name": "PutOption",
+      "label": "put option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate",
+      "local_name": "QuotedExchangeRate",
+      "label": "quoted exchange rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/ExchangeRate",
+        "https://spec.edmcouncil.org/fibo/ontology/IND/Indicators/Indicators/MarketRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/RateBasedDerivativeInstrument",
+      "local_name": "RateBasedDerivativeInstrument",
+      "label": "",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "subclass_of": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/RatesSwap",
+      "local_name": "RatesSwap",
+      "label": "rates swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/ReferenceInterestRate",
+      "local_name": "ReferenceInterestRate",
+      "label": "reference interest rate",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/InterestRate",
+        "https://spec.edmcouncil.org/fibo/ontology/IND/Indicators/Indicators/MarketRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/RemarketableBond",
+      "local_name": "RemarketableBond",
+      "label": "remarketable bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CorporateBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FloatingRateNote"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/ReturnSwap",
+      "local_name": "ReturnSwap",
+      "label": "return swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/RevenueBond",
+      "local_name": "RevenueBond",
+      "label": "revenue bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SecuredBond",
+      "local_name": "SecuredBond",
+      "label": "secured bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/SecuritiesTransaction",
+      "local_name": "SecuritiesTransaction",
+      "label": "securities transaction",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Trade"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/SettlementAuction",
+      "local_name": "SettlementAuction",
+      "label": "settlement auction",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/Settlement/SettlementEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/SettlementTerms",
+      "local_name": "SettlementTerms",
+      "label": "settlement terms",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractualCommitment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/SignificantShareholder",
+      "local_name": "SignificantShareholder",
+      "label": "significant shareholder",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/VotingShareholder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/SingleNameCreditDefaultSwap",
+      "local_name": "SingleNameCreditDefaultSwap",
+      "label": "single name credit default swap",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/CreditDefaultSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/SoleControllingParty",
+      "local_name": "SoleControllingParty",
+      "label": "sole controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/EntityControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SovereignBond",
+      "local_name": "SovereignBond",
+      "label": "sovereign bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GovernmentBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SovereignDebtInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SovereignDebtInstrument",
+      "local_name": "SovereignDebtInstrument",
+      "label": "sovereign debt instrument",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/GovernmentIssuedDebtSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SpecialAssessmentBond",
+      "local_name": "SpecialAssessmentBond",
+      "label": "special assessment bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SpecialObligationBond",
+      "local_name": "SpecialObligationBond",
+      "label": "special obligation bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/SpecialPurposeVehicle",
+      "local_name": "SpecialPurposeVehicle",
+      "label": "fonds commun de placement",
+      "module": "BE/LegalEntities/LegalPersons",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SpecialTaxBond",
+      "local_name": "SpecialTaxBond",
+      "label": "special tax bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/SpecificProviderInterestRateBenchmark",
+      "local_name": "SpecificProviderInterestRateBenchmark",
+      "label": "specific-provider interest rate benchmark",
+      "module": "IND/InterestRates/InterestRates",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/SpotContract",
+      "local_name": "SpotContract",
+      "label": "spot contract",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/StandardizedOptionsTerms",
+      "local_name": "StandardizedOptionsTerms",
+      "label": "standardized options terms",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/StandardizedTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/StatisticalSwap",
+      "local_name": "StatisticalSwap",
+      "label": "statistical swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/StepUpBond",
+      "local_name": "StepUpBond",
+      "label": "step up bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/FixedIncomeSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SteppedCouponTerms",
+      "local_name": "SteppedCouponTerms",
+      "label": "stepped coupon terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/StripBond",
+      "local_name": "StripBond",
+      "label": "strip bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ZeroCouponBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/Strip"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/AssetBackedSecurities/StudentLoanAssetBackedSecurity",
+      "local_name": "StudentLoanAssetBackedSecurity",
+      "label": "student loan asset-backed security",
+      "module": "SEC/Debt/AssetBackedSecurities",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap",
+      "local_name": "Swap",
+      "label": "swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DerivativeInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapConfirmation",
+      "local_name": "SwapConfirmation",
+      "label": "swap confirmation",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLifecycleEvent",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/ProductsAndServices/TransactionConfirmation"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapDataRepository",
+      "local_name": "SwapDataRepository",
+      "label": "swap data repository",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/FinancialServiceProvider"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapDealer",
+      "local_name": "SwapDealer",
+      "label": "swap dealer",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/NonDepositoryInstitution",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Dealer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLeg",
+      "local_name": "SwapLeg",
+      "label": "swap leg",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/CashflowTerms",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLegEvent",
+      "local_name": "SwapLegEvent",
+      "label": "swap leg event",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLifecycleEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLifecycleEvent",
+      "local_name": "SwapLifecycleEvent",
+      "label": "swap lifecycle event",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLifecycleEventIdentifier",
+      "local_name": "SwapLifecycleEventIdentifier",
+      "label": "swap lifecycle event identifier",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Identifiers/Identifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapParty",
+      "local_name": "SwapParty",
+      "label": "swap party",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapPayingParty",
+      "local_name": "SwapPayingParty",
+      "label": "swap paying party",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/PayingParty",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapReceivingParty",
+      "local_name": "SwapReceivingParty",
+      "label": "swap receiving party",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/ReceivingParty",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapTerms",
+      "local_name": "SwapTerms",
+      "label": "swap terms",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/DerivativeTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/TaxAllocationBond",
+      "local_name": "TaxAllocationBond",
+      "label": "tax allocation bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MunicipalBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SecuredBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeCertificateOfDepositAccount",
+      "local_name": "TimeCertificateOfDepositAccount",
+      "label": "time certificate of deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeDepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeDepositAccount",
+      "local_name": "TimeDepositAccount",
+      "label": "time deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/NonTransactionDepositAccount",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/ProductsAndServices/ContractualProduct"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeDepositOpenAccount",
+      "local_name": "TimeDepositOpenAccount",
+      "label": "time deposit open account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeDepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/TotalControllingInterestParty",
+      "local_name": "TotalControllingInterestParty",
+      "label": "total controlling interest party",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/TotalOwner",
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/SignificantShareholder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/TotalOwner",
+      "local_name": "TotalOwner",
+      "label": "total owner",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/ConstitutionalOwner"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/TotalReturnSwap",
+      "local_name": "TotalReturnSwap",
+      "label": "total return swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/CreditDerivative",
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/ReturnSwap"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/TradableDebtInstrument",
+      "local_name": "TradableDebtInstrument",
+      "label": "tradable debt instrument",
+      "module": "SEC/Debt/DebtInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Security"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Trade",
+      "local_name": "Trade",
+      "label": "trade",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Situation"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeIdentifier",
+      "local_name": "TradeIdentifier",
+      "label": "trade identifier",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Identifiers/Identifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycle",
+      "local_name": "TradeLifecycle",
+      "label": "trade lifecycle",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/Lifecycle"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleEvent",
+      "local_name": "TradeLifecycleEvent",
+      "label": "trade lifecycle event",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleEventOccurrence",
+      "local_name": "TradeLifecycleEventOccurrence",
+      "label": "trade lifecycle event occurrence",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleEventOccurrence"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleOccurrence",
+      "local_name": "TradeLifecycleOccurrence",
+      "label": "trade lifecycle occurrence",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleOccurrence"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleStage",
+      "local_name": "TradeLifecycleStage",
+      "label": "trade lifecycle stage",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleStage"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleStageOccurrence",
+      "local_name": "TradeLifecycleStageOccurrence",
+      "label": "trade lifecycle stage occurrence",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Lifecycles/LifecycleStageOccurrence"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Trader",
+      "local_name": "Trader",
+      "label": "trader",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Organizations/ServiceProvider"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TransactionDepositAccount",
+      "local_name": "TransactionDepositAccount",
+      "label": "transaction deposit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DepositAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/TreasuryBond",
+      "local_name": "TreasuryBond",
+      "label": "treasury bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/SovereignBond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/USTreasurySecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/TreasuryNote",
+      "local_name": "TreasuryNote",
+      "label": "treasury note",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/MediumTermNote",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/USTreasurySecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/CreditDerivatives/CreditDefaultSwaps/TriggeringEvent",
+      "local_name": "TriggeringEvent",
+      "label": "triggering event",
+      "module": "DER/CreditDerivatives/CreditDefaultSwaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/Occurrences/Occurrence"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/UniqueSwapIdentifier",
+      "local_name": "UniqueSwapIdentifier",
+      "label": "unique swap identifier",
+      "module": "DER/DerivativesContracts/Swaps",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrumentIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/UnlistedBond",
+      "local_name": "UnlistedBond",
+      "label": "unlisted bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/UnsecuredBond",
+      "local_name": "UnsecuredBond",
+      "label": "unsecured bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/VanillaOption",
+      "local_name": "VanillaOption",
+      "label": "vanilla option",
+      "module": "DER/DerivativesContracts/Options",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableCouponBond",
+      "local_name": "VariableCouponBond",
+      "label": "variable coupon bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableIncomeBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableCouponTerms",
+      "local_name": "VariableCouponTerms",
+      "label": "variable coupon terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableIncomeBond",
+      "local_name": "VariableIncomeBond",
+      "label": "variable income bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/VariableIncomeSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariablePrincipalBond",
+      "local_name": "VariablePrincipalBond",
+      "label": "variable principal bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableIncomeBond"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/VotingShareholder",
+      "local_name": "VotingShareholder",
+      "label": "voting shareholder",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/DeJureControllingInterestParty",
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/Shareholder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ZeroCouponBond",
+      "local_name": "ZeroCouponBond",
+      "label": "zero coupon bond",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/FixedIncomeSecurity"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ZeroCouponTerms",
+      "local_name": "ZeroCouponTerms",
+      "label": "zero coupon terms",
+      "module": "SEC/Debt/Bonds",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondAmortizationPaymentTerms",
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FixedCouponTerms"
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/appliesToAccount",
+      "local_name": "appliesToAccount",
+      "label": "applies to account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/employs",
+      "local_name": "employs",
+      "label": "employs",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasControllingAffiliate",
+      "local_name": "hasControllingAffiliate",
+      "label": "has controlling affiliate",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControlledAffiliate"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControllingAffiliate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/hasControllingOrganizationMember",
+      "local_name": "hasControllingOrganizationMember",
+      "label": "has controlling organization member",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ControlledParty"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/Organizations/OrganizationMember"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/hasCorrespondingAccount",
+      "local_name": "hasCorrespondingAccount",
+      "label": "has corresponding account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreement"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LoanOrCreditAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/hasEmployedParty",
+      "local_name": "hasEmployedParty",
+      "label": "has employed party",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/hasEmployee",
+      "local_name": "hasEmployee",
+      "label": "has employee",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/hasEmployingParty",
+      "local_name": "hasEmployingParty",
+      "label": "has employing party",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/hasExchangeRateQuotationSource",
+      "local_name": "hasExchangeRateQuotationSource",
+      "label": "has exchange rate quotation source",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/hasFirstCouponPaymentDate",
+      "local_name": "hasFirstCouponPaymentDate",
+      "label": "has first coupon payment date",
+      "module": "SEC/Debt/Bonds",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/hasLastCouponPaymentDate",
+      "local_name": "hasLastCouponPaymentDate",
+      "label": "has last coupon payment date",
+      "module": "SEC/Debt/Bonds",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/hasMajorityControllingParty",
+      "local_name": "hasMajorityControllingParty",
+      "label": "has majority controlling party",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/MajorityControllingParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/hasOptionHolder",
+      "local_name": "hasOptionHolder",
+      "label": "has option holder",
+      "module": "DER/DerivativesContracts/Options",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionHolder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/hasOptionWriter",
+      "local_name": "hasOptionWriter",
+      "label": "has option writer",
+      "module": "DER/DerivativesContracts/Options",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/OptionIssuer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/hasPenultimateCouponPaymentDate",
+      "local_name": "hasPenultimateCouponPaymentDate",
+      "label": "has penultimate coupon payment date",
+      "module": "SEC/Debt/Bonds",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CouponPaymentTerms"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/hasPersonName",
+      "local_name": "hasPersonName",
+      "label": "has person name",
+      "module": "FND/AgentsAndPeople/People",
+      "kind": "DatatypeProperty",
+      "domain": [],
+      "range": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/hasPrimaryAccountHolder",
+      "local_name": "hasPrimaryAccountHolder",
+      "label": "has primary account holder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccountHolder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/hasQuotationSettlementBasis",
+      "local_name": "hasQuotationSettlementBasis",
+      "label": "has quotation settlement basis",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/Duration"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/hasQuotedExchangeRate",
+      "local_name": "hasQuotedExchangeRate",
+      "label": "has quoted exchange rate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/hasSecondaryAccountHolder",
+      "local_name": "hasSecondaryAccountHolder",
+      "label": "has secondary account holder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccountHolder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/hasSettlementDate",
+      "local_name": "hasSettlementDate",
+      "label": "has settlement date",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/CalculatedDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/hasSettlementDateOffset",
+      "local_name": "hasSettlementDateOffset",
+      "label": "has settlement date offset",
+      "module": "DER/DerivativesContracts/Options",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Options/StripStrategy"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/Duration"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/hasShareholder",
+      "local_name": "hasShareholder",
+      "label": "has shareholder",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Issuer"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/Shareholder"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/hasSwapIdentifier",
+      "local_name": "hasSwapIdentifier",
+      "label": "has swap identifier",
+      "module": "DER/DerivativesContracts/Swaps",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrumentIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/hasTradeDate",
+      "local_name": "hasTradeDate",
+      "label": "has trade date",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/Date"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isControllingAffiliateOf",
+      "local_name": "isControllingAffiliateOf",
+      "label": "is controlling affiliate of",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControllingAffiliate"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControlledAffiliate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/isControllingMemberOf",
+      "local_name": "isControllingMemberOf",
+      "label": "is controlling member of",
+      "module": "BE/OwnershipAndControl/ControlParties",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://www.omg.org/spec/Commons/Organizations/OrganizationMember"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/ControlParties/ControlledParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployedBy",
+      "local_name": "isEmployedBy",
+      "label": "is employed by",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployedIn",
+      "local_name": "isEmployedIn",
+      "label": "is employed in",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployeeOf",
+      "local_name": "isEmployeeOf",
+      "label": "is employee of",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployingParty",
+      "local_name": "isEmployingParty",
+      "label": "is employing party",
+      "module": "FND/Organizations/FormalOrganizations",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/isLinkedToAccount",
+      "local_name": "isLinkedToAccount",
+      "label": "is linked to account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/isSubordinated",
+      "local_name": "isSubordinated",
+      "label": "is subordinated",
+      "module": "SEC/Debt/DebtInstruments",
+      "kind": "DatatypeProperty",
+      "domain": [],
+      "range": [
+        "http://www.w3.org/2001/XMLSchema#boolean"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/isSubordinatedTo",
+      "local_name": "isSubordinatedTo",
+      "label": "is subordinated to",
+      "module": "SEC/Debt/DebtInstruments",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/TradableDebtInstrument"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/TradableDebtInstrument"
+      ]
+    }
+  ]
+}

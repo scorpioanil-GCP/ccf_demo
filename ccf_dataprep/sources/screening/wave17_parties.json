@@ -1,0 +1,1818 @@
+{
+  "parties": [
+    {
+      "incorporated": "2020-06-23",
+      "jurisdiction": "FRA",
+      "legal_name": "Anneliese Vandersteen & Associates",
+      "party_id": "AMLP-0001",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0001"
+    },
+    {
+      "incorporated": "2013-01-31",
+      "jurisdiction": "GBR",
+      "legal_name": "Anneliese Vandersteen Trading",
+      "party_id": "AMLP-0002",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0002"
+    },
+    {
+      "incorporated": "2020-03-04",
+      "jurisdiction": "CAN",
+      "legal_name": "Ashford Capital Corp",
+      "party_id": "AMLP-0003",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0003"
+    },
+    {
+      "incorporated": "2003-12-04",
+      "jurisdiction": "FRA",
+      "legal_name": "Ashford Industries Ltd",
+      "party_id": "AMLP-0004",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0004"
+    },
+    {
+      "incorporated": "2023-04-01",
+      "jurisdiction": "SYC",
+      "legal_name": "Ashworth Investments Corp",
+      "party_id": "AMLP-0005",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0005"
+    },
+    {
+      "incorporated": "2016-12-04",
+      "jurisdiction": "FRA",
+      "legal_name": "Ashworth Timber B.V.",
+      "party_id": "AMLP-0006",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0006"
+    },
+    {
+      "incorporated": "2002-12-18",
+      "jurisdiction": "GBR",
+      "legal_name": "Blackwood Foods",
+      "party_id": "AMLP-0007",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0007"
+    },
+    {
+      "incorporated": "2020-10-09",
+      "jurisdiction": "JEY",
+      "legal_name": "Blackwood Investments",
+      "party_id": "AMLP-0008",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0008"
+    },
+    {
+      "incorporated": "2010-07-16",
+      "jurisdiction": "NLD",
+      "legal_name": "Blackwood Manufacturing Ltd",
+      "party_id": "AMLP-0009",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0009"
+    },
+    {
+      "incorporated": "2019-07-22",
+      "jurisdiction": "GBR",
+      "legal_name": "Blackwood Materials B.V.",
+      "party_id": "AMLP-0010",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0010"
+    },
+    {
+      "incorporated": "2023-05-20",
+      "jurisdiction": "MHL",
+      "legal_name": "Brightwater International B.V.",
+      "party_id": "AMLP-0011",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0011"
+    },
+    {
+      "incorporated": "2012-06-23",
+      "jurisdiction": "SGP",
+      "legal_name": "Brightwater Manufacturing S.A.",
+      "party_id": "AMLP-0012",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0012"
+    },
+    {
+      "incorporated": "1997-10-22",
+      "jurisdiction": "USA",
+      "legal_name": "Brightwater Petroleum",
+      "party_id": "AMLP-0013",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0013"
+    },
+    {
+      "incorporated": "1996-03-31",
+      "jurisdiction": "IRL",
+      "legal_name": "Brightwater Resources Inc",
+      "party_id": "AMLP-0014",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0014"
+    },
+    {
+      "incorporated": "2020-09-23",
+      "jurisdiction": "AUS",
+      "legal_name": "Brightwater Resources S.A.",
+      "party_id": "AMLP-0015",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0015"
+    },
+    {
+      "incorporated": "2018-03-15",
+      "jurisdiction": "SYC",
+      "legal_name": "Cedarbrook Group B.V.",
+      "party_id": "AMLP-0016",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0016"
+    },
+    {
+      "incorporated": "2004-02-20",
+      "jurisdiction": "SGP",
+      "legal_name": "Cedarbrook Petroleum Corp",
+      "party_id": "AMLP-0017",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0017"
+    },
+    {
+      "incorporated": "2019-07-05",
+      "jurisdiction": "LIE",
+      "legal_name": "Clearwater Consolidated Pte Ltd",
+      "party_id": "AMLP-0018",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0018"
+    },
+    {
+      "incorporated": "2019-03-16",
+      "jurisdiction": "PAN",
+      "legal_name": "Clearwater Enterprises B.V.",
+      "party_id": "AMLP-0019",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0019"
+    },
+    {
+      "incorporated": "1995-02-14",
+      "jurisdiction": "SGP",
+      "legal_name": "Clearwater Fisheries Pte Ltd",
+      "party_id": "AMLP-0020",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0020"
+    },
+    {
+      "incorporated": "2005-10-24",
+      "jurisdiction": "USA",
+      "legal_name": "Clearwater Industries S.A.",
+      "party_id": "AMLP-0021",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0021"
+    },
+    {
+      "incorporated": "2001-12-06",
+      "jurisdiction": "USA",
+      "legal_name": "Clearwater Manufacturing S.A.",
+      "party_id": "AMLP-0022",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0022"
+    },
+    {
+      "incorporated": "2011-08-15",
+      "jurisdiction": "MUS",
+      "legal_name": "Clearwater Properties GmbH",
+      "party_id": "AMLP-0023",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0023"
+    },
+    {
+      "incorporated": "2002-05-04",
+      "jurisdiction": "VGB",
+      "legal_name": "Clearwater Timber S.A.",
+      "party_id": "AMLP-0024",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0024"
+    },
+    {
+      "incorporated": "2016-10-03",
+      "jurisdiction": "CAN",
+      "legal_name": "Deepwater Fisheries B.V.",
+      "party_id": "AMLP-0025",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0025"
+    },
+    {
+      "incorporated": "2002-07-16",
+      "jurisdiction": "USA",
+      "legal_name": "Dimitrios Papadopoulos & Associates",
+      "party_id": "AMLP-0026",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0026"
+    },
+    {
+      "incorporated": "2017-07-05",
+      "jurisdiction": "MLT",
+      "legal_name": "Dimitrios Papadopoulos & Sons",
+      "party_id": "AMLP-0027",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0027"
+    },
+    {
+      "incorporated": "2017-09-15",
+      "jurisdiction": "FRA",
+      "legal_name": "Dimitrios Papadopoulos Imports",
+      "party_id": "AMLP-0028",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0028"
+    },
+    {
+      "incorporated": "2002-06-26",
+      "jurisdiction": "CYM",
+      "legal_name": "Dimitrios Papadopoulos Trading",
+      "party_id": "AMLP-0029",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0029"
+    },
+    {
+      "incorporated": "2017-02-05",
+      "jurisdiction": "USA",
+      "legal_name": "Dimitrios Vasileiou Imports",
+      "party_id": "AMLP-0030",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0030"
+    },
+    {
+      "incorporated": "2002-06-30",
+      "jurisdiction": "CAN",
+      "legal_name": "Dmitry Zakharova Trading Co",
+      "party_id": "AMLP-0031",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0031"
+    },
+    {
+      "incorporated": "2010-10-12",
+      "jurisdiction": "SGP",
+      "legal_name": "Dunmore Aviation Corp",
+      "party_id": "AMLP-0032",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0032"
+    },
+    {
+      "incorporated": "1996-12-23",
+      "jurisdiction": "GBR",
+      "legal_name": "Dunmore Manufacturing B.V.",
+      "party_id": "AMLP-0033",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0033"
+    },
+    {
+      "incorporated": "2023-05-15",
+      "jurisdiction": "GBR",
+      "legal_name": "Dunmore Ventures Corp",
+      "party_id": "AMLP-0034",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0034"
+    },
+    {
+      "incorporated": "2016-04-19",
+      "jurisdiction": "USA",
+      "legal_name": "Eastgate Industries",
+      "party_id": "AMLP-0035",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0035"
+    },
+    {
+      "incorporated": "2023-06-19",
+      "jurisdiction": "VGB",
+      "legal_name": "Eastgate Investments S.A.",
+      "party_id": "AMLP-0036",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0036"
+    },
+    {
+      "incorporated": "2014-06-02",
+      "jurisdiction": "SYC",
+      "legal_name": "Eastgate Minerals Inc",
+      "party_id": "AMLP-0037",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0037"
+    },
+    {
+      "incorporated": "2021-08-27",
+      "jurisdiction": "FRA",
+      "legal_name": "Eleanor Fairbairn & Sons",
+      "party_id": "AMLP-0038",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0038"
+    },
+    {
+      "incorporated": "1998-07-05",
+      "jurisdiction": "CHE",
+      "legal_name": "Eleni Vasileiou & Sons",
+      "party_id": "AMLP-0039",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0039"
+    },
+    {
+      "incorporated": "2021-02-26",
+      "jurisdiction": "BMU",
+      "legal_name": "Eleni Vasileiou Trading",
+      "party_id": "AMLP-0040",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0040"
+    },
+    {
+      "incorporated": "2023-06-12",
+      "jurisdiction": "HKG",
+      "legal_name": "Eleni Vasileiou Trading Co",
+      "party_id": "AMLP-0041",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0041"
+    },
+    {
+      "incorporated": "2023-01-11",
+      "jurisdiction": "MHL",
+      "legal_name": "Elmsworth Enterprises Inc",
+      "party_id": "AMLP-0042",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0042"
+    },
+    {
+      "incorporated": "2020-03-18",
+      "jurisdiction": "CYM",
+      "legal_name": "Elmsworth Holdings S.A.",
+      "party_id": "AMLP-0043",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0043"
+    },
+    {
+      "incorporated": "1994-06-05",
+      "jurisdiction": "IRL",
+      "legal_name": "Elmsworth Materials LLC",
+      "party_id": "AMLP-0044",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0044"
+    },
+    {
+      "incorporated": "2005-02-18",
+      "jurisdiction": "HKG",
+      "legal_name": "Elmsworth Materials S.A.",
+      "party_id": "AMLP-0045",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0045"
+    },
+    {
+      "incorporated": "2012-02-20",
+      "jurisdiction": "SGP",
+      "legal_name": "Elmsworth Petroleum",
+      "party_id": "AMLP-0046",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0046"
+    },
+    {
+      "incorporated": "2012-11-07",
+      "jurisdiction": "SGP",
+      "legal_name": "Fairbairn Enterprises",
+      "party_id": "AMLP-0047",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0047"
+    },
+    {
+      "incorporated": "2022-10-25",
+      "jurisdiction": "JEY",
+      "legal_name": "Fairhaven Capital LLC",
+      "party_id": "AMLP-0048",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0048"
+    },
+    {
+      "incorporated": "2023-07-30",
+      "jurisdiction": "BHS",
+      "legal_name": "Fairhaven Group GmbH",
+      "party_id": "AMLP-0049",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0049"
+    },
+    {
+      "incorporated": "2011-08-26",
+      "jurisdiction": "USA",
+      "legal_name": "Fairhaven Solutions LLC",
+      "party_id": "AMLP-0050",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0050"
+    },
+    {
+      "incorporated": "2021-04-29",
+      "jurisdiction": "FRA",
+      "legal_name": "Fairhaven Technologies Ltd",
+      "party_id": "AMLP-0051",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0051"
+    },
+    {
+      "incorporated": "2009-05-12",
+      "jurisdiction": "LIE",
+      "legal_name": "Fatima Husseini Trading",
+      "party_id": "AMLP-0052",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0052"
+    },
+    {
+      "incorporated": "2016-10-07",
+      "jurisdiction": "NLD",
+      "legal_name": "Fenwick Aviation",
+      "party_id": "AMLP-0053",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0053"
+    },
+    {
+      "incorporated": "2019-03-11",
+      "jurisdiction": "NLD",
+      "legal_name": "Fenwick Chemicals Pte Ltd",
+      "party_id": "AMLP-0054",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0054"
+    },
+    {
+      "incorporated": "2022-06-28",
+      "jurisdiction": "MUS",
+      "legal_name": "Fenwick Group S.A.",
+      "party_id": "AMLP-0055",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0055"
+    },
+    {
+      "incorporated": "2017-03-27",
+      "jurisdiction": "USA",
+      "legal_name": "Fenwick Manufacturing Corp",
+      "party_id": "AMLP-0056",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0056"
+    },
+    {
+      "incorporated": "2021-07-17",
+      "jurisdiction": "SYC",
+      "legal_name": "Fenwick Ventures Ltd",
+      "party_id": "AMLP-0057",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0057"
+    },
+    {
+      "incorporated": "2005-08-22",
+      "jurisdiction": "FRA",
+      "legal_name": "Geoffrey Fairbairn Trading",
+      "party_id": "AMLP-0058",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0058"
+    },
+    {
+      "incorporated": "2020-10-05",
+      "jurisdiction": "GBR",
+      "legal_name": "Geoffrey Pennington & Sons",
+      "party_id": "AMLP-0059",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0059"
+    },
+    {
+      "incorporated": "1998-01-01",
+      "jurisdiction": "CHE",
+      "legal_name": "Geoffrey Pennington Enterprises",
+      "party_id": "AMLP-0060",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0060"
+    },
+    {
+      "incorporated": "2014-05-03",
+      "jurisdiction": "LIE",
+      "legal_name": "Geoffrey Wycliffe & Sons",
+      "party_id": "AMLP-0061",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0061"
+    },
+    {
+      "incorporated": "2000-09-16",
+      "jurisdiction": "GBR",
+      "legal_name": "Georgios Papadopoulos Consulting",
+      "party_id": "AMLP-0062",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0062"
+    },
+    {
+      "incorporated": "2011-04-02",
+      "jurisdiction": "IRL",
+      "legal_name": "Glenridge Chemicals S.A.",
+      "party_id": "AMLP-0063",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0063"
+    },
+    {
+      "incorporated": "2019-03-22",
+      "jurisdiction": "SYC",
+      "legal_name": "Glenridge Consolidated Ltd",
+      "party_id": "AMLP-0064",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0064"
+    },
+    {
+      "incorporated": "2022-05-31",
+      "jurisdiction": "LIE",
+      "legal_name": "Glenridge Enterprises B.V.",
+      "party_id": "AMLP-0065",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0065"
+    },
+    {
+      "incorporated": "2003-01-31",
+      "jurisdiction": "DEU",
+      "legal_name": "Glenridge Fisheries",
+      "party_id": "AMLP-0066",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0066"
+    },
+    {
+      "incorporated": "2018-12-04",
+      "jurisdiction": "MHL",
+      "legal_name": "Glenridge Holdings Ltd",
+      "party_id": "AMLP-0067",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0067"
+    },
+    {
+      "incorporated": "2017-10-22",
+      "jurisdiction": "AUS",
+      "legal_name": "Glenridge Petroleum",
+      "party_id": "AMLP-0068",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0068"
+    },
+    {
+      "incorporated": "2015-03-12",
+      "jurisdiction": "USA",
+      "legal_name": "Granite Lakes Business Corp",
+      "ofac_near_match": {
+        "matched_name": "GREAT LAKES BUSINESS COMPANY",
+        "measured_similarity": 0.9047619047619048,
+        "sanctions_entry_id": "SDN-10118"
+      },
+      "party_id": "AMLP-0069",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0069"
+    },
+    {
+      "incorporated": "2012-06-17",
+      "jurisdiction": "SGP",
+      "legal_name": "Greystone Foods",
+      "party_id": "AMLP-0070",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0070"
+    },
+    {
+      "incorporated": "2004-02-21",
+      "jurisdiction": "FRA",
+      "legal_name": "Greystone Foods Ltd",
+      "party_id": "AMLP-0071",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0071"
+    },
+    {
+      "incorporated": "2013-07-26",
+      "jurisdiction": "GBR",
+      "legal_name": "Greystone Industries Inc",
+      "party_id": "AMLP-0072",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0072"
+    },
+    {
+      "incorporated": "2025-04-01",
+      "jurisdiction": "CYM",
+      "legal_name": "Greystone Investments",
+      "party_id": "AMLP-0073",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0073"
+    },
+    {
+      "incorporated": "2019-10-22",
+      "jurisdiction": "SYC",
+      "legal_name": "Harborview Holdings LLC",
+      "party_id": "AMLP-0074",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0074"
+    },
+    {
+      "incorporated": "2011-06-21",
+      "jurisdiction": "NLD",
+      "legal_name": "Harborview Properties Pte Ltd",
+      "party_id": "AMLP-0075",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0075"
+    },
+    {
+      "incorporated": "1996-03-27",
+      "jurisdiction": "NLD",
+      "legal_name": "Harborview Systems",
+      "party_id": "AMLP-0076",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0076"
+    },
+    {
+      "incorporated": "2012-10-01",
+      "jurisdiction": "DEU",
+      "legal_name": "Harborview Timber B.V.",
+      "party_id": "AMLP-0077",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0077"
+    },
+    {
+      "incorporated": "2004-11-07",
+      "jurisdiction": "CYM",
+      "legal_name": "Hollingsworth & Sons",
+      "party_id": "AMLP-0078",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0078"
+    },
+    {
+      "incorporated": "2008-08-03",
+      "jurisdiction": "USA",
+      "legal_name": "Hollowbrook Logistics LLC",
+      "party_id": "AMLP-0079",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0079"
+    },
+    {
+      "incorporated": "1994-03-21",
+      "jurisdiction": "IRL",
+      "legal_name": "Hollowbrook Materials Inc",
+      "party_id": "AMLP-0080",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0080"
+    },
+    {
+      "incorporated": "2007-02-01",
+      "jurisdiction": "CAN",
+      "legal_name": "Hollowbrook Minerals LLC",
+      "party_id": "AMLP-0081",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0081"
+    },
+    {
+      "incorporated": "2020-02-12",
+      "jurisdiction": "BLZ",
+      "legal_name": "Hollowbrook Partners",
+      "party_id": "AMLP-0082",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0082"
+    },
+    {
+      "incorporated": "2007-11-26",
+      "jurisdiction": "DEU",
+      "legal_name": "Hollowbrook Petroleum Inc",
+      "party_id": "AMLP-0083",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0083"
+    },
+    {
+      "incorporated": "2018-06-27",
+      "jurisdiction": "CYM",
+      "legal_name": "Hollowbrook Trading Corp",
+      "party_id": "AMLP-0084",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0084"
+    },
+    {
+      "incorporated": "2014-07-03",
+      "jurisdiction": "LIE",
+      "legal_name": "Huang & Associates",
+      "party_id": "AMLP-0085",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0085"
+    },
+    {
+      "incorporated": "2003-02-26",
+      "jurisdiction": "FRA",
+      "legal_name": "Ingeborg Lindqvist Trading Co",
+      "party_id": "AMLP-0086",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0086"
+    },
+    {
+      "incorporated": "2025-03-25",
+      "jurisdiction": "SYC",
+      "legal_name": "Ironwood International GmbH",
+      "party_id": "AMLP-0087",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0087"
+    },
+    {
+      "incorporated": "1999-08-01",
+      "jurisdiction": "DEU",
+      "legal_name": "Ironwood Manufacturing S.A.",
+      "party_id": "AMLP-0088",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0088"
+    },
+    {
+      "incorporated": "2004-09-17",
+      "jurisdiction": "AUS",
+      "legal_name": "Ivyridge Industries S.A.",
+      "party_id": "AMLP-0089",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0089"
+    },
+    {
+      "incorporated": "2016-01-18",
+      "jurisdiction": "IRL",
+      "legal_name": "Ivyridge Logistics Corp",
+      "party_id": "AMLP-0090",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0090"
+    },
+    {
+      "incorporated": "2017-10-10",
+      "jurisdiction": "DEU",
+      "legal_name": "Ivyridge Materials Pte Ltd",
+      "party_id": "AMLP-0091",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0091"
+    },
+    {
+      "incorporated": "2006-06-18",
+      "jurisdiction": "NLD",
+      "legal_name": "Ivyridge Systems S.A.",
+      "party_id": "AMLP-0092",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0092"
+    },
+    {
+      "incorporated": "2002-11-29",
+      "jurisdiction": "CAN",
+      "legal_name": "Joaquim Steenkamp Enterprises",
+      "party_id": "AMLP-0093",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0093"
+    },
+    {
+      "incorporated": "2012-11-25",
+      "jurisdiction": "USA",
+      "legal_name": "Joaquim Wojciechowski Enterprises",
+      "party_id": "AMLP-0094",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0094"
+    },
+    {
+      "incorporated": "2022-01-27",
+      "jurisdiction": "CHE",
+      "legal_name": "Juniper Foods",
+      "party_id": "AMLP-0095",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0095"
+    },
+    {
+      "incorporated": "1994-08-19",
+      "jurisdiction": "USA",
+      "legal_name": "Juniper Foods LLC",
+      "party_id": "AMLP-0096",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0096"
+    },
+    {
+      "incorporated": "1995-03-18",
+      "jurisdiction": "USA",
+      "legal_name": "Juniper Minerals Pte Ltd",
+      "party_id": "AMLP-0097",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0097"
+    },
+    {
+      "incorporated": "2012-02-21",
+      "jurisdiction": "GBR",
+      "legal_name": "Juniper Petroleum B.V.",
+      "party_id": "AMLP-0098",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0098"
+    },
+    {
+      "incorporated": "2017-02-03",
+      "jurisdiction": "DEU",
+      "legal_name": "Junjie Huang Imports",
+      "party_id": "AMLP-0099",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0099"
+    },
+    {
+      "incorporated": "1999-11-23",
+      "jurisdiction": "IRL",
+      "legal_name": "Junjie Li Trading",
+      "party_id": "AMLP-0100",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0100"
+    },
+    {
+      "incorporated": "1999-12-03",
+      "jurisdiction": "HKG",
+      "legal_name": "Katherine Wycliffe Holdings",
+      "party_id": "AMLP-0101",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0101"
+    },
+    {
+      "incorporated": "2005-07-25",
+      "jurisdiction": "SGP",
+      "legal_name": "Kestrel Manufacturing Pte Ltd",
+      "party_id": "AMLP-0102",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0102"
+    },
+    {
+      "incorporated": "2016-08-18",
+      "jurisdiction": "FRA",
+      "legal_name": "Kingsley Industries",
+      "party_id": "AMLP-0103",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0103"
+    },
+    {
+      "incorporated": "2006-06-04",
+      "jurisdiction": "NLD",
+      "legal_name": "Kingsley Industries Corp",
+      "party_id": "AMLP-0104",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0104"
+    },
+    {
+      "incorporated": "2007-05-14",
+      "jurisdiction": "NLD",
+      "legal_name": "Kingsley Timber",
+      "party_id": "AMLP-0105",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0105"
+    },
+    {
+      "incorporated": "2017-07-08",
+      "jurisdiction": "BMU",
+      "legal_name": "Larchwood Capital Corp",
+      "party_id": "AMLP-0106",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0106"
+    },
+    {
+      "incorporated": "2019-05-24",
+      "jurisdiction": "NLD",
+      "legal_name": "Larchwood Fisheries Ltd",
+      "party_id": "AMLP-0107",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0107"
+    },
+    {
+      "incorporated": "2019-11-30",
+      "jurisdiction": "SGP",
+      "legal_name": "Larchwood Properties B.V.",
+      "party_id": "AMLP-0108",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0108"
+    },
+    {
+      "incorporated": "2018-05-15",
+      "jurisdiction": "SYC",
+      "legal_name": "Lonsdale Group",
+      "party_id": "AMLP-0109",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0109"
+    },
+    {
+      "incorporated": "1998-02-16",
+      "jurisdiction": "NLD",
+      "legal_name": "Margaret Ashworth Holdings",
+      "party_id": "AMLP-0110",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0110"
+    },
+    {
+      "incorporated": "2004-11-25",
+      "jurisdiction": "GBR",
+      "legal_name": "Meridian Manufacturing",
+      "party_id": "AMLP-0111",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0111"
+    },
+    {
+      "incorporated": "2025-01-23",
+      "jurisdiction": "VGB",
+      "legal_name": "Meridian Partners GmbH",
+      "party_id": "AMLP-0112",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0112"
+    },
+    {
+      "incorporated": "2011-12-09",
+      "jurisdiction": "DEU",
+      "legal_name": "Meridian Petroleum LLC",
+      "party_id": "AMLP-0113",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0113"
+    },
+    {
+      "incorporated": "2013-02-21",
+      "jurisdiction": "MHL",
+      "legal_name": "Millbrook Aviation",
+      "party_id": "AMLP-0114",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0114"
+    },
+    {
+      "incorporated": "2004-07-10",
+      "jurisdiction": "NLD",
+      "legal_name": "Millbrook Manufacturing Corp",
+      "party_id": "AMLP-0115",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0115"
+    },
+    {
+      "incorporated": "2019-01-25",
+      "jurisdiction": "NLD",
+      "legal_name": "Mukherjee & Sons",
+      "party_id": "AMLP-0116",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0116"
+    },
+    {
+      "incorporated": "2012-09-19",
+      "jurisdiction": "USA",
+      "legal_name": "Mukherjee Holdings",
+      "party_id": "AMLP-0117",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0117"
+    },
+    {
+      "incorporated": "2007-11-06",
+      "jurisdiction": "MHL",
+      "legal_name": "Mukherjee Trading Co",
+      "party_id": "AMLP-0118",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0118"
+    },
+    {
+      "incorporated": "2015-12-18",
+      "jurisdiction": "NLD",
+      "legal_name": "Najjar & Sons",
+      "party_id": "AMLP-0119",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0119"
+    },
+    {
+      "incorporated": "2012-04-14",
+      "jurisdiction": "MUS",
+      "legal_name": "Najjar Imports",
+      "party_id": "AMLP-0120",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0120"
+    },
+    {
+      "incorporated": "2016-12-13",
+      "jurisdiction": "SYC",
+      "legal_name": "Nicholas Barrowman & Sons",
+      "party_id": "AMLP-0121",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0121"
+    },
+    {
+      "incorporated": "2020-09-19",
+      "jurisdiction": "BMU",
+      "legal_name": "Northgate Ventures",
+      "party_id": "AMLP-0122",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0122"
+    },
+    {
+      "incorporated": "2020-09-13",
+      "jurisdiction": "VGB",
+      "legal_name": "Norwood Investments S.A.",
+      "party_id": "AMLP-0123",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0123"
+    },
+    {
+      "incorporated": "2006-09-01",
+      "jurisdiction": "CHE",
+      "legal_name": "Norwood Logistics S.A.",
+      "party_id": "AMLP-0124",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0124"
+    },
+    {
+      "incorporated": "2016-10-25",
+      "jurisdiction": "USA",
+      "legal_name": "Norwood Materials Corp",
+      "party_id": "AMLP-0125",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0125"
+    },
+    {
+      "incorporated": "1994-12-29",
+      "jurisdiction": "DEU",
+      "legal_name": "Norwood Solutions Inc",
+      "party_id": "AMLP-0126",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0126"
+    },
+    {
+      "incorporated": "2001-06-17",
+      "jurisdiction": "PAN",
+      "legal_name": "Oakhaven Foods",
+      "party_id": "AMLP-0127",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0127"
+    },
+    {
+      "incorporated": "1997-01-14",
+      "jurisdiction": "BMU",
+      "legal_name": "Oakhaven Foods GmbH",
+      "party_id": "AMLP-0128",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0128"
+    },
+    {
+      "incorporated": "2025-04-10",
+      "jurisdiction": "BLZ",
+      "legal_name": "Oakhaven Overseas",
+      "party_id": "AMLP-0129",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0129"
+    },
+    {
+      "incorporated": "2025-03-20",
+      "jurisdiction": "CYM",
+      "legal_name": "Oakhaven Partners Pte Ltd",
+      "party_id": "AMLP-0130",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0130"
+    },
+    {
+      "incorporated": "2022-03-05",
+      "jurisdiction": "JEY",
+      "legal_name": "Oakhaven Universal LLC",
+      "party_id": "AMLP-0131",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0131"
+    },
+    {
+      "incorporated": "2003-12-17",
+      "jurisdiction": "JPN",
+      "legal_name": "Oleksandr Kovalyov Trading",
+      "party_id": "AMLP-0132",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0132"
+    },
+    {
+      "incorporated": "1998-11-24",
+      "jurisdiction": "CHE",
+      "legal_name": "Oxbridge Materials",
+      "party_id": "AMLP-0133",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0133"
+    },
+    {
+      "incorporated": "2019-08-25",
+      "jurisdiction": "GBR",
+      "legal_name": "Oxbridge Solutions S.A.",
+      "party_id": "AMLP-0134",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0134"
+    },
+    {
+      "incorporated": "2023-05-09",
+      "jurisdiction": "NLD",
+      "legal_name": "Papadopoulos Enterprises",
+      "party_id": "AMLP-0135",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0135"
+    },
+    {
+      "incorporated": "2009-06-27",
+      "jurisdiction": "SGP",
+      "legal_name": "Papadopoulos Holdings",
+      "party_id": "AMLP-0136",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0136"
+    },
+    {
+      "incorporated": "1997-09-05",
+      "jurisdiction": "HKG",
+      "legal_name": "Parkside Manufacturing GmbH",
+      "party_id": "AMLP-0137",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0137"
+    },
+    {
+      "incorporated": "2002-06-02",
+      "jurisdiction": "AUS",
+      "legal_name": "Parkside Petroleum",
+      "party_id": "AMLP-0138",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0138"
+    },
+    {
+      "incorporated": "2003-12-31",
+      "jurisdiction": "JPN",
+      "legal_name": "Parkside Timber GmbH",
+      "party_id": "AMLP-0139",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0139"
+    },
+    {
+      "incorporated": "2017-04-05",
+      "jurisdiction": "FRA",
+      "legal_name": "Pinegrove Aviation S.A.",
+      "party_id": "AMLP-0140",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0140"
+    },
+    {
+      "incorporated": "2001-03-13",
+      "jurisdiction": "NLD",
+      "legal_name": "Pinegrove Chemicals B.V.",
+      "party_id": "AMLP-0141",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0141"
+    },
+    {
+      "incorporated": "2018-04-05",
+      "jurisdiction": "CYM",
+      "legal_name": "Pinegrove Enterprises Corp",
+      "party_id": "AMLP-0142",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0142"
+    },
+    {
+      "incorporated": "1995-02-04",
+      "jurisdiction": "FRA",
+      "legal_name": "Pinegrove Materials",
+      "party_id": "AMLP-0143",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0143"
+    },
+    {
+      "incorporated": "2002-03-31",
+      "jurisdiction": "DEU",
+      "legal_name": "Pinegrove Systems Inc",
+      "party_id": "AMLP-0144",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0144"
+    },
+    {
+      "incorporated": "2016-07-10",
+      "jurisdiction": "CAN",
+      "legal_name": "Priya Mukherjee & Associates",
+      "party_id": "AMLP-0145",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0145"
+    },
+    {
+      "incorporated": "2022-09-25",
+      "jurisdiction": "USA",
+      "legal_name": "Priya Sharma Enterprises",
+      "party_id": "AMLP-0146",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0146"
+    },
+    {
+      "incorporated": "2012-06-27",
+      "jurisdiction": "LUX",
+      "legal_name": "Qasim & Associates",
+      "party_id": "AMLP-0147",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0147"
+    },
+    {
+      "incorporated": "2009-09-02",
+      "jurisdiction": "NLD",
+      "legal_name": "Quarrystone Materials",
+      "party_id": "AMLP-0148",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0148"
+    },
+    {
+      "incorporated": "2017-09-11",
+      "jurisdiction": "AUS",
+      "legal_name": "Quarrystone Minerals S.A.",
+      "party_id": "AMLP-0149",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0149"
+    },
+    {
+      "incorporated": "2015-11-22",
+      "jurisdiction": "JEY",
+      "legal_name": "Quarrystone Technologies Pte Ltd",
+      "party_id": "AMLP-0150",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0150"
+    },
+    {
+      "incorporated": "2001-01-23",
+      "jurisdiction": "PAN",
+      "legal_name": "Rajesh Mukherjee Holdings",
+      "party_id": "AMLP-0151",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0151"
+    },
+    {
+      "incorporated": "2014-05-03",
+      "jurisdiction": "DEU",
+      "legal_name": "Ridgemont Fisheries S.A.",
+      "party_id": "AMLP-0152",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0152"
+    },
+    {
+      "incorporated": "2005-12-31",
+      "jurisdiction": "CHE",
+      "legal_name": "Ridgemont Technologies B.V.",
+      "party_id": "AMLP-0153",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0153"
+    },
+    {
+      "incorporated": "2004-08-13",
+      "jurisdiction": "FRA",
+      "legal_name": "Rosewood Chemicals",
+      "party_id": "AMLP-0154",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0154"
+    },
+    {
+      "incorporated": "1995-07-03",
+      "jurisdiction": "BHS",
+      "legal_name": "Rosewood Industries LLC",
+      "party_id": "AMLP-0155",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0155"
+    },
+    {
+      "incorporated": "2011-04-29",
+      "jurisdiction": "VGB",
+      "legal_name": "Rosewood Logistics Corp",
+      "party_id": "AMLP-0156",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0156"
+    },
+    {
+      "incorporated": "1997-02-11",
+      "jurisdiction": "USA",
+      "legal_name": "Rosewood Manufacturing Inc",
+      "party_id": "AMLP-0157",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0157"
+    },
+    {
+      "incorporated": "1995-11-07",
+      "jurisdiction": "GBR",
+      "legal_name": "Rosewood Minerals B.V.",
+      "party_id": "AMLP-0158",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0158"
+    },
+    {
+      "incorporated": "2020-09-01",
+      "jurisdiction": "CYM",
+      "legal_name": "Rosewood Overseas B.V.",
+      "party_id": "AMLP-0159",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0159"
+    },
+    {
+      "incorporated": "2001-10-10",
+      "jurisdiction": "MHL",
+      "legal_name": "Rosewood Properties GmbH",
+      "party_id": "AMLP-0160",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0160"
+    },
+    {
+      "incorporated": "1999-12-17",
+      "jurisdiction": "HKG",
+      "legal_name": "Rosewood Timber S.A.",
+      "party_id": "AMLP-0161",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0161"
+    },
+    {
+      "incorporated": "1998-11-13",
+      "jurisdiction": "VGB",
+      "legal_name": "Sergey Solovyov Holdings",
+      "party_id": "AMLP-0162",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0162"
+    },
+    {
+      "incorporated": "2017-03-16",
+      "jurisdiction": "VGB",
+      "legal_name": "Sharma Holdings",
+      "party_id": "AMLP-0163",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0163"
+    },
+    {
+      "incorporated": "2013-08-02",
+      "jurisdiction": "CHE",
+      "legal_name": "Sharma Trading",
+      "party_id": "AMLP-0164",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0164"
+    },
+    {
+      "incorporated": "2022-01-11",
+      "jurisdiction": "AUS",
+      "legal_name": "Sharma Trading Co",
+      "party_id": "AMLP-0165",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0165"
+    },
+    {
+      "incorporated": "2025-11-16",
+      "jurisdiction": "VGB",
+      "legal_name": "Silverline International Pte Ltd",
+      "party_id": "AMLP-0166",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0166"
+    },
+    {
+      "incorporated": "2001-06-26",
+      "jurisdiction": "GBR",
+      "legal_name": "Silverline Petroleum",
+      "party_id": "AMLP-0167",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0167"
+    },
+    {
+      "incorporated": "1996-05-18",
+      "jurisdiction": "GBR",
+      "legal_name": "Silverline Properties",
+      "party_id": "AMLP-0168",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0168"
+    },
+    {
+      "incorporated": "1994-11-04",
+      "jurisdiction": "NLD",
+      "legal_name": "Silverline Resources GmbH",
+      "party_id": "AMLP-0169",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0169"
+    },
+    {
+      "incorporated": "2014-11-27",
+      "jurisdiction": "USA",
+      "legal_name": "Silverline Systems B.V.",
+      "party_id": "AMLP-0170",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0170"
+    },
+    {
+      "incorporated": "2020-04-24",
+      "jurisdiction": "CAN",
+      "legal_name": "Siobhan Hollingsworth & Sons",
+      "party_id": "AMLP-0171",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0171"
+    },
+    {
+      "incorporated": "2011-07-15",
+      "jurisdiction": "SGP",
+      "legal_name": "Solovyov Trading Co",
+      "party_id": "AMLP-0172",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0172"
+    },
+    {
+      "incorporated": "1995-11-01",
+      "jurisdiction": "FRA",
+      "legal_name": "Stonebridge Foods",
+      "party_id": "AMLP-0173",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0173"
+    },
+    {
+      "incorporated": "2019-02-27",
+      "jurisdiction": "NLD",
+      "legal_name": "Stonebridge Foods Inc",
+      "party_id": "AMLP-0174",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0174"
+    },
+    {
+      "incorporated": "2021-03-14",
+      "jurisdiction": "SGP",
+      "legal_name": "Stonebridge Properties LLC",
+      "party_id": "AMLP-0175",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0175"
+    },
+    {
+      "incorporated": "2010-07-02",
+      "jurisdiction": "HKG",
+      "legal_name": "Suresh Mukherjee & Sons",
+      "party_id": "AMLP-0176",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0176"
+    },
+    {
+      "incorporated": "2015-10-06",
+      "jurisdiction": "NLD",
+      "legal_name": "Suresh Mukherjee Enterprises",
+      "party_id": "AMLP-0177",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0177"
+    },
+    {
+      "incorporated": "2013-07-14",
+      "jurisdiction": "GBR",
+      "legal_name": "Suresh Mukherjee Imports",
+      "party_id": "AMLP-0178",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0178"
+    },
+    {
+      "incorporated": "1999-09-15",
+      "jurisdiction": "GBR",
+      "legal_name": "Suresh Sharma Trading Co",
+      "party_id": "AMLP-0179",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0179"
+    },
+    {
+      "incorporated": "2018-08-08",
+      "jurisdiction": "VGB",
+      "legal_name": "Thornfield International Inc",
+      "party_id": "AMLP-0180",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0180"
+    },
+    {
+      "incorporated": "2013-08-21",
+      "jurisdiction": "USA",
+      "legal_name": "Thornfield Minerals GmbH",
+      "party_id": "AMLP-0181",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0181"
+    },
+    {
+      "incorporated": "2021-03-27",
+      "jurisdiction": "USA",
+      "legal_name": "Thornfield Systems",
+      "party_id": "AMLP-0182",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0182"
+    },
+    {
+      "incorporated": "2024-01-20",
+      "jurisdiction": "MUS",
+      "legal_name": "Underhill Consolidated LLC",
+      "party_id": "AMLP-0183",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0183"
+    },
+    {
+      "incorporated": "2018-01-26",
+      "jurisdiction": "NLD",
+      "legal_name": "Underhill Properties",
+      "party_id": "AMLP-0184",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0184"
+    },
+    {
+      "incorporated": "2010-05-01",
+      "jurisdiction": "AUS",
+      "legal_name": "Underhill Systems S.A.",
+      "party_id": "AMLP-0185",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0185"
+    },
+    {
+      "incorporated": "2002-12-31",
+      "jurisdiction": "HKG",
+      "legal_name": "Vandersteen Consulting",
+      "party_id": "AMLP-0186",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0186"
+    },
+    {
+      "incorporated": "2021-10-12",
+      "jurisdiction": "IMN",
+      "legal_name": "Vantage International Inc",
+      "party_id": "AMLP-0187",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0187"
+    },
+    {
+      "incorporated": "2000-09-05",
+      "jurisdiction": "USA",
+      "legal_name": "Vantage Manufacturing",
+      "party_id": "AMLP-0188",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0188"
+    },
+    {
+      "incorporated": "2017-04-27",
+      "jurisdiction": "BHS",
+      "legal_name": "Vasileiou Enterprises",
+      "party_id": "AMLP-0189",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0189"
+    },
+    {
+      "incorporated": "2001-08-27",
+      "jurisdiction": "GBR",
+      "legal_name": "Vasileiou Trading Co",
+      "party_id": "AMLP-0190",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0190"
+    },
+    {
+      "incorporated": "2009-02-05",
+      "jurisdiction": "CHE",
+      "legal_name": "Wei Li Trading Co",
+      "party_id": "AMLP-0191",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0191"
+    },
+    {
+      "incorporated": "2019-01-17",
+      "jurisdiction": "PAN",
+      "legal_name": "Westbrook Capital LLC",
+      "party_id": "AMLP-0192",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0192"
+    },
+    {
+      "incorporated": "2013-10-16",
+      "jurisdiction": "GBR",
+      "legal_name": "Westbrook Chemicals Inc",
+      "party_id": "AMLP-0193",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0193"
+    },
+    {
+      "incorporated": "2002-07-12",
+      "jurisdiction": "FRA",
+      "legal_name": "Westbrook Technologies LLC",
+      "party_id": "AMLP-0194",
+      "party_kind": "corporate",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0194"
+    },
+    {
+      "incorporated": "2019-10-28",
+      "jurisdiction": "GBR",
+      "legal_name": "Westbrook Trading",
+      "party_id": "AMLP-0195",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0195"
+    },
+    {
+      "incorporated": "2018-10-01",
+      "jurisdiction": "SYC",
+      "legal_name": "Westbrook Ventures Ltd",
+      "party_id": "AMLP-0196",
+      "party_kind": "shell",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0196"
+    },
+    {
+      "incorporated": "2014-05-27",
+      "jurisdiction": "AUS",
+      "legal_name": "Wojciechowski Trading Co",
+      "party_id": "AMLP-0197",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0197"
+    },
+    {
+      "incorporated": "2009-04-12",
+      "jurisdiction": "SGP",
+      "legal_name": "Xiuying Zhang Trading",
+      "party_id": "AMLP-0198",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0198"
+    },
+    {
+      "incorporated": "2014-09-16",
+      "jurisdiction": "USA",
+      "legal_name": "Yekaterina Kovalyov Imports",
+      "party_id": "AMLP-0199",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0199"
+    },
+    {
+      "incorporated": "2022-12-09",
+      "jurisdiction": "DEU",
+      "legal_name": "Zakharova Trading",
+      "party_id": "AMLP-0200",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0200"
+    },
+    {
+      "incorporated": "2002-12-24",
+      "jurisdiction": "NLD",
+      "legal_name": "Zhiqiang Zhang Imports",
+      "party_id": "AMLP-0201",
+      "party_kind": "individual_owned",
+      "provenance": "synthetic — engineered",
+      "syn_lei": "SYN-AML-0201"
+    }
+  ]
+}

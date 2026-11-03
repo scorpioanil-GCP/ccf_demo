@@ -1,0 +1,2897 @@
+{
+  "source": "gdelt",
+  "description": "GDELT DOC 2.0 API \u2014 per-obligor adverse-tone article search",
+  "licence": "GDELT Project, public (see gdeltproject.org/about.html#termsofuse)",
+  "fetches": [
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:36:51+00:00",
+      "sha256": "e5404d90155df5e78d9e407f0d099731e6cb35c98eaf1d8f9c28a920a69d7efb",
+      "bytes": 938,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:40:57+00:00",
+      "sha256": "29c6f00675dfe444c469a02a023432564f0d53a96c4388bba5d775dc6958594d",
+      "bytes": 1821,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:45:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:46:32+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:46:48+00:00",
+      "sha256": "6c2e2a3610c4ed224947207d22e6bd18b6759309a35c9e741bc0df38245d4dd0",
+      "bytes": 657,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22ZIMMER+BIOMET+HOLDINGS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/2P2YLDVPES3BXQ1FRB91__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:47:26+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AGILYSYS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5299001XWB5V3B5IPN93__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:48:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900E95812SYWMCE44__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:49:13+00:00",
+      "sha256": "0e5140b5f49f25e622bf023e8bd7784a1c5469b44593ee2e27b3a542e88b2112",
+      "bytes": 907,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22PAYCHEX%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900K900DW6SUBM174__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:52:56+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Container+Store+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900L7KB2N9KXCDI76__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:53:10+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:53:35+00:00",
+      "sha256": "46da624051b04e013777c218a0c7290b3608c020a5997f7e4eabe496627163e8",
+      "bytes": 62304,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Viskase+Holdings%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900VN48L8QCMVPV36__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:55:25+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Thermon+Group+Holdings%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/529900ZNZBBLDE77MZ38__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:56:28+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BOSTON+OMAHA%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/54930002FEWTYF4YFF19__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:58:47+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T01:59:15+00:00",
+      "sha256": "fa1fad91cb444901d329b77875b19c5e27e091b6177716dfdb1cb8d9c51b6b3e",
+      "bytes": 11938,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:02:22+00:00",
+      "sha256": "1a01e93bd20abf60382557c94f1add3f9ff5659311cea519a444e06eba33ff77",
+      "bytes": 25382,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:02:54+00:00",
+      "sha256": "0f00533632385a5bbcb4c532fadf26fc072e5e86403f3cb395fd71dac6023101",
+      "bytes": 843,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Quanex+Building+Products%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493000TL30VL5WOAW87__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:03:41+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:04:47+00:00",
+      "sha256": "b2d9d89b5b936028e3ed3658fd090449aecac6ad644897cba2b20e7f06eea038",
+      "bytes": 8660,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22RB+GLOBAL%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493002H8U24DJXQ4886__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:06:26+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22City+Office+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493003J7157VP25NL57__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:06:56+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Targa+Resources%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493003QENHHS261UR94__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:07:38+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Anywhere+Real+Estate%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493004HBTOTE9DI9P12__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:08:09+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:08:39+00:00",
+      "sha256": "f3746194d592bbd02d24477000d92106a762dff778292927e20b1fa1bd2e9a49",
+      "bytes": 818,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Pebblebrook+Hotel+Trust%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493004Q1NNH6JXCSI52__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:10:27+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MUELLER+INDUSTRIES%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/5493005IZFE4VJLLYG84__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:11:10+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:29:28+00:00",
+      "sha256": "90369f66bea6af4e5ac933ab046fd2a106241e8a4c77d7dbe82347497a8cf85a",
+      "bytes": 388,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": "Pre-hash filename. An earlier record for this same filename, the quoted-phrase query %22XPO%22, was removed from this manifest: GDELT answered it with HTTP 200 and the 35-byte plain-text body 'The specified phrase is too short.', and the unquoted retry then overwrote those bytes under the identical name. Its sha256 could no longer be verified against anything on disk, so the record was dropped rather than left asserting a hash for bytes that are gone. Payload filenames now carry a query hash so two queries can no longer collide."
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Digital+Turbine%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300D0WZR1VI2QGB24__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:30:06+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AMPHENOL%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300D3L3G0R4U4VT04__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:31:56+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:32:12+00:00",
+      "sha256": "514bfc698a3d995de3bc657680c8a7122e5b3a45e0f272a5a1b50aca88cae549",
+      "bytes": 3009,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SmartStop+Self+Storage+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300EC266625K12S42__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:33:45+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TransDigm+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300EQD0ZXRSMG3549__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:35:20+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Peakstone+Realty+Trust%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300EZQXWQI2YL1T80__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:35:46+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WATSCO%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300F1Y3LN5BX5WN75__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:37:16+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:38:46+00:00",
+      "sha256": "bc2b7fcdbf397999702e1e83bb1ee9b2c6064998b7ffb8cc3075f7d30ea75d3d",
+      "bytes": 5248,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:39:18+00:00",
+      "sha256": "f6ad714b65e4147bc9ae81f1ffe8a23ff5c89d1e1e07410eee1670fa731e9afd",
+      "bytes": 2826,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Braemar+Hotels+%26+Resorts%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300JDUUEBN868C776__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:39:44+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Vertiv+Holdings%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300KTTIRAOGXCRV69__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:42:40+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:43:15+00:00",
+      "sha256": "927950a5c99b25a9f46e0722c37b414ce46dce25d56b8dbb56910a5efe5b0047",
+      "bytes": 1582,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CrossAmerica+Partners%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300OUUC900EVOGX10__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:43:47+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MASTEC%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300TMDIT8WREDOF45__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:45:12+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22B%26G+Foods%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300TRW1LZMDJZAQ78__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:48:40+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:50:08+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:52:27+00:00",
+      "sha256": "3cead81d354ff33d1b2cd236f41f89973302897ded7d922d5cbd1b9057b53390",
+      "bytes": 7929,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CION+Investment%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300XN70JLF94XKX80__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:53:06+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22INDEPENDENCE+REALTY+TRUST%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/549300Z3L8NU44NQEB29__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:54:23+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:54:47+00:00",
+      "sha256": "f793ff841202328197ebc1a7f5221fd9eab04ac44e10bfe6da6fbfb46a3d1478",
+      "bytes": 506,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TUPPERWARE+BRANDS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/G8NWFN4YP7CR6FOP4886__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:56:37+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SUBURBAN+PROPANE+PARTNERS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/JJAX4X60DE65EYFOTY73__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:57:56+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20260819235959",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__20240819000000-20260819235959.json",
+      "retrieved_at": "2026-08-21T02:58:40+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20241108051959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20240819000000-20241108051959.json",
+      "retrieved_at": "2026-08-21T03:18:51+00:00",
+      "sha256": "cf206e9b55fc695cb97f5c35c0efe49f8788a84349cd3f3f8c9af74d4a4cbc2f",
+      "bytes": 1240,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20241108051959&enddatetime=20250128103959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20241108051959-20250128103959.json",
+      "retrieved_at": "2026-08-21T03:19:07+00:00",
+      "sha256": "65aca805b572bebe86d8c973d9dbd59449074c1becc6edf7eb88762bd3113712",
+      "bytes": 492,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250128103959&enddatetime=20250419155959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20250128103959-20250419155959.json",
+      "retrieved_at": "2026-08-21T03:20:22+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250419155959&enddatetime=20250709211959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20250419155959-20250709211959.json",
+      "retrieved_at": "2026-08-21T03:22:08+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250709211959&enddatetime=20250929023959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20250709211959-20250929023959.json",
+      "retrieved_at": "2026-08-21T03:23:28+00:00",
+      "sha256": "fc2b6bcc0fc2ab5bdcddde1fc9b70a14a2e13ae0ea0e160eabd3c32769e81bf7",
+      "bytes": 696,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250929023959&enddatetime=20251219075959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20250929023959-20251219075959.json",
+      "retrieved_at": "2026-08-21T03:23:44+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20251219075959&enddatetime=20260310131959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20251219075959-20260310131959.json",
+      "retrieved_at": "2026-08-21T03:24:08+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260310131959&enddatetime=20260530183959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20260310131959-20260530183959.json",
+      "retrieved_at": "2026-08-21T03:24:32+00:00",
+      "sha256": "3e5a6445d8bd03e19c12c56735e3589a6d40427eb7b8ce2eb285f172089f3880",
+      "bytes": 684,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260530183959&enddatetime=20260819235959",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20260530183959-20260819235959.json",
+      "retrieved_at": "2026-08-21T03:24:46+00:00",
+      "sha256": "e5404d90155df5e78d9e407f0d099731e6cb35c98eaf1d8f9c28a920a69d7efb",
+      "bytes": 938,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20241108051959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20240819000000-20241108051959.json",
+      "retrieved_at": "2026-08-21T03:26:45+00:00",
+      "sha256": "ebb9dc9f0eb54b456a2c2d0c25469d0495463dc82de308a0b9f767840bf53dc2",
+      "bytes": 9330,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20241108051959&enddatetime=20250128103959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20241108051959-20250128103959.json",
+      "retrieved_at": "2026-08-21T03:29:37+00:00",
+      "sha256": "6fc1ecc152a1400234ae587cf2d66d1206ab37ccb608f589886fe7ed34556bb2",
+      "bytes": 4026,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250128103959&enddatetime=20250419155959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250128103959-20250419155959.json",
+      "retrieved_at": "2026-08-21T03:32:19+00:00",
+      "sha256": "411494d81e2c684784c1585324a6cfdf4fb0a752e0ff20aaa8305848b81ae386",
+      "bytes": 4724,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250419155959&enddatetime=20250709211959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250419155959-20250709211959.json",
+      "retrieved_at": "2026-08-21T03:34:10+00:00",
+      "sha256": "bbeddb41421e23d79f6e621d6f324cdef54d1c9c7246b250e18652d5cf8d97c1",
+      "bytes": 1358,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250709211959&enddatetime=20250929023959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250709211959-20250929023959.json",
+      "retrieved_at": "2026-08-21T03:34:38+00:00",
+      "sha256": "bf5dc613866ec7c46fdef50aaf38d610b2f08babe3ff51e92809f2932f3a6ce1",
+      "bytes": 13784,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250929023959&enddatetime=20251219075959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250929023959-20251219075959.json",
+      "retrieved_at": "2026-08-21T03:34:58+00:00",
+      "sha256": "6803211ed70e27a89e6907b0b4ad3bb0b89da5471da77715129738708a1cd886",
+      "bytes": 10903,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20251219075959&enddatetime=20260310131959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20251219075959-20260310131959.json",
+      "retrieved_at": "2026-08-21T03:35:48+00:00",
+      "sha256": "71ac93e9c378e90f5825f5b6dbeb53d24506ee1ca641f95cf258130afef0a918",
+      "bytes": 3074,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260310131959&enddatetime=20260530183959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20260310131959-20260530183959.json",
+      "retrieved_at": "2026-08-21T03:36:18+00:00",
+      "sha256": "0495ba9a833b6ccd2abcd5d4eb0069b5533685bb3e04b3d7d773c558124824c7",
+      "bytes": 1780,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260530183959&enddatetime=20260819235959",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20260530183959-20260819235959.json",
+      "retrieved_at": "2026-08-21T03:36:50+00:00",
+      "sha256": "b37bb34b7f4c843bbdc8f8a61fb7ba030a3e3295d063483c7284ee29c492f2b9",
+      "bytes": 1390,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20241108051959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20240819000000-20241108051959.json",
+      "retrieved_at": "2026-08-21T03:37:07+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20241108051959&enddatetime=20250128103959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20241108051959-20250128103959.json",
+      "retrieved_at": "2026-08-21T03:37:36+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250128103959&enddatetime=20250419155959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20250128103959-20250419155959.json",
+      "retrieved_at": "2026-08-21T03:37:51+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250419155959&enddatetime=20250709211959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20250419155959-20250709211959.json",
+      "retrieved_at": "2026-08-21T03:39:25+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250709211959&enddatetime=20250929023959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20250709211959-20250929023959.json",
+      "retrieved_at": "2026-08-21T03:40:58+00:00",
+      "sha256": "eaa802e316fccb4ea8a8adf421577c584489081fd95dfbcc38716c2b7ece7b10",
+      "bytes": 881,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250929023959&enddatetime=20251219075959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20250929023959-20251219075959.json",
+      "retrieved_at": "2026-08-21T03:41:50+00:00",
+      "sha256": "33b58a66f8bbdfcd022818f6fd0b153be10a61bf87f2feeb04e0a598672a4cc2",
+      "bytes": 596,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20251219075959&enddatetime=20260310131959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20251219075959-20260310131959.json",
+      "retrieved_at": "2026-08-21T03:42:05+00:00",
+      "sha256": "bab9a802fc8d10acb9959914098f89b293c25eb92f83a4c2cb57a9188089f392",
+      "bytes": 529,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260310131959&enddatetime=20260530183959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20260310131959-20260530183959.json",
+      "retrieved_at": "2026-08-21T03:43:35+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260530183959&enddatetime=20260819235959",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20260530183959-20260819235959.json",
+      "retrieved_at": "2026-08-21T03:44:12+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20240819000000&enddatetime=20241108051959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20240819000000-20241108051959.json",
+      "retrieved_at": "2026-08-21T03:48:41+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20241108051959&enddatetime=20250128103959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20241108051959-20250128103959.json",
+      "retrieved_at": "2026-08-21T03:49:45+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250128103959&enddatetime=20250419155959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20250128103959-20250419155959.json",
+      "retrieved_at": "2026-08-21T03:50:08+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250419155959&enddatetime=20250709211959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20250419155959-20250709211959.json",
+      "retrieved_at": "2026-08-21T03:52:43+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250709211959&enddatetime=20250929023959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20250709211959-20250929023959.json",
+      "retrieved_at": "2026-08-21T03:53:58+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20250929023959&enddatetime=20251219075959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20250929023959-20251219075959.json",
+      "retrieved_at": "2026-08-21T03:57:29+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20251219075959&enddatetime=20260310131959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20251219075959-20260310131959.json",
+      "retrieved_at": "2026-08-21T03:57:57+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260310131959&enddatetime=20260530183959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20260310131959-20260530183959.json",
+      "retrieved_at": "2026-08-21T03:59:25+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=artlist&format=json&maxrecords=250&startdatetime=20260530183959&enddatetime=20260819235959",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__20260530183959-20260819235959.json",
+      "retrieved_at": "2026-08-21T04:01:32+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__timeline__d4e334ca.json",
+      "retrieved_at": "2026-08-21T04:04:20+00:00",
+      "sha256": "5ecad714f9e82ab4372530ecccbe482e2e31445f955dd9fc9a38d2b46d5cee32",
+      "bytes": 41283,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240919000000&enddatetime=20241110235959&maxrecords=250",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20240919-20241110__d4e334ca.json",
+      "retrieved_at": "2026-08-21T04:04:51+00:00",
+      "sha256": "42607d26dae847136622ae2f2f11e435209257920b6b05b0353c34aab0a0c59d",
+      "bytes": 1715,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250905000000&enddatetime=20250905235959&maxrecords=250",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20250905-20250905__d4e334ca.json",
+      "retrieved_at": "2026-08-21T04:05:34+00:00",
+      "sha256": "fc2b6bcc0fc2ab5bdcddde1fc9b70a14a2e13ae0ea0e160eabd3c32769e81bf7",
+      "bytes": 696,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SP+Plus%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260512000000&enddatetime=20260613235959&maxrecords=250",
+      "path": "sources/gdelt/0IDE18EMH1CUKQCUYE69__20260512-20260613__d4e334ca.json",
+      "retrieved_at": "2026-08-21T04:05:49+00:00",
+      "sha256": "6edd6949d3df5355979923d80c034e802361f754f5aaa076dc33bd4cd5914b85",
+      "bytes": 1605,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__timeline__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:06:03+00:00",
+      "sha256": "f450dd7b24e13c0f09f26667a327d66a03d3bd8741fe6398796aca89ce1c9569",
+      "bytes": 41299,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240819000000&enddatetime=20241003235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20240819-20241003__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:06:35+00:00",
+      "sha256": "ebb9dc9f0eb54b456a2c2d0c25469d0495463dc82de308a0b9f767840bf53dc2",
+      "bytes": 9330,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241119000000&enddatetime=20250212235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20241119-20250212__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:06:55+00:00",
+      "sha256": "ba3bd0ce07df4b1bed76538ac4b1e85429340643959d4c384b2021d0afc5cf46",
+      "bytes": 7185,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250226000000&enddatetime=20250520235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250226-20250520__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:08:25+00:00",
+      "sha256": "9840796b7095d8074d864d5f6fc52a67f70170682a4c563d452e3ecadc03ce62",
+      "bytes": 1573,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250528000000&enddatetime=20250821235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250528-20250821__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:09:04+00:00",
+      "sha256": "0615a3725cf8756c101c7cad379fbd8d6ff85ec1b50b85af87e771f0df42a5cf",
+      "bytes": 6556,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250827000000&enddatetime=20251109235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20250827-20251109__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:10:32+00:00",
+      "sha256": "90a5c97f31528cb719d7a1b6186b8bece73d67753923672ea31768a6e9102aeb",
+      "bytes": 16298,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251130000000&enddatetime=20260210235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20251130-20260210__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:10:56+00:00",
+      "sha256": "0cafd470bd3067c989a8bfd484bb99305c93364db6d9bd56e57fc26cb4b44b41",
+      "bytes": 4472,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260305000000&enddatetime=20260602235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20260305-20260602__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:12:40+00:00",
+      "sha256": "7a334e58479044b5995c38d87efd77e7a2c2596c1c5fae63184fbac892589d1b",
+      "bytes": 3082,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CHARTER+COMMUNICATIONS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260708000000&enddatetime=20260708235959&maxrecords=250",
+      "path": "sources/gdelt/0J0XRGZE3PBRFEZ7MV65__20260708-20260708__be9480f8.json",
+      "retrieved_at": "2026-08-21T04:16:13+00:00",
+      "sha256": "927c50b5fac7856e2d81e844328808644156cc2f3b35a596da21d7a6f3743bc3",
+      "bytes": 951,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__timeline__d6c4917d.json",
+      "retrieved_at": "2026-08-21T04:17:09+00:00",
+      "sha256": "57c7b254778bc30ccf02d6a203712d7238701c7fad6777b13964cfe70b9c8663",
+      "bytes": 41285,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250919000000&enddatetime=20251021235959&maxrecords=250",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20250919-20251021__d6c4917d.json",
+      "retrieved_at": "2026-08-21T04:19:57+00:00",
+      "sha256": "1e38a9ff6c87e7147e24199f52bfed706e61d05e8fb4003a4803f7cf091e5f77",
+      "bytes": 1460,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BGC+Group%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260207000000&enddatetime=20260207235959&maxrecords=250",
+      "path": "sources/gdelt/2549001IGRCG4F0RLD36__20260207-20260207__d6c4917d.json",
+      "retrieved_at": "2026-08-21T04:20:39+00:00",
+      "sha256": "bab9a802fc8d10acb9959914098f89b293c25eb92f83a4c2cb57a9188089f392",
+      "bytes": 529,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22American+Healthcare+REIT%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/2549004GGE2APGNT6O92__timeline__d4d7bf0b.json",
+      "retrieved_at": "2026-08-21T04:22:12+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__timeline__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:24:29+00:00",
+      "sha256": "8dd585f4d1a44110af4794890b8a5badce5bcbb2bee2c04805f0a13ae2b2fdaa",
+      "bytes": 41290,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240901000000&enddatetime=20241111235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20240901-20241111__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:27:13+00:00",
+      "sha256": "3b9c019703dbb1a99afd1d98d836c2765ccc9a15d4e5152a70f6abc52efb180c",
+      "bytes": 1517,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250115000000&enddatetime=20250115235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20250115-20250115__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:27:57+00:00",
+      "sha256": "03cd0abdb91f2d2bb8c4aad0fa827d0aa850c2e8cdd4c17310919ee6da5f3678",
+      "bytes": 1262,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250426000000&enddatetime=20250426235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20250426-20250426__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:28:13+00:00",
+      "sha256": "95b1c6887a26169f24580cebcb202551fe223208c00f88c8a33b3e0809718fd5",
+      "bytes": 505,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250729000000&enddatetime=20250729235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20250729-20250729__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:29:17+00:00",
+      "sha256": "d54310869331ab8d47bb816f54f9e97360533eb8d749cc92d8aacb500d904447",
+      "bytes": 612,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251108000000&enddatetime=20260204235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20251108-20260204__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:29:34+00:00",
+      "sha256": "0449b6a880794dbb26da7c1dbfd0f2850b7e9a55b2e8277c8b1e9b3bf0c9ad88",
+      "bytes": 3376,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260213000000&enddatetime=20260427235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20260213-20260427__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:31:53+00:00",
+      "sha256": "a59d8fd094fc8012346156b97ce6694f64ab2a852c54d07fe9f3e94a4062798c",
+      "bytes": 3651,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GENESIS+ENERGY%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260518000000&enddatetime=20260814235959&maxrecords=250",
+      "path": "sources/gdelt/254900HM1ABRDJ7T5718__20260518-20260814__49aaf890.json",
+      "retrieved_at": "2026-08-21T04:34:36+00:00",
+      "sha256": "3da761afd3a94734503590d36b0e0f37442cbad412296e34df633b59ebc8f4f8",
+      "bytes": 1073,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22ZIMMER+BIOMET+HOLDINGS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/2P2YLDVPES3BXQ1FRB91__timeline__80ec657b.json",
+      "retrieved_at": "2026-08-21T04:35:22+00:00",
+      "sha256": "92d65aa57ee728f10596b7270652100849cc292837bc9767bc1d8358de517eb7",
+      "bytes": 41298,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22ZIMMER+BIOMET+HOLDINGS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240908000000&enddatetime=20241126235959&maxrecords=250",
+      "path": "sources/gdelt/2P2YLDVPES3BXQ1FRB91__20240908-20241126__80ec657b.json",
+      "retrieved_at": "2026-08-21T04:35:38+00:00",
+      "sha256": "26e76f4fb4b21f5235caf1ac75594d05d6a7350bd8965a9a90b1df09cf40d9c7",
+      "bytes": 3050,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22ZIMMER+BIOMET+HOLDINGS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250729000000&enddatetime=20251008235959&maxrecords=250",
+      "path": "sources/gdelt/2P2YLDVPES3BXQ1FRB91__20250729-20251008__80ec657b.json",
+      "retrieved_at": "2026-08-21T04:36:07+00:00",
+      "sha256": "092f8ce80cb92dca4d1973152ac6d4f51f279f31fa3fa6a3c620cf669ab8f98e",
+      "bytes": 1085,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AGILYSYS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5299001XWB5V3B5IPN93__timeline__272e007b.json",
+      "retrieved_at": "2026-08-21T04:37:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900E95812SYWMCE44__timeline__f9114c7f.json",
+      "retrieved_at": "2026-08-21T04:40:12+00:00",
+      "sha256": "a5843c2981ea28918322d88f3512e0988069f4f30b891715cd8d6543759e7ef3",
+      "bytes": 41294,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241128000000&enddatetime=20241128235959&maxrecords=250",
+      "path": "sources/gdelt/529900E95812SYWMCE44__20241128-20241128__f9114c7f.json",
+      "retrieved_at": "2026-08-21T04:40:51+00:00",
+      "sha256": "f47d16792524b765efe94a9cd74c5d0711d28c0a31e366ca4086597e09e196b4",
+      "bytes": 398,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250428000000&enddatetime=20250522235959&maxrecords=250",
+      "path": "sources/gdelt/529900E95812SYWMCE44__20250428-20250522__f9114c7f.json",
+      "retrieved_at": "2026-08-21T04:41:53+00:00",
+      "sha256": "f4d3b80dbb6f6db39070bbcfdf0e2ab07810cbcf6ae178c23053718b68bb23d2",
+      "bytes": 1539,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250729000000&enddatetime=20250904235959&maxrecords=250",
+      "path": "sources/gdelt/529900E95812SYWMCE44__20250729-20250904__f9114c7f.json",
+      "retrieved_at": "2026-08-21T04:42:24+00:00",
+      "sha256": "89777a022dd93a86a77b1c726e9aac2460f09773e4c6999aacbe4b87bc4e28d6",
+      "bytes": 2292,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AVIS+BUDGET+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260326000000&enddatetime=20260617235959&maxrecords=250",
+      "path": "sources/gdelt/529900E95812SYWMCE44__20260326-20260617__f9114c7f.json",
+      "retrieved_at": "2026-08-21T04:43:28+00:00",
+      "sha256": "a31fa481dad0108d0e185137e5e71974bcc4a7d535d8b2949f0e8dac427d335c",
+      "bytes": 9449,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22PAYCHEX%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900K900DW6SUBM174__timeline__da64137a.json",
+      "retrieved_at": "2026-08-21T04:45:03+00:00",
+      "sha256": "b83ad2745b96f85e668f3df35cd3564155ee041087fdae62a311a56f58c394b6",
+      "bytes": 41283,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22PAYCHEX%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241204000000&enddatetime=20241212235959&maxrecords=250",
+      "path": "sources/gdelt/529900K900DW6SUBM174__20241204-20241212__da64137a.json",
+      "retrieved_at": "2026-08-21T04:47:08+00:00",
+      "sha256": "12f6af460ef598625ced26f95f87ae9d40dac65e17e9c9ad3341974dead9bcfb",
+      "bytes": 827,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22PAYCHEX%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250813000000&enddatetime=20251021235959&maxrecords=250",
+      "path": "sources/gdelt/529900K900DW6SUBM174__20250813-20251021__da64137a.json",
+      "retrieved_at": "2026-08-21T04:47:25+00:00",
+      "sha256": "ed8e36f8eadcd1598b04a8a75b709ff2272d94893dc36c46346a7d6c3db55b1d",
+      "bytes": 1496,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22PAYCHEX%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251121000000&enddatetime=20251121235959&maxrecords=250",
+      "path": "sources/gdelt/529900K900DW6SUBM174__20251121-20251121__da64137a.json",
+      "retrieved_at": "2026-08-21T04:47:55+00:00",
+      "sha256": "a480340b794be1a79c15d8453e2d8edc120a4d44bec64849f9aecb12e3d4c961",
+      "bytes": 474,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Container+Store+Group%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900L7KB2N9KXCDI76__timeline__ffa19f55.json",
+      "retrieved_at": "2026-08-21T04:48:10+00:00",
+      "sha256": "2a0b4f19e43fce04c05bad9791066a0beeea287200ce59a9219edbaaadfbb61f",
+      "bytes": 41297,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Container+Store+Group%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241223000000&enddatetime=20241223235959&maxrecords=250",
+      "path": "sources/gdelt/529900L7KB2N9KXCDI76__20241223-20241223__ffa19f55.json",
+      "retrieved_at": "2026-08-21T04:48:50+00:00",
+      "sha256": "1ea20f9bc8e525234672d305700b5b5c5df06ea201e9e45d56f9e8212405880d",
+      "bytes": 367,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__timeline__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:49:41+00:00",
+      "sha256": "2a0d2628400678c055e090875fa45fc240987e35e52d7fbf1338a71eaf8fc9d9",
+      "bytes": 41292,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240825000000&enddatetime=20241122235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20240825-20241122__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:51:09+00:00",
+      "sha256": "f27286c1da482035e277beef1c3ef64f2fd3b2bc305bde932f7c5487cdc8c952",
+      "bytes": 58875,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241124000000&enddatetime=20250220235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20241124-20250220__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:53:02+00:00",
+      "sha256": "000c403c4ec4eb8a17d982bca2dc8f7503b90569a74d862d9f8b2f5cfce8d667",
+      "bytes": 35868,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250222000000&enddatetime=20250521235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20250222-20250521__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:53:30+00:00",
+      "sha256": "8b0a401c635ec50922465e91db5928839502f36ee91379b4c0fe95fed004c21a",
+      "bytes": 54106,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250523000000&enddatetime=20250820235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20250523-20250820__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:53:55+00:00",
+      "sha256": "a7be214968feef22e78527dcec7fc4058ecbfc9babb357d1b01a679c9aba62d2",
+      "bytes": 76373,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250822000000&enddatetime=20251119235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20250822-20251119__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:54:45+00:00",
+      "sha256": "b778d0f41bb48ff7cc91f9835dd752141cccb45aac6b9799dddba468ba4543ec",
+      "bytes": 38945,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251120000000&enddatetime=20260213235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20251120-20260213__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:55:36+00:00",
+      "sha256": "d4637679407f3dccb4aaa5ad7408d46e5b1be4a3849b7002d0b19d5818bc1402",
+      "bytes": 26572,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260218000000&enddatetime=20260517235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20260218-20260517__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:56:17+00:00",
+      "sha256": "74a5dea4861ad1e4a2917f8761075a62b80ed1e97a6c6e76533ee7f415f41c35",
+      "bytes": 14970,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260519000000&enddatetime=20260816235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20260519-20260816__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:57:19+00:00",
+      "sha256": "e6b0dd5ad2a9b57b2137fbdfc715e7d95fd5e2145dca00010a9b305961a56ddc",
+      "bytes": 63398,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260817000000&enddatetime=20260817235959&maxrecords=250",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__20260817-20260817__d1f51a0a.json",
+      "retrieved_at": "2026-08-21T04:57:50+00:00",
+      "sha256": "4c217b65e354c8620e5637920cd13b9cec2012593ccb6b319606f3f33c9c1995",
+      "bytes": 462,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Viskase+Holdings%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900VN48L8QCMVPV36__timeline__664fbdfe.json",
+      "retrieved_at": "2026-08-21T04:58:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Thermon+Group+Holdings%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900ZNZBBLDE77MZ38__timeline__a1cf5425.json",
+      "retrieved_at": "2026-08-21T04:59:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22BOSTON+OMAHA%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/54930002FEWTYF4YFF19__timeline__5f0e9664.json",
+      "retrieved_at": "2026-08-21T05:00:05+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__timeline__7262b917.json",
+      "retrieved_at": "2026-08-21T05:00:31+00:00",
+      "sha256": "e44b723b859530322679dc38b438bd90737c9d959830429d9327543e9615293c",
+      "bytes": 41283,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240829000000&enddatetime=20241121235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20240829-20241121__7262b917.json",
+      "retrieved_at": "2026-08-21T05:03:47+00:00",
+      "sha256": "52a8de143caacef4f235cac2a6fc2a239d66fd45914d069f409d6b43446bc01d",
+      "bytes": 13002,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241203000000&enddatetime=20250227235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20241203-20250227__7262b917.json",
+      "retrieved_at": "2026-08-21T05:04:24+00:00",
+      "sha256": "c5a6d9d970bc125ff0c4468c306ed46880fa9f3d81f2f67b9825af527b176bbe",
+      "bytes": 9399,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250304000000&enddatetime=20250524235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20250304-20250524__7262b917.json",
+      "retrieved_at": "2026-08-21T05:05:05+00:00",
+      "sha256": "ff97de246516c089f6f82018ad7b3121e661e81bb2febfd710c1f942fb3bc24c",
+      "bytes": 4750,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250602000000&enddatetime=20250829235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20250602-20250829__7262b917.json",
+      "retrieved_at": "2026-08-21T05:05:23+00:00",
+      "sha256": "cfcd38d302d533248be45a927abc39c04827f2c62550f806c5eac25eab1d0863",
+      "bytes": 13301,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250903000000&enddatetime=20251127235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20250903-20251127__7262b917.json",
+      "retrieved_at": "2026-08-21T05:05:39+00:00",
+      "sha256": "e0a3830ba5e267a2649fc168aea4b2ced218f5eb460456cd2a66e4f5a6a6be92",
+      "bytes": 9091,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251203000000&enddatetime=20260220235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20251203-20260220__7262b917.json",
+      "retrieved_at": "2026-08-21T05:05:55+00:00",
+      "sha256": "543c7ca11499169c08152bb4fabd0290bece29160916489dfa0baf13d3ac2a45",
+      "bytes": 12958,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260304000000&enddatetime=20260522235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20260304-20260522__7262b917.json",
+      "retrieved_at": "2026-08-21T05:07:34+00:00",
+      "sha256": "6ac0b30ea1a2646350e4089d93d24c9364301d58453ebf106d969059311d4e1f",
+      "bytes": 6078,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRIFFON%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260612000000&enddatetime=20260819235959&maxrecords=250",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__20260612-20260819__7262b917.json",
+      "retrieved_at": "2026-08-21T05:08:17+00:00",
+      "sha256": "e803f3a3ed4e61f5c39b62f249cc2f3ffc0fca115a010cdf4876f1818e198771",
+      "bytes": 11590,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__timeline__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:10:10+00:00",
+      "sha256": "d21b8a07740b99ea697f614ae59e8b6489c4a09841cb8dbd1defca0818b6781a",
+      "bytes": 41288,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240819000000&enddatetime=20241115235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20240819-20241115__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:11:19+00:00",
+      "sha256": "edb6db487a5fadc2178392dbb400ac685a98f18f70fd86bd99d31b73e03e0d11",
+      "bytes": 75319,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241118000000&enddatetime=20250215235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20241118-20250215__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:12:07+00:00",
+      "sha256": "ea7c7456a7dc31b7ed5bbd831dd6d6a6078dd69385b6210e33de44b2128e7ffd",
+      "bytes": 43695,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250217000000&enddatetime=20250517235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20250217-20250517__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:23:34+00:00",
+      "sha256": "9bfe42a8188b127d3b967e68fff4d79537cea232589a98fb487582fc8e0c1e2b",
+      "bytes": 44874,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250518000000&enddatetime=20250815235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20250518-20250815__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:24:38+00:00",
+      "sha256": "88ebdf9ad17fc849538d6e600dd6ddf7c9afc55356f36bdbfcd6a1cb760d6a14",
+      "bytes": 63417,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250816000000&enddatetime=20251113235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20250816-20251113__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:25:24+00:00",
+      "sha256": "b5ff6d11f7d31974a1bd5a751e03867df86dcbb858e7ecea70f653bdbde13b11",
+      "bytes": 41153,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251114000000&enddatetime=20260211235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20251114-20260211__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:25:39+00:00",
+      "sha256": "f9bcb6f31b95279069194d98c26ed8bc66d7dfdba9f03de390cd66daa6c8cfb6",
+      "bytes": 43901,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260212000000&enddatetime=20260502235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20260212-20260502__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:26:29+00:00",
+      "sha256": "5d018c7b121ba6f5393588de79e5ba61657b68f3e04461243a7dcecb8d90e90e",
+      "bytes": 85128,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260503000000&enddatetime=20260731235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20260503-20260731__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:26:54+00:00",
+      "sha256": "1c53908399b373e7f9d37429dda7de6a0ad60bf720caf095fadcc025fdda0f84",
+      "bytes": 27657,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22REGIS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260801000000&enddatetime=20260816235959&maxrecords=250",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__20260801-20260816__2ddc1afc.json",
+      "retrieved_at": "2026-08-21T05:27:23+00:00",
+      "sha256": "e6eb315ab5ec98f518b9bf697e86ba3ced9ebf47ae677059d7a0463f2ec0c740",
+      "bytes": 5651,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__timeline__384acd42.json",
+      "retrieved_at": "2026-08-21T05:28:21+00:00",
+      "sha256": "0f5bfde5325d1941973a762f8e844a00f7935822d8cb60894b080e72080cda23",
+      "bytes": 41296,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241230000000&enddatetime=20250107235959&maxrecords=250",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20241230-20250107__384acd42.json",
+      "retrieved_at": "2026-08-21T05:28:48+00:00",
+      "sha256": "160958bf3f51b39520ce606e77193cd1d9c15fd14e6f598d6e11ffc353497fe9",
+      "bytes": 1276,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250507000000&enddatetime=20250507235959&maxrecords=250",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20250507-20250507__384acd42.json",
+      "retrieved_at": "2026-08-21T05:29:27+00:00",
+      "sha256": "1c0ad61ee396870c910b95131fa7608ebbcacbfcf4f9d40258960fd106650e09",
+      "bytes": 538,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250915000000&enddatetime=20250915235959&maxrecords=250",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20250915-20250915__384acd42.json",
+      "retrieved_at": "2026-08-21T05:30:27+00:00",
+      "sha256": "1de4d1c3caea56df431bc96f9e33e2f21423b536a5462df0601e3f1a7f21b976",
+      "bytes": 336,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251229000000&enddatetime=20260322235959&maxrecords=250",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20251229-20260322__384acd42.json",
+      "retrieved_at": "2026-08-21T05:33:24+00:00",
+      "sha256": "3d75caa4e279ccf296414b962ce017f62f54b00f25f87c1da4a16bde58e4d70e",
+      "bytes": 1728,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22HAIN+CELESTIAL+GROUP%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260601000000&enddatetime=20260604235959&maxrecords=250",
+      "path": "sources/gdelt/5493000S8QXWHLIXDP75__20260601-20260604__384acd42.json",
+      "retrieved_at": "2026-08-21T05:34:18+00:00",
+      "sha256": "0f00533632385a5bbcb4c532fadf26fc072e5e86403f3cb395fd71dac6023101",
+      "bytes": 843,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Quanex+Building+Products%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000TL30VL5WOAW87__timeline__1a6c0253.json",
+      "retrieved_at": "2026-08-21T05:34:46+00:00",
+      "sha256": "6acb9f301c5fa234a36b9b27006c76f3dc3d712db2a03b2e96aa29d1961c3be9",
+      "bytes": 41300,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Quanex+Building+Products%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250924000000&enddatetime=20251120235959&maxrecords=250",
+      "path": "sources/gdelt/5493000TL30VL5WOAW87__20250924-20251120__1a6c0253.json",
+      "retrieved_at": "2026-08-21T05:37:28+00:00",
+      "sha256": "c50eea737113ab8705df1145cc4bc9c14f8abe85f1c5c11c85e189138e026919",
+      "bytes": 4621,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__timeline__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:37:50+00:00",
+      "sha256": "0312213146e1c34033ee89a6c1c470ceb51f82a9c95097ead675346d9ed92360",
+      "bytes": 41298,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240827000000&enddatetime=20241112235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20240827-20241112__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:38:52+00:00",
+      "sha256": "438b923b7694ed75a97bf211b9ed2555201fd316d549b6cae9a4c5b0afe1c69a",
+      "bytes": 11573,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241129000000&enddatetime=20250225235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20241129-20250225__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:39:20+00:00",
+      "sha256": "130ed892d6914919b8bd085cc1b491de870263d5fcf672a3468e01ff64520686",
+      "bytes": 3345,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250303000000&enddatetime=20250530235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20250303-20250530__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:40:25+00:00",
+      "sha256": "54de534aa0de34f1f3c27fcad4ed0cb9d1701592aef5fc9c168a76eb21e16007",
+      "bytes": 6690,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251023000000&enddatetime=20251023235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20251023-20251023__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:42:48+00:00",
+      "sha256": "dad06c73854550e0e35e4084c7adaf5c7811cc44789ec836cf7484e368c3ea4e",
+      "bytes": 309,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260320000000&enddatetime=20260616235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20260320-20260616__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:44:05+00:00",
+      "sha256": "626200fb3acece480645b1e0c854690e8fced864acd6751018a875488e4d0087",
+      "bytes": 42580,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Super+Micro+Computer%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260629000000&enddatetime=20260728235959&maxrecords=250",
+      "path": "sources/gdelt/54930022CZO1N2UGVW07__20260629-20260728__90042a7d.json",
+      "retrieved_at": "2026-08-21T05:45:11+00:00",
+      "sha256": "98a2acf7dbfdfcc5d4129ff173d61e26164329c08575357634cb698c3f05a285",
+      "bytes": 2577,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22RB+GLOBAL%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493002H8U24DJXQ4886__timeline__2f068caf.json",
+      "retrieved_at": "2026-08-21T05:46:26+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22City+Office+REIT%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493003J7157VP25NL57__timeline__38299d52.json",
+      "retrieved_at": "2026-08-21T05:46:55+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Targa+Resources%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493003QENHHS261UR94__timeline__837a2fe3.json",
+      "retrieved_at": "2026-08-21T05:47:50+00:00",
+      "sha256": "df74dbf7f4f80a14bf3a0ce41bb4c96fa2d51992ea873130ada8d8a732b5d720",
+      "bytes": 41292,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Targa+Resources%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241206000000&enddatetime=20241212235959&maxrecords=250",
+      "path": "sources/gdelt/5493003QENHHS261UR94__20241206-20241212__837a2fe3.json",
+      "retrieved_at": "2026-08-21T05:48:30+00:00",
+      "sha256": "f6ec3090b98b8fc6d0685fafc8cf7a71eb2b9f0005f3ec09c6ec0fa9ea37ad6a",
+      "bytes": 13107,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Targa+Resources%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251204000000&enddatetime=20251204235959&maxrecords=250",
+      "path": "sources/gdelt/5493003QENHHS261UR94__20251204-20251204__837a2fe3.json",
+      "retrieved_at": "2026-08-21T05:49:38+00:00",
+      "sha256": "8dd01ca1f4009c784d42b3205e967ab8ea03d3630242e70eae79ba0a8ce0d17b",
+      "bytes": 572,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Anywhere+Real+Estate%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493004HBTOTE9DI9P12__timeline__442b11d4.json",
+      "retrieved_at": "2026-08-21T05:49:53+00:00",
+      "sha256": "881d046cd6af2a4311589626b501c9e977a93cbd34b798e69c3b60138750e663",
+      "bytes": 41296,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Anywhere+Real+Estate%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240926000000&enddatetime=20241021235959&maxrecords=250",
+      "path": "sources/gdelt/5493004HBTOTE9DI9P12__20240926-20241021__442b11d4.json",
+      "retrieved_at": "2026-08-21T05:50:34+00:00",
+      "sha256": "2e5407e250889ec6ae3b569338933e5ca97684be6bffb5d04aa30b845a649afc",
+      "bytes": 1312,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Anywhere+Real+Estate%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260203000000&enddatetime=20260415235959&maxrecords=250",
+      "path": "sources/gdelt/5493004HBTOTE9DI9P12__20260203-20260415__442b11d4.json",
+      "retrieved_at": "2026-08-21T05:51:07+00:00",
+      "sha256": "526c85d591f300c6de68829934e5613ad0bb5b9fd0cce1aedddbb5adb64b3d2c",
+      "bytes": 2368,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__timeline__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:51:33+00:00",
+      "sha256": "6907cc62fbc49959a8c4465e39e89634f284821c95af3accd68cfc581898f9c9",
+      "bytes": 41298,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241027000000&enddatetime=20241204235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20241027-20241204__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:51:50+00:00",
+      "sha256": "686b81209c54a2b1e4aee7a9693e4e3abbda00f79f7e1695ff121dae25b9664c",
+      "bytes": 2000,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250219000000&enddatetime=20250509235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20250219-20250509__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:53:09+00:00",
+      "sha256": "ccde11923a3953fa5df42dbb4a1d047c2e6c19d5f64fc08989f70a85ba085fb6",
+      "bytes": 6169,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250605000000&enddatetime=20250609235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20250605-20250609__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:53:24+00:00",
+      "sha256": "fe54946c622a00a86a8abaa510a7295ecc67bc91b25016acec0bdc355ec3d46f",
+      "bytes": 1024,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250911000000&enddatetime=20250911235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20250911-20250911__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:54:52+00:00",
+      "sha256": "d00b9022e61a7c604629da82b3555d9ab9df0899aa6f83b56937ae5e24467c2b",
+      "bytes": 471,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251211000000&enddatetime=20251211235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20251211-20251211__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:55:06+00:00",
+      "sha256": "d7a0b1e44933ceea54b174a7bba6634d8424801c619a8527e4454fd9e49c2f9c",
+      "bytes": 520,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260325000000&enddatetime=20260602235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20260325-20260602__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:56:27+00:00",
+      "sha256": "63a7878a6e20abfc0cf9f5180c9fd214b4d092c31e99d46f0b26b990b5a0602a",
+      "bytes": 779,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SMITH+%26+WESSON+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260714000000&enddatetime=20260714235959&maxrecords=250",
+      "path": "sources/gdelt/5493004PFHUPOR1PWN79__20260714-20260714__20ad8ca3.json",
+      "retrieved_at": "2026-08-21T05:56:44+00:00",
+      "sha256": "2bf6a9a912ffca495774466b1598c804c6713e5d4980dcc639ae86154d20bc41",
+      "bytes": 454,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Pebblebrook+Hotel+Trust%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493004Q1NNH6JXCSI52__timeline__86bdc658.json",
+      "retrieved_at": "2026-08-21T05:57:20+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MUELLER+INDUSTRIES%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493005IZFE4VJLLYG84__timeline__e4f8d1ae.json",
+      "retrieved_at": "2026-08-21T06:04:22+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22XPO%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__timeline__02bb4e36.json",
+      "retrieved_at": "2026-08-21T06:05:45+00:00",
+      "sha256": "08262311679bcb5d191f1374698909041dc4a026daea856e50f63c3ace0814b8",
+      "bytes": 35,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__timeline__f3b71931.json",
+      "retrieved_at": "2026-08-21T06:07:21+00:00",
+      "sha256": "df76021ca047cd6adb5258ece71b430771c9808ed44914f9abe8338c71419421",
+      "bytes": 41275,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=artlist&format=json&startdatetime=20241021000000&enddatetime=20241021235959&maxrecords=250",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__20241021-20241021__f3b71931.json",
+      "retrieved_at": "2026-08-21T06:09:54+00:00",
+      "sha256": "abb22cef95f4dcf63795911dd02045c3d06749bc13390ad131fc3ff25a66c5c5",
+      "bytes": 666,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=artlist&format=json&startdatetime=20250520000000&enddatetime=20250520235959&maxrecords=250",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__20250520-20250520__f3b71931.json",
+      "retrieved_at": "2026-08-21T06:10:08+00:00",
+      "sha256": "b51039c64551fb5be922e022bae93ad4fbf47382bbdcc59567d1efffba2bce8d",
+      "bytes": 472,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=artlist&format=json&startdatetime=20250919000000&enddatetime=20250919235959&maxrecords=250",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__20250919-20250919__f3b71931.json",
+      "retrieved_at": "2026-08-21T06:11:04+00:00",
+      "sha256": "0b83dc0d4602d8e0dce9d2480688a4ad32d34435e8422953cc52c2a8727f368c",
+      "bytes": 327,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=XPO+tone%3C-5&mode=artlist&format=json&startdatetime=20260601000000&enddatetime=20260601235959&maxrecords=250",
+      "path": "sources/gdelt/54930096DB9LCLPN7H13__20260601-20260601__f3b71931.json",
+      "retrieved_at": "2026-08-21T06:12:56+00:00",
+      "sha256": "90369f66bea6af4e5ac933ab046fd2a106241e8a4c77d7dbe82347497a8cf85a",
+      "bytes": 388,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Digital+Turbine%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300D0WZR1VI2QGB24__timeline__35283f7e.json",
+      "retrieved_at": "2026-08-21T06:13:10+00:00",
+      "sha256": "65505c46760b8eaa97b98dc62bc97c317622192c45f5b417f9291d264de36926",
+      "bytes": 41291,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Digital+Turbine%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260424000000&enddatetime=20260424235959&maxrecords=250",
+      "path": "sources/gdelt/549300D0WZR1VI2QGB24__20260424-20260424__35283f7e.json",
+      "retrieved_at": "2026-08-21T06:14:15+00:00",
+      "sha256": "9af50721297a5b9c82ef2ed4ecbf06b770ddff1782e0b1e09c7c96143f47e5b6",
+      "bytes": 438,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AMPHENOL%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300D3L3G0R4U4VT04__timeline__0f892980.json",
+      "retrieved_at": "2026-08-21T06:15:02+00:00",
+      "sha256": "689453351a7ca62b811b3443b110a1a02c1e0fcb1949ce4163502e3f5932a1a3",
+      "bytes": 41284,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AMPHENOL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241213000000&enddatetime=20241213235959&maxrecords=250",
+      "path": "sources/gdelt/549300D3L3G0R4U4VT04__20241213-20241213__0f892980.json",
+      "retrieved_at": "2026-08-21T06:15:24+00:00",
+      "sha256": "9925141a68950c18339c671f8f5b98f371a9461856f26e7daf6b39b2d4aef87b",
+      "bytes": 513,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22AMPHENOL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251122000000&enddatetime=20251122235959&maxrecords=250",
+      "path": "sources/gdelt/549300D3L3G0R4U4VT04__20251122-20251122__0f892980.json",
+      "retrieved_at": "2026-08-21T06:16:50+00:00",
+      "sha256": "44b57f1cf4d0b8f3876c906d1e3f83f58244072a95a3f4e5f5a71cc78e76fba4",
+      "bytes": 356,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__timeline__514536d3.json",
+      "retrieved_at": "2026-08-21T06:17:07+00:00",
+      "sha256": "c28fcddda6df452c35e19f95e8279ef41372d37811dd02be165519da8ffb65a0",
+      "bytes": 41291,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240919000000&enddatetime=20241104235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20240919-20241104__514536d3.json",
+      "retrieved_at": "2026-08-21T06:20:09+00:00",
+      "sha256": "501645befa2804eef00f1c235e412dd88250b90122fb1bae33bef2945b8456b0",
+      "bytes": 1142,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241222000000&enddatetime=20250321235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20241222-20250321__514536d3.json",
+      "retrieved_at": "2026-08-21T06:20:24+00:00",
+      "sha256": "a404abee5be4af3f5448d239090ccff59c5f125082564ace044296545a86bdde",
+      "bytes": 1192,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250403000000&enddatetime=20250508235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20250403-20250508__514536d3.json",
+      "retrieved_at": "2026-08-21T06:20:40+00:00",
+      "sha256": "cbda41474e71d68f928b618a197986edf76011bc1edb32bb2def65c820679d92",
+      "bytes": 3011,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250706000000&enddatetime=20250808235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20250706-20250808__514536d3.json",
+      "retrieved_at": "2026-08-21T06:21:33+00:00",
+      "sha256": "167ea23b3657bee1ed6daf2cad95f2ca70566a51fd089b5e2bd7374f83c0d313",
+      "bytes": 1496,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251006000000&enddatetime=20251022235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20251006-20251022__514536d3.json",
+      "retrieved_at": "2026-08-21T06:21:49+00:00",
+      "sha256": "9cb945b1dba943b68ae28799b808cf27d387d320c68b19e3dc3dd72f42bc0c7f",
+      "bytes": 897,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260205000000&enddatetime=20260418235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20260205-20260418__514536d3.json",
+      "retrieved_at": "2026-08-21T06:22:05+00:00",
+      "sha256": "5e6affdb0bdcaf04738d8e29dd0dade517987f85da10447178159f62452f2ba2",
+      "bytes": 3602,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22LAS+VEGAS+SANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260615000000&enddatetime=20260801235959&maxrecords=250",
+      "path": "sources/gdelt/549300DUOO1KXOHPM605__20260615-20260801__514536d3.json",
+      "retrieved_at": "2026-08-21T06:22:20+00:00",
+      "sha256": "514bfc698a3d995de3bc657680c8a7122e5b3a45e0f272a5a1b50aca88cae549",
+      "bytes": 3009,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SmartStop+Self+Storage+REIT%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300EC266625K12S42__timeline__3e307a1f.json",
+      "retrieved_at": "2026-08-21T06:22:33+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TransDigm+Group%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300EQD0ZXRSMG3549__timeline__53f21241.json",
+      "retrieved_at": "2026-08-21T06:24:16+00:00",
+      "sha256": "95840384f0dac26c5430b3eccaedd646fa582087614c2a041061e5820488721a",
+      "bytes": 41291,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TransDigm+Group%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240918000000&enddatetime=20240918235959&maxrecords=250",
+      "path": "sources/gdelt/549300EQD0ZXRSMG3549__20240918-20240918__53f21241.json",
+      "retrieved_at": "2026-08-21T06:24:31+00:00",
+      "sha256": "931187d5b5a9e24193f0b5ab8b768414e7e72f79f68e45e4105fc835f058c28d",
+      "bytes": 588,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Peakstone+Realty+Trust%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300EZQXWQI2YL1T80__timeline__ef80cb43.json",
+      "retrieved_at": "2026-08-21T06:24:47+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WATSCO%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300F1Y3LN5BX5WN75__timeline__6258726f.json",
+      "retrieved_at": "2026-08-21T06:25:27+00:00",
+      "sha256": "8489e98c3141363d823a1b3e884f5735f159e17569f6f922c24ab33cdab3f819",
+      "bytes": 41282,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WATSCO%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241203000000&enddatetime=20250131235959&maxrecords=250",
+      "path": "sources/gdelt/549300F1Y3LN5BX5WN75__20241203-20250131__6258726f.json",
+      "retrieved_at": "2026-08-21T06:25:54+00:00",
+      "sha256": "687603c64c966c8daf456f1c5037d6cee632ae91cbe5d0bca5511bd2814e38fb",
+      "bytes": 811,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__timeline__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:26:10+00:00",
+      "sha256": "d4e8f4e84630a6b4b910bc7e4da03548659680d756e3fafd6e93d60da1cabf72",
+      "bytes": 41297,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240821000000&enddatetime=20241117235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20240821-20241117__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:27:42+00:00",
+      "sha256": "2a3127a9425b71d76078dd89abf056bc117598c38a7437b12104bbc89930a3d2",
+      "bytes": 4952,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241120000000&enddatetime=20241219235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20241120-20241219__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:28:35+00:00",
+      "sha256": "84a4a76f994e46368119340aa1e4da9bed75f8e04096614b396d3b4ba1a3ecf4",
+      "bytes": 7937,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250324000000&enddatetime=20250522235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20250324-20250522__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:28:48+00:00",
+      "sha256": "30cc6b820ab61ca3b1a0514a45ad05f8be69d3ee9009d28cd3b4d30756b35380",
+      "bytes": 10316,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250706000000&enddatetime=20250929235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20250706-20250929__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:29:24+00:00",
+      "sha256": "e1baa11118724efe1919a8a926345117df840c170241e76b536133c9b8f14eaa",
+      "bytes": 12411,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251006000000&enddatetime=20251230235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20251006-20251230__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:33:35+00:00",
+      "sha256": "e18072c4b56c14fdbe9bdecbd06cd493a6e3bcfa285c60b82ec6aea33b55c987",
+      "bytes": 3171,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260105000000&enddatetime=20260327235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20260105-20260327__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:34:31+00:00",
+      "sha256": "5dc4de97f90740eb00360503ac0c4b71705d1d4b46342abe95180e994aff1939",
+      "bytes": 10283,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Caesars+Entertainment%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260525000000&enddatetime=20260813235959&maxrecords=250",
+      "path": "sources/gdelt/549300FA4CTCW903Y781__20260525-20260813__92d659ff.json",
+      "retrieved_at": "2026-08-21T06:35:01+00:00",
+      "sha256": "bc2b7fcdbf397999702e1e83bb1ee9b2c6064998b7ffb8cc3075f7d30ea75d3d",
+      "bytes": 5248,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__timeline__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:35:27+00:00",
+      "sha256": "460a8f92c1c3402d1c5e7da4f1bc4d94e1fc9fdb269f991978aedb382cda25dd",
+      "bytes": 41284,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240909000000&enddatetime=20241128235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20240909-20241128__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:36:55+00:00",
+      "sha256": "dc65c92402addfcac32282b8dc29e34b6748510464ac00baf9fd1d7d97978b23",
+      "bytes": 1222,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241211000000&enddatetime=20250302235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20241211-20250302__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:37:09+00:00",
+      "sha256": "b9d7b547f8a0fe43af2327ec5bc418f5a1926891542067b633fe7ea82770ec2e",
+      "bytes": 5250,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250320000000&enddatetime=20250605235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20250320-20250605__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:38:11+00:00",
+      "sha256": "edcc825fc6753482818c60104458bc6c74e1375c3f78df7259414d6fd7308287",
+      "bytes": 6786,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250708000000&enddatetime=20250930235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20250708-20250930__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:39:20+00:00",
+      "sha256": "cded338a5cc2be20db98e92932191280ca2c096d273ed68ad656759374cc3038",
+      "bytes": 2893,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251106000000&enddatetime=20260201235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20251106-20260201__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:39:52+00:00",
+      "sha256": "f4dbe2783e7191b593486e2c41c796a1e9fa3adbdf9f46838b0480c94e232664",
+      "bytes": 2570,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260209000000&enddatetime=20260326235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20260209-20260326__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:43:28+00:00",
+      "sha256": "c2804b39a7367313346f6ad252947ce8b34508147ecaecb3969baa6af79abff3",
+      "bytes": 1046,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260604000000&enddatetime=20260720235959&maxrecords=250",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__20260604-20260720__5fbe858a.json",
+      "retrieved_at": "2026-08-21T06:44:54+00:00",
+      "sha256": "f6ad714b65e4147bc9ae81f1ffe8a23ff5c89d1e1e07410eee1670fa731e9afd",
+      "bytes": 2826,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Braemar+Hotels+%26+Resorts%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300JDUUEBN868C776__timeline__c41314f7.json",
+      "retrieved_at": "2026-08-21T06:45:08+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Vertiv+Holdings%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300KTTIRAOGXCRV69__timeline__1ab82a1a.json",
+      "retrieved_at": "2026-08-21T06:47:16+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__timeline__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:48:21+00:00",
+      "sha256": "6d35346ca7becf1bd22c2852b4bde7dfb305a8c7efa352b863f772dfb84658a8",
+      "bytes": 41296,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240905000000&enddatetime=20240905235959&maxrecords=250",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20240905-20240905__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:48:48+00:00",
+      "sha256": "3592a75b3c32b79315cbe4ceb51e726d3b70de2dae9959dd5ce3a6a4a8205245",
+      "bytes": 635,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250326000000&enddatetime=20250326235959&maxrecords=250",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20250326-20250326__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:50:08+00:00",
+      "sha256": "0199471465ba96eb48afdb98965217cb08396efdb2844a5b56c6bb5265f1b1ae",
+      "bytes": 668,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251003000000&enddatetime=20251003235959&maxrecords=250",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20251003-20251003__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:50:39+00:00",
+      "sha256": "353f626e05ce7752453c7ee706b50b25145e1285498b6960bc6ea1550062d561",
+      "bytes": 475,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260202000000&enddatetime=20260202235959&maxrecords=250",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20260202-20260202__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:50:58+00:00",
+      "sha256": "f72f935bb009588f153f2436cdbd73c1df7b48a452809a663988205fc407c87e",
+      "bytes": 667,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22GRANITE+CONSTRUCTION%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260517000000&enddatetime=20260707235959&maxrecords=250",
+      "path": "sources/gdelt/549300OM4BWMCIXVCZ39__20260517-20260707__41b49fa9.json",
+      "retrieved_at": "2026-08-21T06:51:41+00:00",
+      "sha256": "580dd753312f79c9f06fdbcf34fb6799ada077bf03b32d745ffbe1aead958c88",
+      "bytes": 2225,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CrossAmerica+Partners%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300OUUC900EVOGX10__timeline__1fad8b90.json",
+      "retrieved_at": "2026-08-21T06:52:32+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MASTEC%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300TMDIT8WREDOF45__timeline__bc049003.json",
+      "retrieved_at": "2026-08-21T06:55:24+00:00",
+      "sha256": "1f7860f4bef4a2bd0d0c02e5d67837c4040275ba3cecc1e70eb9cbb430a2a46c",
+      "bytes": 41282,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MASTEC%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240914000000&enddatetime=20240927235959&maxrecords=250",
+      "path": "sources/gdelt/549300TMDIT8WREDOF45__20240914-20240927__bc049003.json",
+      "retrieved_at": "2026-08-21T06:57:33+00:00",
+      "sha256": "06873ad3a2cafb6cff2fa2a94b16b16a2714805ca176d54a7288610dd5f3864a",
+      "bytes": 1222,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MASTEC%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260430000000&enddatetime=20260430235959&maxrecords=250",
+      "path": "sources/gdelt/549300TMDIT8WREDOF45__20260430-20260430__bc049003.json",
+      "retrieved_at": "2026-08-21T06:58:35+00:00",
+      "sha256": "e5c88e8f6b7ada4b3f8e8d546bb48c159a2519f12dd84b9ffda827f1af21d838",
+      "bytes": 454,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22B%26G+Foods%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300TRW1LZMDJZAQ78__timeline__123b2c31.json",
+      "retrieved_at": "2026-08-21T06:59:13+00:00",
+      "sha256": "82b2003d7e0f72a227e4da7c6b5004bc8d31138a23867061e539b1ff426679e2",
+      "bytes": 41285,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22B%26G+Foods%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250319000000&enddatetime=20250319235959&maxrecords=250",
+      "path": "sources/gdelt/549300TRW1LZMDJZAQ78__20250319-20250319__123b2c31.json",
+      "retrieved_at": "2026-08-21T06:59:39+00:00",
+      "sha256": "d72ebb2ad9576449375c387b49b551d7dab972b473d1e2aed4553b199a9b19a6",
+      "bytes": 550,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22B%26G+Foods%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250806000000&enddatetime=20250806235959&maxrecords=250",
+      "path": "sources/gdelt/549300TRW1LZMDJZAQ78__20250806-20250806__123b2c31.json",
+      "retrieved_at": "2026-08-21T07:02:11+00:00",
+      "sha256": "90e6479faf7caa267b7a95445e5337eec8286bcf8b3b931f47d57b69c13ee611",
+      "bytes": 323,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22B%26G+Foods%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260401000000&enddatetime=20260401235959&maxrecords=250",
+      "path": "sources/gdelt/549300TRW1LZMDJZAQ78__20260401-20260401__123b2c31.json",
+      "retrieved_at": "2026-08-21T07:04:09+00:00",
+      "sha256": "33da2c0a236c858b0de039a19959ae4adf2c01f9fac733003a268b048287f2c0",
+      "bytes": 312,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__timeline__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:05:27+00:00",
+      "sha256": "77598b0342e041dcbebf5fe0bf7dc43545f89591116a82998860238796bca5cc",
+      "bytes": 41281,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240829000000&enddatetime=20241005235959&maxrecords=250",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20240829-20241005__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:07:08+00:00",
+      "sha256": "a05a1fef798bf8660d850219d1879ec51298cf79590c45f8a252af288b0f8e87",
+      "bytes": 1615,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250303000000&enddatetime=20250525235959&maxrecords=250",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20250303-20250525__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:07:23+00:00",
+      "sha256": "5fd8b47895032a904d08bc16ac0161c55766741a854d3dab52d688d5b5d66f24",
+      "bytes": 2509,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250603000000&enddatetime=20250810235959&maxrecords=250",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20250603-20250810__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:07:39+00:00",
+      "sha256": "69a70a56661ea6ccd82c86c5f7f75348472d937046e8c99ceafde0b9c6761c9c",
+      "bytes": 5549,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251013000000&enddatetime=20251023235959&maxrecords=250",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20251013-20251023__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:07:51+00:00",
+      "sha256": "622cc034a526881b6c3ecb8fe09fa67f39b076c6811cf7291b5e691b584892a2",
+      "bytes": 1056,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22WD+40%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260206000000&enddatetime=20260409235959&maxrecords=250",
+      "path": "sources/gdelt/549300UZHTN0CNKBOB19__20260206-20260409__fa0366d9.json",
+      "retrieved_at": "2026-08-21T07:08:06+00:00",
+      "sha256": "6b36700178885a0c5a1f872073e19b3cc1cc5cdd2ba7253f942cbf8493e92c4f",
+      "bytes": 4232,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300WRECW11X94UB57__timeline__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:10:12+00:00",
+      "sha256": "e1b9ac920acad11df18f634395a6bc786e96569e5a8817404d048670aea06b91",
+      "bytes": 41292,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240821000000&enddatetime=20241015235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20240821-20241015__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:10:29+00:00",
+      "sha256": "0ead4938e00e8b407dbf83566dab0e808e126cfa387ea63a35644ce3fb694025",
+      "bytes": 44289,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241129000000&enddatetime=20250222235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20241129-20250222__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:11:23+00:00",
+      "sha256": "791a62e3ca6e9d8e0d0968f443e44f8a65701c2cb502c4937351fe6217abe30c",
+      "bytes": 5962,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250306000000&enddatetime=20250602235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20250306-20250602__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:27:33+00:00",
+      "sha256": "e6ccaa7b26e01049c8920815d327c11731b04bbb36f773e941ea1c94ea0e238d",
+      "bytes": 7885,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250613000000&enddatetime=20250822235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20250613-20250822__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:27:46+00:00",
+      "sha256": "f290f3118d5f44779421cebbfbdf27ee153dbe72e716aa703d2e6237023633d9",
+      "bytes": 2526,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250912000000&enddatetime=20251210235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20250912-20251210__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:30:12+00:00",
+      "sha256": "5941f1151386b3601c877d3626f2f122ca5bc5c762cc696aac64dcea7417b1b8",
+      "bytes": 4628,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20251214000000&enddatetime=20260305235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20251214-20260305__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:31:22+00:00",
+      "sha256": "c583fd6618aa7aef6573820798f7f46a4ec64ea5218046768197900c3ce49328",
+      "bytes": 4408,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260331000000&enddatetime=20260622235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20260331-20260622__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:31:42+00:00",
+      "sha256": "230677806e9e5f24d79eed0855e435b7bbfdf659f78d7afed5fbd2d0f49cd105",
+      "bytes": 10833,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22EXTREME+NETWORKS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260630000000&enddatetime=20260813235959&maxrecords=250",
+      "path": "sources/gdelt/549300WRECW11X94UB57__20260630-20260813__7fb5f9df.json",
+      "retrieved_at": "2026-08-21T07:32:06+00:00",
+      "sha256": "56ef7fb88cbaccb79bba0f1331d42c4a047d7d06efb770ad7e530149a3b110c8",
+      "bytes": 3705,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22CION+Investment%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300XN70JLF94XKX80__timeline__8dd68491.json",
+      "retrieved_at": "2026-08-21T07:35:15+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22INDEPENDENCE+REALTY+TRUST%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300Z3L8NU44NQEB29__timeline__c4b5517d.json",
+      "retrieved_at": "2026-08-21T07:36:42+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__timeline__413ff2b8.json",
+      "retrieved_at": "2026-08-21T07:38:09+00:00",
+      "sha256": "6fb395d770cd039c7e7d034bff4176156506f6dbff91308edbdf18a0796fc743",
+      "bytes": 41289,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241105000000&enddatetime=20250120235959&maxrecords=250",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__20241105-20250120__413ff2b8.json",
+      "retrieved_at": "2026-08-21T07:38:29+00:00",
+      "sha256": "238eee35555e7632bb0f215e2736012080032149484f5dce4e2f2f4200fc6e4b",
+      "bytes": 991,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250731000000&enddatetime=20250731235959&maxrecords=250",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__20250731-20250731__413ff2b8.json",
+      "retrieved_at": "2026-08-21T07:38:45+00:00",
+      "sha256": "b83ecdfe05579bc2afb8ff84e9fe81fac891d1911f5d6f9a2a794e64e002e9b8",
+      "bytes": 549,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260107000000&enddatetime=20260210235959&maxrecords=250",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__20260107-20260210__413ff2b8.json",
+      "retrieved_at": "2026-08-21T07:39:26+00:00",
+      "sha256": "0c015db968b89e8296b3b44d26347df9c4313068eb0a769dad47a658f79d9781",
+      "bytes": 3476,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Bausch+Health%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260806000000&enddatetime=20260806235959&maxrecords=250",
+      "path": "sources/gdelt/B3BS7ACMDUWISF18KY76__20260806-20260806__413ff2b8.json",
+      "retrieved_at": "2026-08-21T07:40:49+00:00",
+      "sha256": "f793ff841202328197ebc1a7f5221fd9eab04ac44e10bfe6da6fbfb46a3d1478",
+      "bytes": 506,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TUPPERWARE+BRANDS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/G8NWFN4YP7CR6FOP4886__timeline__f581ee5c.json",
+      "retrieved_at": "2026-08-21T07:41:41+00:00",
+      "sha256": "2709b40defbd983c394d45bf266a4527a38cf9eeb70bfe1073875b7a98f17d2a",
+      "bytes": 41295,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TUPPERWARE+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240918000000&enddatetime=20240919235959&maxrecords=250",
+      "path": "sources/gdelt/G8NWFN4YP7CR6FOP4886__20240918-20240919__f581ee5c.json",
+      "retrieved_at": "2026-08-21T07:42:10+00:00",
+      "sha256": "5da067eef539550ffac2d7000f6cae41d9e70fc04c470458caf8959743b36007",
+      "bytes": 39122,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22TUPPERWARE+BRANDS%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250130000000&enddatetime=20250404235959&maxrecords=250",
+      "path": "sources/gdelt/G8NWFN4YP7CR6FOP4886__20250130-20250404__f581ee5c.json",
+      "retrieved_at": "2026-08-21T07:42:39+00:00",
+      "sha256": "dbcf4c2b52c1e54d25ce6e67e65d69ee227bbdbe3b3818f371079e84401cba6a",
+      "bytes": 863,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22SUBURBAN+PROPANE+PARTNERS%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/JJAX4X60DE65EYFOTY73__timeline__c9d99920.json",
+      "retrieved_at": "2026-08-21T07:43:04+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__timeline__0baa39f0.json",
+      "retrieved_at": "2026-08-21T07:44:26+00:00",
+      "sha256": "2cfc96bb2ab05126ba997116d076babad34da44cc9d7dc76a0a7e54a160db53c",
+      "bytes": 41286,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20240828000000&enddatetime=20240828235959&maxrecords=250",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__20240828-20240828__0baa39f0.json",
+      "retrieved_at": "2026-08-21T07:44:49+00:00",
+      "sha256": "cfe6741cfc412064d03df35d3be8fdd4faa0119d76aec442f910b980cec219a4",
+      "bytes": 459,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20241229000000&enddatetime=20241231235959&maxrecords=250",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__20241229-20241231__0baa39f0.json",
+      "retrieved_at": "2026-08-21T07:45:29+00:00",
+      "sha256": "ff2486974361f28bef3fca51cc58b883315f679ee5cdea524f9e6d9ca75c50ea",
+      "bytes": 1327,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20250611000000&enddatetime=20250728235959&maxrecords=250",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__20250611-20250728__0baa39f0.json",
+      "retrieved_at": "2026-08-21T07:45:55+00:00",
+      "sha256": "3467300b4f061ba191d6f22d20304ed194eb67bd37d426ad5cf3981fe8464fb3",
+      "bytes": 958,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22MURPHY+OIL%22+tone%3C-5&mode=artlist&format=json&startdatetime=20260130000000&enddatetime=20260130235959&maxrecords=250",
+      "path": "sources/gdelt/QBKYQD0ODE7DC7PDIN91__20260130-20260130__0baa39f0.json",
+      "retrieved_at": "2026-08-21T07:46:12+00:00",
+      "sha256": "f8b7a7809ec89d46acdaab589d4cedcf502a976f72fc16baa3928e1e37c98fcd",
+      "bytes": 551,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Regis%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__timeline__89928387.json",
+      "retrieved_at": "2026-08-21T08:18:55+00:00",
+      "sha256": "5dbb41081c88b9351fe15dda2ab48a018c6a7ccebe9f869f8aa5c916d50536b4",
+      "bytes": 41288,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Regis+Corp%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__timeline__812aec30.json",
+      "retrieved_at": "2026-08-21T08:19:48+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre+Corp%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__timeline__6cfad9c9.json",
+      "retrieved_at": "2026-08-21T08:20:52+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Sabre+Corporation%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/529900VKCYZW8GZ4WW58__timeline__02a49c05.json",
+      "retrieved_at": "2026-08-21T08:21:54+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Griffon%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__timeline__7e8d539a.json",
+      "retrieved_at": "2026-08-21T08:22:11+00:00",
+      "sha256": "7103c9ebabc63baf2850f6ae6aa0d4b01487302a716e8bb393295a642eb9fa86",
+      "bytes": 41283,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Griffon+Corp%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__timeline__67bea593.json",
+      "retrieved_at": "2026-08-21T08:22:26+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Celanese+Corp%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/549300FHJQTDPPN41627__timeline__1f8049db.json",
+      "retrieved_at": "2026-08-21T08:25:21+00:00",
+      "sha256": "cb51f0884ca8db0bb7605eb221658bd77674e944ef0047a569ceb059cf33d144",
+      "bytes": 41289,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Regis+Corporation%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__timeline__fff64223.json",
+      "retrieved_at": "2026-08-21T08:26:28+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Griffon+Corporation%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000C2SGNC7ZN3242__timeline__cd6e046b.json",
+      "retrieved_at": "2026-08-21T08:27:17+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22Regis+Salons%22+tone%3C-5&mode=timelinevolraw&format=json&startdatetime=20240819000000&enddatetime=20260819235959&timelinesmooth=0",
+      "path": "sources/gdelt/5493000Q1S5TJIDIQH89__timeline__bab1dcf6.json",
+      "retrieved_at": "2026-08-21T08:28:20+00:00",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "http_status": 200,
+      "content_type": "application/json; charset=utf-8",
+      "notes": ""
+    }
+  ]
+}

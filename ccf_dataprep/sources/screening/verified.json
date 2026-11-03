@@ -1,0 +1,7336 @@
+{
+  "generated_for": "Wave 0 obligor verification (stage 2)",
+  "source": "SEC submissions API (data.sec.gov)",
+  "verified_count": 150,
+  "candidates": [
+    {
+      "cik": 15615,
+      "name": "MASTEC INC",
+      "tickers": [
+        "MTZ"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "1623",
+      "sic_description": "Water, Sewer, Pipeline, Comm & Power Line Construction",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "FL",
+      "entity_type": "operating",
+      "ein": "650829355",
+      "item_1_01": 14,
+      "item_2_03": 10,
+      "item_2_04": 2,
+      "item_4_02": 1,
+      "count_10k": 14,
+      "count_10q": 43,
+      "count_8k": 130,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-10 0001193125-26-342507",
+          "2026-07-07 0001193125-26-297552",
+          "2025-06-27 0001193125-25-151280"
+        ],
+        "2.03": [
+          "2026-07-20 0001193125-26-309077",
+          "2026-07-07 0001193125-26-297552",
+          "2025-06-27 0001193125-25-151280"
+        ],
+        "2.04": [
+          "2020-07-20 0001193125-20-195186",
+          "2013-03-18 0001193125-13-112820"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 7,
+      "weight": 14,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1008654,
+      "name": "TUPPERWARE BRANDS CORP",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "3089",
+      "sic_description": "Plastics Products, NEC",
+      "fiscal_year_end": "1230",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "364062333",
+      "item_1_01": 28,
+      "item_2_03": 17,
+      "item_2_04": 1,
+      "item_4_02": 1,
+      "count_10k": 10,
+      "count_10q": 31,
+      "count_8k": 130,
+      "item_evidence": {
+        "1.01": [
+          "2024-11-29 0001193125-24-268115",
+          "2024-08-14 0001008654-24-000063",
+          "2024-07-18 0001008654-24-000058"
+        ],
+        "2.04": [
+          "2024-09-18 0001008654-24-000068"
+        ],
+        "2.03": [
+          "2024-08-14 0001008654-24-000063",
+          "2024-07-18 0001008654-24-000058",
+          "2024-07-01 0001008654-24-000051"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 6,
+      "weight": 13,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1489096,
+      "name": "Thermon Group Holdings, Inc.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "3620",
+      "sic_description": "Electrical Industrial Apparatus",
+      "fiscal_year_end": "0331",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "272228185",
+      "item_1_01": 9,
+      "item_2_03": 8,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 39,
+      "count_8k": 117,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-24 0001104659-26-018826",
+          "2025-07-29 0001104659-25-071742",
+          "2024-01-02 0001104659-24-000086"
+        ],
+        "2.03": [
+          "2025-07-29 0001104659-25-071742",
+          "2024-01-02 0001104659-24-000086",
+          "2023-03-09 0001104659-23-030609"
+        ],
+        "2.04": [
+          "2013-04-23 0001489096-13-000016"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 8,
+      "weight": 12,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 50725,
+      "name": "GRIFFON CORP",
+      "tickers": [
+        "GFF"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3442",
+      "sic_description": "Metal Doors, Sash, Frames, Moldings & Trim",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "111893410",
+      "item_1_01": 38,
+      "item_2_03": 10,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 51,
+      "count_8k": 142,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-11 0001628280-26-055694",
+          "2026-08-04 0001628280-26-052181",
+          "2026-06-11 0000930413-26-001842"
+        ],
+        "2.03": [
+          "2024-06-26 0000930413-24-001945",
+          "2022-01-28 0000930413-22-000112",
+          "2020-06-22 0000930413-20-001633"
+        ],
+        "2.04": [
+          "2010-10-01 0001104659-10-050933"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 8,
+      "weight": 12,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1278027,
+      "name": "B&G Foods, Inc.",
+      "tickers": [
+        "BGS"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2000",
+      "sic_description": "Food and Kindred Products",
+      "fiscal_year_end": "0102",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "133918742",
+      "item_1_01": 52,
+      "item_2_03": 19,
+      "item_2_04": 2,
+      "item_4_02": 0,
+      "count_10k": 20,
+      "count_10q": 60,
+      "count_8k": 251,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-10 0001104659-26-072323",
+          "2024-07-15 0001104659-24-079703",
+          "2023-09-26 0001104659-23-103865"
+        ],
+        "1.01": [
+          "2026-06-10 0001104659-26-072323",
+          "2026-06-04 0001104659-26-070572",
+          "2026-01-16 0001104659-26-004534"
+        ],
+        "2.04": [
+          "2012-11-27 0001104659-12-080146",
+          "2009-10-02 0001104659-09-057488"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 8,
+      "weight": 12,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1375365,
+      "name": "Super Micro Computer, Inc.",
+      "tickers": [
+        "SMCI",
+        "SMCIP"
+      ],
+      "exchanges": [
+        "Nasdaq",
+        "Nasdaq"
+      ],
+      "sic": "3571",
+      "sic_description": "Electronic Computers",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "CA",
+      "entity_type": "operating",
+      "ein": "770353939",
+      "item_1_01": 43,
+      "item_2_03": 26,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 9,
+      "count_10q": 28,
+      "count_8k": 161,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-15 0001193125-26-270430",
+          "2026-06-12 0001193125-26-269703",
+          "2026-01-29 0001375365-26-000005"
+        ],
+        "2.03": [
+          "2025-07-21 0001375365-25-000022",
+          "2025-06-27 0001375365-25-000020",
+          "2025-02-21 0001375365-25-000003"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 8,
+      "weight": 11,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 317788,
+      "name": "Digital Turbine, Inc.",
+      "tickers": [
+        "APPS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6794",
+      "sic_description": "Patent Owners & Lessors",
+      "fiscal_year_end": "0331",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "222267658",
+      "item_1_01": 48,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 17,
+      "count_10q": 49,
+      "count_8k": 192,
+      "item_evidence": {
+        "1.01": [
+          "2026-04-23 0001628280-26-026827",
+          "2025-09-02 0001140361-25-033513",
+          "2025-08-05 0001628280-25-037955"
+        ],
+        "2.03": [
+          "2025-09-02 0001140361-25-033513",
+          "2022-01-03 0001104659-22-000492",
+          "2021-05-28 0001104659-21-074178"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 8,
+      "weight": 11,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 717423,
+      "name": "MURPHY OIL CORP",
+      "tickers": [
+        "MUR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "1311",
+      "sic_description": "Crude Petroleum & Natural Gas",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "710361522",
+      "item_1_01": 9,
+      "item_2_03": 9,
+      "item_2_04": 10,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 29,
+      "count_8k": 146,
+      "item_evidence": {
+        "2.03": [
+          "2026-01-23 0000950103-26-000906",
+          "2026-01-06 0000950103-26-000187",
+          "2024-10-07 0001193125-24-233828"
+        ],
+        "2.04": [
+          "2026-01-08 0000950103-26-000244",
+          "2024-12-06 0000950103-24-017358",
+          "2023-09-15 0000950103-23-013632"
+        ],
+        "1.01": [
+          "2026-01-06 0000950103-26-000187",
+          "2024-10-07 0001193125-24-233828",
+          "2022-11-18 0000717423-22-000074"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 7,
+      "weight": 11,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1674101,
+      "name": "Vertiv Holdings Co",
+      "tickers": [
+        "VRT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3679",
+      "sic_description": "Electronic Components, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "812376902",
+      "item_1_01": 21,
+      "item_2_03": 13,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 8,
+      "count_10q": 25,
+      "count_8k": 103,
+      "item_evidence": {
+        "1.01": [
+          "2026-03-03 0001193125-26-088484",
+          "2025-11-03 0001193125-25-261623",
+          "2025-08-12 0001193125-25-178982"
+        ],
+        "2.03": [
+          "2026-03-03 0001193125-26-088484",
+          "2025-08-12 0001193125-25-178982",
+          "2024-12-13 0001193125-24-278680"
+        ]
+      },
+      "filings_indexed": 856,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 7,
+      "weight": 10,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 861459,
+      "name": "GRANITE CONSTRUCTION INC",
+      "tickers": [
+        "GVA"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "1600",
+      "sic_description": "Heavy Construction Other Than Bldg Const - Contractors",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "770239383",
+      "item_1_01": 27,
+      "item_2_03": 18,
+      "item_2_04": 0,
+      "item_4_02": 4,
+      "count_10k": 15,
+      "count_10q": 46,
+      "count_8k": 161,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-04 0000861459-26-000032",
+          "2026-06-02 0001437749-26-019166",
+          "2026-02-18 0000861459-26-000008"
+        ],
+        "2.03": [
+          "2026-06-02 0001437749-26-019166",
+          "2025-08-06 0000861459-25-000037",
+          "2024-06-12 0001437749-24-020086"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 7,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1166003,
+      "name": "XPO, Inc.",
+      "tickers": [
+        "XPO"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "4700",
+      "sic_description": "Transportation Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "030450326",
+      "item_1_01": 39,
+      "item_2_03": 24,
+      "item_2_04": 2,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 41,
+      "count_8k": 321,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-01 0001104659-26-068522",
+          "2025-02-26 0001104659-25-017441",
+          "2023-12-13 0001104659-23-125719"
+        ],
+        "1.01": [
+          "2026-06-01 0001104659-26-068522",
+          "2025-02-26 0001104659-25-017441",
+          "2023-12-13 0001104659-23-125719"
+        ],
+        "2.04": [
+          "2022-04-11 0001104659-22-044655",
+          "2018-07-30 0001166003-18-000053"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 105016,
+      "name": "WATSCO INC",
+      "tickers": [
+        "WSO",
+        "WSO-B"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "5070",
+      "sic_description": "Wholesale-Hardware & Plumbing & Heating Equipment & Supplies",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "FL",
+      "entity_type": "operating",
+      "ein": "590778222",
+      "item_1_01": 20,
+      "item_2_03": 9,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 20,
+      "count_10q": 59,
+      "count_8k": 160,
+      "item_evidence": {
+        "2.04": [
+          "2023-03-22 0001193125-23-076743"
+        ],
+        "1.01": [
+          "2023-03-22 0001193125-23-076743",
+          "2021-08-06 0001193125-21-239331",
+          "2020-04-16 0001193125-20-108685"
+        ],
+        "2.03": [
+          "2023-03-22 0001193125-23-076743",
+          "2020-04-16 0001193125-20-108685",
+          "2018-12-11 0001193125-18-347055"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 88205,
+      "name": "SPX Technologies, Inc.",
+      "tickers": [
+        "SPXC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3540",
+      "sic_description": "Metalworkg Machinery & Equipment",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "381016240",
+      "item_1_01": 21,
+      "item_2_03": 7,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 41,
+      "count_8k": 143,
+      "item_evidence": {
+        "2.03": [
+          "2025-09-11 0001410578-25-002044",
+          "2024-09-03 0001104659-24-096375",
+          "2023-04-27 0000088205-23-000012"
+        ],
+        "1.01": [
+          "2025-09-11 0001410578-25-002044",
+          "2024-09-03 0001104659-24-096375",
+          "2024-02-08 0000088205-24-000002"
+        ],
+        "2.04": [
+          "2014-02-11 0001104659-14-008472"
+        ]
+      },
+      "filings_indexed": 1007,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 89439,
+      "name": "MUELLER INDUSTRIES INC",
+      "tickers": [
+        "MLI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3350",
+      "sic_description": "Rolling Drawing & Extruding of  Nonferrous Metals",
+      "fiscal_year_end": "1226",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "250790410",
+      "item_1_01": 14,
+      "item_2_03": 4,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 43,
+      "count_8k": 170,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-30 0000089439-26-000012",
+          "2021-04-05 0000089439-21-000021",
+          "2017-03-13 0000089439-17-000013"
+        ],
+        "1.01": [
+          "2026-03-30 0000089439-26-000012",
+          "2024-04-23 0001193125-24-107191",
+          "2021-04-05 0000089439-21-000021"
+        ],
+        "2.04": [
+          "2012-05-24 0001144204-12-031623"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 885590,
+      "name": "Bausch Health Companies Inc.",
+      "tickers": [
+        "BHC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2834",
+      "sic_description": "Pharmaceutical Preparations",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NJ",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 35,
+      "item_2_03": 22,
+      "item_2_04": 8,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 32,
+      "count_8k": 195,
+      "item_evidence": {
+        "2.03": [
+          "2026-01-02 0000950103-26-000052",
+          "2025-12-29 0000885590-25-000059",
+          "2025-06-27 0001193125-25-149731"
+        ],
+        "1.01": [
+          "2026-01-02 0000950103-26-000052",
+          "2025-12-29 0000885590-25-000059",
+          "2025-06-27 0001193125-25-149731"
+        ],
+        "2.04": [
+          "2022-01-18 0000950103-22-000636",
+          "2021-05-25 0001193125-21-171149",
+          "2020-11-19 0001193125-20-297165"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1411688,
+      "name": "Container Store Group, Inc.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "5700",
+      "sic_description": "Retail-Home Furniture, Furnishings & Equipment Stores",
+      "fiscal_year_end": "0329",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "260565401",
+      "item_1_01": 9,
+      "item_2_03": 7,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 33,
+      "count_8k": 93,
+      "item_evidence": {
+        "1.01": [
+          "2025-01-29 0001104659-25-007267",
+          "2024-12-23 0001104659-24-131067",
+          "2024-10-15 0001104659-24-108678"
+        ],
+        "2.04": [
+          "2024-12-23 0001104659-24-131067"
+        ],
+        "2.03": [
+          "2024-12-23 0001104659-24-131067",
+          "2024-10-15 0001104659-24-108678",
+          "2024-02-06 0001558370-24-000809"
+        ]
+      },
+      "filings_indexed": 564,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 6,
+      "weight": 10,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 716643,
+      "name": "REGIS CORP",
+      "tickers": [
+        "RGS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7200",
+      "sic_description": "Services-Personal Services",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "MN",
+      "entity_type": "operating",
+      "ein": "410749934",
+      "item_1_01": 21,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 15,
+      "count_10q": 47,
+      "count_8k": 163,
+      "item_evidence": {
+        "1.01": [
+          "2025-01-28 0001104659-25-006534",
+          "2024-12-19 0001193125-24-281618",
+          "2024-07-10 0001193125-24-177293"
+        ],
+        "2.03": [
+          "2024-12-19 0001193125-24-281618",
+          "2024-06-25 0001193125-24-167408",
+          "2022-08-15 0000716643-22-000040"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 6,
+      "weight": 9,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1528396,
+      "name": "Guidewire Software, Inc.",
+      "tickers": [
+        "GWRE"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "0731",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "364468504",
+      "item_1_01": 3,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 8,
+      "count_10q": 24,
+      "count_8k": 65,
+      "item_evidence": {
+        "2.03": [
+          "2024-12-05 0001528396-24-000160",
+          "2024-10-18 0001193125-24-239688"
+        ],
+        "1.01": [
+          "2024-12-05 0001528396-24-000160",
+          "2024-10-18 0001193125-24-239688",
+          "2023-03-03 0001528396-23-000024"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 6,
+      "weight": 9,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1046102,
+      "name": "RB GLOBAL INC.",
+      "tickers": [
+        "RBA"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "A6",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 14,
+      "item_2_03": 6,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 5,
+      "count_10q": 17,
+      "count_8k": 89,
+      "item_evidence": {
+        "2.03": [
+          "2025-04-04 0001104659-25-031884",
+          "2023-03-21 0001104659-23-034673",
+          "2023-03-15 0001104659-23-032890"
+        ],
+        "1.01": [
+          "2025-04-04 0001104659-25-031884",
+          "2025-03-11 0001104659-25-022405",
+          "2023-03-21 0001104659-23-034673"
+        ],
+        "2.04": [
+          "2022-04-29 0001104659-22-053845"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1690680,
+      "name": "NEWMARK GROUP, INC.",
+      "tickers": [
+        "NMRK"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6531",
+      "sic_description": "Real Estate Agents & Managers (For Others)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "814467492",
+      "item_1_01": 14,
+      "item_2_03": 14,
+      "item_2_04": 7,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 96,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-21 0001213900-26-045911",
+          "2024-04-30 0001193125-24-125048",
+          "2024-01-12 0001193125-24-007547"
+        ],
+        "1.01": [
+          "2026-04-21 0001213900-26-045911",
+          "2024-04-30 0001193125-24-125048",
+          "2024-01-12 0001193125-24-007547"
+        ],
+        "2.04": [
+          "2018-11-08 0001193125-18-321448",
+          "2018-09-28 0001193125-18-286542",
+          "2018-08-07 0001193125-18-240505"
+        ]
+      },
+      "filings_indexed": 437,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1593222,
+      "name": "City Office REIT, Inc.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "981141883",
+      "item_1_01": 28,
+      "item_2_03": 16,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 36,
+      "count_8k": 115,
+      "item_evidence": {
+        "1.01": [
+          "2025-08-15 0001193125-25-181880",
+          "2025-07-24 0001193125-25-163765",
+          "2023-08-18 0001193125-23-215993"
+        ],
+        "2.03": [
+          "2025-08-15 0001193125-25-181880",
+          "2023-08-18 0001193125-23-215993",
+          "2021-11-22 0001193125-21-336743"
+        ],
+        "2.04": [
+          "2023-05-16 0001193125-23-145335"
+        ]
+      },
+      "filings_indexed": 882,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1590895,
+      "name": "Caesars Entertainment, Inc.",
+      "tickers": [
+        "CZR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7011",
+      "sic_description": "Hotels & Motels",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "463657681",
+      "item_1_01": 36,
+      "item_2_03": 19,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 36,
+      "count_8k": 190,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-28 0001193125-26-242995",
+          "2025-05-02 0001590895-25-000113",
+          "2025-03-20 0001590895-25-000104"
+        ],
+        "2.03": [
+          "2024-11-25 0001193125-24-265157",
+          "2024-10-17 0001193125-24-238882",
+          "2024-05-09 0001193125-24-135268"
+        ],
+        "2.04": [
+          "2021-04-26 0001193125-21-130446"
+        ]
+      },
+      "filings_indexed": 1016,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1091667,
+      "name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "tickers": [
+        "CHTR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "4841",
+      "sic_description": "Cable & Other Pay Television Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "841496755",
+      "item_1_01": 36,
+      "item_2_03": 35,
+      "item_2_04": 6,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 135,
+      "item_evidence": {
+        "2.03": [
+          "2026-08-12 0001104659-26-094863",
+          "2026-01-14 0001104659-26-003739",
+          "2025-09-02 0001104659-25-086395"
+        ],
+        "1.01": [
+          "2026-08-12 0001104659-26-094863",
+          "2026-01-14 0001104659-26-003739",
+          "2025-09-02 0001104659-25-086395"
+        ],
+        "2.04": [
+          "2020-10-16 0001104659-20-115651",
+          "2020-07-28 0001104659-20-087372",
+          "2020-07-13 0001104659-20-083132"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1094831,
+      "name": "BGC Group, Inc.",
+      "tickers": [
+        "BGC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6200",
+      "sic_description": "Security & Commodity Brokers, Dealers, Exchanges & Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "863748217",
+      "item_1_01": 57,
+      "item_2_03": 31,
+      "item_2_04": 5,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 46,
+      "count_8k": 294,
+      "item_evidence": {
+        "2.03": [
+          "2026-05-15 0001213900-26-057808",
+          "2025-04-02 0001213900-25-028059",
+          "2024-12-06 0001213900-24-106514"
+        ],
+        "1.01": [
+          "2026-05-15 0001213900-26-057808",
+          "2025-04-02 0001213900-25-028059",
+          "2024-12-06 0001213900-24-106514"
+        ],
+        "2.04": [
+          "2018-09-28 0001193125-18-286555",
+          "2018-06-20 0001193125-18-197451",
+          "2018-03-07 0001193125-18-072989"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 9,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 727510,
+      "name": "Viskase Holdings, Inc.",
+      "tickers": [
+        "ENZN"
+      ],
+      "exchanges": [
+        "OTC"
+      ],
+      "sic": "2836",
+      "sic_description": "Biological Products, (No Diagnostic Substances)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "222372868",
+      "item_1_01": 33,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 2,
+      "count_10k": 22,
+      "count_10q": 66,
+      "count_8k": 200,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-05 0001104659-26-055632",
+          "2026-04-21 0001104659-26-046064",
+          "2026-03-24 0001104659-26-033624"
+        ],
+        "2.03": [
+          "2026-04-21 0001104659-26-046064",
+          "2006-06-07 0000909518-06-000596",
+          "2006-05-25 0001125282-06-003026"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1059262,
+      "name": "SP Plus Corp",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "7510",
+      "sic_description": "Services-Auto Rental & Leasing (No Drivers)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "161171179",
+      "item_1_01": 21,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 16,
+      "count_10q": 47,
+      "count_8k": 232,
+      "item_evidence": {
+        "1.01": [
+          "2024-05-16 0001193125-24-140235",
+          "2023-10-05 0001193125-23-251150",
+          "2022-04-26 0001564590-22-015734"
+        ],
+        "2.03": [
+          "2024-05-16 0001193125-24-140235",
+          "2022-04-26 0001564590-22-015734",
+          "2018-11-30 0001059262-18-000055"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1021561,
+      "name": "NU SKIN ENTERPRISES, INC.",
+      "tickers": [
+        "NUS"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5122",
+      "sic_description": "Wholesale-Drugs, Proprietaries & Druggists' Sundries",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "870565309",
+      "item_1_01": 13,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 13,
+      "count_10q": 40,
+      "count_8k": 135,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-27 0001140361-26-011757",
+          "2022-06-17 0001140361-22-023342",
+          "2018-04-23 0001021561-18-000061"
+        ],
+        "1.01": [
+          "2026-03-27 0001140361-26-011757",
+          "2025-01-03 0001140361-25-000113",
+          "2022-06-17 0001140361-22-023342"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1582982,
+      "name": "CareCloud, Inc.",
+      "tickers": [
+        "CCLD"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "223832302",
+      "item_1_01": 43,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 12,
+      "count_10q": 37,
+      "count_8k": 214,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-24 0001493152-26-034606",
+          "2026-06-26 0001493152-26-030329",
+          "2026-04-14 0001493152-26-016464"
+        ],
+        "2.03": [
+          "2026-04-14 0001493152-26-016464",
+          "2025-08-25 0001493152-25-012294",
+          "2015-07-14 0001144204-15-042319"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1175454,
+      "name": "CORPAY, INC.",
+      "tickers": [
+        "CPAY"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 9,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 13,
+      "count_10q": 40,
+      "count_8k": 121,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-22 0001175454-26-000040",
+          "2025-11-05 0001175454-25-000025",
+          "2025-07-23 0001175454-25-000010"
+        ],
+        "2.03": [
+          "2025-11-05 0001175454-25-000025",
+          "2025-07-23 0001175454-25-000010",
+          "2014-11-17 0001193125-14-414305"
+        ]
+      },
+      "filings_indexed": 1006,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1574085,
+      "name": "Braemar Hotels & Resorts Inc.",
+      "tickers": [
+        "BHR",
+        "BHR-PB",
+        "BHR-PD"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "462488594",
+      "item_1_01": 44,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 10,
+      "count_10q": 30,
+      "count_8k": 397,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-17 0001574085-26-000116",
+          "2026-06-10 0001574085-26-000098",
+          "2026-05-22 0001574085-26-000087"
+        ],
+        "2.03": [
+          "2023-08-01 0001104659-23-085983",
+          "2021-05-18 0001104659-21-068868",
+          "2021-02-22 0001574085-21-000013"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1494582,
+      "name": "BOSTON OMAHA Corp",
+      "tickers": [
+        "BOC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6510",
+      "sic_description": "Real Estate Operators (No Developers) & Lessors",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "270788438",
+      "item_1_01": 41,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 1,
+      "count_10k": 14,
+      "count_10q": 42,
+      "count_8k": 164,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-15 0001437749-26-020684",
+          "2024-09-23 0001437749-24-029837",
+          "2024-06-05 0001437749-24-019334"
+        ],
+        "1.01": [
+          "2026-05-18 0001437749-26-017511",
+          "2024-09-23 0001437749-24-029837",
+          "2024-06-05 0001437749-24-019334"
+        ]
+      },
+      "filings_indexed": 586,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V6_non_reliance_restatement"
+      ],
+      "condition_count": 5,
+      "weight": 8,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 71691,
+      "name": "NEW YORK TIMES CO",
+      "tickers": [
+        "NYT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2711",
+      "sic_description": "Newspapers: Publishing or  Publishing & Printing",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NY",
+      "entity_type": "operating",
+      "ein": "131102020",
+      "item_1_01": 5,
+      "item_2_03": 0,
+      "item_2_04": 1,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 29,
+      "count_8k": 81,
+      "item_evidence": {
+        "1.01": [
+          "2025-06-18 0001193125-25-142415",
+          "2022-07-28 0001193125-22-205006",
+          "2022-01-07 0001193125-22-004587"
+        ],
+        "2.04": [
+          "2018-01-31 0001193125-18-027581"
+        ]
+      },
+      "filings_indexed": 1004,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V3_has_acceleration",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 8,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 831641,
+      "name": "TETRA TECH INC",
+      "tickers": [
+        "TTEK"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "8711",
+      "sic_description": "Services-Engineering Services",
+      "fiscal_year_end": "0927",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "954148514",
+      "item_1_01": 8,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 36,
+      "count_8k": 90,
+      "item_evidence": {
+        "1.01": [
+          "2025-05-07 0001104659-25-045597",
+          "2023-08-22 0001104659-23-094243",
+          "2022-10-28 0001104659-22-112095"
+        ],
+        "2.03": [
+          "2025-05-07 0001104659-25-045597",
+          "2023-08-22 0001104659-23-094243",
+          "2022-09-26 0001104659-22-102772"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1005210,
+      "name": "SUBURBAN PROPANE PARTNERS LP",
+      "tickers": [
+        "SPH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5900",
+      "sic_description": "Retail-Miscellaneous Retail",
+      "fiscal_year_end": "0926",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "223410353",
+      "item_1_01": 24,
+      "item_2_03": 13,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 49,
+      "count_8k": 270,
+      "item_evidence": {
+        "2.03": [
+          "2025-12-22 0001193125-25-328769",
+          "2024-03-18 0001193125-24-069719",
+          "2021-05-24 0001193125-21-170900"
+        ],
+        "1.01": [
+          "2025-12-22 0001193125-25-328769",
+          "2025-02-21 0001193125-25-031240",
+          "2024-03-18 0001193125-24-069719"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1906324,
+      "name": "QuidelOrtho Corp",
+      "tickers": [
+        "QDEL"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "2835",
+      "sic_description": "In Vitro & In Vivo Diagnostic Substances",
+      "fiscal_year_end": "0101",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "874496285",
+      "item_1_01": 3,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 4,
+      "count_10q": 13,
+      "count_8k": 50,
+      "item_evidence": {
+        "2.03": [
+          "2025-08-21 0001193125-25-185355",
+          "2022-05-27 0001193125-22-161806"
+        ],
+        "1.01": [
+          "2025-08-21 0001193125-25-185355",
+          "2024-04-29 0001906324-24-000021",
+          "2022-05-27 0001193125-22-161806"
+        ]
+      },
+      "filings_indexed": 495,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1003078,
+      "name": "MSC INDUSTRIAL DIRECT CO INC",
+      "tickers": [
+        "MSM"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5084",
+      "sic_description": "Wholesale-Industrial Machinery & Equipment",
+      "fiscal_year_end": "0829",
+      "state_of_incorporation": "NY",
+      "entity_type": "operating",
+      "ein": "113289165",
+      "item_1_01": 8,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 27,
+      "count_8k": 121,
+      "item_evidence": {
+        "1.01": [
+          "2025-12-12 0001003078-25-000181",
+          "2025-07-22 0001003078-25-000089",
+          "2023-10-05 0001104659-23-107006"
+        ],
+        "2.03": [
+          "2025-07-22 0001003078-25-000089",
+          "2022-12-20 0001003078-22-000179",
+          "2021-08-30 0001003078-21-000163"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 886346,
+      "name": "KADANT INC",
+      "tickers": [
+        "KAI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3550",
+      "sic_description": "Special Industry Machinery (No Metalworking Machinery)",
+      "fiscal_year_end": "0102",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "521762325",
+      "item_1_01": 11,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 38,
+      "count_8k": 119,
+      "item_evidence": {
+        "1.01": [
+          "2026-01-29 0000886346-26-000005",
+          "2025-10-07 0000886346-25-000113",
+          "2025-10-02 0000886346-25-000109"
+        ],
+        "2.03": [
+          "2025-10-02 0000886346-25-000109",
+          "2022-12-01 0000886346-22-000150",
+          "2019-01-02 0000886346-19-000011"
+        ]
+      },
+      "filings_indexed": 1004,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 910406,
+      "name": "HAIN CELESTIAL GROUP INC",
+      "tickers": [
+        "HAIN"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "2000",
+      "sic_description": "Food and Kindred Products",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "223240619",
+      "item_1_01": 21,
+      "item_2_03": 1,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 47,
+      "count_8k": 158,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-02 0001193125-26-032725",
+          "2022-12-21 0001193125-22-309599",
+          "2021-12-28 0001193125-21-367938"
+        ],
+        "2.03": [
+          "2012-09-06 0001445305-12-002829"
+        ]
+      },
+      "filings_indexed": 1008,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1078271,
+      "name": "EXTREME NETWORKS INC",
+      "tickers": [
+        "EXTR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3576",
+      "sic_description": "Computer Communications Equipment",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "770430270",
+      "item_1_01": 22,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 42,
+      "count_8k": 160,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-30 0001193125-26-324888",
+          "2023-06-23 0000950170-23-029645",
+          "2019-08-09 0001193125-19-217553"
+        ],
+        "1.01": [
+          "2026-07-30 0001193125-26-324888",
+          "2023-06-23 0000950170-23-029645",
+          "2021-08-10 0001564590-21-043098"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C3_defined_terms",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C3_defined_terms",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1632790,
+      "name": "ENERGIZER HOLDINGS, INC.",
+      "tickers": [
+        "ENR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3690",
+      "sic_description": "Miscellaneous Electrical Machinery, Equipment & Supplies",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "MO",
+      "entity_type": "operating",
+      "ein": "364802442",
+      "item_1_01": 24,
+      "item_2_03": 21,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 34,
+      "count_8k": 138,
+      "item_evidence": {
+        "2.03": [
+          "2025-09-22 0001140361-25-035737",
+          "2025-03-20 0001632790-25-000030",
+          "2024-05-29 0001632790-24-000045"
+        ],
+        "1.01": [
+          "2025-09-22 0001140361-25-035737",
+          "2025-03-20 0001632790-25-000030",
+          "2024-05-29 0001632790-24-000045"
+        ]
+      },
+      "filings_indexed": 907,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1803599,
+      "name": "Concentrix Corp",
+      "tickers": [
+        "CNXC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1130",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "271605762",
+      "item_1_01": 14,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 6,
+      "count_10q": 17,
+      "count_8k": 69,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-23 0001803599-26-000080",
+          "2026-02-24 0001803599-26-000074",
+          "2025-04-11 0001803599-25-000111"
+        ],
+        "1.01": [
+          "2026-03-23 0001803599-26-000080",
+          "2026-02-24 0001803599-26-000074",
+          "2025-04-11 0001803599-25-000111"
+        ]
+      },
+      "filings_indexed": 554,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1262976,
+      "name": "CIMPRESS plc",
+      "tickers": [
+        "CMPR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "2750",
+      "sic_description": "Commercial Printing",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "L2",
+      "entity_type": "operating",
+      "ein": "980417483",
+      "item_1_01": 22,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 37,
+      "count_8k": 143,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-04 0001262976-26-000020",
+          "2024-12-17 0001262976-24-000143",
+          "2024-09-30 0001193125-24-228494"
+        ],
+        "2.03": [
+          "2024-12-17 0001262976-24-000143",
+          "2024-09-30 0001193125-24-228494",
+          "2024-05-17 0001262976-24-000044"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 1584509,
+      "name": "Aramark",
+      "tickers": [
+        "ARMK"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5812",
+      "sic_description": "Retail-Eating  Places",
+      "fiscal_year_end": "1002",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "208236097",
+      "item_1_01": 12,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 21,
+      "count_8k": 80,
+      "item_evidence": {
+        "1.01": [
+          "2025-12-12 0001584509-25-000224",
+          "2025-08-18 0001193125-25-182214",
+          "2025-03-19 0001584509-25-000099"
+        ],
+        "2.03": [
+          "2020-03-19 0001193125-20-078409",
+          "2020-01-16 0001584509-20-000012"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 7,
+      "weight": 7,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C6_non_dec_fye"
+      ]
+    },
+    {
+      "cik": 933036,
+      "name": "UPBOUND GROUP, INC.",
+      "tickers": [
+        "UPBD"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7359",
+      "sic_description": "Services-Equipment Rental & Leasing, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "450491516",
+      "item_1_01": 23,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 36,
+      "count_8k": 175,
+      "item_evidence": {
+        "2.03": [
+          "2025-08-19 0001104659-25-080284",
+          "2024-06-10 0001104659-24-069873",
+          "2024-05-29 0001104659-24-065830"
+        ],
+        "1.01": [
+          "2025-08-19 0001104659-25-080284",
+          "2024-12-12 0001104659-24-128068",
+          "2024-06-10 0001104659-24-069873"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 6,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1116942,
+      "name": "TTM TECHNOLOGIES INC",
+      "tickers": [
+        "TTMI"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3672",
+      "sic_description": "Printed Circuit Boards",
+      "fiscal_year_end": "1228",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "911033443",
+      "item_1_01": 14,
+      "item_2_03": 11,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 28,
+      "count_8k": 95,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-03 0001193125-26-255711",
+          "2024-08-01 0001193125-24-191480",
+          "2024-06-14 0001193125-24-161581"
+        ],
+        "2.03": [
+          "2026-06-03 0001193125-26-255711",
+          "2024-08-01 0001193125-24-191480",
+          "2024-06-14 0001193125-24-161581"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 6,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 97216,
+      "name": "TEREX CORP",
+      "tickers": [
+        "TEX"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3537",
+      "sic_description": "Industrial Trucks, Tractors, Trailors & Stackers",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "341531521",
+      "item_1_01": 12,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 25,
+      "count_8k": 155,
+      "item_evidence": {
+        "1.01": [
+          "2025-10-30 0001104659-25-104013",
+          "2025-08-14 0000097216-25-000147",
+          "2024-10-09 0001104659-24-107143"
+        ],
+        "2.03": [
+          "2024-10-09 0001104659-24-107143",
+          "2021-04-06 0000097216-21-000163"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 6,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1728951,
+      "name": "ESSENTIAL PROPERTIES REALTY TRUST, INC.",
+      "tickers": [
+        "EPRT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "824005693",
+      "item_1_01": 10,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 25,
+      "count_8k": 180,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-15 0001628280-26-043273",
+          "2025-08-21 0001728951-25-000156",
+          "2024-07-17 0001728951-24-000120"
+        ],
+        "2.03": [
+          "2025-08-21 0001728951-25-000156",
+          "2024-07-17 0001728951-24-000120",
+          "2023-08-29 0001728951-23-000089"
+        ]
+      },
+      "filings_indexed": 654,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 6,
+      "weight": 6,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1309108,
+      "name": "WEX Inc.",
+      "tickers": [
+        "WEX"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "010526993",
+      "item_1_01": 19,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 112,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-04 0001213900-26-051676",
+          "2025-03-06 0001140361-25-007445",
+          "2024-05-15 0001628280-24-023337"
+        ],
+        "2.03": [
+          "2025-03-06 0001140361-25-007445",
+          "2024-05-15 0001628280-24-023337",
+          "2024-01-25 0001309108-24-000013"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 795403,
+      "name": "WATTS WATER TECHNOLOGIES INC",
+      "tickers": [
+        "WTS"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3490",
+      "sic_description": "Miscellaneous Fabricated Metal Products",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "042916536",
+      "item_1_01": 19,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 38,
+      "count_8k": 111,
+      "item_evidence": {
+        "1.01": [
+          "2025-11-10 0001104659-25-109203",
+          "2024-07-15 0001558370-24-009815",
+          "2024-03-14 0001558370-24-003173"
+        ],
+        "2.03": [
+          "2023-10-23 0001558370-23-016608",
+          "2020-04-27 0001104659-20-051107",
+          "2016-12-22 0001104659-16-163361"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1585389,
+      "name": "SmartStop Self Storage REIT, Inc.",
+      "tickers": [
+        "SMA"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "461722812",
+      "item_1_01": 35,
+      "item_2_03": 17,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 38,
+      "count_8k": 261,
+      "item_evidence": {
+        "1.01": [
+          "2026-03-19 0001193125-26-116245",
+          "2026-02-18 0001193125-26-057425",
+          "2025-09-24 0001193125-25-215411"
+        ],
+        "2.03": [
+          "2026-02-18 0001193125-26-057425",
+          "2025-09-24 0001193125-25-215411",
+          "2025-06-16 0001193125-25-141463"
+        ]
+      },
+      "filings_indexed": 659,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1597033,
+      "name": "Sabre Corp",
+      "tickers": [
+        "SABR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7370",
+      "sic_description": "Services-Computer Programming, Data Processing, Etc.",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "208647322",
+      "item_1_01": 38,
+      "item_2_03": 26,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 32,
+      "count_8k": 172,
+      "item_evidence": {
+        "2.03": [
+          "2026-08-07 0001193125-26-340356",
+          "2026-05-19 0001193125-26-230898",
+          "2025-12-11 0001193125-25-316195"
+        ],
+        "1.01": [
+          "2026-08-07 0001193125-26-340356",
+          "2026-05-19 0001193125-26-230898",
+          "2026-03-05 0001193125-26-094301"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1479094,
+      "name": "STAG Industrial, Inc.",
+      "tickers": [
+        "STAG"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "273099608",
+      "item_1_01": 20,
+      "item_2_03": 18,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 38,
+      "count_8k": 122,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-22 0001104659-26-085810",
+          "2025-09-17 0001104659-25-090856",
+          "2025-04-17 0001104659-25-036043"
+        ],
+        "1.01": [
+          "2026-07-22 0001104659-26-085810",
+          "2025-09-17 0001104659-25-090856",
+          "2025-04-17 0001104659-25-036043"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1929561,
+      "name": "RXO, Inc.",
+      "tickers": [
+        "RXO"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "4700",
+      "sic_description": "Transportation Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "882183384",
+      "item_1_01": 10,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 4,
+      "count_10q": 12,
+      "count_8k": 44,
+      "item_evidence": {
+        "2.03": [
+          "2026-02-20 0001140361-26-006319",
+          "2026-02-06 0001929561-26-000006",
+          "2024-08-09 0001104659-24-087525"
+        ],
+        "1.01": [
+          "2026-02-20 0001140361-26-006319",
+          "2026-02-06 0001929561-26-000006",
+          "2024-09-11 0001104659-24-098769"
+        ]
+      },
+      "filings_indexed": 296,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1422930,
+      "name": "PubMatic, Inc.",
+      "tickers": [
+        "PUBM"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7370",
+      "sic_description": "Services-Computer Programming, Data Processing, Etc.",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "205863224",
+      "item_1_01": 6,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 6,
+      "count_10q": 17,
+      "count_8k": 45,
+      "item_evidence": {
+        "2.03": [
+          "2022-10-17 0001422930-22-000048",
+          "2021-10-25 0001422930-21-000047",
+          "2021-06-08 0001422930-21-000037"
+        ],
+        "1.01": [
+          "2022-10-17 0001422930-22-000048",
+          "2022-09-14 0001422930-22-000045",
+          "2021-10-25 0001422930-21-000047"
+        ]
+      },
+      "filings_indexed": 856,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1600626,
+      "name": "Peakstone Realty Trust",
+      "tickers": [
+        "PKST"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "464654479",
+      "item_1_01": 40,
+      "item_2_03": 12,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 36,
+      "count_8k": 189,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-02 0001140361-26-003102",
+          "2024-11-04 0001140361-24-045133",
+          "2024-11-04 0001140361-24-045132"
+        ],
+        "2.03": [
+          "2024-11-04 0001140361-24-045132",
+          "2024-07-29 0001140361-24-034503",
+          "2023-03-24 0001140361-23-013757"
+        ]
+      },
+      "filings_indexed": 769,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1590955,
+      "name": "Paycom Software, Inc.",
+      "tickers": [
+        "PAYC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "800957485",
+      "item_1_01": 8,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 34,
+      "count_8k": 134,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-23 0001193125-26-173704",
+          "2026-03-12 0001193125-26-104462",
+          "2023-08-01 0001193125-23-200543"
+        ],
+        "1.01": [
+          "2026-04-23 0001193125-26-173704",
+          "2026-03-12 0001193125-26-104462",
+          "2023-08-01 0001193125-23-200543"
+        ]
+      },
+      "filings_indexed": 1018,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1510295,
+      "name": "Marathon Petroleum Corp",
+      "tickers": [
+        "MPC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2911",
+      "sic_description": "Petroleum Refining",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "271284632",
+      "item_1_01": 15,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 122,
+      "item_evidence": {
+        "1.01": [
+          "2026-04-13 0001510295-26-000029",
+          "2022-07-12 0001510295-22-000054",
+          "2020-09-28 0001510295-20-000095"
+        ],
+        "2.03": [
+          "2026-04-13 0001510295-26-000029",
+          "2022-07-12 0001510295-22-000054",
+          "2020-04-27 0001510295-20-000051"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1552000,
+      "name": "MPLX LP",
+      "tickers": [
+        "MPLX",
+        "MPLXP"
+      ],
+      "exchanges": [
+        "NYSE",
+        "OTC"
+      ],
+      "sic": "4610",
+      "sic_description": "Pipe Lines (No Natural Gas)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "270005456",
+      "item_1_01": 16,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 29,
+      "count_8k": 111,
+      "item_evidence": {
+        "1.01": [
+          "2026-04-13 0001552000-26-000017",
+          "2022-07-12 0001552000-22-000029",
+          "2022-07-07 0001552000-22-000021"
+        ],
+        "2.03": [
+          "2026-04-13 0001552000-26-000017",
+          "2022-07-12 0001552000-22-000029",
+          "2019-09-27 0001193125-19-257376"
+        ]
+      },
+      "filings_indexed": 1004,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 889331,
+      "name": "LITTELFUSE INC /DE",
+      "tickers": [
+        "LFUS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3613",
+      "sic_description": "Switchgear & Switchboard Apparatus",
+      "fiscal_year_end": "1226",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "363795742",
+      "item_1_01": 7,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 26,
+      "count_8k": 75,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-13 0001140361-26-009393",
+          "2022-07-19 0000889331-22-000032",
+          "2022-06-30 0000889331-22-000028"
+        ],
+        "1.01": [
+          "2026-03-13 0001140361-26-009393",
+          "2025-10-28 0000889331-25-000186",
+          "2022-06-30 0000889331-22-000028"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1020569,
+      "name": "IRON MOUNTAIN INC",
+      "tickers": [
+        "IRM"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "232588479",
+      "item_1_01": 15,
+      "item_2_03": 15,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 23,
+      "count_8k": 74,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-26 0001104659-26-078307",
+          "2025-11-13 0001020569-25-000208",
+          "2025-09-10 0001020569-25-000187"
+        ],
+        "1.01": [
+          "2026-06-26 0001104659-26-078307",
+          "2025-11-13 0001020569-25-000208",
+          "2025-09-10 0001020569-25-000187"
+        ]
+      },
+      "filings_indexed": 1007,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1466085,
+      "name": "INDEPENDENCE REALTY TRUST, INC.",
+      "tickers": [
+        "IRT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "264567130",
+      "item_1_01": 47,
+      "item_2_03": 25,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 50,
+      "count_8k": 205,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-11 0001437749-26-003792",
+          "2025-01-10 0001466085-25-000008",
+          "2024-03-01 0001466085-24-000031"
+        ],
+        "2.03": [
+          "2026-02-11 0001437749-26-003792",
+          "2025-01-10 0001466085-25-000008",
+          "2022-07-27 0001466085-22-000057"
+        ]
+      },
+      "filings_indexed": 922,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1022321,
+      "name": "GENESIS ENERGY LP",
+      "tickers": [
+        "GEL"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "4610",
+      "sic_description": "Pipe Lines (No Natural Gas)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "760513049",
+      "item_1_01": 53,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 43,
+      "count_8k": 146,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-09 0001193125-26-097605",
+          "2024-07-23 0001193125-24-182572",
+          "2023-02-23 0001193125-23-046584"
+        ],
+        "1.01": [
+          "2026-03-09 0001193125-26-097605",
+          "2026-03-04 0001193125-26-091667",
+          "2026-02-24 0001193125-26-067390"
+        ]
+      },
+      "filings_indexed": 1009,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 1047340,
+      "name": "DEL MONTE CORP",
+      "tickers": [
+        "DMC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "0100",
+      "sic_description": "Agricultural Production-Crops",
+      "fiscal_year_end": "1226",
+      "state_of_incorporation": "E9",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 5,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 23,
+      "count_8k": 65,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-21 0001047340-26-000033",
+          "2024-02-26 0001047340-24-000014",
+          "2019-10-07 0001193125-19-263746"
+        ],
+        "1.01": [
+          "2026-07-21 0001047340-26-000033",
+          "2026-03-25 0001193125-26-124060",
+          "2026-02-12 0001047340-26-000009"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 912728,
+      "name": "FORWARD AIR CORP",
+      "tickers": [
+        "FWRD"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "4731",
+      "sic_description": "Arrangement of  Transportation of  Freight & Cargo",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "621120025",
+      "item_1_01": 12,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 35,
+      "count_8k": 162,
+      "item_evidence": {
+        "1.01": [
+          "2025-05-01 0001628280-25-021615",
+          "2025-01-06 0001628280-25-000462",
+          "2024-02-15 0001628280-24-004991"
+        ],
+        "2.03": [
+          "2024-01-31 0001193125-24-021078",
+          "2022-01-06 0001628280-22-000380",
+          "2021-07-26 0000912728-21-000178"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C4_amendment",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C4_amendment"
+      ]
+    },
+    {
+      "cik": 1725057,
+      "name": "Dayforce, Inc.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "463231686",
+      "item_1_01": 10,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 24,
+      "count_8k": 100,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-04 0001140361-26-003628",
+          "2025-08-21 0001193125-25-184632",
+          "2025-02-14 0001193125-25-026652"
+        ],
+        "2.03": [
+          "2025-02-14 0001193125-25-026652",
+          "2024-09-13 0001193125-24-218966",
+          "2024-03-01 0000950170-24-023418"
+        ]
+      },
+      "filings_indexed": 826,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 29002,
+      "name": "DIODES INC /DEL/",
+      "tickers": [
+        "DIOD"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "952039518",
+      "item_1_01": 11,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 29,
+      "count_8k": 188,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-14 0001193125-26-302584",
+          "2023-06-02 0000950170-23-026074",
+          "2022-01-04 0000950170-22-000042"
+        ],
+        "2.03": [
+          "2023-06-02 0000950170-23-026074",
+          "2022-01-04 0000950170-22-000042",
+          "2021-01-26 0001564590-21-002144"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1533615,
+      "name": "Chiron Real Estate Inc.",
+      "tickers": [
+        "XRN",
+        "XRN-PA",
+        "XRN-PB"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "464757266",
+      "item_1_01": 55,
+      "item_2_03": 14,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 44,
+      "count_8k": 184,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-02 0001104659-26-080436",
+          "2026-06-02 0001104659-26-069515",
+          "2026-05-08 0001104659-26-057976"
+        ],
+        "2.03": [
+          "2026-06-02 0001104659-26-069515",
+          "2026-03-03 0001104659-26-022515",
+          "2025-10-08 0001104659-25-097935"
+        ]
+      },
+      "filings_indexed": 689,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1476045,
+      "name": "Chatham Lodging Trust",
+      "tickers": [
+        "CLDT",
+        "CLDT-PA"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "271200777",
+      "item_1_01": 21,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 50,
+      "count_8k": 203,
+      "item_evidence": {
+        "2.03": [
+          "2025-09-29 0001437749-25-029977",
+          "2023-09-01 0001476045-23-000062",
+          "2023-08-22 0001476045-23-000059"
+        ],
+        "1.01": [
+          "2025-09-29 0001437749-25-029977",
+          "2022-11-01 0001476045-22-000063",
+          "2021-03-05 0001476045-21-000047"
+        ]
+      },
+      "filings_indexed": 836,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 26324,
+      "name": "CURTISS WRIGHT CORP",
+      "tickers": [
+        "CW"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3590",
+      "sic_description": "Misc Industrial & Commercial Machinery & Equipment",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "130612970",
+      "item_1_01": 4,
+      "item_2_03": 1,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 38,
+      "count_8k": 108,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-20 0001628280-26-036955",
+          "2022-05-18 0000026324-22-000020",
+          "2018-10-19 0000930413-18-003103"
+        ],
+        "2.03": [
+          "2026-05-20 0001628280-26-036955"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 822818,
+      "name": "CLEAN HARBORS INC",
+      "tickers": [
+        "CLH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "4955",
+      "sic_description": "Hazardous Waste Management",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MA",
+      "entity_type": "operating",
+      "ein": "042997780",
+      "item_1_01": 14,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 26,
+      "count_8k": 81,
+      "item_evidence": {
+        "2.03": [
+          "2025-10-10 0000822818-25-000036",
+          "2024-10-11 0000822818-24-000040",
+          "2024-07-02 0000822818-24-000028"
+        ],
+        "1.01": [
+          "2025-10-10 0000822818-25-000036",
+          "2024-10-11 0000822818-24-000040",
+          "2024-07-02 0000822818-24-000028"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1717547,
+      "name": "BrightSpire Capital, Inc.",
+      "tickers": [
+        "BRSP"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "384046290",
+      "item_1_01": 29,
+      "item_2_03": 26,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 92,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-16 0001717547-26-000053",
+          "2026-03-18 0001717547-26-000018",
+          "2026-02-23 0001717547-26-000012"
+        ],
+        "2.03": [
+          "2026-03-18 0001717547-26-000018",
+          "2026-02-23 0001717547-26-000012",
+          "2025-12-19 0001717547-25-000088"
+        ]
+      },
+      "filings_indexed": 365,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1860742,
+      "name": "Bausch & Lomb Corp",
+      "tickers": [
+        "BLCO"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3851",
+      "sic_description": "Ophthalmic Goods",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 8,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 4,
+      "count_10q": 14,
+      "count_8k": 50,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-06 0000950103-26-011979",
+          "2026-01-02 0000950103-26-000051",
+          "2025-06-27 0001193125-25-149726"
+        ],
+        "2.03": [
+          "2026-01-02 0000950103-26-000051",
+          "2025-06-27 0001193125-25-149726",
+          "2024-11-01 0000950103-24-015809"
+        ]
+      },
+      "filings_indexed": 360,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1632970,
+      "name": "American Healthcare REIT, Inc.",
+      "tickers": [
+        "AHR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "472887436",
+      "item_1_01": 53,
+      "item_2_03": 11,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 32,
+      "count_8k": 212,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-10 0001193125-26-342358",
+          "2026-04-07 0001193125-26-145647",
+          "2026-02-27 0001193125-26-083247"
+        ],
+        "2.03": [
+          "2026-04-07 0001193125-26-145647",
+          "2024-02-21 0001632970-24-000022",
+          "2023-03-07 0001632970-23-000013"
+        ]
+      },
+      "filings_indexed": 847,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 723612,
+      "name": "AVIS BUDGET GROUP, INC.",
+      "tickers": [
+        "CAR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7510",
+      "sic_description": "Services-Auto Rental & Leasing (No Drivers)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "060918165",
+      "item_1_01": 73,
+      "item_2_03": 50,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 32,
+      "count_8k": 170,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-01 0000950142-26-001951",
+          "2026-06-12 0000950142-26-001753",
+          "2026-05-05 0000950142-26-001281"
+        ],
+        "1.01": [
+          "2026-07-01 0000950142-26-001951",
+          "2026-06-12 0000950142-26-001753",
+          "2026-05-05 0000950142-26-001281"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule",
+        "C3_defined_terms"
+      ]
+    },
+    {
+      "cik": 896622,
+      "name": "APTARGROUP, INC.",
+      "tickers": [
+        "ATR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3089",
+      "sic_description": "Plastics Products, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "363853103",
+      "item_1_01": 8,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 37,
+      "count_8k": 89,
+      "item_evidence": {
+        "1.01": [
+          "2025-11-20 0001104659-25-114637",
+          "2024-07-03 0001104659-24-077768",
+          "2022-03-07 0001104659-22-031040"
+        ],
+        "2.03": [
+          "2024-07-03 0001104659-24-077768",
+          "2021-07-02 0001104659-21-088834",
+          "2017-07-25 0001104659-17-046585"
+        ]
+      },
+      "filings_indexed": 1006,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 820313,
+      "name": "AMPHENOL CORP /DE/",
+      "tickers": [
+        "APH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3678",
+      "sic_description": "Electronic Connectors",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "222785165",
+      "item_1_01": 42,
+      "item_2_03": 24,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 37,
+      "count_8k": 158,
+      "item_evidence": {
+        "2.03": [
+          "2026-05-12 0001104659-26-059404",
+          "2026-03-30 0001104659-26-036361",
+          "2025-11-10 0001104659-25-109222"
+        ],
+        "1.01": [
+          "2026-05-12 0001104659-26-059404",
+          "2026-05-06 0001104659-26-055888",
+          "2026-03-30 0001104659-26-036361"
+        ]
+      },
+      "filings_indexed": 1016,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 712034,
+      "name": "ACCO BRANDS Corp",
+      "tickers": [
+        "ACCO"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2780",
+      "sic_description": "Blankbooks, Looseleaf Binders & Bookbindg & Relatd Work",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "362704017",
+      "item_1_01": 7,
+      "item_2_03": 1,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 22,
+      "count_8k": 67,
+      "item_evidence": {
+        "1.01": [
+          "2025-07-31 0000950170-25-100909",
+          "2024-10-31 0000950170-24-119565",
+          "2022-11-07 0000950170-22-022635"
+        ],
+        "2.03": [
+          "2021-03-16 0001104659-21-036717"
+        ]
+      },
+      "filings_indexed": 1004,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants",
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 105132,
+      "name": "WD 40 CO",
+      "tickers": [
+        "WDFC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "2890",
+      "sic_description": "Miscellaneous Chemical Products",
+      "fiscal_year_end": "0831",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "951797918",
+      "item_1_01": 17,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 48,
+      "count_8k": 128,
+      "item_evidence": {
+        "1.01": [
+          "2025-09-02 0000105132-25-000031",
+          "2024-05-02 0000105132-24-000032",
+          "2024-03-07 0000105132-24-000014"
+        ],
+        "2.03": [
+          "2024-05-02 0000105132-24-000032",
+          "2021-12-01 0000105132-21-000035",
+          "2020-10-06 0000105132-20-000035"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1260221,
+      "name": "TransDigm Group INC",
+      "tickers": [
+        "TDG"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3728",
+      "sic_description": "Aircraft Parts & Auxiliary Equipment, NEC",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "510484716",
+      "item_1_01": 32,
+      "item_2_03": 30,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 26,
+      "count_8k": 172,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-17 0001193125-26-161564",
+          "2026-02-13 0001193125-26-051416",
+          "2025-09-18 0001193125-25-206768"
+        ],
+        "1.01": [
+          "2026-04-17 0001193125-26-161564",
+          "2026-02-13 0001193125-26-051416",
+          "2025-09-18 0001193125-25-206768"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 737758,
+      "name": "TORO CO",
+      "tickers": [
+        "TTC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3524",
+      "sic_description": "Lawn & Garden Tractors & Home Lawn & Gardens Equip",
+      "fiscal_year_end": "1031",
+      "state_of_incorporation": "MN",
+      "entity_type": "operating",
+      "ein": "410580470",
+      "item_1_01": 12,
+      "item_2_03": 11,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 34,
+      "count_8k": 98,
+      "item_evidence": {
+        "1.01": [
+          "2025-10-08 0001628280-25-044620",
+          "2025-09-30 0001628280-25-043263",
+          "2024-10-03 0000737758-24-000050"
+        ],
+        "2.03": [
+          "2025-09-30 0001628280-25-043263",
+          "2024-10-03 0000737758-24-000050",
+          "2022-06-30 0001140361-22-024615"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 913760,
+      "name": "StoneX Group Inc.",
+      "tickers": [
+        "SNEX"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6200",
+      "sic_description": "Security & Commodity Brokers, Dealers, Exchanges & Services",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "592921318",
+      "item_1_01": 11,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 29,
+      "count_8k": 99,
+      "item_evidence": {
+        "2.03": [
+          "2025-07-31 0000913760-25-000127",
+          "2025-07-08 0000913760-25-000123",
+          "2025-06-04 0000913760-25-000104"
+        ],
+        "1.01": [
+          "2025-07-08 0000913760-25-000123",
+          "2025-06-04 0000913760-25-000104",
+          "2025-04-14 0000913760-25-000063"
+        ]
+      },
+      "filings_indexed": 1003,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1794783,
+      "name": "SelectQuote, Inc.",
+      "tickers": [
+        "SLQT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6411",
+      "sic_description": "Insurance Agents, Brokers & Service",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "943339273",
+      "item_1_01": 10,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 6,
+      "count_10q": 18,
+      "count_8k": 59,
+      "item_evidence": {
+        "1.01": [
+          "2026-01-12 0001794783-26-000004",
+          "2025-07-29 0001794783-25-000050",
+          "2025-02-28 0001794783-25-000014"
+        ],
+        "2.03": [
+          "2026-01-12 0001794783-26-000004",
+          "2025-07-29 0001794783-25-000050",
+          "2025-02-10 0001794783-25-000008"
+        ]
+      },
+      "filings_indexed": 441,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 883241,
+      "name": "SYNOPSYS INC",
+      "tickers": [
+        "SNPS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "1031",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "561546236",
+      "item_1_01": 9,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 33,
+      "count_8k": 143,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-27 0001193125-26-241920",
+          "2025-07-17 0001140361-25-026139",
+          "2025-03-17 0001140361-25-009060"
+        ],
+        "2.03": [
+          "2025-07-17 0001140361-25-026139",
+          "2025-03-17 0001140361-25-009060",
+          "2024-02-14 0001193125-24-036439"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 310354,
+      "name": "STANDEX INTERNATIONAL CORP/DE/",
+      "tickers": [
+        "SXI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3580",
+      "sic_description": "Refrigeration & Service Industry Machinery",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "310596149",
+      "item_1_01": 9,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 38,
+      "count_8k": 107,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-02 0001437749-26-022576",
+          "2024-10-31 0001437749-24-032685",
+          "2018-12-21 0000310354-18-000030"
+        ],
+        "2.03": [
+          "2024-12-12 0001437749-24-037306",
+          "2024-10-31 0001437749-24-032685",
+          "2018-12-21 0000310354-18-000030"
+        ]
+      },
+      "filings_indexed": 1006,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1092796,
+      "name": "SMITH & WESSON BRANDS, INC.",
+      "tickers": [
+        "SWBI"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3480",
+      "sic_description": "Ordnance & Accessories, (No Vehicles/Guided Missiles)",
+      "fiscal_year_end": "0430",
+      "state_of_incorporation": "NV",
+      "entity_type": "operating",
+      "ein": "870543688",
+      "item_1_01": 24,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 42,
+      "count_8k": 188,
+      "item_evidence": {
+        "2.03": [
+          "2025-08-18 0001193125-25-182690",
+          "2024-10-04 0001193125-24-233102",
+          "2023-05-02 0001193125-23-132493"
+        ],
+        "1.01": [
+          "2025-08-18 0001193125-25-182690",
+          "2024-10-04 0001193125-24-233102",
+          "2023-05-02 0001193125-23-132493"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1038074,
+      "name": "SILICON LABORATORIES INC.",
+      "tickers": [
+        "SLAB"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "0102",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "742793174",
+      "item_1_01": 17,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 40,
+      "count_8k": 143,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-04 0001193125-26-036712",
+          "2023-07-03 0001104659-23-077604",
+          "2022-01-03 0001104659-22-000400"
+        ],
+        "2.03": [
+          "2023-07-03 0001104659-23-077604",
+          "2020-06-01 0001193125-20-157275",
+          "2020-05-27 0001193125-20-152205"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 88941,
+      "name": "SEMTECH CORP",
+      "tickers": [
+        "SMTC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "0131",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "952119684",
+      "item_1_01": 14,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 24,
+      "count_8k": 91,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-06 0000088941-26-000022",
+          "2025-10-10 0001193125-25-237190",
+          "2025-04-28 0000088941-25-000095"
+        ],
+        "1.01": [
+          "2026-07-06 0000088941-26-000022",
+          "2025-10-10 0001193125-25-237190",
+          "2025-04-28 0000088941-25-000095"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1037038,
+      "name": "RALPH LAUREN CORP",
+      "tickers": [
+        "RL"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2320",
+      "sic_description": "Men's & Boys' Furnishgs, Work Clothg, & Allied Garments",
+      "fiscal_year_end": "0328",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "132622036",
+      "item_1_01": 7,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 35,
+      "count_8k": 104,
+      "item_evidence": {
+        "2.03": [
+          "2025-06-05 0001104659-25-056866",
+          "2023-07-07 0001104659-23-079157",
+          "2020-06-04 0001193125-20-159787"
+        ],
+        "1.01": [
+          "2025-06-05 0001104659-25-056866",
+          "2023-07-07 0001104659-23-079157",
+          "2020-06-04 0001193125-20-159787"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1423221,
+      "name": "Quanex Building Products CORP",
+      "tickers": [
+        "NX"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3350",
+      "sic_description": "Rolling Drawing & Extruding of  Nonferrous Metals",
+      "fiscal_year_end": "1031",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "261561397",
+      "item_1_01": 26,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 49,
+      "count_8k": 167,
+      "item_evidence": {
+        "2.03": [
+          "2024-06-13 0001104659-24-071335",
+          "2024-04-22 0001104659-24-049723",
+          "2022-11-01 0001104659-22-113504"
+        ],
+        "1.01": [
+          "2024-06-13 0001104659-24-071335",
+          "2024-04-22 0001104659-24-049723",
+          "2022-11-01 0001104659-22-113504"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1604778,
+      "name": "Qorvo, Inc.",
+      "tickers": [
+        "QRVO"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "0403",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "465288992",
+      "item_1_01": 17,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 27,
+      "count_8k": 126,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-12 0000950103-26-008888",
+          "2025-10-28 0000950103-25-013687",
+          "2024-04-26 0001193125-24-118050"
+        ],
+        "2.03": [
+          "2024-04-26 0001193125-24-118050",
+          "2021-12-14 0001193125-21-356784",
+          "2020-09-29 0001193125-20-257877"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1327567,
+      "name": "Palo Alto Networks Inc",
+      "tickers": [
+        "PANW"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3577",
+      "sic_description": "Computer Peripheral Equipment, NEC",
+      "fiscal_year_end": "0731",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "202530195",
+      "item_1_01": 6,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 21,
+      "count_8k": 77,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-13 0001193125-26-151637",
+          "2026-02-11 0001193125-26-045600",
+          "2023-04-19 0001327567-23-000009"
+        ],
+        "1.01": [
+          "2026-04-13 0001193125-26-151637",
+          "2026-02-11 0001193125-26-045600",
+          "2025-07-31 0001193125-25-169870"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 723531,
+      "name": "PAYCHEX INC",
+      "tickers": [
+        "PAYX"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "8700",
+      "sic_description": "Services-Engineering, Accounting, Research, Management",
+      "fiscal_year_end": "0531",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "161124166",
+      "item_1_01": 12,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 42,
+      "count_8k": 120,
+      "item_evidence": {
+        "2.03": [
+          "2026-01-26 0001193125-26-021794",
+          "2024-04-16 0000950170-24-044821",
+          "2023-02-07 0000950170-23-001997"
+        ],
+        "1.01": [
+          "2026-01-26 0001193125-26-021794",
+          "2025-01-07 0000950103-25-000267",
+          "2024-04-16 0000950170-24-044821"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1547459,
+      "name": "Natural Grocers by Vitamin Cottage, Inc.",
+      "tickers": [
+        "NGVC"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5411",
+      "sic_description": "Retail-Grocery Stores",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "841444517",
+      "item_1_01": 12,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 42,
+      "count_8k": 104,
+      "item_evidence": {
+        "1.01": [
+          "2023-11-22 0001437749-23-032899",
+          "2023-08-25 0001437749-23-024699",
+          "2022-12-21 0001437749-22-029524"
+        ],
+        "2.03": [
+          "2020-11-24 0001437749-20-024394",
+          "2012-11-05 0001104659-12-073991"
+        ]
+      },
+      "filings_indexed": 511,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1590976,
+      "name": "MALIBU BOATS, INC.",
+      "tickers": [
+        "MBUU"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3730",
+      "sic_description": "Ship & Boat Building & Repairing",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 16,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 38,
+      "count_8k": 115,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-13 0001590976-26-000029",
+          "2022-07-12 0001590976-22-000042",
+          "2021-01-05 0001590976-21-000006"
+        ],
+        "1.01": [
+          "2026-07-13 0001590976-26-000029",
+          "2026-03-02 0001590976-26-000010",
+          "2023-07-03 0001590976-23-000053"
+        ]
+      },
+      "filings_indexed": 821,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 55242,
+      "name": "KENNAMETAL INC",
+      "tickers": [
+        "KMT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3541",
+      "sic_description": "Machine Tools, Metal Cutting Types",
+      "fiscal_year_end": "0630",
+      "state_of_incorporation": "PA",
+      "entity_type": "operating",
+      "ein": "250900168",
+      "item_1_01": 9,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 33,
+      "count_8k": 117,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-02 0001193125-26-253476",
+          "2026-05-28 0001193125-26-245487",
+          "2025-11-18 0001193125-25-286159"
+        ],
+        "1.01": [
+          "2026-06-02 0001193125-26-253476",
+          "2026-05-28 0001193125-26-245487",
+          "2025-11-18 0001193125-25-286159"
+        ]
+      },
+      "filings_indexed": 1007,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1433642,
+      "name": "Hamilton Lane INC",
+      "tickers": [
+        "HLNE"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6282",
+      "sic_description": "Investment Advice",
+      "fiscal_year_end": "0331",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "262482738",
+      "item_1_01": 8,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 28,
+      "count_8k": 79,
+      "item_evidence": {
+        "2.03": [
+          "2025-10-06 0001433642-25-000110",
+          "2024-10-11 0001433642-24-000110",
+          "2022-10-26 0001433642-22-000055"
+        ],
+        "1.01": [
+          "2025-10-06 0001433642-25-000110",
+          "2024-10-11 0001433642-24-000110",
+          "2022-10-26 0001433642-22-000055"
+        ]
+      },
+      "filings_indexed": 648,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1868941,
+      "name": "Fluence Energy, Inc.",
+      "tickers": [
+        "FLNC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3690",
+      "sic_description": "Miscellaneous Electrical Machinery, Equipment & Supplies",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "871304612",
+      "item_1_01": 7,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 5,
+      "count_10q": 15,
+      "count_8k": 53,
+      "item_evidence": {
+        "1.01": [
+          "2026-04-06 0001868941-26-000012",
+          "2026-04-03 0001104659-26-039628",
+          "2024-12-12 0001104659-24-128014"
+        ],
+        "2.03": [
+          "2024-04-12 0001868941-24-000033",
+          "2024-03-01 0001868941-24-000017",
+          "2023-11-27 0001868941-23-000077"
+        ]
+      },
+      "filings_indexed": 344,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1067294,
+      "name": "CRACKER BARREL OLD COUNTRY STORE, INC",
+      "tickers": [
+        "CBRL"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "5812",
+      "sic_description": "Retail-Eating  Places",
+      "fiscal_year_end": "0731",
+      "state_of_incorporation": "TN",
+      "entity_type": "operating",
+      "ein": "620812904",
+      "item_1_01": 14,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 42,
+      "count_8k": 136,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-20 0001104659-26-085071",
+          "2025-06-16 0001104659-25-059873",
+          "2025-05-16 0001104659-25-050085"
+        ],
+        "1.01": [
+          "2025-06-16 0001104659-25-059873",
+          "2025-05-16 0001104659-25-050085",
+          "2022-09-28 0001104659-22-103708"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 772406,
+      "name": "CIRRUS LOGIC, INC.",
+      "tickers": [
+        "CRUS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "0327",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "770024818",
+      "item_1_01": 8,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 40,
+      "count_8k": 112,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-06 0000772406-26-000012",
+          "2023-03-22 0000772406-23-000011",
+          "2021-07-28 0001157523-21-000939"
+        ],
+        "2.03": [
+          "2026-05-06 0000772406-26-000012",
+          "2021-07-08 0001157523-21-000849",
+          "2016-07-15 0001157523-16-006090"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1579298,
+      "name": "Burlington Stores, Inc.",
+      "tickers": [
+        "BURL"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5311",
+      "sic_description": "Retail-Department Stores",
+      "fiscal_year_end": "0201",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "800895227",
+      "item_1_01": 19,
+      "item_2_03": 15,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 37,
+      "count_8k": 123,
+      "item_evidence": {
+        "2.03": [
+          "2025-07-29 0001193125-25-168007",
+          "2025-06-13 0000950170-25-086221",
+          "2024-09-26 0000950170-24-109645"
+        ],
+        "1.01": [
+          "2025-07-29 0001193125-25-168007",
+          "2025-06-13 0000950170-25-086221",
+          "2024-09-26 0000950170-24-109645"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 6845,
+      "name": "APOGEE ENTERPRISES, INC.",
+      "tickers": [
+        "APOG"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3231",
+      "sic_description": "Glass Products, Made of  Purchased Glass",
+      "fiscal_year_end": "0301",
+      "state_of_incorporation": "MN",
+      "entity_type": "operating",
+      "ein": "410919654",
+      "item_1_01": 17,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 34,
+      "count_8k": 119,
+      "item_evidence": {
+        "1.01": [
+          "2026-05-28 0000006845-26-000044",
+          "2024-09-25 0000006845-24-000238",
+          "2024-07-25 0000006845-24-000227"
+        ],
+        "2.03": [
+          "2024-11-05 0000006845-24-000268",
+          "2024-07-25 0000006845-24-000227",
+          "2022-08-11 0001193125-22-218654"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 78749,
+      "name": "AGILYSYS INC",
+      "tickers": [
+        "AGYS"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7373",
+      "sic_description": "Services-Computer Integrated Systems Design",
+      "fiscal_year_end": "0331",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "340907152",
+      "item_1_01": 7,
+      "item_2_03": 1,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 44,
+      "count_8k": 174,
+      "item_evidence": {
+        "1.01": [
+          "2024-08-20 0000950170-24-099141",
+          "2020-07-30 0001564590-20-034843",
+          "2020-05-26 0000950142-20-001415"
+        ],
+        "2.03": [
+          "2024-08-20 0000950170-24-099141"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 868857,
+      "name": "AECOM",
+      "tickers": [
+        "ACM"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "8711",
+      "sic_description": "Services-Engineering Services",
+      "fiscal_year_end": "0930",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "611088522",
+      "item_1_01": 22,
+      "item_2_03": 15,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 41,
+      "count_8k": 171,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-11 0001104659-26-072942",
+          "2026-03-10 0001104659-26-025905",
+          "2025-07-22 0001104659-25-069601"
+        ],
+        "1.01": [
+          "2026-06-11 0001104659-26-072942",
+          "2026-03-10 0001104659-26-025905",
+          "2025-07-22 0001104659-25-069601"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 5,
+      "weight": 5,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1136869,
+      "name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "tickers": [
+        "ZBH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3842",
+      "sic_description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "134151777",
+      "item_1_01": 26,
+      "item_2_03": 18,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 26,
+      "count_8k": 110,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-29 0001193125-26-288390",
+          "2025-06-30 0001193125-25-152694",
+          "2025-02-19 0001193125-25-029614"
+        ],
+        "1.01": [
+          "2026-06-29 0001193125-26-288390",
+          "2025-06-30 0001193125-25-152694",
+          "2025-02-19 0001193125-25-029614"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1437107,
+      "name": "Warner Bros. Discovery, Inc.",
+      "tickers": [
+        "WBD"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "4841",
+      "sic_description": "Cable & Other Pay Television Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "352333914",
+      "item_1_01": 17,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 20,
+      "count_8k": 130,
+      "item_evidence": {
+        "2.03": [
+          "2026-06-04 0001193125-26-256559",
+          "2026-02-18 0001193125-26-057173",
+          "2025-06-26 0001437107-25-000161"
+        ],
+        "1.01": [
+          "2026-06-04 0001193125-26-256559",
+          "2026-05-27 0001193125-26-240646",
+          "2026-02-27 0001437107-26-000018"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1140536,
+      "name": "WILLIS TOWERS WATSON PLC",
+      "tickers": [
+        "WTW"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "6411",
+      "sic_description": "Insurance Agents, Brokers & Service",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "L2",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 7,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 5,
+      "count_10q": 15,
+      "count_8k": 51,
+      "item_evidence": {
+        "2.03": [
+          "2026-01-09 0001193125-26-009009",
+          "2025-10-20 0001193125-25-243617"
+        ],
+        "1.01": [
+          "2026-01-09 0001193125-26-009009",
+          "2025-12-22 0001193125-25-328864",
+          "2025-10-20 0001193125-25-243617"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1786842,
+      "name": "Vontier Corp",
+      "tickers": [
+        "VNT"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3824",
+      "sic_description": "Totalizing Fluid Meters & Counting Devices",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "842783455",
+      "item_1_01": 9,
+      "item_2_03": 8,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 6,
+      "count_10q": 18,
+      "count_8k": 67,
+      "item_evidence": {
+        "2.03": [
+          "2026-03-31 0001193125-26-134706",
+          "2025-02-13 0001193125-25-025867",
+          "2022-11-03 0001193125-22-276317"
+        ],
+        "1.01": [
+          "2026-03-31 0001193125-26-134706",
+          "2025-02-13 0001193125-25-025867",
+          "2022-11-03 0001193125-22-276317"
+        ]
+      },
+      "filings_indexed": 416,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1610682,
+      "name": "USD Partners LP",
+      "tickers": [
+        "USDP"
+      ],
+      "exchanges": [
+        "OTC"
+      ],
+      "sic": "4013",
+      "sic_description": "Railroad Switching & Terminal Establishments",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 14,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 28,
+      "count_8k": 111,
+      "item_evidence": {
+        "1.01": [
+          "2023-11-24 0001193125-23-282559",
+          "2023-11-17 0001610682-23-000047",
+          "2023-11-02 0001610682-23-000039"
+        ],
+        "2.03": [
+          "2023-11-24 0001193125-23-282559",
+          "2018-11-08 0001193125-18-322639",
+          "2015-11-17 0001610682-15-000075"
+        ]
+      },
+      "filings_indexed": 445,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1389170,
+      "name": "Targa Resources Corp.",
+      "tickers": [
+        "TRGP"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "4922",
+      "sic_description": "Natural Gas Transmission",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "203701075",
+      "item_1_01": 50,
+      "item_2_03": 22,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 32,
+      "count_8k": 157,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-06 0001193125-26-296255",
+          "2026-03-02 0001193125-26-085512",
+          "2025-11-12 0001193125-25-277756"
+        ],
+        "2.03": [
+          "2026-03-02 0001193125-26-085512",
+          "2025-11-12 0001193125-25-277756",
+          "2025-06-18 0001193125-25-142743"
+        ]
+      },
+      "filings_indexed": 1011,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1856485,
+      "name": "Sylvamo Corp",
+      "tickers": [
+        "SLVM"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2621",
+      "sic_description": "Paper Mills",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "862596371",
+      "item_1_01": 11,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 5,
+      "count_10q": 15,
+      "count_8k": 47,
+      "item_evidence": {
+        "1.01": [
+          "2025-11-10 0001193125-25-274343",
+          "2025-10-29 0001193125-25-254570",
+          "2024-08-01 0001193125-24-191528"
+        ],
+        "2.03": [
+          "2024-08-01 0001193125-24-191528",
+          "2023-03-10 0001193125-23-067585",
+          "2022-10-03 0001193125-22-256791"
+        ]
+      },
+      "filings_indexed": 666,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1407623,
+      "name": "RETAIL OPPORTUNITY INVESTMENTS CORP",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "260500600",
+      "item_1_01": 48,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 17,
+      "count_10q": 52,
+      "count_8k": 197,
+      "item_evidence": {
+        "1.01": [
+          "2024-11-07 0001193125-24-252545",
+          "2023-09-21 0001193125-23-239658",
+          "2023-09-20 0001193125-23-238636"
+        ],
+        "2.03": [
+          "2023-09-21 0001193125-23-239658",
+          "2023-03-07 0001171843-23-001459",
+          "2020-08-04 0001407623-20-000063"
+        ]
+      },
+      "filings_indexed": 954,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 912603,
+      "name": "RADIUS RECYCLING, INC.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "5090",
+      "sic_description": "Wholesale-Misc Durable Goods",
+      "fiscal_year_end": "0831",
+      "state_of_incorporation": "OR",
+      "entity_type": "operating",
+      "ein": "930341923",
+      "item_1_01": 6,
+      "item_2_03": 0,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 35,
+      "count_8k": 114,
+      "item_evidence": {
+        "1.01": [
+          "2025-06-20 0001140361-25-023184",
+          "2025-03-14 0001104659-25-024004",
+          "2024-06-18 0001171843-24-003508"
+        ]
+      },
+      "filings_indexed": 1003,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V4_xbrl_depth",
+        "V5_non_dec_fye"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1050915,
+      "name": "QUANTA SERVICES, INC.",
+      "tickers": [
+        "PWR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "1731",
+      "sic_description": "Electrical Work",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "742851603",
+      "item_1_01": 22,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 41,
+      "count_8k": 133,
+      "item_evidence": {
+        "2.03": [
+          "2026-08-06 0001193125-26-337945",
+          "2025-08-07 0001193125-25-175423",
+          "2024-08-09 0001193125-24-197895"
+        ],
+        "1.01": [
+          "2026-08-06 0001193125-26-337945",
+          "2026-08-04 0001193125-26-331400",
+          "2025-08-07 0001193125-25-175423"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1474098,
+      "name": "Pebblebrook Hotel Trust",
+      "tickers": [
+        "PEB",
+        "PEB-PF",
+        "PEB-PE",
+        "PEB-PG",
+        "PEB-PH"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE",
+        "NYSE",
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "271055421",
+      "item_1_01": 35,
+      "item_2_03": 27,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 15,
+      "count_10q": 44,
+      "count_8k": 370,
+      "item_evidence": {
+        "2.03": [
+          "2026-02-13 0001474098-26-000011",
+          "2025-09-22 0001474098-25-000129",
+          "2024-11-04 0001474098-24-000130"
+        ],
+        "1.01": [
+          "2026-02-13 0001474098-26-000011",
+          "2025-09-22 0001474098-25-000129",
+          "2025-05-23 0001474098-25-000093"
+        ]
+      },
+      "filings_indexed": 1003,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 275880,
+      "name": "PARSONS CORP",
+      "tickers": [
+        "PSN"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7373",
+      "sic_description": "Services-Computer Integrated Systems Design",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "953232481",
+      "item_1_01": 7,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 23,
+      "count_8k": 70,
+      "item_evidence": {
+        "1.01": [
+          "2025-06-05 0001193125-25-135958",
+          "2024-02-27 0001193125-24-046496",
+          "2022-09-19 0001564590-22-031876"
+        ],
+        "2.03": [
+          "2024-02-27 0001193125-24-046496",
+          "2022-09-19 0001564590-22-031876",
+          "2021-06-29 0001564590-21-034854"
+        ]
+      },
+      "filings_indexed": 451,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 888491,
+      "name": "OMEGA HEALTHCARE INVESTORS INC",
+      "tickers": [
+        "OHI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "383041398",
+      "item_1_01": 20,
+      "item_2_03": 17,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 35,
+      "count_8k": 149,
+      "item_evidence": {
+        "1.01": [
+          "2025-10-01 0000888491-25-000031",
+          "2025-06-20 0001104659-25-061200",
+          "2023-08-11 0000888491-23-000027"
+        ],
+        "2.03": [
+          "2025-10-01 0000888491-25-000031",
+          "2025-06-20 0001104659-25-061200",
+          "2023-08-11 0000888491-23-000027"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1408198,
+      "name": "MSCI Inc.",
+      "tickers": [
+        "MSCI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "134038723",
+      "item_1_01": 16,
+      "item_2_03": 14,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 38,
+      "count_8k": 149,
+      "item_evidence": {
+        "1.01": [
+          "2026-01-28 0001408198-26-000008",
+          "2025-08-20 0000950103-25-010515",
+          "2024-01-29 0000950103-24-001197"
+        ],
+        "2.03": [
+          "2025-08-20 0000950103-25-010515",
+          "2024-01-29 0000950103-24-001197",
+          "2022-06-14 0000950103-22-010573"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 835011,
+      "name": "MGP INGREDIENTS INC",
+      "tickers": [
+        "MGPI"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "5180",
+      "sic_description": "Wholesale-Beer, Wine & Distilled Alcoholic Beverages",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "KS",
+      "entity_type": "operating",
+      "ein": "480531200",
+      "item_1_01": 12,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 29,
+      "count_8k": 99,
+      "item_evidence": {
+        "1.01": [
+          "2026-08-07 0000835011-26-000108",
+          "2025-04-29 0001628280-25-020711",
+          "2023-09-06 0001628280-23-031563"
+        ],
+        "2.03": [
+          "2025-04-29 0001628280-25-020711",
+          "2021-11-16 0001628280-21-023547",
+          "2021-04-01 0001628280-21-006351"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 62709,
+      "name": "MARSH & MCLENNAN COMPANIES, INC.",
+      "tickers": [
+        "MRSH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6411",
+      "sic_description": "Insurance Agents, Brokers & Service",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "362668272",
+      "item_1_01": 18,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 26,
+      "count_8k": 88,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-04 0000062709-26-000167",
+          "2024-09-30 0000062709-24-000079",
+          "2024-02-20 0001193125-24-039967"
+        ],
+        "2.03": [
+          "2021-04-02 0000950103-21-005117",
+          "2018-09-18 0000062709-18-000034"
+        ]
+      },
+      "filings_indexed": 1005,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1980088,
+      "name": "MACH NATURAL RESOURCES LP",
+      "tickers": [
+        "MNR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "1311",
+      "sic_description": "Crude Petroleum & Natural Gas",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "000000000",
+      "item_1_01": 11,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 3,
+      "count_10q": 9,
+      "count_8k": 35,
+      "item_evidence": {
+        "1.01": [
+          "2025-09-17 0001213900-25-088361",
+          "2025-07-10 0001213900-25-062838",
+          "2025-02-27 0001213900-25-018026"
+        ],
+        "2.03": [
+          "2025-09-17 0001213900-25-088361",
+          "2025-02-27 0001213900-25-018026",
+          "2024-08-30 0001213900-24-074521"
+        ]
+      },
+      "filings_indexed": 171,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 948320,
+      "name": "LifeMD, Inc.",
+      "tickers": [
+        "LFMD",
+        "LFMDP"
+      ],
+      "exchanges": [
+        "Nasdaq",
+        "Nasdaq"
+      ],
+      "sic": "8011",
+      "sic_description": "Services-Offices & Clinics of  Doctors of  Medicine",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "760238453",
+      "item_1_01": 32,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 41,
+      "count_8k": 138,
+      "item_evidence": {
+        "2.03": [
+          "2026-01-06 0001493152-26-000525",
+          "2023-03-23 0001493152-23-008607",
+          "2021-06-03 0001493152-21-013492"
+        ],
+        "1.01": [
+          "2026-01-06 0001493152-26-000525",
+          "2025-11-04 0001493152-25-020713",
+          "2023-03-23 0001493152-23-008607"
+        ]
+      },
+      "filings_indexed": 573,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1300514,
+      "name": "LAS VEGAS SANDS CORP",
+      "tickers": [
+        "LVS"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "7011",
+      "sic_description": "Hotels & Motels",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NV",
+      "entity_type": "operating",
+      "ein": "270099920",
+      "item_1_01": 57,
+      "item_2_03": 31,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 17,
+      "count_10q": 53,
+      "count_8k": 288,
+      "item_evidence": {
+        "2.03": [
+          "2026-05-13 0001300514-26-000070",
+          "2025-05-06 0001300514-25-000109",
+          "2025-02-24 0001300514-25-000049"
+        ],
+        "1.01": [
+          "2026-05-13 0001300514-26-000070",
+          "2025-05-06 0001300514-25-000109",
+          "2025-02-24 0001300514-25-000049"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1408100,
+      "name": "Kennedy-Wilson Holdings, Inc.",
+      "tickers": [
+        "KW"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6500",
+      "sic_description": "Real Estate",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "260508760",
+      "item_1_01": 20,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 33,
+      "count_8k": 237,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-16 0001140361-26-025340",
+          "2026-05-29 0001193125-26-248565",
+          "2026-03-16 0001140361-26-009460"
+        ],
+        "2.03": [
+          "2026-05-29 0001193125-26-248565",
+          "2024-09-13 0001408100-24-000126",
+          "2021-08-23 0001193125-21-253960"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1683695,
+      "name": "International Money Express, Inc.",
+      "tickers": [
+        "IMXI"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "474219082",
+      "item_1_01": 25,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 29,
+      "count_8k": 97,
+      "item_evidence": {
+        "1.01": [
+          "2025-08-11 0001140361-25-029957",
+          "2025-03-14 0001683695-25-000034",
+          "2024-08-29 0001683695-24-000140"
+        ],
+        "2.03": [
+          "2024-08-29 0001683695-24-000140",
+          "2021-06-28 0001140361-21-022415"
+        ]
+      },
+      "filings_indexed": 682,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1371489,
+      "name": "Information Services Group Inc.",
+      "tickers": [
+        "III"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "8742",
+      "sic_description": "Services-Management Consulting Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "205261587",
+      "item_1_01": 14,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 20,
+      "count_10q": 59,
+      "count_8k": 154,
+      "item_evidence": {
+        "1.01": [
+          "2024-10-02 0001104659-24-105478",
+          "2023-02-23 0001104659-23-024521",
+          "2022-06-06 0001104659-22-068551"
+        ],
+        "2.03": [
+          "2023-02-23 0001104659-23-024521",
+          "2022-06-06 0001104659-22-068551",
+          "2019-12-06 0001104659-19-070589"
+        ]
+      },
+      "filings_indexed": 902,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 874716,
+      "name": "IDEXX LABORATORIES INC /DE",
+      "tickers": [
+        "IDXX"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "2835",
+      "sic_description": "In Vitro & In Vivo Diagnostic Substances",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "010393723",
+      "item_1_01": 10,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 35,
+      "count_8k": 103,
+      "item_evidence": {
+        "2.03": [
+          "2025-11-13 0001104659-25-111278",
+          "2022-10-21 0001193125-22-266779",
+          "2021-12-09 0001193125-21-352679"
+        ],
+        "1.01": [
+          "2025-11-13 0001104659-25-111278",
+          "2024-11-06 0000874716-24-000142",
+          "2022-10-21 0001193125-22-266779"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1362004,
+      "name": "ICF International, Inc.",
+      "tickers": [
+        "ICFI"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "8742",
+      "sic_description": "Services-Management Consulting Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "223661438",
+      "item_1_01": 13,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 36,
+      "count_8k": 200,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-16 0001437749-26-012565",
+          "2023-05-19 0001437749-23-015293",
+          "2022-05-10 0001437749-22-011728"
+        ],
+        "1.01": [
+          "2026-04-16 0001437749-26-012565",
+          "2023-05-19 0001437749-23-015293",
+          "2022-06-08 0001437749-22-014595"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1289848,
+      "name": "Huron Consulting Group Inc.",
+      "tickers": [
+        "HURN"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "8742",
+      "sic_description": "Services-Management Consulting Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "010666114",
+      "item_1_01": 12,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 36,
+      "count_8k": 105,
+      "item_evidence": {
+        "2.03": [
+          "2025-07-31 0001289848-25-000188",
+          "2024-02-27 0001289848-24-000034",
+          "2022-11-16 0001289848-22-000059"
+        ],
+        "1.01": [
+          "2025-07-31 0001289848-25-000188",
+          "2024-02-27 0001289848-24-000034",
+          "2023-05-02 0001289848-23-000045"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 717605,
+      "name": "HEXCEL CORP /DE/",
+      "tickers": [
+        "HXL"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2821",
+      "sic_description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "941109521",
+      "item_1_01": 10,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 29,
+      "count_8k": 88,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-01 0001140361-26-012536",
+          "2025-10-23 0000930413-25-003284",
+          "2023-04-28 0000930413-23-001421"
+        ],
+        "1.01": [
+          "2026-04-01 0001140361-26-012536",
+          "2026-03-04 0001140361-26-007728",
+          "2025-10-23 0000930413-25-003284"
+        ]
+      },
+      "filings_indexed": 1007,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1398659,
+      "name": "Genpact LTD",
+      "tickers": [
+        "G"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "8742",
+      "sic_description": "Services-Management Consulting Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "D0",
+      "entity_type": "operating",
+      "ein": "980533350",
+      "item_1_01": 18,
+      "item_2_03": 9,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 13,
+      "count_10q": 41,
+      "count_8k": 117,
+      "item_evidence": {
+        "2.03": [
+          "2025-11-18 0001140361-25-042599",
+          "2024-06-04 0001140361-24-028827",
+          "2022-12-16 0001140361-22-045864"
+        ],
+        "1.01": [
+          "2025-11-18 0001140361-25-042599",
+          "2024-06-04 0001140361-24-028827",
+          "2022-12-16 0001140361-22-045864"
+        ]
+      },
+      "filings_indexed": 1004,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 40545,
+      "name": "GENERAL ELECTRIC CO",
+      "tickers": [
+        "GE"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3600",
+      "sic_description": "Electronic & Other Electrical Equipment (No Computer Equip)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NY",
+      "entity_type": "operating",
+      "ein": "140689340",
+      "item_1_01": 4,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 23,
+      "count_8k": 123,
+      "item_evidence": {
+        "1.01": [
+          "2024-04-02 0001193125-24-084038",
+          "2023-01-04 0001193125-23-001157",
+          "2022-11-08 0000930413-22-001930"
+        ],
+        "2.03": [
+          "2024-04-02 0001193125-24-084038",
+          "2022-11-08 0000930413-22-001930",
+          "2021-05-27 0000930413-21-001142"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1932393,
+      "name": "GE HealthCare Technologies Inc.",
+      "tickers": [
+        "GEHC"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3844",
+      "sic_description": "X-Ray Apparatus & Tubes & Related Irradiation Apparatus",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "882515116",
+      "item_1_01": 6,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 4,
+      "count_10q": 11,
+      "count_8k": 51,
+      "item_evidence": {
+        "2.03": [
+          "2026-02-27 0001932393-26-000010",
+          "2025-12-15 0001193125-25-319383",
+          "2025-03-31 0001932393-25-000007"
+        ],
+        "1.01": [
+          "2026-02-27 0001932393-26-000010",
+          "2025-12-15 0001193125-25-319383",
+          "2025-03-31 0001932393-25-000007"
+        ]
+      },
+      "filings_indexed": 423,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1574197,
+      "name": "Five Point Holdings, LLC",
+      "tickers": [
+        "FPH"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6500",
+      "sic_description": "Real Estate",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "270599397",
+      "item_1_01": 21,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 29,
+      "count_8k": 90,
+      "item_evidence": {
+        "1.01": [
+          "2025-10-23 0001193125-25-247581",
+          "2025-09-26 0001193125-25-218100",
+          "2025-08-12 0001574197-25-000075"
+        ],
+        "2.03": [
+          "2025-09-26 0001193125-25-218100",
+          "2024-01-16 0001193125-24-008643",
+          "2019-07-26 0001193125-19-204105"
+        ]
+      },
+      "filings_indexed": 465,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1360901,
+      "name": "Evercore Inc.",
+      "tickers": [
+        "EVR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6282",
+      "sic_description": "Investment Advice",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "204748747",
+      "item_1_01": 10,
+      "item_2_03": 2,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 41,
+      "count_8k": 102,
+      "item_evidence": {
+        "2.03": [
+          "2025-07-11 0001193125-25-158241",
+          "2016-03-31 0001193125-16-526001"
+        ],
+        "1.01": [
+          "2025-07-11 0001193125-25-158241",
+          "2017-07-28 0001193125-17-240701",
+          "2017-06-20 0001193125-17-208280"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1757073,
+      "name": "Envista Holdings Corp",
+      "tickers": [
+        "NVST"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3843",
+      "sic_description": "Dental Equipment & Supplies",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "832206728",
+      "item_1_01": 9,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 21,
+      "count_8k": 78,
+      "item_evidence": {
+        "2.03": [
+          "2023-09-01 0001757073-23-000063",
+          "2023-08-11 0001193125-23-210713",
+          "2021-06-16 0001757073-21-000099"
+        ],
+        "1.01": [
+          "2023-09-01 0001757073-23-000063",
+          "2023-08-11 0001193125-23-210713",
+          "2021-12-22 0001757073-21-000170"
+        ]
+      },
+      "filings_indexed": 542,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1467623,
+      "name": "DROPBOX, INC.",
+      "tickers": [
+        "DBX"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "7372",
+      "sic_description": "Services-Prepackaged Software",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NV",
+      "entity_type": "operating",
+      "ein": "260138832",
+      "item_1_01": 6,
+      "item_2_03": 4,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 8,
+      "count_10q": 23,
+      "count_8k": 70,
+      "item_evidence": {
+        "1.01": [
+          "2026-06-01 0001467623-26-000040",
+          "2025-09-09 0001467623-25-000123",
+          "2024-12-11 0001467623-24-000057"
+        ],
+        "2.03": [
+          "2026-06-01 0001467623-26-000040",
+          "2025-09-09 0001467623-25-000123",
+          "2024-12-11 0001467623-24-000057"
+        ]
+      },
+      "filings_indexed": 1002,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1538849,
+      "name": "CrossAmerica Partners LP",
+      "tickers": [
+        "CAPL"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5172",
+      "sic_description": "Wholesale-Petroleum & Petroleum Products (No Bulk Stations)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "",
+      "entity_type": "operating",
+      "ein": "454165414",
+      "item_1_01": 41,
+      "item_2_03": 12,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 42,
+      "count_8k": 202,
+      "item_evidence": {
+        "1.01": [
+          "2026-07-16 0001193125-26-306100",
+          "2024-02-23 0000950170-24-019023",
+          "2023-04-03 0000950170-23-011463"
+        ],
+        "2.03": [
+          "2023-04-03 0000950170-23-011463",
+          "2022-11-10 0000950170-22-024571",
+          "2021-07-29 0001564590-21-039173"
+        ]
+      },
+      "filings_indexed": 831,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1441236,
+      "name": "Clearwater Paper Corp",
+      "tickers": [
+        "CLW"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2631",
+      "sic_description": "Paperboard Mills",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "203594554",
+      "item_1_01": 16,
+      "item_2_03": 11,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 17,
+      "count_10q": 50,
+      "count_8k": 171,
+      "item_evidence": {
+        "1.01": [
+          "2024-07-22 0001193125-24-182293",
+          "2024-05-01 0001193125-24-127658",
+          "2024-02-21 0001193125-24-040432"
+        ],
+        "2.03": [
+          "2024-05-01 0001193125-24-127658",
+          "2024-02-21 0001193125-24-040432",
+          "2023-10-27 0001504337-23-000035"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1306830,
+      "name": "Celanese Corp",
+      "tickers": [
+        "CE"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2820",
+      "sic_description": "Plastic Material, Synth Resin/Rubber, Cellulos (No Glass)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "980420726",
+      "item_1_01": 33,
+      "item_2_03": 16,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 29,
+      "count_8k": 184,
+      "item_evidence": {
+        "2.03": [
+          "2026-08-04 0001104659-26-090359",
+          "2025-12-17 0001628280-25-057638",
+          "2025-08-11 0001104659-25-076253"
+        ],
+        "1.01": [
+          "2026-08-04 0001104659-26-090359",
+          "2025-12-17 0001628280-25-057638",
+          "2025-12-04 0001628280-25-055376"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1374310,
+      "name": "Cboe Global Markets, Inc.",
+      "tickers": [
+        "CBOE"
+      ],
+      "exchanges": [
+        "CBOE"
+      ],
+      "sic": "6200",
+      "sic_description": "Security & Commodity Brokers, Dealers, Exchanges & Services",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "205446972",
+      "item_1_01": 21,
+      "item_2_03": 19,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 34,
+      "count_8k": 123,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-28 0001104659-26-087625",
+          "2026-06-26 0001104659-26-078295",
+          "2025-06-27 0001104659-25-063674"
+        ],
+        "1.01": [
+          "2026-07-28 0001104659-26-087625",
+          "2026-06-26 0001104659-26-078295",
+          "2025-06-27 0001104659-25-063674"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1590717,
+      "name": "CareTrust REIT, Inc.",
+      "tickers": [
+        "CTRE"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "463999490",
+      "item_1_01": 19,
+      "item_2_03": 10,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 12,
+      "count_10q": 37,
+      "count_8k": 145,
+      "item_evidence": {
+        "1.01": [
+          "2026-02-18 0001140361-26-005889",
+          "2025-12-17 0001628280-25-057652",
+          "2025-06-02 0001628280-25-028748"
+        ],
+        "2.03": [
+          "2025-06-02 0001628280-25-028748",
+          "2025-03-11 0001628280-25-012013",
+          "2024-12-19 0001140361-24-049974"
+        ]
+      },
+      "filings_indexed": 596,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 25232,
+      "name": "COUSINS PROPERTIES INC",
+      "tickers": [
+        "CUZ"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "GA",
+      "entity_type": "operating",
+      "ein": "580869052",
+      "item_1_01": 24,
+      "item_2_03": 11,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 16,
+      "count_10q": 47,
+      "count_8k": 179,
+      "item_evidence": {
+        "2.03": [
+          "2026-04-01 0000025232-26-000036",
+          "2026-02-20 0001628280-26-010188",
+          "2025-06-06 0001628280-25-029995"
+        ],
+        "1.01": [
+          "2026-04-01 0000025232-26-000036",
+          "2026-02-20 0001628280-26-010188",
+          "2025-06-06 0001628280-25-029995"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1534254,
+      "name": "CION Investment Corp",
+      "tickers": [
+        "CION",
+        "CICC",
+        "CICB"
+      ],
+      "exchanges": [
+        "NYSE",
+        "NYSE",
+        "NYSE"
+      ],
+      "sic": "",
+      "sic_description": "",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "MD",
+      "entity_type": "operating",
+      "ein": "453058280",
+      "item_1_01": 63,
+      "item_2_03": 29,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 14,
+      "count_10q": 43,
+      "count_8k": 305,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-16 0001104659-26-084247",
+          "2025-12-18 0001104659-25-122331",
+          "2025-02-19 0001104659-25-015206"
+        ],
+        "1.01": [
+          "2026-07-16 0001104659-26-084247",
+          "2026-02-09 0001104659-26-012101",
+          "2026-02-04 0001104659-26-010377"
+        ]
+      },
+      "filings_indexed": 886,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1783180,
+      "name": "CARRIER GLOBAL Corp",
+      "tickers": [
+        "CARR"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "3585",
+      "sic_description": "Air-Cond & Warm Air Heatg Equip & Comm & Indl Refrig Equip",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "834051582",
+      "item_1_01": 14,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 6,
+      "count_10q": 20,
+      "count_8k": 87,
+      "item_evidence": {
+        "2.03": [
+          "2024-12-20 0001783180-24-000093",
+          "2024-11-08 0000950142-24-002699",
+          "2024-05-17 0001783180-24-000049"
+        ],
+        "1.01": [
+          "2024-12-20 0001783180-24-000093",
+          "2024-11-08 0000950142-24-002699",
+          "2024-10-18 0000950142-24-002601"
+        ]
+      },
+      "filings_indexed": 566,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1418121,
+      "name": "Apple Hospitality REIT, Inc.",
+      "tickers": [
+        "APLE"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "VA",
+      "entity_type": "operating",
+      "ein": "261379210",
+      "item_1_01": 9,
+      "item_2_03": 7,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 11,
+      "count_10q": 35,
+      "count_8k": 237,
+      "item_evidence": {
+        "2.03": [
+          "2026-07-28 0001193125-26-321027",
+          "2022-07-27 0001564590-22-026694",
+          "2021-03-02 0001564590-21-010032"
+        ],
+        "1.01": [
+          "2026-07-28 0001193125-26-321027",
+          "2022-07-27 0001564590-22-026694",
+          "2021-03-02 0001564590-21-010032"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1398987,
+      "name": "Anywhere Real Estate Inc.",
+      "tickers": [],
+      "exchanges": [],
+      "sic": "6531",
+      "sic_description": "Real Estate Agents & Managers (For Others)",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "208050955",
+      "item_1_01": 27,
+      "item_2_03": 12,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 30,
+      "count_8k": 133,
+      "item_evidence": {
+        "1.01": [
+          "2025-09-22 0001193125-25-210057",
+          "2025-06-27 0001398987-25-000100",
+          "2025-04-01 0001398987-25-000053"
+        ],
+        "2.03": [
+          "2025-06-27 0001398987-25-000100",
+          "2023-08-25 0001193125-23-221474",
+          "2022-01-10 0001398987-22-000009"
+        ]
+      },
+      "filings_indexed": 1001,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1673985,
+      "name": "AdvanSix Inc.",
+      "tickers": [
+        "ASIX"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "2821",
+      "sic_description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "812525089",
+      "item_1_01": 7,
+      "item_2_03": 5,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 10,
+      "count_10q": 30,
+      "count_8k": 83,
+      "item_evidence": {
+        "2.03": [
+          "2025-10-23 0000950157-25-000887",
+          "2021-10-29 0001673985-21-000141",
+          "2020-02-21 0001673985-20-000004"
+        ],
+        "1.01": [
+          "2025-10-23 0000950157-25-000887",
+          "2021-10-29 0001673985-21-000141",
+          "2020-02-21 0001673985-20-000004"
+        ]
+      },
+      "filings_indexed": 708,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 1748824,
+      "name": "Acadian Asset Management Inc.",
+      "tickers": [
+        "AAMI"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "6282",
+      "sic_description": "Investment Advice",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "471121020",
+      "item_1_01": 8,
+      "item_2_03": 3,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 22,
+      "count_8k": 56,
+      "item_evidence": {
+        "1.01": [
+          "2025-10-30 0001628280-25-047333",
+          "2021-11-04 0001104659-21-134042",
+          "2021-05-10 0001748824-21-000026"
+        ],
+        "2.03": [
+          "2025-10-30 0001628280-25-047333",
+          "2019-08-21 0001748824-19-000052",
+          "2019-07-15 0001748824-19-000032"
+        ]
+      },
+      "filings_indexed": 264,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    },
+    {
+      "cik": 7536,
+      "name": "ARROW ELECTRONICS, INC.",
+      "tickers": [
+        "ARW"
+      ],
+      "exchanges": [
+        "NYSE"
+      ],
+      "sic": "5065",
+      "sic_description": "Wholesale-Electronic Parts & Equipment, NEC",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "NY",
+      "entity_type": "operating",
+      "ein": "111806155",
+      "item_1_01": 13,
+      "item_2_03": 13,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 9,
+      "count_10q": 28,
+      "count_8k": 90,
+      "item_evidence": {
+        "2.03": [
+          "2025-06-27 0001104659-25-063633",
+          "2024-09-10 0001104659-24-098636",
+          "2024-01-02 0001558370-24-000014"
+        ],
+        "1.01": [
+          "2025-06-27 0001104659-25-063633",
+          "2024-09-10 0001104659-24-098636",
+          "2024-08-21 0001104659-24-091603"
+        ]
+      },
+      "filings_indexed": 1000,
+      "conditions_met": [
+        "C2_guarantor_schedule",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C2_guarantor_schedule"
+      ]
+    },
+    {
+      "cik": 1047127,
+      "name": "AMKOR TECHNOLOGY, INC.",
+      "tickers": [
+        "AMKR"
+      ],
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "sic": "3674",
+      "sic_description": "Semiconductors & Related Devices",
+      "fiscal_year_end": "1231",
+      "state_of_incorporation": "DE",
+      "entity_type": "operating",
+      "ein": "231722724",
+      "item_1_01": 6,
+      "item_2_03": 6,
+      "item_2_04": 0,
+      "item_4_02": 0,
+      "count_10k": 7,
+      "count_10q": 22,
+      "count_8k": 63,
+      "item_evidence": {
+        "2.03": [
+          "2026-05-05 0001047127-26-000029",
+          "2025-09-22 0001047127-25-000184",
+          "2025-07-01 0001047127-25-000152"
+        ],
+        "1.01": [
+          "2026-05-05 0001047127-26-000029",
+          "2025-09-22 0001047127-25-000184",
+          "2025-07-01 0001047127-25-000152"
+        ]
+      },
+      "filings_indexed": 1003,
+      "conditions_met": [
+        "C1_financial_covenants",
+        "V1_has_amendment_filing",
+        "V2_has_obligation_filing",
+        "V4_xbrl_depth"
+      ],
+      "condition_count": 4,
+      "weight": 4,
+      "screened_conditions": [
+        "C1_financial_covenants"
+      ]
+    }
+  ]
+}

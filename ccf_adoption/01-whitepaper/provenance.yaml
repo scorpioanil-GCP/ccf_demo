@@ -1,0 +1,14 @@
+title: Cognitive Context Fabric Whitepaper
+version: "1.2"
+status: current
+artifact: CCF_Whitepaper_1-2.pdf
+source_repository: drcastillo/ccf
+source_branch: master
+source_path: CCF_Whitepaper_1-2.pdf
+source_commit: 18c6b9522127341847dc7237c813aa46cebc6d2b
+source_blob_sha: 13cd205e914726bc23be1d5c160df1bb14ee8fd5
+sha256: 83b1a403277ed7ce67f4c8a9dfce3e59de76cb8738fbb23e401245aa73f92ade
+size_bytes: 14284363
+pages: 232
+published_in_source: 2026-05-20
+adoption_snapshot_policy: "The ccf repository is authoritative. The PDF in ccf_adoption is a versioned distribution snapshot and must not be edited here."

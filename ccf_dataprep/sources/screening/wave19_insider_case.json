@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-08-27T20:45:23+00:00",
+  "provenance": "synthetic — engineered",
+  "person": {
+    "person_key": "SYN-INSIDER-JPM-01",
+    "person_key_source": "minted",
+    "owner_kind": "natural",
+    "cik": null,
+    "name_as_filed": "Marguerite Castellane",
+    "display_name": "Marguerite Castellane",
+    "name_first": "Marguerite",
+    "name_last": "Castellane",
+    "name_middle": null,
+    "name_suffix": null,
+    "provenance": "synthetic — engineered",
+    "source": "invented insider — Wave 19 Task 8, Regulation O (12 CFR 215) demonstration; minted for this case, not derived from any DEF 14A roster or other real registry"
+  },
+  "insider_categories": [
+    "director",
+    "executive officer"
+  ],
+  "reporting_bank_role": "reg_o_insider",
+  "related_interest": {
+    "lei": "549300D0WZR1VI2QGB24",
+    "legal_name": "Digital Turbine, Inc.",
+    "facility_id": "FAC-18DF7D",
+    "facility_type": "Term Loan",
+    "commitment_amount": 285000000.0,
+    "currency": "USD",
+    "reg_o_cap_usd": 500000,
+    "multiple_of_reg_o_cap": 570.0,
+    "pct_of_tier1_capital": 0.0964,
+    "crr_pra_limit_pct": 25.0
+  },
+  "citations": {
+    "insider_definition": "reg-o-12cfr215#bfa4cd54ce8c",
+    "related_interest_definition": "reg-o-12cfr215#eef8c42766d0",
+    "absolute_cap": "reg-o-12cfr215#f8f8d951ecdb"
+  },
+  "def14a_precedent": {
+    "cik": 19617,
+    "accession": "0000019617-26-000096",
+    "filed": "2026-04-06",
+    "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961726000096/jpm-20260402.htm",
+    "quote": "transactions in the ordinary course of business involving financial products and services provided by, or to, the Firm, including loans, provided such transactions are in compliance with the Sarbanes-Oxley Act of 2002, Federal Reserve Board Regulation O and o",
+    "retrieved_at": "2026-08-27T20:45:23+00:00",
+    "note": "Real, filed text naming Regulation O as the compliance regime governing related-person loans. The filing's own 'Transactions with directors, executive officers and 5% shareholders' section names real individuals and real transactions -- NONE of them are used anywhere in this dataset. Only this policy sentence is cited."
+  },
+  "asserted_by": "JPMorganChase General Counsel — Related Persons Policy review",
+  "asserted_on": "2026-06-15"
+}

@@ -1,0 +1,11 @@
+CCF bank-agent skills demonstration (synthetic data; scripted approval)
+1. Registered but ungranted skill: REFUSED (SkillNotBound)
+2. Analyst attempts to grant a skill: DENIED (authorization)
+3. Operator grant within policy, scripted approval: EFFECTIVE
+   demo-manufacturer: leverage 3.00x, coverage 4.00x -> within-limits
+   demo-distributor: leverage 4.00x, coverage 2.50x -> review-required
+4. Non-string counterparty identifier: REFUSED (MistypedArgumentRefused)
+5. Writeback grant: REFUSED (RequirementsExceedRegime); invocation: REFUSED
+6. Calculator after revocation: REFUSED (SkillNotBound)
+7. Agent definition unchanged; grant-set hash returned to its initial value
+PASS: calculation, authorization, argument validation, policy refusal and revocation

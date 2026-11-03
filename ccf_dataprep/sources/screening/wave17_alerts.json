@@ -1,0 +1,1456 @@
+{
+  "alerts": [
+    {
+      "alert_id": "ALT-000001",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-01",
+      "subject_party": "AMLP-0102",
+      "trigger": "large_transaction_amount: card_settlement transaction of $368,120.16 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000002",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-02",
+      "subject_party": "AMLP-0101",
+      "trigger": "structuring: 3 transactions between $1,974-$2,924 within 7d via card_settlement"
+    },
+    {
+      "alert_id": "ALT-000003",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-05",
+      "subject_party": "AMLP-0073",
+      "trigger": "funnel_account: 3 deposits from 1 jurisdictions (SYC) aggregating $17,116.73 within 3d"
+    },
+    {
+      "alert_id": "ALT-000004",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-07",
+      "subject_party": "AMLP-0062",
+      "trigger": "structuring: 3 transactions between $1,671-$6,575 within 6d via check_payment"
+    },
+    {
+      "alert_id": "ALT-000005",
+      "case_id": "CASE-009",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-08",
+      "subject_party": "AMLP-0074",
+      "trigger": "shell_company_ownership: purchase of $726,635.43 funded by upstream transfer of $762,967.20, subject sits 3 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000006",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-09",
+      "subject_party": "AMLP-0112",
+      "trigger": "shell_company_ownership: purchase of $43,351.63 funded by upstream transfer of $2,723.93, subject sits 4 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000007",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-10",
+      "subject_party": "AMLP-0082",
+      "trigger": "structuring: 3 transactions between $1,369-$9,447 within 3d via ach_debit"
+    },
+    {
+      "alert_id": "ALT-000008",
+      "case_id": "CASE-009",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-13",
+      "subject_party": "AMLP-0082",
+      "trigger": "shell_company_ownership: intermediary received $762,967.20 then purchased for $726,635.43 within the same case"
+    },
+    {
+      "alert_id": "ALT-000009",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-17",
+      "subject_party": "AMLP-0081",
+      "trigger": "trade_based: 1 shipment(s) double-invoiced to importer AMLP-0038, max variance 3.8%"
+    },
+    {
+      "alert_id": "ALT-000010",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-24",
+      "subject_party": "AMLP-0043",
+      "trigger": "trade_based: 1 shipment(s) double-invoiced to importer AMLP-0012, max variance 2.9%"
+    },
+    {
+      "alert_id": "ALT-000011",
+      "case_id": "CASE-017",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-03-30",
+      "subject_party": "AMLP-0140",
+      "trigger": "structuring: 6 transactions between $8,000-$9,900 within 6d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000012",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-04-09",
+      "subject_party": "AMLP-0122",
+      "trigger": "shell_company_ownership: purchase of $21,522.48 funded by upstream transfer of $1,575.00, subject sits 3 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000013",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-04-22",
+      "subject_party": "AMLP-0082",
+      "trigger": "structuring: 3 transactions between $1,369-$9,447 within 3d via ach_debit"
+    },
+    {
+      "alert_id": "ALT-000014",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-01",
+      "subject_party": "AMLP-0015",
+      "trigger": "structuring: 3 transactions between $1,242-$2,716 within 9d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000015",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-10",
+      "subject_party": "AMLP-0028",
+      "trigger": "structuring: 3 transactions between $1,332-$2,663 within 9d via ach_debit"
+    },
+    {
+      "alert_id": "ALT-000016",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-19",
+      "subject_party": "AMLP-0006",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,955,317.45 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000017",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-21",
+      "subject_party": "AMLP-0018",
+      "trigger": "trade_based: 1 shipment(s) double-invoiced to importer AMLP-0081, max variance 17.0%"
+    },
+    {
+      "alert_id": "ALT-000018",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-25",
+      "subject_party": "AMLP-0078",
+      "trigger": "large_asset_purchase: asset_purchase of $20,197.88 flagged for review"
+    },
+    {
+      "alert_id": "ALT-000019",
+      "case_id": "CASE-022",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-25",
+      "subject_party": "AMLP-0178",
+      "trigger": "trade_based: 2 shipment(s) double-invoiced to importer AMLP-0199, max variance 94.7%"
+    },
+    {
+      "alert_id": "ALT-000020",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-27",
+      "subject_party": "AMLP-0166",
+      "trigger": "large_transaction_amount: cash_deposit_geographic_dispersion transaction of $5,040.19 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000021",
+      "case_id": "CASE-014",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-05-31",
+      "subject_party": "AMLP-0023",
+      "trigger": "structuring: 4 transactions between $8,000-$9,900 within 6d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000022",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-04",
+      "subject_party": "AMLP-0075",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $149,994.06 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000023",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-04",
+      "subject_party": "AMLP-0123",
+      "trigger": "trade_based: 1 shipment(s) double-invoiced to importer AMLP-0183, max variance 9.5%"
+    },
+    {
+      "alert_id": "ALT-000024",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-05",
+      "subject_party": "AMLP-0143",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $114,606.17 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000025",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-08",
+      "subject_party": "AMLP-0061",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,695,329.46 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000026",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-12",
+      "subject_party": "AMLP-0109",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $41,194.24 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000027",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-15",
+      "subject_party": "AMLP-0149",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $2,645.26 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000028",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-16",
+      "subject_party": "AMLP-0111",
+      "trigger": "structuring: 3 transactions between $1,407-$6,902 within 10d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000029",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-18",
+      "subject_party": "AMLP-0001",
+      "trigger": "structuring: 3 transactions between $2,402-$4,658 within 9d via ach_credit"
+    },
+    {
+      "alert_id": "ALT-000030",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-18",
+      "subject_party": "AMLP-0152",
+      "trigger": "structuring: 3 transactions between $1,672-$2,133 within 8d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000031",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-21",
+      "subject_party": "AMLP-0187",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,279.33 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000032",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-22",
+      "subject_party": "AMLP-0035",
+      "trigger": "shell_company_ownership: purchase of $11,562.22 funded by upstream transfer of $1,717.75, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000033",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-06-27",
+      "subject_party": "AMLP-0152",
+      "trigger": "structuring: 3 transactions between $1,672-$2,133 within 8d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000034",
+      "case_id": "CASE-012",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-03",
+      "subject_party": "AMLP-0192",
+      "trigger": "shell_company_ownership: purchase of $996,275.37 funded by upstream transfer of $1,046,089.14, subject sits 2 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000035",
+      "case_id": "CASE-012",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-08",
+      "subject_party": "AMLP-0082",
+      "trigger": "shell_company_ownership: intermediary received $1,046,089.14 then purchased for $996,275.37 within the same case"
+    },
+    {
+      "alert_id": "ALT-000036",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-08",
+      "subject_party": "AMLP-0185",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $243,407.03 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000037",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-09",
+      "subject_party": "AMLP-0130",
+      "trigger": "large_transaction_amount: card_settlement transaction of $60,156.06 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000038",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-09",
+      "subject_party": "AMLP-0150",
+      "trigger": "structuring: 3 transactions between $1,552-$5,857 within 7d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000039",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-10",
+      "subject_party": "AMLP-0124",
+      "trigger": "shell_company_ownership: purchase of $38,792.94 funded by upstream transfer of $2,325.59, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000040",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-13",
+      "subject_party": "AMLP-0007",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $19,924.25 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000041",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-17",
+      "subject_party": "AMLP-0042",
+      "trigger": "large_transaction_amount: check_payment transaction of $1,271,466.29 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000042",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-20",
+      "subject_party": "AMLP-0183",
+      "trigger": "funnel_account: 3 deposits from 1 jurisdictions (GBR) aggregating $9,665.43 within 2d"
+    },
+    {
+      "alert_id": "ALT-000043",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-26",
+      "subject_party": "AMLP-0171",
+      "trigger": "structuring: 3 transactions between $1,512-$2,454 within 4d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000044",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-31",
+      "subject_party": "AMLP-0051",
+      "trigger": "shell_company_ownership: purchase of $39,454.75 funded by upstream transfer of $2,919.24, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000045",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-07-31",
+      "subject_party": "AMLP-0066",
+      "trigger": "large_transaction_amount: check_payment transaction of $1,229,352.12 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000046",
+      "case_id": "CASE-010",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-07",
+      "subject_party": "AMLP-0082",
+      "trigger": "shell_company_ownership: purchase of $1,778,108.04 funded by upstream transfer of $1,867,013.44, subject sits 6 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000047",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-10",
+      "subject_party": "AMLP-0080",
+      "trigger": "shell_company_ownership: purchase of $39,694.39 funded by upstream transfer of $207,163.96, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000048",
+      "case_id": "CASE-010",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-12",
+      "subject_party": "AMLP-0016",
+      "trigger": "shell_company_ownership: intermediary received $1,867,013.44 then purchased for $1,778,108.04 within the same case"
+    },
+    {
+      "alert_id": "ALT-000049",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-12",
+      "subject_party": "AMLP-0137",
+      "trigger": "shell_company_ownership: purchase of $29,592.38 funded by upstream transfer of $90.18, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000050",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-16",
+      "subject_party": "AMLP-0015",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $622,551.60 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000051",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-18",
+      "subject_party": "AMLP-0012",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $16,369.86 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000052",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-19",
+      "subject_party": "AMLP-0096",
+      "trigger": "shell_company_ownership: purchase of $7,659.84 funded by upstream transfer of $127,563.42, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000053",
+      "case_id": "CASE-004",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-20",
+      "subject_party": "AMLP-0141",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (HKG, MLT, SGP) aggregating $20,551.43 within 3d"
+    },
+    {
+      "alert_id": "ALT-000054",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-21",
+      "subject_party": "AMLP-0122",
+      "trigger": "shell_company_ownership: purchase of $21,522.48 funded by upstream transfer of $1,575.00, subject sits 3 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000055",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-21",
+      "subject_party": "AMLP-0161",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $192,109.01 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000056",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-21",
+      "subject_party": "AMLP-0184",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $136,076.15 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000057",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-22",
+      "subject_party": "AMLP-0159",
+      "trigger": "funnel_account: 2 deposits from 1 jurisdictions (BHS) aggregating $5,300.69 within 0d"
+    },
+    {
+      "alert_id": "ALT-000058",
+      "case_id": "CASE-005",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-22",
+      "subject_party": "AMLP-0193",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (CHE, JEY, MHL) aggregating $18,069.93 within 1d"
+    },
+    {
+      "alert_id": "ALT-000059",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-08-23",
+      "subject_party": "AMLP-0025",
+      "trigger": "large_transaction_amount: ach_credit transaction of $806,800.84 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000060",
+      "case_id": "CASE-006",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-02",
+      "subject_party": "AMLP-0200",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (AUS, SGP, VGB) aggregating $9,855.39 within 2d"
+    },
+    {
+      "alert_id": "ALT-000061",
+      "case_id": "CASE-021",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-05",
+      "subject_party": "AMLP-0151",
+      "trigger": "trade_based: 3 shipment(s) double-invoiced to importer AMLP-0168, max variance 87.3%"
+    },
+    {
+      "alert_id": "ALT-000062",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-06",
+      "subject_party": "AMLP-0098",
+      "trigger": "large_transaction_amount: card_settlement transaction of $138,874.31 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000063",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-07",
+      "subject_party": "AMLP-0101",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $247,580.99 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000064",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-10",
+      "subject_party": "AMLP-0032",
+      "trigger": "funnel_account: 2 deposits from 1 jurisdictions (MUS) aggregating $4,996.12 within 2d"
+    },
+    {
+      "alert_id": "ALT-000065",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-18",
+      "subject_party": "AMLP-0150",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $79,965.63 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000066",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-19",
+      "subject_party": "AMLP-0011",
+      "trigger": "large_transaction_amount: check_payment transaction of $64,389.12 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000067",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-24",
+      "subject_party": "AMLP-0183",
+      "trigger": "funnel_account: 3 deposits from 1 jurisdictions (GBR) aggregating $9,665.43 within 2d"
+    },
+    {
+      "alert_id": "ALT-000068",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-25",
+      "subject_party": "AMLP-0103",
+      "trigger": "large_transaction_amount: ach_credit transaction of $1,513,010.62 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000069",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-09-29",
+      "subject_party": "AMLP-0055",
+      "trigger": "large_transaction_amount: ach_credit transaction of $15,199.96 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000070",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-01",
+      "subject_party": "AMLP-0060",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $642,332.19 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000071",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-12",
+      "subject_party": "AMLP-0039",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $145,534.25 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000072",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-13",
+      "subject_party": "AMLP-0047",
+      "trigger": "large_transaction_amount: trade_settlement transaction of $1,207,322.10 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000073",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-19",
+      "subject_party": "AMLP-0042",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $924,768.49 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000074",
+      "case_id": "CASE-003",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-21",
+      "subject_party": "AMLP-0075",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (GBR, HKG, JPN) aggregating $20,504.21 within 3d"
+    },
+    {
+      "alert_id": "ALT-000075",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-21",
+      "subject_party": "AMLP-0094",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,889,455.91 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000076",
+      "case_id": "CASE-019",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-23",
+      "subject_party": "AMLP-0007",
+      "trigger": "trade_based: 3 shipment(s) double-invoiced to importer AMLP-0077, max variance 83.7%"
+    },
+    {
+      "alert_id": "ALT-000077",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-25",
+      "subject_party": "AMLP-0046",
+      "trigger": "large_transaction_amount: cash_deposit_geographic_dispersion transaction of $46,055.44 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000078",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-10-30",
+      "subject_party": "AMLP-0023",
+      "trigger": "large_transaction_amount: card_settlement transaction of $14,741.09 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000079",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-02",
+      "subject_party": "AMLP-0020",
+      "trigger": "large_asset_purchase: asset_purchase of $24,966.99 flagged for review"
+    },
+    {
+      "alert_id": "ALT-000080",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-02",
+      "subject_party": "AMLP-0161",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $232,957.63 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000081",
+      "case_id": "CASE-024",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-06",
+      "subject_party": "AMLP-0186",
+      "trigger": "trade_based: 3 shipment(s) double-invoiced to importer AMLP-0089, max variance 112.0%"
+    },
+    {
+      "alert_id": "ALT-000082",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-17",
+      "subject_party": "AMLP-0159",
+      "trigger": "funnel_account: 2 deposits from 1 jurisdictions (BHS) aggregating $5,300.69 within 0d"
+    },
+    {
+      "alert_id": "ALT-000083",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-20",
+      "subject_party": "AMLP-0092",
+      "trigger": "trade_based: 2 shipment(s) double-invoiced to importer AMLP-0072, max variance 8.0%"
+    },
+    {
+      "alert_id": "ALT-000084",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-20",
+      "subject_party": "AMLP-0132",
+      "trigger": "shell_company_ownership: purchase of $42,324.44 funded by upstream transfer of $1,859.39, subject sits 3 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000085",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-22",
+      "subject_party": "AMLP-0092",
+      "trigger": "trade_based: 2 shipment(s) double-invoiced to importer AMLP-0072, max variance 8.0%"
+    },
+    {
+      "alert_id": "ALT-000086",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-11-27",
+      "subject_party": "AMLP-0134",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $86,549.06 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000087",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-12-08",
+      "subject_party": "AMLP-0113",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $235,202.69 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000088",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-12-12",
+      "subject_party": "AMLP-0152",
+      "trigger": "large_transaction_amount: ach_credit transaction of $1,910,752.73 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000089",
+      "case_id": "CASE-023",
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-12-16",
+      "subject_party": "AMLP-0185",
+      "trigger": "trade_based: 3 shipment(s) double-invoiced to importer AMLP-0016, max variance 69.7%"
+    },
+    {
+      "alert_id": "ALT-000090",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2025-12-19",
+      "subject_party": "AMLP-0017",
+      "trigger": "shell_company_ownership: purchase of $10,228.15 funded by upstream transfer of $2,716.49, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000091",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-02",
+      "subject_party": "AMLP-0059",
+      "trigger": "large_transaction_amount: ach_debit transaction of $892,571.84 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000092",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-07",
+      "subject_party": "AMLP-0021",
+      "trigger": "large_transaction_amount: ach_debit transaction of $46,556.03 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000093",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-13",
+      "subject_party": "AMLP-0141",
+      "trigger": "shell_company_ownership: purchase of $24,722.38 funded by upstream transfer of $92.82, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000094",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-14",
+      "subject_party": "AMLP-0075",
+      "trigger": "large_transaction_amount: check_payment transaction of $1,204,906.58 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000095",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-28",
+      "subject_party": "AMLP-0069",
+      "trigger": "shell_company_ownership: purchase of $26,494.22 funded by upstream transfer of $35,587.41, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000096",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-01-29",
+      "subject_party": "AMLP-0137",
+      "trigger": "shell_company_ownership: purchase of $29,592.38 funded by upstream transfer of $90.18, subject sits 0 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000097",
+      "case_id": "CASE-020",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-01",
+      "subject_party": "AMLP-0150",
+      "trigger": "trade_based: 2 shipment(s) double-invoiced to importer AMLP-0049, max variance 105.9%"
+    },
+    {
+      "alert_id": "ALT-000098",
+      "case_id": "CASE-002",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-04",
+      "subject_party": "AMLP-0060",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (DEU, IMN, MHL) aggregating $12,529.00 within 2d"
+    },
+    {
+      "alert_id": "ALT-000099",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-06",
+      "subject_party": "AMLP-0016",
+      "trigger": "large_transaction_amount: card_settlement transaction of $148,228.67 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000100",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-15",
+      "subject_party": "AMLP-0031",
+      "trigger": "shell_company_ownership: purchase of $11,851.30 funded by upstream transfer of $1,972.53, subject sits 6 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000101",
+      "case_id": "CASE-013",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-19",
+      "subject_party": "AMLP-0012",
+      "trigger": "structuring: 6 transactions between $8,000-$9,900 within 9d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000102",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-20",
+      "subject_party": "AMLP-0134",
+      "trigger": "large_transaction_amount: ach_credit transaction of $692,366.34 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000103",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-02-23",
+      "subject_party": "AMLP-0139",
+      "trigger": "large_transaction_amount: check_payment transaction of $15,578.57 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000104",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-08",
+      "subject_party": "AMLP-0198",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $39,881.91 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000105",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-12",
+      "subject_party": "AMLP-0038",
+      "trigger": "funnel_account: 2 deposits from 2 jurisdictions (GBR, HKG) aggregating $11,443.48 within 25d"
+    },
+    {
+      "alert_id": "ALT-000106",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-13",
+      "subject_party": "AMLP-0178",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,456,602.67 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000107",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-24",
+      "subject_party": "AMLP-0067",
+      "trigger": "large_transaction_amount: ach_credit transaction of $74,915.31 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000108",
+      "case_id": "CASE-001",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-25",
+      "subject_party": "AMLP-0057",
+      "trigger": "funnel_account: 3 deposits from 3 jurisdictions (GBR, NLD, USA) aggregating $17,264.94 within 5d"
+    },
+    {
+      "alert_id": "ALT-000109",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-25",
+      "subject_party": "AMLP-0076",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $216,505.70 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000110",
+      "case_id": "CASE-011",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-26",
+      "subject_party": "AMLP-0180",
+      "trigger": "shell_company_ownership: purchase of $1,779,508.89 funded by upstream transfer of $1,868,484.33, subject sits 4 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000111",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-28",
+      "subject_party": "AMLP-0076",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $197,345.40 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000112",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-30",
+      "subject_party": "AMLP-0033",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $185,865.48 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000113",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-30",
+      "subject_party": "AMLP-0094",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $341,997.46 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000114",
+      "case_id": "CASE-011",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-31",
+      "subject_party": "AMLP-0074",
+      "trigger": "shell_company_ownership: intermediary received $1,868,484.33 then purchased for $1,779,508.89 within the same case"
+    },
+    {
+      "alert_id": "ALT-000115",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-03-31",
+      "subject_party": "AMLP-0127",
+      "trigger": "large_transaction_amount: card_settlement transaction of $81,379.58 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000116",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-04-04",
+      "subject_party": "AMLP-0044",
+      "trigger": "funnel_account: 3 deposits from 1 jurisdictions (NLD) aggregating $13,188.77 within 4d"
+    },
+    {
+      "alert_id": "ALT-000117",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-04-07",
+      "subject_party": "AMLP-0097",
+      "trigger": "large_transaction_amount: card_settlement transaction of $1,805,727.03 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000118",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-04-17",
+      "subject_party": "AMLP-0180",
+      "trigger": "large_transaction_amount: intercompany_transfer transaction of $1,909,467.07 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000119",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-04-26",
+      "subject_party": "AMLP-0150",
+      "trigger": "large_transaction_amount: trade_settlement transaction of $2,672.35 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000120",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-04-30",
+      "subject_party": "AMLP-0014",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $70,070.30 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000121",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-05-02",
+      "subject_party": "AMLP-0146",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $119,114.21 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000122",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-05-08",
+      "subject_party": "AMLP-0088",
+      "trigger": "large_transaction_amount: ach_credit transaction of $571,318.59 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000123",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-05-13",
+      "subject_party": "AMLP-0069",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $153,118.14 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000124",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-05-18",
+      "subject_party": "AMLP-0122",
+      "trigger": "large_transaction_amount: ach_debit transaction of $69,247.02 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000125",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-05-24",
+      "subject_party": "AMLP-0147",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $197,523.26 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000126",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-17",
+      "subject_party": "AMLP-0128",
+      "trigger": "large_asset_purchase: asset_purchase of $12,493.82 flagged for review"
+    },
+    {
+      "alert_id": "ALT-000127",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-18",
+      "subject_party": "AMLP-0019",
+      "trigger": "large_transaction_amount: intercompany_transfer transaction of $15,622.66 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000128",
+      "case_id": "CASE-018",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-19",
+      "subject_party": "AMLP-0175",
+      "trigger": "structuring: 6 transactions between $8,000-$9,900 within 8d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000129",
+      "case_id": "CASE-008",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-20",
+      "subject_party": "AMLP-0049",
+      "trigger": "shell_company_ownership: purchase of $1,298,430.61 funded by upstream transfer of $1,363,352.14, subject sits 3 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000130",
+      "case_id": "CASE-015",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-24",
+      "subject_party": "AMLP-0054",
+      "trigger": "structuring: 4 transactions between $8,000-$9,900 within 5d via wire_transfer"
+    },
+    {
+      "alert_id": "ALT-000131",
+      "case_id": "CASE-008",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-25",
+      "subject_party": "AMLP-0005",
+      "trigger": "shell_company_ownership: intermediary received $1,363,352.14 then purchased for $1,298,430.61 within the same case"
+    },
+    {
+      "alert_id": "ALT-000132",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-25",
+      "subject_party": "AMLP-0200",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $62,348.38 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000133",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-27",
+      "subject_party": "AMLP-0194",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,124.41 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000134",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-28",
+      "subject_party": "AMLP-0034",
+      "trigger": "large_transaction_amount: ach_debit transaction of $2,194.05 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000135",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-06-29",
+      "subject_party": "AMLP-0176",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $1,090,966.37 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000136",
+      "case_id": "CASE-016",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-01",
+      "subject_party": "AMLP-0071",
+      "trigger": "structuring: 4 transactions between $8,000-$9,900 within 10d via check_payment"
+    },
+    {
+      "alert_id": "ALT-000137",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-05",
+      "subject_party": "AMLP-0172",
+      "trigger": "large_transaction_amount: card_settlement transaction of $59,776.02 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000138",
+      "case_id": "CASE-007",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-07",
+      "subject_party": "AMLP-0036",
+      "trigger": "shell_company_ownership: purchase of $1,233,041.23 funded by upstream transfer of $1,294,693.29, subject sits 2 ownership hops deep"
+    },
+    {
+      "alert_id": "ALT-000139",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-09",
+      "subject_party": "AMLP-0057",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $127,147.15 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000140",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-10",
+      "subject_party": "AMLP-0020",
+      "trigger": "large_transaction_amount: ach_debit transaction of $19,568.09 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000141",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-11",
+      "subject_party": "AMLP-0144",
+      "trigger": "large_transaction_amount: ach_credit transaction of $1,605,972.64 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000142",
+      "case_id": "CASE-007",
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-12",
+      "subject_party": "AMLP-0109",
+      "trigger": "shell_company_ownership: intermediary received $1,294,693.29 then purchased for $1,233,041.23 within the same case"
+    },
+    {
+      "alert_id": "ALT-000143",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-14",
+      "subject_party": "AMLP-0177",
+      "trigger": "funnel_account: 3 deposits from 1 jurisdictions (BHS) aggregating $83,581.44 within 2d"
+    },
+    {
+      "alert_id": "ALT-000144",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-22",
+      "subject_party": "AMLP-0132",
+      "trigger": "large_transaction_amount: cash_deposit_geographic_dispersion transaction of $5,187.26 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000145",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-25",
+      "subject_party": "AMLP-0193",
+      "trigger": "large_transaction_amount: trade_settlement transaction of $2,498.84 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000146",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-26",
+      "subject_party": "AMLP-0100",
+      "trigger": "large_transaction_amount: over_under_invoicing transaction of $186,860.29 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000147",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-27",
+      "subject_party": "AMLP-0031",
+      "trigger": "large_transaction_amount: trade_settlement transaction of $1,245,212.93 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000148",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-07-29",
+      "subject_party": "AMLP-0036",
+      "trigger": "large_transaction_amount: ach_credit transaction of $1,103,150.13 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000149",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-08-22",
+      "subject_party": "AMLP-0111",
+      "trigger": "large_transaction_amount: ach_credit transaction of $1,142,017.23 exceeds internal large-transaction threshold"
+    },
+    {
+      "alert_id": "ALT-000150",
+      "case_id": null,
+      "provenance": "synthetic — internal",
+      "raised_at": "2026-08-24",
+      "subject_party": "AMLP-0095",
+      "trigger": "large_transaction_amount: wire_transfer transaction of $9,452.20 exceeds internal large-transaction threshold"
+    }
+  ],
+  "links": [
+    {
+      "alert_id": "ALT-000008",
+      "related_alert_id": "ALT-000005",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000008",
+      "related_alert_id": "ALT-000007",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000013",
+      "related_alert_id": "ALT-000008",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000033",
+      "related_alert_id": "ALT-000030",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000035",
+      "related_alert_id": "ALT-000013",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000035",
+      "related_alert_id": "ALT-000034",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000046",
+      "related_alert_id": "ALT-000035",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000048",
+      "related_alert_id": "ALT-000046",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000050",
+      "related_alert_id": "ALT-000014",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000054",
+      "related_alert_id": "ALT-000012",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000063",
+      "related_alert_id": "ALT-000002",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000065",
+      "related_alert_id": "ALT-000038",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000067",
+      "related_alert_id": "ALT-000042",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000073",
+      "related_alert_id": "ALT-000041",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000074",
+      "related_alert_id": "ALT-000022",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000076",
+      "related_alert_id": "ALT-000040",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000078",
+      "related_alert_id": "ALT-000021",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000080",
+      "related_alert_id": "ALT-000055",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000082",
+      "related_alert_id": "ALT-000057",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000085",
+      "related_alert_id": "ALT-000083",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000088",
+      "related_alert_id": "ALT-000033",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000089",
+      "related_alert_id": "ALT-000036",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000093",
+      "related_alert_id": "ALT-000053",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000094",
+      "related_alert_id": "ALT-000074",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000096",
+      "related_alert_id": "ALT-000049",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000097",
+      "related_alert_id": "ALT-000065",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000098",
+      "related_alert_id": "ALT-000070",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000099",
+      "related_alert_id": "ALT-000048",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000101",
+      "related_alert_id": "ALT-000051",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000102",
+      "related_alert_id": "ALT-000086",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000106",
+      "related_alert_id": "ALT-000019",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000111",
+      "related_alert_id": "ALT-000109",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000113",
+      "related_alert_id": "ALT-000075",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000114",
+      "related_alert_id": "ALT-000005",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000114",
+      "related_alert_id": "ALT-000110",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000118",
+      "related_alert_id": "ALT-000110",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000119",
+      "related_alert_id": "ALT-000097",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000123",
+      "related_alert_id": "ALT-000095",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000124",
+      "related_alert_id": "ALT-000054",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000131",
+      "related_alert_id": "ALT-000129",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000132",
+      "related_alert_id": "ALT-000060",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000139",
+      "related_alert_id": "ALT-000108",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000140",
+      "related_alert_id": "ALT-000079",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000142",
+      "related_alert_id": "ALT-000026",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000142",
+      "related_alert_id": "ALT-000138",
+      "relation": "same_case_prior_alert"
+    },
+    {
+      "alert_id": "ALT-000144",
+      "related_alert_id": "ALT-000084",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000145",
+      "related_alert_id": "ALT-000058",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000147",
+      "related_alert_id": "ALT-000100",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000148",
+      "related_alert_id": "ALT-000138",
+      "relation": "prior_alert_on_subject"
+    },
+    {
+      "alert_id": "ALT-000149",
+      "related_alert_id": "ALT-000028",
+      "relation": "prior_alert_on_subject"
+    }
+  ]
+}

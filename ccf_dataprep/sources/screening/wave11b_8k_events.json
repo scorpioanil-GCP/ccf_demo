@@ -1,0 +1,5041 @@
+{
+  "generated_at": "2026-08-24T19:57:41+00:00",
+  "source": "SEC EDGAR submissions index, `items` field, recent + shards",
+  "window": {
+    "start": "2024-08-19",
+    "end": "2026-08-19"
+  },
+  "events": [
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001104659-26-098363",
+      "filing_date": "2026-08-18",
+      "primary_document": "tm2623401d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "2.03",
+      "accession": "0001104659-26-098363",
+      "filing_date": "2026-08-18",
+      "primary_document": "tm2623401d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001104659-26-094863",
+      "filing_date": "2026-08-12",
+      "primary_document": "tm2622892d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "2.03",
+      "accession": "0001104659-26-094863",
+      "filing_date": "2026-08-12",
+      "primary_document": "tm2622892d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-26-000032",
+      "filing_date": "2026-05-19",
+      "primary_document": "chtr-20260515.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-26-000024",
+      "filing_date": "2026-04-23",
+      "primary_document": "chtr-20260421.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001140361-26-006730",
+      "filing_date": "2026-02-25",
+      "primary_document": "ef20066502_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-26-000011",
+      "filing_date": "2026-01-28",
+      "primary_document": "chtr-20260127.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-26-000006",
+      "filing_date": "2026-01-22",
+      "primary_document": "chtr-20260116.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001104659-26-003739",
+      "filing_date": "2026-01-14",
+      "primary_document": "tm263008d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "2.03",
+      "accession": "0001104659-26-003739",
+      "filing_date": "2026-01-14",
+      "primary_document": "tm263008d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-25-000174",
+      "filing_date": "2025-12-12",
+      "primary_document": "chtr-20251211.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-25-000171",
+      "filing_date": "2025-12-05",
+      "primary_document": "chtr-20251203.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001104659-25-086395",
+      "filing_date": "2025-09-02",
+      "primary_document": "tm2524701d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "2.03",
+      "accession": "0001104659-25-086395",
+      "filing_date": "2025-09-02",
+      "primary_document": "tm2524701d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-25-000158",
+      "filing_date": "2025-08-05",
+      "primary_document": "chtr-20250801.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001140361-25-019688",
+      "filing_date": "2025-05-19",
+      "primary_document": "ef20049261_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "5.02",
+      "accession": "0001091667-25-000100",
+      "filing_date": "2025-04-25",
+      "primary_document": "chtr-20250422.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001104659-24-126817",
+      "filing_date": "2024-12-09",
+      "primary_document": "tm2430518d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "2.03",
+      "accession": "0001104659-24-126817",
+      "filing_date": "2024-12-09",
+      "primary_document": "tm2430518d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "cik": 1091667,
+      "item": "1.01",
+      "accession": "0001140361-24-046322",
+      "filing_date": "2024-11-13",
+      "primary_document": "ny20038391x1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "1.01",
+      "accession": "0001213900-26-057808",
+      "filing_date": "2026-05-15",
+      "primary_document": "ea0291039-8k_bgc.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "2.03",
+      "accession": "0001213900-26-057808",
+      "filing_date": "2026-05-15",
+      "primary_document": "ea0291039-8k_bgc.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "1.01",
+      "accession": "0001213900-25-028059",
+      "filing_date": "2025-04-02",
+      "primary_document": "ea0236501-8k_bgc.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "2.03",
+      "accession": "0001213900-25-028059",
+      "filing_date": "2025-04-02",
+      "primary_document": "ea0236501-8k_bgc.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "5.02",
+      "accession": "0001213900-25-015309",
+      "filing_date": "2025-02-19",
+      "primary_document": "ea0231344-8k_bgc.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "1.01",
+      "accession": "0001213900-24-106514",
+      "filing_date": "2024-12-06",
+      "primary_document": "ea0223971-8k_bgcgroup.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "2.03",
+      "accession": "0001213900-24-106514",
+      "filing_date": "2024-12-06",
+      "primary_document": "ea0223971-8k_bgcgroup.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "cik": 1094831,
+      "item": "5.02",
+      "accession": "0001213900-24-101020",
+      "filing_date": "2024-11-21",
+      "primary_document": "ea0221899-8k_bgcgroup.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001193125-26-342358",
+      "filing_date": "2026-08-10",
+      "primary_document": "ahr-20260810.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "5.02",
+      "accession": "0001193125-26-312419",
+      "filing_date": "2026-07-22",
+      "primary_document": "ahr-20260720.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001193125-26-145647",
+      "filing_date": "2026-04-07",
+      "primary_document": "ahr-20260401.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "2.03",
+      "accession": "0001193125-26-145647",
+      "filing_date": "2026-04-07",
+      "primary_document": "ahr-20260401.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001193125-26-083247",
+      "filing_date": "2026-02-27",
+      "primary_document": "ahr-20260227.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "5.02",
+      "accession": "0001193125-26-037696",
+      "filing_date": "2026-02-04",
+      "primary_document": "ahr-20260203.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001632970-25-000063",
+      "filing_date": "2025-08-08",
+      "primary_document": "ahr-20250808.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "2.01",
+      "accession": "0001632970-25-000013",
+      "filing_date": "2025-02-27",
+      "primary_document": "ahr-20250227.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001632970-24-000125",
+      "filing_date": "2024-11-18",
+      "primary_document": "ahr-20241118.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "cik": 1632970,
+      "item": "1.01",
+      "accession": "0001632970-24-000106",
+      "filing_date": "2024-09-20",
+      "primary_document": "ahr-20240918.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "5.02",
+      "accession": "0001193125-26-285690",
+      "filing_date": "2026-06-26",
+      "primary_document": "d150040d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-26-097605",
+      "filing_date": "2026-03-09",
+      "primary_document": "d125190d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "2.03",
+      "accession": "0001193125-26-097605",
+      "filing_date": "2026-03-09",
+      "primary_document": "d125190d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-26-091667",
+      "filing_date": "2026-03-04",
+      "primary_document": "d57238d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-26-067390",
+      "filing_date": "2026-02-24",
+      "primary_document": "d100948d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-25-047270",
+      "filing_date": "2025-03-05",
+      "primary_document": "d870215d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "2.01",
+      "accession": "0001193125-25-047270",
+      "filing_date": "2025-03-05",
+      "primary_document": "d870215d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "5.02",
+      "accession": "0001193125-25-047270",
+      "filing_date": "2025-03-05",
+      "primary_document": "d870215d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-24-282025",
+      "filing_date": "2024-12-19",
+      "primary_document": "d875854d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-24-280500",
+      "filing_date": "2024-12-17",
+      "primary_document": "d796950d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "1.01",
+      "accession": "0001193125-24-275581",
+      "filing_date": "2024-12-11",
+      "primary_document": "d905433d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "cik": 1022321,
+      "item": "5.02",
+      "accession": "0001193125-24-260372",
+      "filing_date": "2024-11-18",
+      "primary_document": "d899510d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-26-288390",
+      "filing_date": "2026-06-29",
+      "primary_document": "d158696d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "2.03",
+      "accession": "0001193125-26-288390",
+      "filing_date": "2026-06-29",
+      "primary_document": "d158696d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "5.02",
+      "accession": "0001193125-26-183430",
+      "filing_date": "2026-04-28",
+      "primary_document": "d151739d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "5.02",
+      "accession": "0001193125-26-009895",
+      "filing_date": "2026-01-12",
+      "primary_document": "d37785d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-25-152694",
+      "filing_date": "2025-06-30",
+      "primary_document": "d18761d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "2.03",
+      "accession": "0001193125-25-152694",
+      "filing_date": "2025-06-30",
+      "primary_document": "d18761d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "5.02",
+      "accession": "0000950170-25-080567",
+      "filing_date": "2025-06-03",
+      "primary_document": "zbh-20250529.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "5.02",
+      "accession": "0001193125-25-126231",
+      "filing_date": "2025-05-27",
+      "primary_document": "d854072d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "5.02",
+      "accession": "0001193125-25-035147",
+      "filing_date": "2025-02-25",
+      "primary_document": "d911469d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-25-029614",
+      "filing_date": "2025-02-19",
+      "primary_document": "d888831d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "2.03",
+      "accession": "0001193125-25-029614",
+      "filing_date": "2025-02-19",
+      "primary_document": "d888831d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-25-028618",
+      "filing_date": "2025-02-18",
+      "primary_document": "d923280d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-25-014881",
+      "filing_date": "2025-01-29",
+      "primary_document": "d925673d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-24-262540",
+      "filing_date": "2024-11-20",
+      "primary_document": "d846153d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "2.03",
+      "accession": "0001193125-24-262540",
+      "filing_date": "2024-11-20",
+      "primary_document": "d846153d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "cik": 1136869,
+      "item": "1.01",
+      "accession": "0001193125-24-261733",
+      "filing_date": "2024-11-19",
+      "primary_document": "d903626d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "item": "5.02",
+      "accession": "0001193125-26-276749",
+      "filing_date": "2026-06-22",
+      "primary_document": "agys-20260622.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "item": "5.02",
+      "accession": "0000950170-24-135366",
+      "filing_date": "2024-12-11",
+      "primary_document": "agys-20241211.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "item": "1.01",
+      "accession": "0000950170-24-099141",
+      "filing_date": "2024-08-20",
+      "primary_document": "agys-20240816.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "item": "2.01",
+      "accession": "0000950170-24-099141",
+      "filing_date": "2024-08-20",
+      "primary_document": "agys-20240816.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "cik": 78749,
+      "item": "2.03",
+      "accession": "0000950170-24-099141",
+      "filing_date": "2024-08-20",
+      "primary_document": "agys-20240816.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-26-001951",
+      "filing_date": "2026-07-01",
+      "primary_document": "eh260800571_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-26-001951",
+      "filing_date": "2026-07-01",
+      "primary_document": "eh260800571_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-26-001753",
+      "filing_date": "2026-06-12",
+      "primary_document": "eh260791788_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-26-001753",
+      "filing_date": "2026-06-12",
+      "primary_document": "eh260791788_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "5.02",
+      "accession": "0000950142-26-001547",
+      "filing_date": "2026-05-29",
+      "primary_document": "eh260785427_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-26-001281",
+      "filing_date": "2026-05-05",
+      "primary_document": "eh260774368_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-26-001281",
+      "filing_date": "2026-05-05",
+      "primary_document": "eh260774368_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-26-000719",
+      "filing_date": "2026-03-13",
+      "primary_document": "eh260747683_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-26-000719",
+      "filing_date": "2026-03-13",
+      "primary_document": "eh260747683_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-26-000034",
+      "filing_date": "2026-01-05",
+      "primary_document": "eh260721539_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-26-000034",
+      "filing_date": "2026-01-05",
+      "primary_document": "eh260721539_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-25-002473",
+      "filing_date": "2025-09-19",
+      "primary_document": "eh250678706_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-25-002473",
+      "filing_date": "2025-09-19",
+      "primary_document": "eh250678706_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-25-002401",
+      "filing_date": "2025-09-08",
+      "primary_document": "eh250675621_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-25-001969",
+      "filing_date": "2025-07-21",
+      "primary_document": "eh250655388_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-25-001969",
+      "filing_date": "2025-07-21",
+      "primary_document": "eh250655388_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "5.02",
+      "accession": "0000950142-25-001591",
+      "filing_date": "2025-06-09",
+      "primary_document": "eh250639373_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-25-001547",
+      "filing_date": "2025-06-02",
+      "primary_document": "eh250634027_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-25-001547",
+      "filing_date": "2025-06-02",
+      "primary_document": "eh250634027_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0000950142-25-001273",
+      "filing_date": "2025-05-06",
+      "primary_document": "eh250623081_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0000950142-25-001273",
+      "filing_date": "2025-05-06",
+      "primary_document": "eh250623081_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "1.01",
+      "accession": "0001193125-25-024344",
+      "filing_date": "2025-02-11",
+      "primary_document": "d900527d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "2.03",
+      "accession": "0001193125-25-024344",
+      "filing_date": "2025-02-11",
+      "primary_document": "d900527d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "cik": 723612,
+      "item": "5.02",
+      "accession": "0000723612-25-000002",
+      "filing_date": "2025-02-11",
+      "primary_document": "car-20250210.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "5.02",
+      "accession": "0001193125-26-310277",
+      "filing_date": "2026-07-21",
+      "primary_document": "payx-20260716.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "1.01",
+      "accession": "0001193125-26-021794",
+      "filing_date": "2026-01-26",
+      "primary_document": "payx-20260123.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "2.03",
+      "accession": "0001193125-26-021794",
+      "filing_date": "2026-01-26",
+      "primary_document": "payx-20260123.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "5.02",
+      "accession": "0001193125-26-016044",
+      "filing_date": "2026-01-20",
+      "primary_document": "payx-20260116.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "5.02",
+      "accession": "0000950170-25-095576",
+      "filing_date": "2025-07-14",
+      "primary_document": "payx-20250708.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "5.02",
+      "accession": "0000950103-25-006123",
+      "filing_date": "2025-05-16",
+      "primary_document": "dp228939_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "2.01",
+      "accession": "0000950103-25-004790",
+      "filing_date": "2025-04-14",
+      "primary_document": "dp227639_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "cik": 723531,
+      "item": "1.01",
+      "accession": "0000950103-25-000267",
+      "filing_date": "2025-01-07",
+      "primary_document": "dp223210_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "1.01",
+      "accession": "0001104659-25-007267",
+      "filing_date": "2025-01-29",
+      "primary_document": "tm254690d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "5.02",
+      "accession": "0001104659-25-007267",
+      "filing_date": "2025-01-29",
+      "primary_document": "tm254690d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "1.01",
+      "accession": "0001104659-24-131067",
+      "filing_date": "2024-12-23",
+      "primary_document": "tm2431779d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "2.03",
+      "accession": "0001104659-24-131067",
+      "filing_date": "2024-12-23",
+      "primary_document": "tm2431779d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "2.04",
+      "accession": "0001104659-24-131067",
+      "filing_date": "2024-12-23",
+      "primary_document": "tm2431779d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "1.01",
+      "accession": "0001104659-24-108678",
+      "filing_date": "2024-10-15",
+      "primary_document": "tm2425789d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "2.03",
+      "accession": "0001104659-24-108678",
+      "filing_date": "2024-10-15",
+      "primary_document": "tm2425789d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "cik": 1411688,
+      "item": "1.01",
+      "accession": "0001104659-24-107207",
+      "filing_date": "2024-10-09",
+      "primary_document": "tm2425789d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-26-340356",
+      "filing_date": "2026-08-07",
+      "primary_document": "d133770d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.03",
+      "accession": "0001193125-26-340356",
+      "filing_date": "2026-08-07",
+      "primary_document": "d133770d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-26-232551",
+      "filing_date": "2026-05-20",
+      "primary_document": "d143612d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-26-230898",
+      "filing_date": "2026-05-19",
+      "primary_document": "d227959d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.03",
+      "accession": "0001193125-26-230898",
+      "filing_date": "2026-05-19",
+      "primary_document": "d227959d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-26-201375",
+      "filing_date": "2026-05-01",
+      "primary_document": "d136416d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-26-094301",
+      "filing_date": "2026-03-05",
+      "primary_document": "d87762d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-26-094301",
+      "filing_date": "2026-03-05",
+      "primary_document": "d87762d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-26-084293",
+      "filing_date": "2026-03-02",
+      "primary_document": "d253045d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-25-316195",
+      "filing_date": "2025-12-11",
+      "primary_document": "d55838d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.03",
+      "accession": "0001193125-25-316195",
+      "filing_date": "2025-12-11",
+      "primary_document": "d55838d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.01",
+      "accession": "0001193125-25-155872",
+      "filing_date": "2025-07-07",
+      "primary_document": "d10994d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-25-155872",
+      "filing_date": "2025-07-07",
+      "primary_document": "d10994d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-25-135052",
+      "filing_date": "2025-06-05",
+      "primary_document": "d13750d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.03",
+      "accession": "0001193125-25-135052",
+      "filing_date": "2025-06-05",
+      "primary_document": "d13750d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-25-100450",
+      "filing_date": "2025-04-28",
+      "primary_document": "d600432d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-25-094664",
+      "filing_date": "2025-04-25",
+      "primary_document": "d865521d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-25-021346",
+      "filing_date": "2025-02-06",
+      "primary_document": "d884796d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "1.01",
+      "accession": "0001193125-24-268887",
+      "filing_date": "2024-12-02",
+      "primary_document": "d868588d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "2.03",
+      "accession": "0001193125-24-268887",
+      "filing_date": "2024-12-02",
+      "primary_document": "d868588d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-24-237864",
+      "filing_date": "2024-10-16",
+      "primary_document": "d895939d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VKCYZW8GZ4WW58",
+      "cik": 1597033,
+      "item": "5.02",
+      "accession": "0001193125-24-213696",
+      "filing_date": "2024-09-05",
+      "primary_document": "d889875d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-055632",
+      "filing_date": "2026-05-05",
+      "primary_document": "tm2613382d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "5.02",
+      "accession": "0001104659-26-053522",
+      "filing_date": "2026-05-01",
+      "primary_document": "tm2613266d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-046064",
+      "filing_date": "2026-04-21",
+      "primary_document": "tm2612273d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "2.03",
+      "accession": "0001104659-26-046064",
+      "filing_date": "2026-04-21",
+      "primary_document": "tm2612273d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "4.01",
+      "accession": "0001104659-26-044420",
+      "filing_date": "2026-04-16",
+      "primary_document": "tm2611998d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "5.02",
+      "accession": "0001104659-26-043811",
+      "filing_date": "2026-04-15",
+      "primary_document": "tm2611809d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "2.01",
+      "accession": "0001104659-26-035301",
+      "filing_date": "2026-03-26",
+      "primary_document": "tm269894d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "5.02",
+      "accession": "0001104659-26-035301",
+      "filing_date": "2026-03-26",
+      "primary_document": "tm269894d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-033624",
+      "filing_date": "2026-03-24",
+      "primary_document": "tm267492d15_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-029952",
+      "filing_date": "2026-03-18",
+      "primary_document": "tm267491d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-026169",
+      "filing_date": "2026-03-11",
+      "primary_document": "tm267492d8_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-021051",
+      "filing_date": "2026-02-27",
+      "primary_document": "tm267491d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-26-008322",
+      "filing_date": "2026-01-30",
+      "primary_document": "tm2521156d11_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-25-124254",
+      "filing_date": "2025-12-23",
+      "primary_document": "tm2534122d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-25-102127",
+      "filing_date": "2025-10-24",
+      "primary_document": "tm2529311d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-25-095078",
+      "filing_date": "2025-09-30",
+      "primary_document": "tm2527543d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-25-061311",
+      "filing_date": "2025-06-23",
+      "primary_document": "tm2518511d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "1.01",
+      "accession": "0001104659-25-030585",
+      "filing_date": "2025-04-01",
+      "primary_document": "tm2511075d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900VN48L8QCMVPV36",
+      "cik": 727510,
+      "item": "5.02",
+      "accession": "0001104659-25-002591",
+      "filing_date": "2025-01-10",
+      "primary_document": "tm252980d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "2.01",
+      "accession": "0001104659-26-068666",
+      "filing_date": "2026-06-01",
+      "primary_document": "tm2616040d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "5.02",
+      "accession": "0001104659-26-068666",
+      "filing_date": "2026-06-01",
+      "primary_document": "tm2616040d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "1.01",
+      "accession": "0001104659-26-018826",
+      "filing_date": "2026-02-24",
+      "primary_document": "tm267070d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "1.01",
+      "accession": "0001104659-25-071742",
+      "filing_date": "2025-07-29",
+      "primary_document": "tm2521966d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "2.03",
+      "accession": "0001104659-25-071742",
+      "filing_date": "2025-07-29",
+      "primary_document": "tm2521966d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "5.02",
+      "accession": "0001489096-25-000101",
+      "filing_date": "2025-07-01",
+      "primary_document": "thr-20250701.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "5.02",
+      "accession": "0001489096-25-000028",
+      "filing_date": "2025-02-20",
+      "primary_document": "thr-20250217.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "529900ZNZBBLDE77MZ38",
+      "cik": 1489096,
+      "item": "5.02",
+      "accession": "0001489096-24-000156",
+      "filing_date": "2024-09-25",
+      "primary_document": "thr-20240919.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "2.03",
+      "accession": "0001437749-26-020684",
+      "filing_date": "2026-06-15",
+      "primary_document": "bomn20260615_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "1.01",
+      "accession": "0001437749-26-017511",
+      "filing_date": "2026-05-18",
+      "primary_document": "bomn20260515c_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "5.02",
+      "accession": "0001437749-26-007974",
+      "filing_date": "2026-03-12",
+      "primary_document": "bomn20260312_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "4.01",
+      "accession": "0001437749-25-020922",
+      "filing_date": "2025-06-20",
+      "primary_document": "bomn20250530c_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "5.02",
+      "accession": "0001437749-25-001301",
+      "filing_date": "2025-01-17",
+      "primary_document": "bomn20250116c_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "5.02",
+      "accession": "0001437749-24-038387",
+      "filing_date": "2024-12-26",
+      "primary_document": "bomn20241226_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "1.01",
+      "accession": "0001437749-24-029837",
+      "filing_date": "2024-09-23",
+      "primary_document": "bomn20240313_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "2.03",
+      "accession": "0001437749-24-029837",
+      "filing_date": "2024-09-23",
+      "primary_document": "bomn20240313_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930002FEWTYF4YFF19",
+      "cik": 1494582,
+      "item": "5.02",
+      "accession": "0001437749-24-029837",
+      "filing_date": "2024-09-23",
+      "primary_document": "bomn20240313_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "1.01",
+      "accession": "0000930413-26-002595",
+      "filing_date": "2026-08-19",
+      "primary_document": "c117477_8k-ixbrl.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "2.03",
+      "accession": "0000930413-26-002595",
+      "filing_date": "2026-08-19",
+      "primary_document": "c117477_8k-ixbrl.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "1.01",
+      "accession": "0001628280-26-055694",
+      "filing_date": "2026-08-11",
+      "primary_document": "gff-20260810.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "1.01",
+      "accession": "0001628280-26-052181",
+      "filing_date": "2026-08-04",
+      "primary_document": "gff-20260731.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "2.01",
+      "accession": "0001628280-26-052181",
+      "filing_date": "2026-08-04",
+      "primary_document": "gff-20260731.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000C2SGNC7ZN3242",
+      "cik": 50725,
+      "item": "1.01",
+      "accession": "0000930413-26-001842",
+      "filing_date": "2026-06-11",
+      "primary_document": "c116668_8k-ixbrl.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0000716643-26-000017",
+      "filing_date": "2026-04-15",
+      "primary_document": "rgs-20260410.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0000716643-26-000012",
+      "filing_date": "2026-03-16",
+      "primary_document": "rgs-20260313.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0001193125-25-144132",
+      "filing_date": "2025-06-23",
+      "primary_document": "d93839d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0001193125-25-015766",
+      "filing_date": "2025-01-29",
+      "primary_document": "d890118d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "1.01",
+      "accession": "0001104659-25-006534",
+      "filing_date": "2025-01-28",
+      "primary_document": "tm254536d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0000716643-25-000005",
+      "filing_date": "2025-01-24",
+      "primary_document": "rgs-20250121.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0000716643-25-000003",
+      "filing_date": "2025-01-15",
+      "primary_document": "rgs-20250110.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "1.01",
+      "accession": "0001193125-24-281618",
+      "filing_date": "2024-12-19",
+      "primary_document": "d761586d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "2.01",
+      "accession": "0001193125-24-281618",
+      "filing_date": "2024-12-19",
+      "primary_document": "d761586d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "2.03",
+      "accession": "0001193125-24-281618",
+      "filing_date": "2024-12-19",
+      "primary_document": "d761586d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0001193125-24-253151",
+      "filing_date": "2024-11-07",
+      "primary_document": "d862383d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000Q1S5TJIDIQH89",
+      "cik": 716643,
+      "item": "5.02",
+      "accession": "0001193125-24-204420",
+      "filing_date": "2024-08-21",
+      "primary_document": "d883622d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0001193125-26-161777",
+      "filing_date": "2026-04-17",
+      "primary_document": "hain-20260417.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "2.01",
+      "accession": "0001193125-26-091458",
+      "filing_date": "2026-03-04",
+      "primary_document": "hain-20260227.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "1.01",
+      "accession": "0001193125-26-032725",
+      "filing_date": "2026-02-02",
+      "primary_document": "hain-20260130.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0001193125-25-318435",
+      "filing_date": "2025-12-15",
+      "primary_document": "hain-20251212.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0001193125-25-265805",
+      "filing_date": "2025-11-05",
+      "primary_document": "hain-20251030.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0000950170-25-064989",
+      "filing_date": "2025-05-07",
+      "primary_document": "hain-20250503.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0000950170-24-121438",
+      "filing_date": "2024-11-05",
+      "primary_document": "hain-20241031.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000S8QXWHLIXDP75",
+      "cik": 910406,
+      "item": "5.02",
+      "accession": "0000950170-24-098274",
+      "filing_date": "2024-08-19",
+      "primary_document": "ck0000910406-20240813.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000TL30VL5WOAW87",
+      "cik": 1423221,
+      "item": "4.01",
+      "accession": "0001104659-26-004552",
+      "filing_date": "2026-01-16",
+      "primary_document": "tm263337d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000TL30VL5WOAW87",
+      "cik": 1423221,
+      "item": "5.02",
+      "accession": "0001104659-25-103181",
+      "filing_date": "2025-10-28",
+      "primary_document": "tm2529083d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493000TL30VL5WOAW87",
+      "cik": 1423221,
+      "item": "5.02",
+      "accession": "0001104659-25-100856",
+      "filing_date": "2025-10-20",
+      "primary_document": "tm2529083d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001193125-26-270430",
+      "filing_date": "2026-06-15",
+      "primary_document": "d151436d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001193125-26-269703",
+      "filing_date": "2026-06-12",
+      "primary_document": "d45696d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-26-000015",
+      "filing_date": "2026-05-18",
+      "primary_document": "smci-20260512.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-26-000012",
+      "filing_date": "2026-04-20",
+      "primary_document": "smci-20260415.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-26-000011",
+      "filing_date": "2026-03-20",
+      "primary_document": "smci-20260320.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-26-000005",
+      "filing_date": "2026-01-29",
+      "primary_document": "smci-20260126.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-26-000004",
+      "filing_date": "2026-01-26",
+      "primary_document": "smci-20260121.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-26-000001",
+      "filing_date": "2026-01-02",
+      "primary_document": "smci-20251229.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-25-000031",
+      "filing_date": "2025-12-29",
+      "primary_document": "smci-20251222.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-25-000022",
+      "filing_date": "2025-07-21",
+      "primary_document": "smci-20250716.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-25-000022",
+      "filing_date": "2025-07-21",
+      "primary_document": "smci-20250716.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-25-000020",
+      "filing_date": "2025-06-27",
+      "primary_document": "smci-20250623.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-25-000020",
+      "filing_date": "2025-06-27",
+      "primary_document": "smci-20250623.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-25-000016",
+      "filing_date": "2025-06-06",
+      "primary_document": "smci-20250604.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-25-000008",
+      "filing_date": "2025-03-31",
+      "primary_document": "smci-20250326.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-25-000003",
+      "filing_date": "2025-02-21",
+      "primary_document": "smci-20250220.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-25-000003",
+      "filing_date": "2025-02-21",
+      "primary_document": "smci-20250220.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-24-000044",
+      "filing_date": "2024-12-02",
+      "primary_document": "smci-20241127.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-24-000042",
+      "filing_date": "2024-11-20",
+      "primary_document": "smci-20241114.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-24-000042",
+      "filing_date": "2024-11-20",
+      "primary_document": "smci-20241114.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "4.01",
+      "accession": "0001375365-24-000040",
+      "filing_date": "2024-11-18",
+      "primary_document": "smci-20241118.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-24-000037",
+      "filing_date": "2024-11-01",
+      "primary_document": "smci-20241028.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-24-000037",
+      "filing_date": "2024-11-01",
+      "primary_document": "smci-20241028.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "4.01",
+      "accession": "0001375365-24-000036",
+      "filing_date": "2024-10-30",
+      "primary_document": "smci-20241024.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "1.01",
+      "accession": "0001375365-24-000035",
+      "filing_date": "2024-09-30",
+      "primary_document": "smci-20240927.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "2.03",
+      "accession": "0001375365-24-000035",
+      "filing_date": "2024-09-30",
+      "primary_document": "smci-20240927.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930022CZO1N2UGVW07",
+      "cik": 1375365,
+      "item": "5.02",
+      "accession": "0001375365-24-000029",
+      "filing_date": "2024-08-19",
+      "primary_document": "smci-20240815.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "5.02",
+      "accession": "0001104659-26-028564",
+      "filing_date": "2026-03-16",
+      "primary_document": "tm268839d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "5.02",
+      "accession": "0001104659-25-115184",
+      "filing_date": "2025-11-24",
+      "primary_document": "tm2531985d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "5.02",
+      "accession": "0001104659-25-076179",
+      "filing_date": "2025-08-11",
+      "primary_document": "tm2523131d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "1.01",
+      "accession": "0001104659-25-031884",
+      "filing_date": "2025-04-04",
+      "primary_document": "tm2511351d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "2.03",
+      "accession": "0001104659-25-031884",
+      "filing_date": "2025-04-04",
+      "primary_document": "tm2511351d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "1.01",
+      "accession": "0001104659-25-022405",
+      "filing_date": "2025-03-11",
+      "primary_document": "tm258733d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493002H8U24DJXQ4886",
+      "cik": 1046102,
+      "item": "5.02",
+      "accession": "0001104659-24-093774",
+      "filing_date": "2024-08-28",
+      "primary_document": "tm2422721d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "2.01",
+      "accession": "0001193125-26-009080",
+      "filing_date": "2026-01-09",
+      "primary_document": "d52082d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "5.02",
+      "accession": "0001193125-26-009080",
+      "filing_date": "2026-01-09",
+      "primary_document": "d52082d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "5.02",
+      "accession": "0001193125-25-297175",
+      "filing_date": "2025-11-25",
+      "primary_document": "d53216d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "1.01",
+      "accession": "0001193125-25-181880",
+      "filing_date": "2025-08-15",
+      "primary_document": "d927791d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "2.01",
+      "accession": "0001193125-25-181880",
+      "filing_date": "2025-08-15",
+      "primary_document": "d927791d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "2.03",
+      "accession": "0001193125-25-181880",
+      "filing_date": "2025-08-15",
+      "primary_document": "d927791d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003J7157VP25NL57",
+      "cik": 1593222,
+      "item": "1.01",
+      "accession": "0001193125-25-163765",
+      "filing_date": "2025-07-24",
+      "primary_document": "d923147d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "5.02",
+      "accession": "0001193125-26-306591",
+      "filing_date": "2026-07-17",
+      "primary_document": "d125510d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-26-296255",
+      "filing_date": "2026-07-06",
+      "primary_document": "d116740d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-26-085512",
+      "filing_date": "2026-03-02",
+      "primary_document": "d120263d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "2.03",
+      "accession": "0001193125-26-085512",
+      "filing_date": "2026-03-02",
+      "primary_document": "d120263d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-25-277756",
+      "filing_date": "2025-11-12",
+      "primary_document": "d741261d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "2.03",
+      "accession": "0001193125-25-277756",
+      "filing_date": "2025-11-12",
+      "primary_document": "d741261d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "5.02",
+      "accession": "0001193125-25-174533",
+      "filing_date": "2025-08-06",
+      "primary_document": "d71719d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-25-166471",
+      "filing_date": "2025-07-28",
+      "primary_document": "d73869d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-25-142743",
+      "filing_date": "2025-06-18",
+      "primary_document": "d934630d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "2.03",
+      "accession": "0001193125-25-142743",
+      "filing_date": "2025-06-18",
+      "primary_document": "d934630d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-25-039300",
+      "filing_date": "2025-02-27",
+      "primary_document": "d154736d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "2.03",
+      "accession": "0001193125-25-039300",
+      "filing_date": "2025-02-27",
+      "primary_document": "d154736d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "5.02",
+      "accession": "0001193125-25-030752",
+      "filing_date": "2025-02-20",
+      "primary_document": "d837589d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493003QENHHS261UR94",
+      "cik": 1389170,
+      "item": "1.01",
+      "accession": "0001193125-24-207797",
+      "filing_date": "2024-08-27",
+      "primary_document": "d890212d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "2.01",
+      "accession": "0001193125-26-008327",
+      "filing_date": "2026-01-09",
+      "primary_document": "d33443d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "5.02",
+      "accession": "0001193125-26-008327",
+      "filing_date": "2026-01-09",
+      "primary_document": "d33443d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "1.01",
+      "accession": "0001193125-25-210057",
+      "filing_date": "2025-09-22",
+      "primary_document": "d26146d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "1.01",
+      "accession": "0001398987-25-000100",
+      "filing_date": "2025-06-27",
+      "primary_document": "hous-20250626.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "2.03",
+      "accession": "0001398987-25-000100",
+      "filing_date": "2025-06-27",
+      "primary_document": "hous-20250626.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "5.02",
+      "accession": "0001398987-25-000066",
+      "filing_date": "2025-05-07",
+      "primary_document": "hous-20250507.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004HBTOTE9DI9P12",
+      "cik": 1398987,
+      "item": "1.01",
+      "accession": "0001398987-25-000053",
+      "filing_date": "2025-04-01",
+      "primary_document": "hous-20250401.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "1.01",
+      "accession": "0001193125-25-182690",
+      "filing_date": "2025-08-18",
+      "primary_document": "d927672d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "2.03",
+      "accession": "0001193125-25-182690",
+      "filing_date": "2025-08-18",
+      "primary_document": "d927672d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "5.02",
+      "accession": "0001193125-25-111639",
+      "filing_date": "2025-05-02",
+      "primary_document": "d943170d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "5.02",
+      "accession": "0001193125-25-008411",
+      "filing_date": "2025-01-17",
+      "primary_document": "d856840d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "1.01",
+      "accession": "0001193125-24-233102",
+      "filing_date": "2024-10-04",
+      "primary_document": "d896305d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "2.03",
+      "accession": "0001193125-24-233102",
+      "filing_date": "2024-10-04",
+      "primary_document": "d896305d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004PFHUPOR1PWN79",
+      "cik": 1092796,
+      "item": "4.01",
+      "accession": "0001193125-24-222905",
+      "filing_date": "2024-09-20",
+      "primary_document": "d824116d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "5.02",
+      "accession": "0001474098-26-000046",
+      "filing_date": "2026-06-02",
+      "primary_document": "peb-20260529.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-26-000011",
+      "filing_date": "2026-02-13",
+      "primary_document": "peb-20260211.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "2.03",
+      "accession": "0001474098-26-000011",
+      "filing_date": "2026-02-13",
+      "primary_document": "peb-20260211.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "5.02",
+      "accession": "0001474098-26-000007",
+      "filing_date": "2026-02-09",
+      "primary_document": "peb-20260205.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "5.02",
+      "accession": "0001474098-26-000006",
+      "filing_date": "2026-02-09",
+      "primary_document": "peb-20260205.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-25-000129",
+      "filing_date": "2025-09-22",
+      "primary_document": "peb-20250916.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "2.03",
+      "accession": "0001474098-25-000129",
+      "filing_date": "2025-09-22",
+      "primary_document": "peb-20250916.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-25-000093",
+      "filing_date": "2025-05-23",
+      "primary_document": "peb-20250523.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "5.02",
+      "accession": "0001474098-25-000033",
+      "filing_date": "2025-02-11",
+      "primary_document": "peb-20250207.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-24-000130",
+      "filing_date": "2024-11-04",
+      "primary_document": "peb-20241101.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "2.03",
+      "accession": "0001474098-24-000130",
+      "filing_date": "2024-11-04",
+      "primary_document": "peb-20241101.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-24-000120",
+      "filing_date": "2024-10-03",
+      "primary_document": "peb-20241003.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493004Q1NNH6JXCSI52",
+      "cik": 1474098,
+      "item": "1.01",
+      "accession": "0001474098-24-000113",
+      "filing_date": "2024-09-23",
+      "primary_document": "peb-20240918.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493005IZFE4VJLLYG84",
+      "cik": 89439,
+      "item": "5.02",
+      "accession": "0000089439-26-000036",
+      "filing_date": "2026-08-10",
+      "primary_document": "mli-20260806.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493005IZFE4VJLLYG84",
+      "cik": 89439,
+      "item": "1.01",
+      "accession": "0000089439-26-000012",
+      "filing_date": "2026-03-30",
+      "primary_document": "mli-20260327.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493005IZFE4VJLLYG84",
+      "cik": 89439,
+      "item": "2.03",
+      "accession": "0000089439-26-000012",
+      "filing_date": "2026-03-30",
+      "primary_document": "mli-20260327.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "5493005IZFE4VJLLYG84",
+      "cik": 89439,
+      "item": "5.02",
+      "accession": "0000089439-25-000037",
+      "filing_date": "2025-06-10",
+      "primary_document": "mli-20250610.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "5.02",
+      "accession": "0001104659-26-086807",
+      "filing_date": "2026-07-27",
+      "primary_document": "tm2616097d3_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "1.01",
+      "accession": "0001104659-26-068522",
+      "filing_date": "2026-06-01",
+      "primary_document": "tm2616097d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "2.03",
+      "accession": "0001104659-26-068522",
+      "filing_date": "2026-06-01",
+      "primary_document": "tm2616097d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "5.02",
+      "accession": "0001104659-26-066258",
+      "filing_date": "2026-05-26",
+      "primary_document": "tm2615563d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "5.02",
+      "accession": "0001104659-25-120856",
+      "filing_date": "2025-12-15",
+      "primary_document": "tm2533455d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "1.01",
+      "accession": "0001104659-25-017441",
+      "filing_date": "2025-02-26",
+      "primary_document": "tm257583d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "54930096DB9LCLPN7H13",
+      "cik": 1166003,
+      "item": "2.03",
+      "accession": "0001104659-25-017441",
+      "filing_date": "2025-02-26",
+      "primary_document": "tm257583d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "1.01",
+      "accession": "0001628280-26-026827",
+      "filing_date": "2026-04-23",
+      "primary_document": "apps-20260420.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "5.02",
+      "accession": "0001628280-25-050680",
+      "filing_date": "2025-11-07",
+      "primary_document": "apps-20251105.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "1.01",
+      "accession": "0001140361-25-033513",
+      "filing_date": "2025-09-02",
+      "primary_document": "ef20054891_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "2.03",
+      "accession": "0001140361-25-033513",
+      "filing_date": "2025-09-02",
+      "primary_document": "ef20054891_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "1.01",
+      "accession": "0001628280-25-037955",
+      "filing_date": "2025-08-05",
+      "primary_document": "apps-20250805.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "5.02",
+      "accession": "0001628280-25-028361",
+      "filing_date": "2025-05-29",
+      "primary_document": "apps-20250523.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "5.02",
+      "accession": "0001628280-25-004027",
+      "filing_date": "2025-02-05",
+      "primary_document": "apps-20250205.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D0WZR1VI2QGB24",
+      "cik": 317788,
+      "item": "5.02",
+      "accession": "0001628280-24-038529",
+      "filing_date": "2024-08-27",
+      "primary_document": "apps-20240827.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-26-059404",
+      "filing_date": "2026-05-12",
+      "primary_document": "tm2613386d5_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-26-059404",
+      "filing_date": "2026-05-12",
+      "primary_document": "tm2613386d5_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-26-055888",
+      "filing_date": "2026-05-06",
+      "primary_document": "tm2613386d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-26-036361",
+      "filing_date": "2026-03-30",
+      "primary_document": "tm2610090d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-26-036361",
+      "filing_date": "2026-03-30",
+      "primary_document": "tm2610090d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-26-033968",
+      "filing_date": "2026-03-24",
+      "primary_document": "tm267510d9_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "5.02",
+      "accession": "0001104659-26-010676",
+      "filing_date": "2026-02-05",
+      "primary_document": "tm265098d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.01",
+      "accession": "0001104659-26-002737",
+      "filing_date": "2026-01-12",
+      "primary_document": "tm262701d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "5.02",
+      "accession": "0001104659-26-002183",
+      "filing_date": "2026-01-08",
+      "primary_document": "tm262604d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-109222",
+      "filing_date": "2025-11-10",
+      "primary_document": "tm2529234d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-25-109222",
+      "filing_date": "2025-11-10",
+      "primary_document": "tm2529234d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-102852",
+      "filing_date": "2025-10-28",
+      "primary_document": "tm2529596d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-082531",
+      "filing_date": "2025-08-25",
+      "primary_document": "tm2524235d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-25-082531",
+      "filing_date": "2025-08-25",
+      "primary_document": "tm2524235d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-059845",
+      "filing_date": "2025-06-16",
+      "primary_document": "tm2517691d3_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-25-059845",
+      "filing_date": "2025-06-16",
+      "primary_document": "tm2517691d3_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-058878",
+      "filing_date": "2025-06-12",
+      "primary_document": "tm2517691d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-25-058878",
+      "filing_date": "2025-06-12",
+      "primary_document": "tm2517691d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-058662",
+      "filing_date": "2025-06-12",
+      "primary_document": "tm2517691d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-25-057954",
+      "filing_date": "2025-06-10",
+      "primary_document": "tm2517484d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "5.02",
+      "accession": "0001104659-25-048479",
+      "filing_date": "2025-05-14",
+      "primary_document": "tm2515117d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-24-113098",
+      "filing_date": "2024-10-31",
+      "primary_document": "tm2427206d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "2.03",
+      "accession": "0001104659-24-113098",
+      "filing_date": "2024-10-31",
+      "primary_document": "tm2427206d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300D3L3G0R4U4VT04",
+      "cik": 820313,
+      "item": "1.01",
+      "accession": "0001104659-24-111959",
+      "filing_date": "2024-10-29",
+      "primary_document": "tm2426831d4_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "1.01",
+      "accession": "0001300514-26-000070",
+      "filing_date": "2026-05-13",
+      "primary_document": "lvs-20260513.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "2.03",
+      "accession": "0001300514-26-000070",
+      "filing_date": "2026-05-13",
+      "primary_document": "lvs-20260513.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "5.02",
+      "accession": "0001300514-26-000021",
+      "filing_date": "2026-03-05",
+      "primary_document": "lvs-20260303.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "5.02",
+      "accession": "0001300514-26-000017",
+      "filing_date": "2026-02-13",
+      "primary_document": "lvs-20260212.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "1.01",
+      "accession": "0001300514-25-000109",
+      "filing_date": "2025-05-06",
+      "primary_document": "lvs-20250506.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "2.03",
+      "accession": "0001300514-25-000109",
+      "filing_date": "2025-05-06",
+      "primary_document": "lvs-20250506.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "5.02",
+      "accession": "0001300514-25-000056",
+      "filing_date": "2025-03-11",
+      "primary_document": "lvs-20250311.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "5.02",
+      "accession": "0001193125-25-048432",
+      "filing_date": "2025-03-06",
+      "primary_document": "d924233d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "1.01",
+      "accession": "0001300514-25-000049",
+      "filing_date": "2025-02-24",
+      "primary_document": "lvs-20250218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "2.03",
+      "accession": "0001300514-25-000049",
+      "filing_date": "2025-02-24",
+      "primary_document": "lvs-20250218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "5.02",
+      "accession": "0001300514-25-000006",
+      "filing_date": "2025-01-27",
+      "primary_document": "lvs-20250127.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "1.01",
+      "accession": "0001300514-25-000003",
+      "filing_date": "2025-01-10",
+      "primary_document": "lvs-20250108.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "1.01",
+      "accession": "0001300514-24-000129",
+      "filing_date": "2024-10-23",
+      "primary_document": "lvs-20241023.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300DUOO1KXOHPM605",
+      "cik": 1300514,
+      "item": "2.03",
+      "accession": "0001300514-24-000129",
+      "filing_date": "2024-10-23",
+      "primary_document": "lvs-20241023.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0001193125-26-116245",
+      "filing_date": "2026-03-19",
+      "primary_document": "d80652d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "5.02",
+      "accession": "0001193125-26-061645",
+      "filing_date": "2026-02-20",
+      "primary_document": "ck0001585389-20260219.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0001193125-26-057425",
+      "filing_date": "2026-02-18",
+      "primary_document": "ck0001585389-20260218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "2.03",
+      "accession": "0001193125-26-057425",
+      "filing_date": "2026-02-18",
+      "primary_document": "ck0001585389-20260218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0001193125-25-215411",
+      "filing_date": "2025-09-24",
+      "primary_document": "ck0001585389-20250924.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "2.03",
+      "accession": "0001193125-25-215411",
+      "filing_date": "2025-09-24",
+      "primary_document": "ck0001585389-20250924.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "5.02",
+      "accession": "0000950170-25-094212",
+      "filing_date": "2025-07-07",
+      "primary_document": "ck0001585389-20250630.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0001193125-25-141463",
+      "filing_date": "2025-06-16",
+      "primary_document": "d101110d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "2.03",
+      "accession": "0001193125-25-141463",
+      "filing_date": "2025-06-16",
+      "primary_document": "d101110d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0001193125-25-072350",
+      "filing_date": "2025-04-03",
+      "primary_document": "d861664d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "5.02",
+      "accession": "0001193125-25-072350",
+      "filing_date": "2025-04-03",
+      "primary_document": "d861664d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "1.01",
+      "accession": "0000950170-24-130463",
+      "filing_date": "2024-11-25",
+      "primary_document": "ck0001585389-20241119.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EC266625K12S42",
+      "cik": 1585389,
+      "item": "2.03",
+      "accession": "0000950170-24-130463",
+      "filing_date": "2024-11-25",
+      "primary_document": "ck0001585389-20241119.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-26-000046",
+      "filing_date": "2026-07-24",
+      "primary_document": "tdg-20260722.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-26-161564",
+      "filing_date": "2026-04-17",
+      "primary_document": "d108525d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-26-161564",
+      "filing_date": "2026-04-17",
+      "primary_document": "d108525d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-26-051416",
+      "filing_date": "2026-02-13",
+      "primary_document": "d83933d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-26-051416",
+      "filing_date": "2026-02-13",
+      "primary_document": "d83933d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000068",
+      "filing_date": "2025-10-23",
+      "primary_document": "tdg-20251023.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000063",
+      "filing_date": "2025-10-03",
+      "primary_document": "tdg-20251001.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000061",
+      "filing_date": "2025-10-01",
+      "primary_document": "tdg-20251001.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-25-206768",
+      "filing_date": "2025-09-18",
+      "primary_document": "d12406d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-25-206768",
+      "filing_date": "2025-09-18",
+      "primary_document": "d12406d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-25-183753",
+      "filing_date": "2025-08-20",
+      "primary_document": "d49796d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-25-183753",
+      "filing_date": "2025-08-20",
+      "primary_document": "d49796d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000050",
+      "filing_date": "2025-08-05",
+      "primary_document": "tdg-20250805.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000042",
+      "filing_date": "2025-07-25",
+      "primary_document": "tdg-20250725.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000039",
+      "filing_date": "2025-07-09",
+      "primary_document": "tdg-20250707.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-25-123144",
+      "filing_date": "2025-05-20",
+      "primary_document": "d43283d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-25-123144",
+      "filing_date": "2025-05-20",
+      "primary_document": "d43283d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "5.02",
+      "accession": "0001260221-25-000025",
+      "filing_date": "2025-05-06",
+      "primary_document": "tdg-20250506.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "1.01",
+      "accession": "0001193125-24-222468",
+      "filing_date": "2024-09-20",
+      "primary_document": "d887611d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EQD0ZXRSMG3549",
+      "cik": 1260221,
+      "item": "2.03",
+      "accession": "0001193125-24-222468",
+      "filing_date": "2024-09-20",
+      "primary_document": "d887611d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "2.01",
+      "accession": "0001140361-26-019333",
+      "filing_date": "2026-05-06",
+      "primary_document": "ef20070245_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "5.02",
+      "accession": "0001140361-26-019333",
+      "filing_date": "2026-05-06",
+      "primary_document": "ef20070245_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "1.01",
+      "accession": "0001140361-26-003102",
+      "filing_date": "2026-02-02",
+      "primary_document": "ef20064511_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "5.02",
+      "accession": "0001140361-25-020770",
+      "filing_date": "2025-05-29",
+      "primary_document": "ef20049851_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "1.01",
+      "accession": "0001140361-24-045133",
+      "filing_date": "2024-11-04",
+      "primary_document": "ef20038082_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "2.01",
+      "accession": "0001140361-24-045133",
+      "filing_date": "2024-11-04",
+      "primary_document": "ef20038082_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "1.01",
+      "accession": "0001140361-24-045132",
+      "filing_date": "2024-11-04",
+      "primary_document": "ef20038084_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "2.03",
+      "accession": "0001140361-24-045132",
+      "filing_date": "2024-11-04",
+      "primary_document": "ef20038084_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300EZQXWQI2YL1T80",
+      "cik": 1600626,
+      "item": "5.02",
+      "accession": "0001140361-24-045132",
+      "filing_date": "2024-11-04",
+      "primary_document": "ef20038084_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300F1Y3LN5BX5WN75",
+      "cik": 105016,
+      "item": "5.02",
+      "accession": "0001193125-24-259823",
+      "filing_date": "2024-11-15",
+      "primary_document": "d858327d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "5.02",
+      "accession": "0001590895-26-000024",
+      "filing_date": "2026-07-08",
+      "primary_document": "czr-20260706.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "1.01",
+      "accession": "0001193125-26-242995",
+      "filing_date": "2026-05-28",
+      "primary_document": "d143382d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "5.02",
+      "accession": "0001590895-25-000132",
+      "filing_date": "2025-12-03",
+      "primary_document": "czr-20251203.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "1.01",
+      "accession": "0001590895-25-000113",
+      "filing_date": "2025-05-02",
+      "primary_document": "czr-20250502.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "1.01",
+      "accession": "0001590895-25-000104",
+      "filing_date": "2025-03-20",
+      "primary_document": "czr-20250319.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "5.02",
+      "accession": "0001590895-25-000104",
+      "filing_date": "2025-03-20",
+      "primary_document": "czr-20250319.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "1.01",
+      "accession": "0001193125-24-265157",
+      "filing_date": "2024-11-25",
+      "primary_document": "d858083d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "2.03",
+      "accession": "0001193125-24-265157",
+      "filing_date": "2024-11-25",
+      "primary_document": "d858083d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "5.02",
+      "accession": "0001590895-24-000131",
+      "filing_date": "2024-10-21",
+      "primary_document": "czr-20241021.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "1.01",
+      "accession": "0001193125-24-238882",
+      "filing_date": "2024-10-17",
+      "primary_document": "d877683d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FA4CTCW903Y781",
+      "cik": 1590895,
+      "item": "2.03",
+      "accession": "0001193125-24-238882",
+      "filing_date": "2024-10-17",
+      "primary_document": "d877683d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001104659-26-090359",
+      "filing_date": "2026-08-04",
+      "primary_document": "tm2622089d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001104659-26-090359",
+      "filing_date": "2026-08-04",
+      "primary_document": "tm2622089d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001306830-26-000072",
+      "filing_date": "2026-04-20",
+      "primary_document": "ce-20260416.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001306830-26-000046",
+      "filing_date": "2026-03-04",
+      "primary_document": "ce-20260227.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001306830-26-000003",
+      "filing_date": "2026-01-06",
+      "primary_document": "ce-20260104.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001628280-25-057638",
+      "filing_date": "2025-12-17",
+      "primary_document": "ce-20251217.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001628280-25-057638",
+      "filing_date": "2025-12-17",
+      "primary_document": "ce-20251217.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001628280-25-055376",
+      "filing_date": "2025-12-04",
+      "primary_document": "ce-20251203.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001104659-25-076253",
+      "filing_date": "2025-08-11",
+      "primary_document": "tm2523061d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001104659-25-076253",
+      "filing_date": "2025-08-11",
+      "primary_document": "tm2523061d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001628280-25-012811",
+      "filing_date": "2025-03-14",
+      "primary_document": "ce-20250314.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001628280-25-012811",
+      "filing_date": "2025-03-14",
+      "primary_document": "ce-20250314.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001628280-25-011374",
+      "filing_date": "2025-03-07",
+      "primary_document": "ce-20250306.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001104659-25-014755",
+      "filing_date": "2025-02-18",
+      "primary_document": "tm256799d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001104659-25-014755",
+      "filing_date": "2025-02-18",
+      "primary_document": "tm256799d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001104659-25-013554",
+      "filing_date": "2025-02-14",
+      "primary_document": "tm256247d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001104659-25-004122",
+      "filing_date": "2025-01-16",
+      "primary_document": "tm253594d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001306830-24-000197",
+      "filing_date": "2024-12-19",
+      "primary_document": "ce-20241219.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001104659-24-128023",
+      "filing_date": "2024-12-12",
+      "primary_document": "tm2430529d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001104659-24-126774",
+      "filing_date": "2024-12-09",
+      "primary_document": "tm2430529d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "1.01",
+      "accession": "0001104659-24-113884",
+      "filing_date": "2024-11-04",
+      "primary_document": "tm2427374d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "2.03",
+      "accession": "0001104659-24-113884",
+      "filing_date": "2024-11-04",
+      "primary_document": "tm2427374d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300FHJQTDPPN41627",
+      "cik": 1306830,
+      "item": "5.02",
+      "accession": "0001306830-24-000170",
+      "filing_date": "2024-09-06",
+      "primary_document": "ce-20240906.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "2.01",
+      "accession": "0001574085-26-000132",
+      "filing_date": "2026-08-17",
+      "primary_document": "bhr-20260812.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000116",
+      "filing_date": "2026-07-17",
+      "primary_document": "bhr-20260713.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "2.01",
+      "accession": "0001574085-26-000116",
+      "filing_date": "2026-07-17",
+      "primary_document": "bhr-20260713.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000098",
+      "filing_date": "2026-06-10",
+      "primary_document": "bhr-20260604.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "2.01",
+      "accession": "0001574085-26-000093",
+      "filing_date": "2026-06-01",
+      "primary_document": "bhr-20260526.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001104659-26-067124",
+      "filing_date": "2026-05-28",
+      "primary_document": "tm2615845d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000087",
+      "filing_date": "2026-05-22",
+      "primary_document": "bhr-20260521.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000068",
+      "filing_date": "2026-04-30",
+      "primary_document": "bhr-20260427.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000054",
+      "filing_date": "2026-04-03",
+      "primary_document": "bhr-20260331.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-26-000045",
+      "filing_date": "2026-03-17",
+      "primary_document": "bhr-20260313.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-26-000045",
+      "filing_date": "2026-03-17",
+      "primary_document": "bhr-20260313.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001104659-26-024437",
+      "filing_date": "2026-03-06",
+      "primary_document": "tm268205d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-26-000018",
+      "filing_date": "2026-02-25",
+      "primary_document": "bhr-20260220.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001104659-25-124212",
+      "filing_date": "2025-12-23",
+      "primary_document": "tm2534123d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "2.01",
+      "accession": "0001574085-25-000121",
+      "filing_date": "2025-11-07",
+      "primary_document": "bhr-20251106.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001104659-25-100397",
+      "filing_date": "2025-10-17",
+      "primary_document": "tm2528936d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-25-000102",
+      "filing_date": "2025-10-07",
+      "primary_document": "bhr-20251006.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001104659-25-083118",
+      "filing_date": "2025-08-26",
+      "primary_document": "tm2524362d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001104659-25-082767",
+      "filing_date": "2025-08-26",
+      "primary_document": "tm2524363d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "2.01",
+      "accession": "0001574085-25-000091",
+      "filing_date": "2025-08-11",
+      "primary_document": "bhr-20250807.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "1.01",
+      "accession": "0001574085-25-000066",
+      "filing_date": "2025-07-08",
+      "primary_document": "bhr-20250703.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-25-000057",
+      "filing_date": "2025-06-06",
+      "primary_document": "bhr-20250602.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-25-000055",
+      "filing_date": "2025-05-23",
+      "primary_document": "bhr-20250522.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-25-000032",
+      "filing_date": "2025-04-07",
+      "primary_document": "bhr-20250401.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-24-000234",
+      "filing_date": "2024-12-31",
+      "primary_document": "bhr-20241230.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-24-000230",
+      "filing_date": "2024-12-20",
+      "primary_document": "bhr-20241217.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300JDUUEBN868C776",
+      "cik": 1574085,
+      "item": "5.02",
+      "accession": "0001574085-24-000211",
+      "filing_date": "2024-10-07",
+      "primary_document": "bhr-20241004.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "1.01",
+      "accession": "0001193125-26-088484",
+      "filing_date": "2026-03-03",
+      "primary_document": "d105148d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "2.03",
+      "accession": "0001193125-26-088484",
+      "filing_date": "2026-03-03",
+      "primary_document": "d105148d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "2.01",
+      "accession": "0001674101-25-000031",
+      "filing_date": "2025-12-05",
+      "primary_document": "vrt-20251204.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "1.01",
+      "accession": "0001193125-25-261623",
+      "filing_date": "2025-11-03",
+      "primary_document": "d10924d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "5.02",
+      "accession": "0001628280-25-044836",
+      "filing_date": "2025-10-14",
+      "primary_document": "vrt-20251013.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "1.01",
+      "accession": "0001193125-25-178982",
+      "filing_date": "2025-08-12",
+      "primary_document": "d25970d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "2.03",
+      "accession": "0001193125-25-178982",
+      "filing_date": "2025-08-12",
+      "primary_document": "d25970d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "5.02",
+      "accession": "0001628280-25-028038",
+      "filing_date": "2025-05-28",
+      "primary_document": "vrt-20250521.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "5.02",
+      "accession": "0001193125-25-022808",
+      "filing_date": "2025-02-07",
+      "primary_document": "d934950d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "1.01",
+      "accession": "0001193125-24-278680",
+      "filing_date": "2024-12-13",
+      "primary_document": "d863923d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "2.03",
+      "accession": "0001193125-24-278680",
+      "filing_date": "2024-12-13",
+      "primary_document": "d863923d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "1.01",
+      "accession": "0001193125-24-256070",
+      "filing_date": "2024-11-12",
+      "primary_document": "d901217d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300KTTIRAOGXCRV69",
+      "cik": 1674101,
+      "item": "2.03",
+      "accession": "0001193125-24-256070",
+      "filing_date": "2024-11-12",
+      "primary_document": "d901217d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "5.02",
+      "accession": "0000861459-26-000034",
+      "filing_date": "2026-08-07",
+      "primary_document": "gva-20260805.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "1.01",
+      "accession": "0000861459-26-000032",
+      "filing_date": "2026-08-04",
+      "primary_document": "gva-20260804.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "1.01",
+      "accession": "0001437749-26-019166",
+      "filing_date": "2026-06-02",
+      "primary_document": "gva20260601_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "2.03",
+      "accession": "0001437749-26-019166",
+      "filing_date": "2026-06-02",
+      "primary_document": "gva20260601_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "1.01",
+      "accession": "0000861459-26-000006",
+      "filing_date": "2026-02-18",
+      "primary_document": "gva-20260218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "5.02",
+      "accession": "0000861459-25-000043",
+      "filing_date": "2025-09-08",
+      "primary_document": "gva-20250908.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "1.01",
+      "accession": "0000861459-25-000037",
+      "filing_date": "2025-08-06",
+      "primary_document": "gva-20250805.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "2.03",
+      "accession": "0000861459-25-000037",
+      "filing_date": "2025-08-06",
+      "primary_document": "gva-20250805.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "5.02",
+      "accession": "0000861459-25-000023",
+      "filing_date": "2025-05-16",
+      "primary_document": "gva-20250516.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OM4BWMCIXVCZ39",
+      "cik": 861459,
+      "item": "5.02",
+      "accession": "0000861459-24-000037",
+      "filing_date": "2024-09-16",
+      "primary_document": "gva-20240916.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OUUC900EVOGX10",
+      "cik": 1538849,
+      "item": "5.02",
+      "accession": "0001193125-26-310448",
+      "filing_date": "2026-07-21",
+      "primary_document": "capl-20260720.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OUUC900EVOGX10",
+      "cik": 1538849,
+      "item": "1.01",
+      "accession": "0001193125-26-306100",
+      "filing_date": "2026-07-16",
+      "primary_document": "capl-20260715.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OUUC900EVOGX10",
+      "cik": 1538849,
+      "item": "5.02",
+      "accession": "0001193125-26-085660",
+      "filing_date": "2026-03-02",
+      "primary_document": "capl-20260302.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OUUC900EVOGX10",
+      "cik": 1538849,
+      "item": "5.02",
+      "accession": "0001193125-25-230438",
+      "filing_date": "2025-10-03",
+      "primary_document": "capl-20250929.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300OUUC900EVOGX10",
+      "cik": 1538849,
+      "item": "5.02",
+      "accession": "0000950170-25-097994",
+      "filing_date": "2025-07-24",
+      "primary_document": "capl-20250723.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "1.01",
+      "accession": "0001193125-26-354111",
+      "filing_date": "2026-08-17",
+      "primary_document": "d299977d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "2.03",
+      "accession": "0001193125-26-354111",
+      "filing_date": "2026-08-17",
+      "primary_document": "d299977d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "1.01",
+      "accession": "0001193125-26-342507",
+      "filing_date": "2026-08-10",
+      "primary_document": "d165744d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "5.02",
+      "accession": "0000015615-26-000095",
+      "filing_date": "2026-07-30",
+      "primary_document": "mtz-20260724.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "2.03",
+      "accession": "0001193125-26-309077",
+      "filing_date": "2026-07-20",
+      "primary_document": "d123535d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "1.01",
+      "accession": "0001193125-26-297552",
+      "filing_date": "2026-07-07",
+      "primary_document": "d77261d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "2.03",
+      "accession": "0001193125-26-297552",
+      "filing_date": "2026-07-07",
+      "primary_document": "d77261d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "5.02",
+      "accession": "0001193125-26-297552",
+      "filing_date": "2026-07-07",
+      "primary_document": "d77261d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "1.01",
+      "accession": "0001193125-25-151280",
+      "filing_date": "2025-06-27",
+      "primary_document": "d35356d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TMDIT8WREDOF45",
+      "cik": 15615,
+      "item": "2.03",
+      "accession": "0001193125-25-151280",
+      "filing_date": "2025-06-27",
+      "primary_document": "d35356d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "5.02",
+      "accession": "0001104659-26-094128",
+      "filing_date": "2026-08-11",
+      "primary_document": "tm2622795d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "1.01",
+      "accession": "0001104659-26-072323",
+      "filing_date": "2026-06-10",
+      "primary_document": "tm2617391d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "2.03",
+      "accession": "0001104659-26-072323",
+      "filing_date": "2026-06-10",
+      "primary_document": "tm2617391d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "1.01",
+      "accession": "0001104659-26-070572",
+      "filing_date": "2026-06-04",
+      "primary_document": "tm2616882d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "5.02",
+      "accession": "0001104659-26-055718",
+      "filing_date": "2026-05-05",
+      "primary_document": "tm2613537d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "2.01",
+      "accession": "0001104659-26-032468",
+      "filing_date": "2026-03-20",
+      "primary_document": "tm269436d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "1.01",
+      "accession": "0001104659-26-004534",
+      "filing_date": "2026-01-16",
+      "primary_document": "tm263305d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "1.01",
+      "accession": "0001104659-25-064720",
+      "filing_date": "2025-07-01",
+      "primary_document": "tm2519290d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300TRW1LZMDJZAQ78",
+      "cik": 1278027,
+      "item": "5.02",
+      "accession": "0001104659-25-063614",
+      "filing_date": "2025-06-27",
+      "primary_document": "tm2519290d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300UZHTN0CNKBOB19",
+      "cik": 105132,
+      "item": "5.02",
+      "accession": "0000105132-26-000031",
+      "filing_date": "2026-06-04",
+      "primary_document": "wdfc-20260601.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300UZHTN0CNKBOB19",
+      "cik": 105132,
+      "item": "5.02",
+      "accession": "0000105132-26-000016",
+      "filing_date": "2026-02-19",
+      "primary_document": "wdfc-20260218.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300UZHTN0CNKBOB19",
+      "cik": 105132,
+      "item": "5.02",
+      "accession": "0000105132-25-000056",
+      "filing_date": "2025-10-14",
+      "primary_document": "wdfc-20251009.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300UZHTN0CNKBOB19",
+      "cik": 105132,
+      "item": "1.01",
+      "accession": "0000105132-25-000031",
+      "filing_date": "2025-09-02",
+      "primary_document": "wdfc-20250829.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300WRECW11X94UB57",
+      "cik": 1078271,
+      "item": "1.01",
+      "accession": "0001193125-26-324888",
+      "filing_date": "2026-07-30",
+      "primary_document": "extr-20260729.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300WRECW11X94UB57",
+      "cik": 1078271,
+      "item": "2.03",
+      "accession": "0001193125-26-324888",
+      "filing_date": "2026-07-30",
+      "primary_document": "extr-20260729.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300WRECW11X94UB57",
+      "cik": 1078271,
+      "item": "5.02",
+      "accession": "0001193125-26-005441",
+      "filing_date": "2026-01-07",
+      "primary_document": "extr-20260105.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-26-084247",
+      "filing_date": "2026-07-16",
+      "primary_document": "tm2620585d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "2.03",
+      "accession": "0001104659-26-084247",
+      "filing_date": "2026-07-16",
+      "primary_document": "tm2620585d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "5.02",
+      "accession": "0001104659-26-046115",
+      "filing_date": "2026-04-21",
+      "primary_document": "tm2612258d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "5.02",
+      "accession": "0001104659-26-019195",
+      "filing_date": "2026-02-24",
+      "primary_document": "tm266835d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-26-012101",
+      "filing_date": "2026-02-09",
+      "primary_document": "tm265532d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-26-010377",
+      "filing_date": "2026-02-04",
+      "primary_document": "tm265036d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-25-122331",
+      "filing_date": "2025-12-18",
+      "primary_document": "tm2533724d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "2.03",
+      "accession": "0001104659-25-122331",
+      "filing_date": "2025-12-18",
+      "primary_document": "tm2533724d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-25-015206",
+      "filing_date": "2025-02-19",
+      "primary_document": "tm256943d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "2.03",
+      "accession": "0001104659-25-015206",
+      "filing_date": "2025-02-19",
+      "primary_document": "tm256943d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-25-003457",
+      "filing_date": "2025-01-14",
+      "primary_document": "tm253150d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-24-119599",
+      "filing_date": "2024-11-15",
+      "primary_document": "tm2428386d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-24-106288",
+      "filing_date": "2024-10-04",
+      "primary_document": "tm2424835d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "2.03",
+      "accession": "0001104659-24-106288",
+      "filing_date": "2024-10-04",
+      "primary_document": "tm2424835d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-24-105934",
+      "filing_date": "2024-10-03",
+      "primary_document": "tm2425461d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-24-104431",
+      "filing_date": "2024-10-01",
+      "primary_document": "tm2425139d2_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "1.01",
+      "accession": "0001104659-24-101899",
+      "filing_date": "2024-09-23",
+      "primary_document": "tm2424325d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300XN70JLF94XKX80",
+      "cik": 1534254,
+      "item": "2.03",
+      "accession": "0001104659-24-101899",
+      "filing_date": "2024-09-23",
+      "primary_document": "tm2424325d1_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "1.01",
+      "accession": "0001437749-26-003792",
+      "filing_date": "2026-02-11",
+      "primary_document": "irt20251204c_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "2.03",
+      "accession": "0001437749-26-003792",
+      "filing_date": "2026-02-11",
+      "primary_document": "irt20251204c_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "5.02",
+      "accession": "0001437749-26-003380",
+      "filing_date": "2026-02-06",
+      "primary_document": "irt20260204_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "5.02",
+      "accession": "0001437749-25-037079",
+      "filing_date": "2025-12-08",
+      "primary_document": "irt20251205_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "1.01",
+      "accession": "0001466085-25-000008",
+      "filing_date": "2025-01-10",
+      "primary_document": "irt-20250108.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "2.03",
+      "accession": "0001466085-25-000008",
+      "filing_date": "2025-01-10",
+      "primary_document": "irt-20250108.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "549300Z3L8NU44NQEB29",
+      "cik": 1466085,
+      "item": "5.02",
+      "accession": "0001466085-24-000101",
+      "filing_date": "2024-09-03",
+      "primary_document": "irt-20240903.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0000885590-26-000089",
+      "filing_date": "2026-07-01",
+      "primary_document": "bhc-20260626.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0001193125-26-085755",
+      "filing_date": "2026-03-02",
+      "primary_document": "d938319d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0000950103-26-000052",
+      "filing_date": "2026-01-02",
+      "primary_document": "dp239511_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "2.03",
+      "accession": "0000950103-26-000052",
+      "filing_date": "2026-01-02",
+      "primary_document": "dp239511_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0000885590-25-000059",
+      "filing_date": "2025-12-29",
+      "primary_document": "bhc-20251226.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "2.03",
+      "accession": "0000885590-25-000059",
+      "filing_date": "2025-12-29",
+      "primary_document": "bhc-20251226.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0001193125-25-181736",
+      "filing_date": "2025-08-15",
+      "primary_document": "d858618d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0001193125-25-163860",
+      "filing_date": "2025-07-24",
+      "primary_document": "d862655d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0001193125-25-157612",
+      "filing_date": "2025-07-10",
+      "primary_document": "d884372d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0001193125-25-149731",
+      "filing_date": "2025-06-27",
+      "primary_document": "d949183d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "2.03",
+      "accession": "0001193125-25-149731",
+      "filing_date": "2025-06-27",
+      "primary_document": "d949183d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0001193125-25-123366",
+      "filing_date": "2025-05-21",
+      "primary_document": "d933207d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "5.02",
+      "accession": "0001193125-25-120802",
+      "filing_date": "2025-05-15",
+      "primary_document": "d891851d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0001193125-25-080728",
+      "filing_date": "2025-04-15",
+      "primary_document": "d923035d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0001193125-25-075911",
+      "filing_date": "2025-04-09",
+      "primary_document": "d907211d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "2.03",
+      "accession": "0001193125-25-075911",
+      "filing_date": "2025-04-09",
+      "primary_document": "d907211d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "1.01",
+      "accession": "0000950103-24-015811",
+      "filing_date": "2024-11-01",
+      "primary_document": "dp220184_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "cik": 885590,
+      "item": "2.03",
+      "accession": "0000950103-24-015811",
+      "filing_date": "2024-11-01",
+      "primary_document": "dp220184_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "cik": 1008654,
+      "item": "1.01",
+      "accession": "0001193125-24-268115",
+      "filing_date": "2024-11-29",
+      "primary_document": "d869890d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "cik": 1008654,
+      "item": "2.04",
+      "accession": "0001008654-24-000068",
+      "filing_date": "2024-09-18",
+      "primary_document": "tup-20240917.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "cik": 1005210,
+      "item": "1.01",
+      "accession": "0001193125-25-328769",
+      "filing_date": "2025-12-22",
+      "primary_document": "d23138d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "cik": 1005210,
+      "item": "2.03",
+      "accession": "0001193125-25-328769",
+      "filing_date": "2025-12-22",
+      "primary_document": "d23138d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "cik": 1005210,
+      "item": "1.01",
+      "accession": "0001193125-25-031240",
+      "filing_date": "2025-02-21",
+      "primary_document": "d937299d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "5.02",
+      "accession": "0000950103-26-008854",
+      "filing_date": "2026-06-11",
+      "primary_document": "dp248287_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.03",
+      "accession": "0000950103-26-000906",
+      "filing_date": "2026-01-23",
+      "primary_document": "dp240352_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.04",
+      "accession": "0000950103-26-000244",
+      "filing_date": "2026-01-08",
+      "primary_document": "dp239702_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "1.01",
+      "accession": "0000950103-26-000187",
+      "filing_date": "2026-01-06",
+      "primary_document": "dp239642_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.03",
+      "accession": "0000950103-26-000187",
+      "filing_date": "2026-01-06",
+      "primary_document": "dp239642_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "5.02",
+      "accession": "0000950103-25-001643",
+      "filing_date": "2025-02-06",
+      "primary_document": "dp224581_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.04",
+      "accession": "0000950103-24-017358",
+      "filing_date": "2024-12-06",
+      "primary_document": "dp221723_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "5.02",
+      "accession": "0000950103-24-017304",
+      "filing_date": "2024-12-05",
+      "primary_document": "dp221633_8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "1.01",
+      "accession": "0001193125-24-233828",
+      "filing_date": "2024-10-07",
+      "primary_document": "d856593d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.03",
+      "accession": "0001193125-24-233828",
+      "filing_date": "2024-10-07",
+      "primary_document": "d856593d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "2.03",
+      "accession": "0001193125-24-232274",
+      "filing_date": "2024-10-03",
+      "primary_document": "d610229d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "5.02",
+      "accession": "0000950103-24-014514",
+      "filing_date": "2024-10-02",
+      "primary_document": "dp218944_8k-2.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "cik": 717423,
+      "item": "5.02",
+      "accession": "0000950103-24-014510",
+      "filing_date": "2024-10-02",
+      "primary_document": "dp218943_8k-1.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "SYN-SDART-2022-6",
+      "cik": 1943670,
+      "item": "1.01",
+      "accession": "0001193125-25-070432",
+      "filing_date": "2025-04-01",
+      "primary_document": "d914220d8k.htm",
+      "provenance": "public"
+    },
+    {
+      "lei": "SYN-SDART-2024-1",
+      "cik": 2004812,
+      "item": "1.01",
+      "accession": "0001193125-25-070469",
+      "filing_date": "2025-04-01",
+      "primary_document": "d916003d8k.htm",
+      "provenance": "public"
+    }
+  ]
+}

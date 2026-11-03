@@ -1,0 +1,35 @@
+# fluree-42.service — Fluree 4.2.4 primary server, cut over 2026-10-15.
+#
+# Install on db1 (needs sudo). The old 4.1.4 on :8090 was retired 2026-10-15;
+# disable its units too: sudo systemctl disable fluree.service fluree-mcp.service
+#   sudo cp fluree-42.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fluree-42
+#   # then stop the nohup'd copy the migration left running:
+#   pkill -f "fluree-42 server run"
+#
+# NOTE the --storage-path: in 4.2.4 it names the STORAGE DIRECTORY, not the
+# project root (the 4.1.4 meaning). Pointing it at the project root starts a
+# server that reports zero ledgers with no error — see
+# docs/fluree-42-migration-design.md "Step 3 results".
+#
+# Do not install this until the nohup'd instance is stopped: the two would
+# fight over port 8092.
+
+[Unit]
+Description=Fluree 4.2.4 Graph Database Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=parkave
+Group=parkave
+WorkingDirectory=/home/parkave/fluree-42/project
+ExecStart=/home/parkave/bin/fluree-42 server run --listen-addr 0.0.0.0:8092 --storage-path /data/fluree-42/storage
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

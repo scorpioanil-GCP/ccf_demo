@@ -1,0 +1,157 @@
+{
+  "source": "merger_docs",
+  "description": "EDGAR merger proxies (DEFM14A/PREM14A) and merger-registration statements (S-4/S-4/A) for the anchor cast -- deal-term documents for the M&A opportunity product",
+  "licence": "US government work / public filing",
+  "fetches": [
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1091667/000114036125024665/ny20049200x2_defm14a.htm",
+      "path": "sources/merger_docs/0001091667_0001140361-25-024665_ny20049200x2_defm14a.htm",
+      "retrieved_at": "2026-08-24T20:03:26+00:00",
+      "sha256": "ae67f573be22e73092cb8782f0e20fbcadef96e4e3b77b53f653c665373f53fc",
+      "bytes": 6337604,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1091667/000114036125022987/ny20049200x1_prem14a.htm",
+      "path": "sources/merger_docs/0001091667_0001140361-25-022987_ny20049200x1_prem14a.htm",
+      "retrieved_at": "2026-08-24T20:03:26+00:00",
+      "sha256": "4f7246e16473d81b212bd6ec3b3a203cc6a535cdf5b2bbe8ffc7936df8216fd1",
+      "bytes": 6298821,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1091667/000114036125001415/ny20038391x10_s4a.htm",
+      "path": "sources/merger_docs/0001091667_0001140361-25-001415_ny20038391x10_s4a.htm",
+      "retrieved_at": "2026-08-24T20:03:27+00:00",
+      "sha256": "964163a3de734319321f38a86ba7dfcb76258bab782183cb152e2e0a833033d4",
+      "bytes": 4329896,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1091667/000114036125000773/ny20038391x8_s4a.htm",
+      "path": "sources/merger_docs/0001091667_0001140361-25-000773_ny20038391x8_s4a.htm",
+      "retrieved_at": "2026-08-24T20:03:27+00:00",
+      "sha256": "c844c8ca674596edf635d1e405cf2100e8a2fca286fe65d8805c44ea22fe15d6",
+      "bytes": 4327961,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1091667/000114036124049322/ny20038391x3_s4.htm",
+      "path": "sources/merger_docs/0001091667_0001140361-24-049322_ny20038391x3_s4.htm",
+      "retrieved_at": "2026-08-24T20:03:28+00:00",
+      "sha256": "4a539a4b32fdb73be66d57f161fd323ee8574a11df59b134d60a64a477517c4e",
+      "bytes": 4306380,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1094831/000121390025074401/ea0249196-01.htm",
+      "path": "sources/merger_docs/0001094831_0001213900-25-074401_ea0249196-01.htm",
+      "retrieved_at": "2026-08-24T20:03:28+00:00",
+      "sha256": "f5ce6b924de65be4d662794ad2186850014792d2451905c47de44ae71e7c8581",
+      "bytes": 636187,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/727510/000110465926008573/tm2521156-9_s4a.htm",
+      "path": "sources/merger_docs/0000727510_0001104659-26-008573_tm2521156-9_s4a.htm",
+      "retrieved_at": "2026-08-24T20:03:28+00:00",
+      "sha256": "16176816725607073fa4ad147afff77e72c79466746d997c9c037db9d5617a18",
+      "bytes": 135597,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/727510/000110465926007463/enzn-20250930xs4.htm",
+      "path": "sources/merger_docs/0000727510_0001104659-26-007463_enzn-20250930xs4.htm",
+      "retrieved_at": "2026-08-24T20:03:29+00:00",
+      "sha256": "5608d6b0563b93de521678dbd387a24c7642651a22bf8e4740f808904853edae",
+      "bytes": 10541582,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1489096/000110465926047723/tm2612301-1_defm14a.htm",
+      "path": "sources/merger_docs/0001489096_0001104659-26-047723_tm2612301-1_defm14a.htm",
+      "retrieved_at": "2026-08-24T20:03:29+00:00",
+      "sha256": "a74d11a2c6c18f9f99e39e80a5bd43d1bb65c45df801949779924682208c0d0f",
+      "bytes": 6043924,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1593222/000119312525198418/d78875ddefm14a.htm",
+      "path": "sources/merger_docs/0001593222_0001193125-25-198418_d78875ddefm14a.htm",
+      "retrieved_at": "2026-08-24T20:03:29+00:00",
+      "sha256": "5a2f46865c23a736bb0b972a5ce82417c01bc140195329a0b61c7c527a403180",
+      "bytes": 1434694,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1593222/000119312525186443/d78875dprem14a.htm",
+      "path": "sources/merger_docs/0001593222_0001193125-25-186443_d78875dprem14a.htm",
+      "retrieved_at": "2026-08-24T20:03:29+00:00",
+      "sha256": "b7981576820d84b7133c577b912c483c1efddea8912161348d174860a728ad8f",
+      "bytes": 1450340,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1398987/000162828025054793/anywhereredefm14a.htm",
+      "path": "sources/merger_docs/0001398987_0001628280-25-054793_anywhereredefm14a.htm",
+      "retrieved_at": "2026-08-24T20:03:30+00:00",
+      "sha256": "006877e4c773431b455d8b00e0a1b76877fa32885749556aa69106d7dbf476c4",
+      "bytes": 3872716,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1600626/000114036126009458/ny20064692x2_defm14a.htm",
+      "path": "sources/merger_docs/0001600626_0001140361-26-009458_ny20064692x2_defm14a.htm",
+      "retrieved_at": "2026-08-24T20:03:30+00:00",
+      "sha256": "c5dc896eac4bd3cded7385e15e722ba145034f2678853d828dcb3076e672e2df",
+      "bytes": 2279122,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1600626/000114036126008099/ny20064692x1_prem14a.htm",
+      "path": "sources/merger_docs/0001600626_0001140361-26-008099_ny20064692x1_prem14a.htm",
+      "retrieved_at": "2026-08-24T20:03:30+00:00",
+      "sha256": "d898646fbef63b22eb835153d5fdd8380d72d2e50665f96bd6cde36ca1748277",
+      "bytes": 2280909,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1590895/000119312526345336/d143368dprem14a.htm",
+      "path": "sources/merger_docs/0001590895_0001193125-26-345336_d143368dprem14a.htm",
+      "retrieved_at": "2026-08-24T20:03:30+00:00",
+      "sha256": "45815aa20297e4946e06f6152c22de57fc4a78dd7a4e1a041a69ceb36e4a6c8c",
+      "bytes": 1593403,
+      "http_status": 200,
+      "content_type": "text/html",
+      "notes": ""
+    }
+  ]
+}

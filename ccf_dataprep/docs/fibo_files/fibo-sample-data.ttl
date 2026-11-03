@@ -1,0 +1,24 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fnd-pty-pty: <https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/> .
+@prefix fibo-be-le-lp: <https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/> .
+@prefix fibo-be-corp-corp: <https://spec.edmcouncil.org/fibo/ontology/BE/Corporations/Corporations/> .
+@prefix fibo-be-oac-cown: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Ownership/> .
+@prefix fibo-be-oac-cctl: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Control/> .
+@prefix ex: <http://example.org/fibo/> .
+
+ex:AcmeCorp a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Acme Corporation" .
+
+ex:BetaHoldings a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Beta Holdings LLC" .
+
+ex:JohnSmith a fibo-fnd-pty-pty:Party ;
+    rdfs:label "John Smith" ;
+    fibo-be-oac-cown:hasOwnershipInterestIn ex:AcmeCorp ;
+    fibo-be-oac-cctl:hasControllingInterestIn ex:AcmeCorp .
+
+ex:JaneDoe a fibo-fnd-pty-pty:Party ;
+    rdfs:label "Jane Doe" ;
+    fibo-be-oac-cown:hasOwnershipInterestIn ex:BetaHoldings .
+
+ex:AcmeCorp fibo-fnd-pty-pty:isRelatedTo ex:BetaHoldings .

@@ -1,0 +1,77 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+phase: 4B
+name: Assembler SDK Path
+status: in_progress
+
+approved_sdk_baseline:
+  repository: drcastillo/ccf_code
+  branch: main
+  commit: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+  latest_approved_rung: cp-13-covenant-cross-reference
+  cp14_status: active_development_not_authoritative
+
+data_estate_baseline:
+  repository: drcastillo/ccf_dataprep
+  branch: main
+  commit: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+  portable_operational_confirmation: "David reported 2026-09-13 that Dataprep said portable is good to go"
+  pinned_repo_caveat: "fixed restore landmarks can lag the append-only estate; reconcile exact bundle/verifier state before Phase 4C reproducibility claim"
+
+specification_sources:
+  standard: public/reference/specifications/Context_Product_Specification_Standard_v0-3.md
+  generation_recipe: public/reference/specifications/spec_generation.md
+  delivery_recipe: public/reference/specifications/example_delivery.md
+
+learning_examples:
+  conceptual_spine: examples/s1-01-hello-context-product
+  consumer_warmup: examples/hw1-companies-over-revenue
+  harness_consumption: examples/hw1-harness-clients
+  financial_services_evidence_range: cp-00_through_cp-13
+
+sdk_responsibility_sources:
+  l1_signal: src/ccf/signal/__init__.py
+  l2_assembly: src/ccf/assembly/__init__.py
+  l3_graph: src/ccf/graph/__init__.py
+  l4_operators: src/ccf/operators/__init__.py
+  l5_projection: src/ccf/projection/__init__.py
+  l6_products: src/ccf/products/__init__.py
+  freshness_debt: src/ccf/halflife/__init__.py
+  replay: src/ccf/replay/__init__.py
+  deployment: src/ccf/deployment/__init__.py
+
+portable_sources:
+  repo_readme: portable/README.md
+  restorer_readme: portable/bundle/README.md
+  install_macos: portable/bundle/INSTALL-macos.md
+  install_ubuntu: portable/bundle/INSTALL-ubuntu.md
+  restore_orchestrator: portable/restore/restore_all.sh
+  verifier: portable/verify_install.py
+
+composition_boundary:
+  approved_baseline_module: src/ccf/products/composition.py
+  pre_cp14_posture: partial_mechanism_only
+  currently_documented_rules:
+    - n_way_lineage_union
+    - ttl_floor
+    - mixing_refusal
+  explicitly_deferred_on_baseline:
+    - aggregate_context_debt_implementation
+    - complete_composite_context_product_surface
+  historical_documentation_rule: "At this pre-CP14 pin, composite Context Products were deferred. Current main includes CP-14; see current_execution_reference. L4 operator composition remains distinct from product-level composition."
+
+adoption_artifacts:
+  overview: 04-using-sdk/assembler/README.md
+  data_estate: 04-using-sdk/assembler/DATA_ESTATE_SETUP.md
+  decision_to_spec: 04-using-sdk/assembler/DECISION_TO_SPEC.md
+  assembly_model: 04-using-sdk/assembler/ASSEMBLY_MODEL.md
+  validate_and_serve: 04-using-sdk/assembler/VALIDATE_AND_SERVE.md
+  sdk_change_watch: archive/project/phase-4/SDK_CHANGE_WATCH.md

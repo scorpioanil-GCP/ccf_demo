@@ -1,0 +1,1557 @@
+{
+  "generated_for": "Wave 7 \u2014 MNPI wall dataset",
+  "seed": 20260817,
+  "issuers": [
+    {
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "legal_name": "SP Plus Corp",
+      "internal_client_id": "CLI-000001",
+      "ticker": ""
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "legal_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "internal_client_id": "CLI-000002",
+      "ticker": "CHTR"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "legal_name": "BGC Group, Inc.",
+      "internal_client_id": "CLI-000003",
+      "ticker": "BGC"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "legal_name": "American Healthcare REIT, Inc.",
+      "internal_client_id": "CLI-000004",
+      "ticker": "AHR"
+    },
+    {
+      "lei": "254900HM1ABRDJ7T5718",
+      "legal_name": "GENESIS ENERGY LP",
+      "internal_client_id": "CLI-000005",
+      "ticker": "GEL"
+    },
+    {
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "legal_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "internal_client_id": "CLI-000006",
+      "ticker": "ZBH"
+    },
+    {
+      "lei": "5299001XWB5V3B5IPN93",
+      "legal_name": "AGILYSYS INC",
+      "internal_client_id": "CLI-000007",
+      "ticker": "AGYS"
+    },
+    {
+      "lei": "529900E95812SYWMCE44",
+      "legal_name": "AVIS BUDGET GROUP, INC.",
+      "internal_client_id": "CLI-000008",
+      "ticker": "CAR"
+    },
+    {
+      "lei": "529900K900DW6SUBM174",
+      "legal_name": "PAYCHEX INC",
+      "internal_client_id": "CLI-000009",
+      "ticker": "PAYX"
+    },
+    {
+      "lei": "529900L7KB2N9KXCDI76",
+      "legal_name": "Container Store Group, Inc.",
+      "internal_client_id": "CLI-000010",
+      "ticker": ""
+    }
+  ],
+  "principals": [
+    {
+      "principal_id": "PRIN-COV-001",
+      "name": "coverage banker",
+      "side": "private",
+      "perspective": "coverage-banker",
+      "permitted_edge_types": [
+        "owns",
+        "controls",
+        "hasDealEngagement",
+        "hasInteraction",
+        "hasMnpiEngagement"
+      ],
+      "permitted_classifications": [
+        "public-filed",
+        "internal-confidential",
+        "internal-restricted"
+      ],
+      "permitted_document_types": [
+        "filing",
+        "memorandum",
+        "research"
+      ],
+      "sees_mnpi": true
+    },
+    {
+      "principal_id": "PRIN-RES-002",
+      "name": "research analyst",
+      "side": "public",
+      "perspective": "research-analyst",
+      "permitted_edge_types": [
+        "owns",
+        "controls",
+        "hasPublishedResearch"
+      ],
+      "permitted_classifications": [
+        "public-filed"
+      ],
+      "permitted_document_types": [
+        "filing",
+        "research"
+      ],
+      "sees_mnpi": false
+    },
+    {
+      "principal_id": "PRIN-TRD-003",
+      "name": "trader",
+      "side": "public-surveilled",
+      "perspective": "trader",
+      "permitted_edge_types": [
+        "owns",
+        "controls",
+        "hasPosition"
+      ],
+      "permitted_classifications": [
+        "public-filed"
+      ],
+      "permitted_document_types": [
+        "filing"
+      ],
+      "sees_mnpi": false
+    }
+  ],
+  "restricted_list": [
+    {
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "legal_name": "SP Plus Corp",
+      "ticker": "",
+      "restriction_type": "research-restricted",
+      "added_date": "2026-07-11",
+      "removed_date": null,
+      "added_by": "control-room",
+      "reason_code": "RC-DEAL",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "legal_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "ticker": "CHTR",
+      "restriction_type": "full-restriction",
+      "added_date": "2026-07-05",
+      "removed_date": null,
+      "added_by": "control-room",
+      "reason_code": "RC-DEAL",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "lei": "2549001IGRCG4F0RLD36",
+      "legal_name": "BGC Group, Inc.",
+      "ticker": "BGC",
+      "restriction_type": "full-restriction",
+      "added_date": "2026-04-19",
+      "removed_date": null,
+      "added_by": "control-room",
+      "reason_code": "RC-DEAL",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "lei": "2549004GGE2APGNT6O92",
+      "legal_name": "American Healthcare REIT, Inc.",
+      "ticker": "AHR",
+      "restriction_type": "deal-related",
+      "added_date": "2026-05-19",
+      "removed_date": null,
+      "added_by": "control-room",
+      "reason_code": "RC-DEAL",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "wall_crossings": [
+    {
+      "crossing_id": "WALL-000",
+      "principal_id": "PRIN-COV-001",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "valid_from": "2026-03-07",
+      "valid_to": null,
+      "asserted_at": "2026-03-16",
+      "recording_lag_days": 9,
+      "basis": "deal engagement",
+      "provenance": "synthetic \u2014 engineered",
+      "note": "recording lag deliberately introduced so a surveillance review at as_of sees a different wall state than one at known_as_of"
+    },
+    {
+      "crossing_id": "WALL-001",
+      "principal_id": "PRIN-COV-001",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "valid_from": "2026-02-23",
+      "valid_to": null,
+      "asserted_at": "2026-02-24",
+      "recording_lag_days": 1,
+      "basis": "deal engagement",
+      "provenance": "synthetic \u2014 internal",
+      "note": null
+    },
+    {
+      "crossing_id": "WALL-002",
+      "principal_id": "PRIN-COV-001",
+      "lei": "2549001IGRCG4F0RLD36",
+      "valid_from": "2026-03-21",
+      "valid_to": null,
+      "asserted_at": "2026-03-21",
+      "recording_lag_days": 0,
+      "basis": "deal engagement",
+      "provenance": "synthetic \u2014 internal",
+      "note": null
+    },
+    {
+      "crossing_id": "WALL-003",
+      "principal_id": "PRIN-COV-001",
+      "lei": "2549004GGE2APGNT6O92",
+      "valid_from": "2026-02-04",
+      "valid_to": null,
+      "asserted_at": "2026-02-05",
+      "recording_lag_days": 1,
+      "basis": "deal engagement",
+      "provenance": "synthetic \u2014 internal",
+      "note": null
+    }
+  ],
+  "deals": [
+    {
+      "deal_id": "DEAL-0000",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_type": "ECM follow-on",
+      "stage": "documentation",
+      "opened_date": "2025-06-28",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 3500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0001",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_type": "M&A sell-side",
+      "stage": "mandated",
+      "opened_date": "2026-06-24",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 22750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0002",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_type": "LBO financing",
+      "stage": "pitched",
+      "opened_date": "2025-10-28",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 8500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0003",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_type": "M&A buy-side",
+      "stage": "pitched",
+      "opened_date": "2025-10-04",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 1750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0004",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_type": "DCM issuance",
+      "stage": "documentation",
+      "opened_date": "2026-04-15",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 9500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0005",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_type": "M&A buy-side",
+      "stage": "mandated",
+      "opened_date": "2025-07-04",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 16000000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0006",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_type": "LBO financing",
+      "stage": "signed",
+      "opened_date": "2026-05-16",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 22250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0007",
+      "lei": "529900E95812SYWMCE44",
+      "deal_type": "DCM issuance",
+      "stage": "pitched",
+      "opened_date": "2025-08-13",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 4500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0008",
+      "lei": "529900K900DW6SUBM174",
+      "deal_type": "LBO financing",
+      "stage": "pitched",
+      "opened_date": "2025-10-05",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 16500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0009",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_type": "LBO financing",
+      "stage": "signed",
+      "opened_date": "2025-05-11",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 14250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0010",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_type": "refinancing",
+      "stage": "diligence",
+      "opened_date": "2025-06-09",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 21750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0011",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_type": "M&A buy-side",
+      "stage": "documentation",
+      "opened_date": "2025-04-07",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 16250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0012",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_type": "M&A buy-side",
+      "stage": "mandated",
+      "opened_date": "2026-02-22",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 11750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0013",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_type": "M&A sell-side",
+      "stage": "signed",
+      "opened_date": "2025-10-13",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 21750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0014",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_type": "ECM follow-on",
+      "stage": "pitched",
+      "opened_date": "2026-05-11",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 11250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0015",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_type": "ECM follow-on",
+      "stage": "signed",
+      "opened_date": "2025-11-17",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 10500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0016",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_type": "LBO financing",
+      "stage": "mandated",
+      "opened_date": "2025-09-30",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 11000000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0017",
+      "lei": "529900E95812SYWMCE44",
+      "deal_type": "DCM issuance",
+      "stage": "signed",
+      "opened_date": "2026-06-02",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 18250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0018",
+      "lei": "529900K900DW6SUBM174",
+      "deal_type": "DCM issuance",
+      "stage": "pitched",
+      "opened_date": "2026-03-07",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 22750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0019",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_type": "refinancing",
+      "stage": "pitched",
+      "opened_date": "2026-05-06",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0020",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_type": "M&A buy-side",
+      "stage": "signed",
+      "opened_date": "2025-07-15",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 11000000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0021",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_type": "DCM issuance",
+      "stage": "signed",
+      "opened_date": "2026-03-13",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 24250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0022",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_type": "LBO financing",
+      "stage": "mandated",
+      "opened_date": "2025-06-28",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 14500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0023",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_type": "M&A sell-side",
+      "stage": "mandated",
+      "opened_date": "2025-09-21",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 2250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0024",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_type": "DCM issuance",
+      "stage": "pitched",
+      "opened_date": "2026-04-01",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 9250000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0025",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_type": "DCM issuance",
+      "stage": "diligence",
+      "opened_date": "2026-04-05",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 13750000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0026",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_type": "DCM issuance",
+      "stage": "diligence",
+      "opened_date": "2026-02-08",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 8500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0027",
+      "lei": "529900E95812SYWMCE44",
+      "deal_type": "LBO financing",
+      "stage": "diligence",
+      "opened_date": "2026-04-08",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 22500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0028",
+      "lei": "529900K900DW6SUBM174",
+      "deal_type": "refinancing",
+      "stage": "pitched",
+      "opened_date": "2026-03-07",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 15500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0029",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_type": "ECM follow-on",
+      "stage": "signed",
+      "opened_date": "2025-05-11",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 5000000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0030",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_type": "M&A sell-side",
+      "stage": "documentation",
+      "opened_date": "2025-05-12",
+      "mnpi_bearing": true,
+      "estimated_fee_usd": 11500000,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "deal_id": "DEAL-0031",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_type": "DCM issuance",
+      "stage": "signed",
+      "opened_date": "2025-09-22",
+      "mnpi_bearing": false,
+      "estimated_fee_usd": 11750000,
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "interactions": [
+    {
+      "interaction_id": "INT-00000",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0000",
+      "interaction_type": "earnings call",
+      "interaction_date": "2025-11-28",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00001",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0001",
+      "interaction_type": "management meeting",
+      "interaction_date": "2026-07-14",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00002",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_id": "DEAL-0002",
+      "interaction_type": "management meeting",
+      "interaction_date": "2025-11-15",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00003",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0003",
+      "interaction_type": "deal update",
+      "interaction_date": "2026-02-17",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00004",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0003",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-03-10",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00005",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0003",
+      "interaction_type": "deal update",
+      "interaction_date": "2026-01-28",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00006",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_id": "DEAL-0005",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-09-28",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00007",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_id": "DEAL-0005",
+      "interaction_type": "site visit",
+      "interaction_date": "2025-12-28",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00008",
+      "lei": "529900E95812SYWMCE44",
+      "deal_id": "DEAL-0007",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-11-28",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00009",
+      "lei": "529900E95812SYWMCE44",
+      "deal_id": "DEAL-0007",
+      "interaction_type": "earnings call",
+      "interaction_date": "2026-01-25",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00010",
+      "lei": "529900K900DW6SUBM174",
+      "deal_id": "DEAL-0008",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-02-21",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00011",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_id": "DEAL-0009",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2025-10-11",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00012",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_id": "DEAL-0009",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-11-08",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00013",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_id": "DEAL-0009",
+      "interaction_type": "site visit",
+      "interaction_date": "2025-05-28",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00014",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0010",
+      "interaction_type": "earnings call",
+      "interaction_date": "2025-11-09",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00015",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0010",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-07-19",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00016",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0011",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-08-24",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00017",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0011",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-08-24",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00018",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_id": "DEAL-0012",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-06-22",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00019",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_id": "DEAL-0012",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-07-23",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00020",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0013",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-02-01",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00021",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0013",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-04-26",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00022",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0013",
+      "interaction_type": "deal update",
+      "interaction_date": "2026-04-12",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00023",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_id": "DEAL-0014",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-06-20",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00024",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_id": "DEAL-0015",
+      "interaction_type": "earnings call",
+      "interaction_date": "2025-12-17",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00025",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_id": "DEAL-0015",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2025-12-10",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00026",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_id": "DEAL-0016",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-10-15",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00027",
+      "lei": "529900K900DW6SUBM174",
+      "deal_id": "DEAL-0018",
+      "interaction_type": "deal update",
+      "interaction_date": "2026-06-24",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00028",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0020",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2025-10-25",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00029",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0020",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-01-29",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00030",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0021",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-05-16",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00031",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0021",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-06-29",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00032",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_id": "DEAL-0022",
+      "interaction_type": "site visit",
+      "interaction_date": "2025-09-23",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00033",
+      "lei": "2549001IGRCG4F0RLD36",
+      "deal_id": "DEAL-0022",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2025-08-04",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00034",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0023",
+      "interaction_type": "deal update",
+      "interaction_date": "2025-12-29",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00035",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0023",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-02-04",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00036",
+      "lei": "2549004GGE2APGNT6O92",
+      "deal_id": "DEAL-0023",
+      "interaction_type": "earnings call",
+      "interaction_date": "2026-01-20",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00037",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_id": "DEAL-0024",
+      "interaction_type": "site visit",
+      "interaction_date": "2026-05-17",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00038",
+      "lei": "254900HM1ABRDJ7T5718",
+      "deal_id": "DEAL-0024",
+      "interaction_type": "management meeting",
+      "interaction_date": "2026-08-01",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00039",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "deal_id": "DEAL-0025",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-07-26",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00040",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_id": "DEAL-0026",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-06-29",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00041",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_id": "DEAL-0026",
+      "interaction_type": "management meeting",
+      "interaction_date": "2026-05-27",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00042",
+      "lei": "5299001XWB5V3B5IPN93",
+      "deal_id": "DEAL-0026",
+      "interaction_type": "management meeting",
+      "interaction_date": "2026-03-02",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00043",
+      "lei": "529900E95812SYWMCE44",
+      "deal_id": "DEAL-0027",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-07-20",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00044",
+      "lei": "529900K900DW6SUBM174",
+      "deal_id": "DEAL-0028",
+      "interaction_type": "deal update",
+      "interaction_date": "2026-03-25",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00045",
+      "lei": "529900K900DW6SUBM174",
+      "deal_id": "DEAL-0028",
+      "interaction_type": "management meeting",
+      "interaction_date": "2026-07-08",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00046",
+      "lei": "529900K900DW6SUBM174",
+      "deal_id": "DEAL-0028",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2026-04-25",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00047",
+      "lei": "529900L7KB2N9KXCDI76",
+      "deal_id": "DEAL-0029",
+      "interaction_type": "non-deal roadshow",
+      "interaction_date": "2025-05-14",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00048",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "deal_id": "DEAL-0030",
+      "interaction_type": "earnings call",
+      "interaction_date": "2025-11-20",
+      "mnpi_bearing": true,
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "interaction_id": "INT-00049",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "deal_id": "DEAL-0031",
+      "interaction_type": "earnings call",
+      "interaction_date": "2026-01-06",
+      "mnpi_bearing": false,
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "research_notes": [
+    {
+      "note_id": "RES-0000",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "title": "SP Plus Corp \u2014 initiation",
+      "body": "Rating initiated at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-01-11",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0001",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "title": "CHARTER COMMUNICATIONS, INC. /MO/ \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2025-09-02",
+      "embargo_until": "2025-09-22",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0002",
+      "lei": "2549001IGRCG4F0RLD36",
+      "title": "BGC Group, Inc. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-07-28",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0003",
+      "lei": "2549004GGE2APGNT6O92",
+      "title": "American Healthcare REIT, Inc. \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-08-14",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0004",
+      "lei": "254900HM1ABRDJ7T5718",
+      "title": "GENESIS ENERGY LP \u2014 initiation",
+      "body": "Rating initiated at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-06-14",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0005",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "title": "ZIMMER BIOMET HOLDINGS, INC. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-06-17",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0006",
+      "lei": "5299001XWB5V3B5IPN93",
+      "title": "AGILYSYS INC \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2026-06-24",
+      "embargo_until": "2026-07-14",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0007",
+      "lei": "529900E95812SYWMCE44",
+      "title": "AVIS BUDGET GROUP, INC. \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-07-01",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0008",
+      "lei": "529900K900DW6SUBM174",
+      "title": "PAYCHEX INC \u2014 initiation",
+      "body": "Rating initiated at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-04-18",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0009",
+      "lei": "529900L7KB2N9KXCDI76",
+      "title": "Container Store Group, Inc. \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-01-03",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0010",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "title": "SP Plus Corp \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-11-16",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0011",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "title": "CHARTER COMMUNICATIONS, INC. /MO/ \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2025-10-12",
+      "embargo_until": "2025-10-22",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0012",
+      "lei": "2549001IGRCG4F0RLD36",
+      "title": "BGC Group, Inc. \u2014 initiation",
+      "body": "Rating initiated at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-04-07",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0013",
+      "lei": "2549004GGE2APGNT6O92",
+      "title": "American Healthcare REIT, Inc. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-01-08",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0014",
+      "lei": "254900HM1ABRDJ7T5718",
+      "title": "GENESIS ENERGY LP \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-09-10",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0015",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "title": "ZIMMER BIOMET HOLDINGS, INC. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-03",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0016",
+      "lei": "5299001XWB5V3B5IPN93",
+      "title": "AGILYSYS INC \u2014 initiation",
+      "body": "Rating initiated at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2026-03-02",
+      "embargo_until": "2026-03-12",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0017",
+      "lei": "529900E95812SYWMCE44",
+      "title": "AVIS BUDGET GROUP, INC. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-13",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0018",
+      "lei": "529900K900DW6SUBM174",
+      "title": "PAYCHEX INC \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-06-04",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0019",
+      "lei": "529900L7KB2N9KXCDI76",
+      "title": "Container Store Group, Inc. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-30",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0020",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "title": "SP Plus Corp \u2014 initiation",
+      "body": "Rating initiated at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-07-04",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0021",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "title": "CHARTER COMMUNICATIONS, INC. /MO/ \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2025-07-17",
+      "embargo_until": "2025-08-07",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0022",
+      "lei": "2549001IGRCG4F0RLD36",
+      "title": "BGC Group, Inc. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-11-03",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0023",
+      "lei": "2549004GGE2APGNT6O92",
+      "title": "American Healthcare REIT, Inc. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-07-18",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0024",
+      "lei": "254900HM1ABRDJ7T5718",
+      "title": "GENESIS ENERGY LP \u2014 initiation",
+      "body": "Rating initiated at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-27",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0025",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "title": "ZIMMER BIOMET HOLDINGS, INC. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-13",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0026",
+      "lei": "5299001XWB5V3B5IPN93",
+      "title": "AGILYSYS INC \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2025-08-19",
+      "embargo_until": "2025-09-03",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0027",
+      "lei": "529900E95812SYWMCE44",
+      "title": "AVIS BUDGET GROUP, INC. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-08-04",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0028",
+      "lei": "529900K900DW6SUBM174",
+      "title": "PAYCHEX INC \u2014 initiation",
+      "body": "Rating initiated at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-03-07",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0029",
+      "lei": "529900L7KB2N9KXCDI76",
+      "title": "Container Store Group, Inc. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-03-28",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0030",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "title": "SP Plus Corp \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-06-22",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0031",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "title": "CHARTER COMMUNICATIONS, INC. /MO/ \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2026-02-20",
+      "embargo_until": "2026-03-02",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0032",
+      "lei": "2549001IGRCG4F0RLD36",
+      "title": "BGC Group, Inc. \u2014 initiation",
+      "body": "Rating initiated at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-03-15",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0033",
+      "lei": "2549004GGE2APGNT6O92",
+      "title": "American Healthcare REIT, Inc. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-10-19",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0034",
+      "lei": "254900HM1ABRDJ7T5718",
+      "title": "GENESIS ENERGY LP \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-07-25",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0035",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "title": "ZIMMER BIOMET HOLDINGS, INC. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-12-02",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0036",
+      "lei": "5299001XWB5V3B5IPN93",
+      "title": "AGILYSYS INC \u2014 initiation",
+      "body": "Rating initiated at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2026-02-22",
+      "embargo_until": "2026-03-14",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0037",
+      "lei": "529900E95812SYWMCE44",
+      "title": "AVIS BUDGET GROUP, INC. \u2014 update",
+      "body": "Rating maintained at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-05-15",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0038",
+      "lei": "529900K900DW6SUBM174",
+      "title": "PAYCHEX INC \u2014 update",
+      "body": "Rating maintained at Hold. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2025-07-27",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0039",
+      "lei": "529900L7KB2N9KXCDI76",
+      "title": "Container Store Group, Inc. \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-03-09",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0040",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "title": "SP Plus Corp \u2014 initiation",
+      "body": "Rating initiated at Sell. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. Published and distributed to institutional clients.",
+      "status": "published",
+      "authored_date": "2026-04-02",
+      "embargo_until": null,
+      "classification": "public-filed",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "note_id": "RES-0041",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "title": "CHARTER COMMUNICATIONS, INC. /MO/ \u2014 update",
+      "body": "Rating maintained at Buy. Estimates reflect reported results through the most recent filed period and peer comparison at identical period ends. DRAFT \u2014 not for distribution; under embargo pending supervisory review.",
+      "status": "draft",
+      "authored_date": "2026-06-30",
+      "embargo_until": "2026-07-15",
+      "classification": "internal-restricted",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "positions": [
+    {
+      "position_id": "POS-0000",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "quantity": -124000,
+      "as_of": "2026-08-16",
+      "book": "flow-equity",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0001",
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "quantity": 58000,
+      "as_of": "2026-08-16",
+      "book": "market-making",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0002",
+      "lei": "2549001IGRCG4F0RLD36",
+      "quantity": -419000,
+      "as_of": "2026-08-15",
+      "book": "flow-credit",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0003",
+      "lei": "2549004GGE2APGNT6O92",
+      "quantity": 208000,
+      "as_of": "2026-08-17",
+      "book": "flow-equity",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0004",
+      "lei": "254900HM1ABRDJ7T5718",
+      "quantity": 8000,
+      "as_of": "2026-08-17",
+      "book": "market-making",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0005",
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "quantity": -34000,
+      "as_of": "2026-08-17",
+      "book": "flow-credit",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0006",
+      "lei": "5299001XWB5V3B5IPN93",
+      "quantity": 91000,
+      "as_of": "2026-08-16",
+      "book": "flow-equity",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0007",
+      "lei": "529900E95812SYWMCE44",
+      "quantity": -130000,
+      "as_of": "2026-08-17",
+      "book": "flow-equity",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0008",
+      "lei": "529900K900DW6SUBM174",
+      "quantity": 262000,
+      "as_of": "2026-08-15",
+      "book": "market-making",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "position_id": "POS-0009",
+      "lei": "529900L7KB2N9KXCDI76",
+      "quantity": -316000,
+      "as_of": "2026-08-16",
+      "book": "flow-equity",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "reg_fd_events": [
+    {
+      "event_id": "REGFD-000",
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "disclosure_date": "2026-07-03",
+      "item": "7.01",
+      "description": "Material previously held on the private side was publicly disclosed, converting it to public information mid-series.",
+      "widens_access": true,
+      "provenance": "synthetic \u2014 internal",
+      "note": "the only supersession trigger in the catalog that WIDENS rather than narrows access"
+    }
+  ]
+}

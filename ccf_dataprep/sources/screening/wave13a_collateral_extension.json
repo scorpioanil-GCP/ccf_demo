@@ -1,0 +1,220 @@
+{
+  "generated_for": "credit-memo-context \u00a7F condition 1",
+  "seed": 20260822,
+  "asset_ids_start_after": "COL-00081",
+  "note": "additive only -- Wave 9's positional asset numbering means a re-run of its chain would renumber and overwrite existing assets in place; see this module's docstring and known-issues.md",
+  "assets": [
+    {
+      "asset_id": "COL-00082",
+      "category": "receivables",
+      "description": "Receivables",
+      "pledgor_lei": "549300TMDIT8WREDOF45",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "d77261dex101.htm",
+      "valuation": 155336247.1,
+      "valuation_date": "2026-01-24",
+      "valuation_age_days": 210,
+      "haircut": 0.25,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00083",
+      "category": "marketable_securities",
+      "description": "Marketable Securities",
+      "pledgor_lei": "529900L7KB2N9KXCDI76",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm254690d1_ex10-1.htm",
+      "valuation": 57086785.46,
+      "valuation_date": "2026-01-24",
+      "valuation_age_days": 210,
+      "haircut": 0.15,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00084",
+      "category": "real_property",
+      "description": "Real Property",
+      "pledgor_lei": "529900ZNZBBLDE77MZ38",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm2521966d1_ex10-1.htm",
+      "valuation": 31211687.9,
+      "valuation_date": "2026-08-20",
+      "valuation_age_days": 2,
+      "haircut": 0.35,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00085",
+      "category": "real_property",
+      "description": "Real Property",
+      "pledgor_lei": "529900VKCYZW8GZ4WW58",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "d133770dex101.htm",
+      "valuation": 159579464.68,
+      "valuation_date": "2026-07-23",
+      "valuation_age_days": 30,
+      "haircut": 0.35,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00086",
+      "category": "real_property",
+      "description": "Real Property",
+      "pledgor_lei": "54930096DB9LCLPN7H13",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm2616097d1_ex10-2.htm",
+      "valuation": 465334870.34,
+      "valuation_date": "2025-02-23",
+      "valuation_age_days": 545,
+      "haircut": 0.35,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00087",
+      "category": "receivables",
+      "description": "Receivables",
+      "pledgor_lei": "54930096DB9LCLPN7H13",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm2616097d1_ex10-2.htm",
+      "valuation": 397356941.68,
+      "valuation_date": "2026-05-24",
+      "valuation_age_days": 90,
+      "haircut": 0.25,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00088",
+      "category": "marketable_securities",
+      "description": "Marketable Securities",
+      "pledgor_lei": "54930022CZO1N2UGVW07",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "d45696dex101.htm",
+      "valuation": 846861749.28,
+      "valuation_date": "2025-07-18",
+      "valuation_age_days": 400,
+      "haircut": 0.15,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00089",
+      "category": "marketable_securities",
+      "description": "Marketable Securities",
+      "pledgor_lei": "529900L7KB2N9KXCDI76",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm254690d1_ex10-1.htm",
+      "valuation": 64715016.52,
+      "valuation_date": "2026-07-23",
+      "valuation_age_days": 30,
+      "haircut": 0.15,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00090",
+      "category": "real_property",
+      "description": "Real Property",
+      "pledgor_lei": "529900ZNZBBLDE77MZ38",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm2521966d1_ex10-1.htm",
+      "valuation": 53172926.94,
+      "valuation_date": "2026-05-24",
+      "valuation_age_days": 90,
+      "haircut": 0.35,
+      "provenance_valuation": "synthetic \u2014 internal"
+    },
+    {
+      "asset_id": "COL-00091",
+      "category": "real_property",
+      "description": "Real Property",
+      "pledgor_lei": "529900ZNZBBLDE77MZ38",
+      "provenance_existence": "synthetic \u2014 engineered",
+      "engineered_reason": "facility grants a security interest, but its collateral schedule is in a Security Agreement exhibit not fetched",
+      "source_document": "tm2521966d1_ex10-1.htm",
+      "valuation": 30482934.17,
+      "valuation_date": "2026-01-24",
+      "valuation_age_days": 210,
+      "haircut": 0.35,
+      "provenance_valuation": "synthetic \u2014 internal"
+    }
+  ],
+  "pledges": [
+    {
+      "facility_id": "FAC-102496",
+      "asset_id": "COL-00082",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-2023D5",
+      "asset_id": "COL-00083",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-2991EB",
+      "asset_id": "COL-00084",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-3DF1D5",
+      "asset_id": "COL-00085",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-502EF1",
+      "asset_id": "COL-00086",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-502EF1",
+      "asset_id": "COL-00087",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-517638",
+      "asset_id": "COL-00088",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-691649",
+      "asset_id": "COL-00089",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-7FEC66",
+      "asset_id": "COL-00090",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    },
+    {
+      "facility_id": "FAC-8BEC3D",
+      "asset_id": "COL-00091",
+      "priority": "first",
+      "provenance": "synthetic \u2014 engineered",
+      "basis": "grant is filed; asset breakdown engineered"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix fibo-fnd-pty-pty: <https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/> .
+@prefix fibo-be-le-lp: <https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/> .
+@prefix fibo-be-corp-corp: <https://spec.edmcouncil.org/fibo/ontology/BE/Corporations/Corporations/> .
+@prefix fibo-be-oac-cown: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Ownership/> .
+@prefix fibo-be-oac-cctl: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Control/> .
+@prefix fibo-fnd-rel-rel: <https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/> .
+@prefix ex: <http://example.org/fibo/> .
+
+#################################################################
+# Legal Entities / Clients / Counterparties
+#################################################################
+
+ex:AcmeCorp a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Acme Corporation" ;
+    ex:lei "5493001KJTIIGC8Y1R12" ;
+    ex:legalName "Acme Corporation Inc." ;
+    ex:jurisdiction "US-DE" ;
+    ex:entityStatus "ACTIVE" ;
+    ex:clientType "Corporate Client" ;
+    ex:onboardingDate "2021-03-15"^^xsd:date .
+
+ex:BetaHoldings a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Beta Holdings LLC" ;
+    ex:lei "549300ABCDEF12345678" ;
+    ex:legalName "Beta Holdings Limited Liability Company" ;
+    ex:jurisdiction "US-NY" ;
+    ex:entityStatus "ACTIVE" ;
+    ex:clientType "Investment Vehicle" ;
+    ex:onboardingDate "2022-07-01"^^xsd:date .
+
+ex:GammaBank a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Gamma Bank AG" ;
+    ex:lei "529900T8BM49AURSDO55" ;
+    ex:legalName "Gamma Bank Aktiengesellschaft" ;
+    ex:jurisdiction "DE" ;
+    ex:entityStatus "ACTIVE" ;
+    ex:clientType "Financial Institution / Counterparty" ;
+    ex:onboardingDate "2019-11-20"^^xsd:date .
+
+ex:DeltaFund a fibo-be-corp-corp:Corporation ;
+    rdfs:label "Delta Private Equity Fund LP" ;
+    ex:lei "549300XYZ98765432109" ;
+    ex:legalName "Delta Private Equity Fund Limited Partnership" ;
+    ex:jurisdiction "US-DE" ;
+    ex:entityStatus "ACTIVE" ;
+    ex:clientType "Fund / Investor" ;
+    ex:onboardingDate "2023-01-10"^^xsd:date .
+
+#################################################################
+# Natural Persons (UBOs / related parties)
+#################################################################
+
+ex:JohnSmith a fibo-fnd-pty-pty:Party ;
+    rdfs:label "John Smith" ;
+    ex:fullName "John Michael Smith" ;
+    ex:nationality "US" ;
+    ex:dateOfBirth "1975-04-12"^^xsd:date ;
+    ex:role "Ultimate Beneficial Owner" ;
+    fibo-be-oac-cown:hasOwnershipInterestIn ex:AcmeCorp ;
+    fibo-be-oac-cctl:hasControllingInterestIn ex:AcmeCorp .
+
+ex:JaneDoe a fibo-fnd-pty-pty:Party ;
+    rdfs:label "Jane Doe" ;
+    ex:fullName "Jane Elizabeth Doe" ;
+    ex:nationality "US" ;
+    ex:dateOfBirth "1982-09-03"^^xsd:date ;
+    ex:role "Managing Member" ;
+    fibo-be-oac-cown:hasOwnershipInterestIn ex:BetaHoldings .
+
+ex:HansMueller a fibo-fnd-pty-pty:Party ;
+    rdfs:label "Hans Müller" ;
+    ex:fullName "Hans Müller" ;
+    ex:nationality "DE" ;
+    ex:dateOfBirth "1968-11-22"^^xsd:date ;
+    ex:role "Director" ;
+    fibo-be-oac-cown:hasOwnershipInterestIn ex:GammaBank .
+
+#################################################################
+# Addresses
+#################################################################
+
+ex:AcmeHQ a ex:Address ;
+    rdfs:label "Acme HQ" ;
+    ex:street "100 Main Street" ;
+    ex:city "Wilmington" ;
+    ex:state "DE" ;
+    ex:postalCode "19801" ;
+    ex:country "US" .
+
+ex:BetaOffice a ex:Address ;
+    rdfs:label "Beta Holdings Office" ;
+    ex:street "350 Fifth Avenue" ;
+    ex:city "New York" ;
+    ex:state "NY" ;
+    ex:postalCode "10118" ;
+    ex:country "US" .
+
+ex:GammaHQ a ex:Address ;
+    rdfs:label "Gamma Bank HQ" ;
+    ex:street "Taunusanlage 12" ;
+    ex:city "Frankfurt am Main" ;
+    ex:postalCode "60325" ;
+    ex:country "DE" .
+
+#################################################################
+# Link entities to addresses + relationships
+#################################################################
+
+ex:AcmeCorp ex:hasRegisteredAddress ex:AcmeHQ ;
+            ex:hasBusinessAddress ex:AcmeHQ ;
+            fibo-fnd-pty-pty:isRelatedTo ex:BetaHoldings ;
+            fibo-fnd-pty-pty:isRelatedTo ex:GammaBank .
+
+ex:BetaHoldings ex:hasRegisteredAddress ex:BetaOffice ;
+                fibo-fnd-pty-pty:isRelatedTo ex:DeltaFund .
+
+ex:GammaBank ex:hasRegisteredAddress ex:GammaHQ .
+
+ex:DeltaFund fibo-fnd-pty-pty:isRelatedTo ex:AcmeCorp .

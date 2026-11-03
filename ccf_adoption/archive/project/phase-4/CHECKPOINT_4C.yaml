@@ -1,0 +1,15 @@
+checkpoint: 4C
+name: Progressive Assembler Tutorial
+status: APPROVED
+approved_by: David Castillo
+date: 2026-09-14
+branch: phase-4c-progressive-tutorial
+reviewed_commit: f53117834f268df9c356c0bb4e69159d87147364
+source_snapshots:
+  ccf_code: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+  ccf_dataprep: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+notes:
+  - CP-01 Counterparty Reference Snapshot is the approved progressive assembler tutorial anchor.
+  - The tutorial distinguishes source-grounded runnable commands from an independently reproduced private-estate execution.
+  - CP-14 composite Context Products remain explicitly excluded from settled Phase 4A-4C claims until approved and merged.
+  - L4 operator composition remains distinct from composite Context Product composition.

@@ -1,0 +1,4456 @@
+{
+ "_meta": {
+  "generated_at": "2026-08-22T00:38:51+00:00",
+  "seed": 20260821,
+  "client_count": 15,
+  "breaching_clients": 6,
+  "breaching_leis": [
+   "2549004GGE2APGNT6O92",
+   "529900E95812SYWMCE44",
+   "5493000Q1S5TJIDIQH89",
+   "549300D0WZR1VI2QGB24",
+   "549300FHJQTDPPN41627",
+   "549300WRECW11X94UB57"
+  ],
+  "concentration_boost_rounds": 0,
+  "stale_minutes": 45,
+  "note": "Limits and positions were generated independently; the breach was measured, not arranged. Where fewer than 2 clients breached on the first measurement, positions (never limit_pct) were made more concentrated and the breach was re-measured."
+ },
+ "_inputs": {},
+ "clients": [
+  {
+   "lei": "2549001IGRCG4F0RLD36",
+   "mandate_id": "MND-000",
+   "intent": "operating-liquidity",
+   "home_currency": "EUR",
+   "reported_cash": 766854000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "2549004GGE2APGNT6O92",
+   "mandate_id": "MND-001",
+   "intent": "reserve-buffer",
+   "home_currency": "USD",
+   "reported_cash": 156896000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "529900E95812SYWMCE44",
+   "mandate_id": "MND-002",
+   "intent": "short-term-investment",
+   "home_currency": "JPY",
+   "reported_cash": 528000000.0,
+   "cash_fact_asof": "2026-03-31",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "529900VN48L8QCMVPV36",
+   "mandate_id": "MND-003",
+   "intent": "operating-liquidity",
+   "home_currency": "EUR",
+   "reported_cash": 7911000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "5493000Q1S5TJIDIQH89",
+   "mandate_id": "MND-004",
+   "intent": "reserve-buffer",
+   "home_currency": "GBP",
+   "reported_cash": 22930000.0,
+   "cash_fact_asof": "2026-03-31",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "5493002H8U24DJXQ4886",
+   "mandate_id": "MND-005",
+   "intent": "short-term-investment",
+   "home_currency": "GBP",
+   "reported_cash": 524900000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "5493003J7157VP25NL57",
+   "mandate_id": "MND-006",
+   "intent": "operating-liquidity",
+   "home_currency": "JPY",
+   "reported_cash": 21347000.0,
+   "cash_fact_asof": "2025-09-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "5493004Q1NNH6JXCSI52",
+   "mandate_id": "MND-007",
+   "intent": "reserve-buffer",
+   "home_currency": "GBP",
+   "reported_cash": 261010000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "54930096DB9LCLPN7H13",
+   "mandate_id": "MND-008",
+   "intent": "short-term-investment",
+   "home_currency": "JPY",
+   "reported_cash": 298000000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "549300D0WZR1VI2QGB24",
+   "mandate_id": "MND-009",
+   "intent": "operating-liquidity",
+   "home_currency": "GBP",
+   "reported_cash": 42930000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "549300EQD0ZXRSMG3549",
+   "mandate_id": "MND-010",
+   "intent": "reserve-buffer",
+   "home_currency": "USD",
+   "reported_cash": 2773000000.0,
+   "cash_fact_asof": "2026-06-27",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "549300FHJQTDPPN41627",
+   "mandate_id": "MND-011",
+   "intent": "short-term-investment",
+   "home_currency": "EUR",
+   "reported_cash": 1508000000.0,
+   "cash_fact_asof": "2022-12-31",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "549300KTTIRAOGXCRV69",
+   "mandate_id": "MND-012",
+   "intent": "operating-liquidity",
+   "home_currency": "JPY",
+   "reported_cash": 2810600000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "549300WRECW11X94UB57",
+   "mandate_id": "MND-013",
+   "intent": "reserve-buffer",
+   "home_currency": "USD",
+   "reported_cash": 210113000.0,
+   "cash_fact_asof": "2026-03-31",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "mandate_id": "MND-014",
+   "intent": "short-term-investment",
+   "home_currency": "JPY",
+   "reported_cash": 1825000000.0,
+   "cash_fact_asof": "2026-06-30",
+   "cash_provenance": "public",
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "deposit_accounts": [
+  {
+   "account_id": "W12-0001",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "USD",
+   "balance": 55265976.99,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0002",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "EUR",
+   "balance": 48760227.32,
+   "jurisdiction": "FR",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0003",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "GBP",
+   "balance": 7052620.8,
+   "jurisdiction": "CN",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0004",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "JPY",
+   "balance": 71650395.22,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0005",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "USD",
+   "balance": 19538334.34,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0006",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "EUR",
+   "balance": 59158112.32,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0007",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "GBP",
+   "balance": 24875975.07,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0008",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "JPY",
+   "balance": 47240431.04,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0009",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "USD",
+   "balance": 53554482.83,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0010",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "EUR",
+   "balance": 60525604.64,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0011",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "GBP",
+   "balance": 81631918.74,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0012",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "JPY",
+   "balance": 68835863.32,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0013",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "USD",
+   "balance": 52615424.66,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0014",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "EUR",
+   "balance": 28587075.43,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0015",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "GBP",
+   "balance": 10156954.89,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0016",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "JPY",
+   "balance": 1821062.56,
+   "jurisdiction": "DE",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0017",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "USD",
+   "balance": 26930376.34,
+   "jurisdiction": "FR",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0018",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "EUR",
+   "balance": 7202369.68,
+   "jurisdiction": "CN",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0019",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "GBP",
+   "balance": 17035369.35,
+   "jurisdiction": "IN",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0020",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "JPY",
+   "balance": 83084945.73,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0021",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "USD",
+   "balance": 12290491.87,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0022",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "EUR",
+   "balance": 47749668.86,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0023",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "GBP",
+   "balance": 57466541.14,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0024",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "JPY",
+   "balance": 30728025.28,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0025",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "USD",
+   "balance": 72277404.95,
+   "jurisdiction": "GB",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0026",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "EUR",
+   "balance": 32078517.99,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0027",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "GBP",
+   "balance": 75911800.21,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0028",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "JPY",
+   "balance": 54474687.7,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0029",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "USD",
+   "balance": 1043054.16,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0030",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "EUR",
+   "balance": 85828555.3,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0031",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "GBP",
+   "balance": 55812459.84,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0032",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "JPY",
+   "balance": 71625470.05,
+   "jurisdiction": "FR",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0033",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "USD",
+   "balance": 67070198.75,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0034",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "EUR",
+   "balance": 10215118.27,
+   "jurisdiction": "IN",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0035",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "GBP",
+   "balance": 85566483.45,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0036",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "JPY",
+   "balance": 52159656.87,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0037",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "USD",
+   "balance": 6055929.52,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0038",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "EUR",
+   "balance": 78591088.47,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0039",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "GBP",
+   "balance": 65436712.03,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0040",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "JPY",
+   "balance": 55344810.31,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0041",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "USD",
+   "balance": 61492949.74,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0042",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "EUR",
+   "balance": 88531980.86,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0043",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "GBP",
+   "balance": 77514187.81,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0044",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "JPY",
+   "balance": 9791581.29,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0045",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "USD",
+   "balance": 55516920.64,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0046",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "EUR",
+   "balance": 84613811.93,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0047",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "GBP",
+   "balance": 75057537.96,
+   "jurisdiction": "FR",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0048",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "JPY",
+   "balance": 84846585.26,
+   "jurisdiction": "CN",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0049",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "USD",
+   "balance": 60445515.43,
+   "jurisdiction": "IN",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0050",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "EUR",
+   "balance": 32465019.24,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0051",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "GBP",
+   "balance": 75162030.93,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0052",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "JPY",
+   "balance": 1236655.97,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0053",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "USD",
+   "balance": 79072663.32,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0054",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "EUR",
+   "balance": 31218261.17,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0055",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "GBP",
+   "balance": 24893932.29,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0056",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "JPY",
+   "balance": 4319106.35,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0057",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "USD",
+   "balance": 61771488.71,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0058",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "EUR",
+   "balance": 52668206.08,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0059",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "GBP",
+   "balance": 24592136.26,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0060",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "JPY",
+   "balance": 50494720.01,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0061",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "USD",
+   "balance": 15478910.89,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0062",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "EUR",
+   "balance": 25206413.82,
+   "jurisdiction": "FR",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0063",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "GBP",
+   "balance": 37287629.81,
+   "jurisdiction": "CN",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0064",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "JPY",
+   "balance": 12091771.49,
+   "jurisdiction": "IN",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0065",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "USD",
+   "balance": 66316763.87,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0066",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "EUR",
+   "balance": 84388474.35,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0067",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "GBP",
+   "balance": 24233623.93,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0068",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "JPY",
+   "balance": 17891681.62,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0069",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "USD",
+   "balance": 64852250.26,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0070",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "EUR",
+   "balance": 84663972.5,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0071",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "GBP",
+   "balance": 29955320.96,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0072",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "JPY",
+   "balance": 49054547.32,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0073",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "USD",
+   "balance": 24484658.66,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0074",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "EUR",
+   "balance": 36942255.93,
+   "jurisdiction": "GB",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0075",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "GBP",
+   "balance": 54742249.31,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0076",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "JPY",
+   "balance": 85095596.19,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0077",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "USD",
+   "balance": 60279469.88,
+   "jurisdiction": "FR",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0078",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "EUR",
+   "balance": 67861743.89,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": false,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0079",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "GBP",
+   "balance": 86011681.07,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0080",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "JPY",
+   "balance": 69543853.75,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0081",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "USD",
+   "balance": 44035860.63,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0082",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "EUR",
+   "balance": 55532180.55,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0083",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "GBP",
+   "balance": 9077417.24,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0084",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "JPY",
+   "balance": 31234038.33,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0085",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "USD",
+   "balance": 44687845.3,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0086",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "currency": "EUR",
+   "balance": 7935154.92,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0087",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "currency": "GBP",
+   "balance": 74417167.52,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0088",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "currency": "JPY",
+   "balance": 3023606.61,
+   "jurisdiction": "US-MD",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0089",
+   "holder_lei": "549300WRECW11X94UB57",
+   "currency": "USD",
+   "balance": 54525595.28,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0090",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "currency": "EUR",
+   "balance": 51517000.14,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0091",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "currency": "GBP",
+   "balance": 70945081.11,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0092",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "currency": "JPY",
+   "balance": 64925500.56,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0093",
+   "holder_lei": "529900E95812SYWMCE44",
+   "currency": "USD",
+   "balance": 18049472.1,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0094",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "currency": "EUR",
+   "balance": 36701707.48,
+   "jurisdiction": "IN",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0095",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "currency": "GBP",
+   "balance": 68889263.37,
+   "jurisdiction": "DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0096",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "currency": "JPY",
+   "balance": 88794399.05,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0097",
+   "holder_lei": "5493003J7157VP25NL57",
+   "currency": "USD",
+   "balance": 83462532.88,
+   "jurisdiction": "US-NY",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0098",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "currency": "EUR",
+   "balance": 16140015.43,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0099",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "currency": "GBP",
+   "balance": 75371934.85,
+   "jurisdiction": "US-DE",
+   "setoff_contractual": true,
+   "setoff_enforceable": false,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "account_id": "W12-0100",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "currency": "JPY",
+   "balance": 83772029.08,
+   "jurisdiction": "GB",
+   "setoff_contractual": true,
+   "setoff_enforceable": true,
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "positions": [
+  {
+   "position_id": "POS-00001",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-LLYG84-00001",
+   "currency": "GBP",
+   "notional": 973973561.5,
+   "yield_bp": 430.0,
+   "maturity_date": "2027-01-31",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00002",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "5299001XWB5V3B5IPN93",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-5IPN93-00002",
+   "currency": "GBP",
+   "notional": 1300344211.33,
+   "yield_bp": 443.9,
+   "maturity_date": "2027-03-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00003",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-LLYG84-00003",
+   "currency": "JPY",
+   "notional": 347209865.42,
+   "yield_bp": 375.8,
+   "maturity_date": "2026-11-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00004",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-2QGB24-00004",
+   "currency": "JPY",
+   "notional": 110998359.95,
+   "yield_bp": 434.9,
+   "maturity_date": "2027-03-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00005",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCDI76-00005",
+   "currency": "GBP",
+   "notional": 1037539973.5,
+   "yield_bp": 459.2,
+   "maturity_date": "2026-11-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00006",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1FRB91-00006",
+   "currency": "USD",
+   "notional": 1658835666.73,
+   "yield_bp": 411.5,
+   "maturity_date": "2026-11-17",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00007",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00007",
+   "currency": "USD",
+   "notional": 1349269157.68,
+   "yield_bp": 432.3,
+   "maturity_date": "2027-04-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00008",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00008",
+   "currency": "JPY",
+   "notional": 1373997341.5,
+   "yield_bp": 454.4,
+   "maturity_date": "2027-06-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00009",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XCDI76-00009",
+   "currency": "USD",
+   "notional": 1382471346.76,
+   "yield_bp": 424.2,
+   "maturity_date": "2026-11-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00010",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1FRB91-00010",
+   "currency": "EUR",
+   "notional": 1127891302.79,
+   "yield_bp": 397.3,
+   "maturity_date": "2027-01-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00011",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-JZAQ78-00011",
+   "currency": "USD",
+   "notional": 236046551.87,
+   "yield_bp": 410.6,
+   "maturity_date": "2027-07-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00012",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1FRB91-00012",
+   "currency": "USD",
+   "notional": 366784929.09,
+   "yield_bp": 383.8,
+   "maturity_date": "2027-04-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00013",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-JZAQ78-00013",
+   "currency": "JPY",
+   "notional": 1391771675.9,
+   "yield_bp": 394.8,
+   "maturity_date": "2027-06-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00014",
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-03Y781-00014",
+   "currency": "GBP",
+   "notional": 469264567.62,
+   "yield_bp": 410.0,
+   "maturity_date": "2026-12-23",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00015",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300EC266625K12S42",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-K12S42-00015",
+   "currency": "USD",
+   "notional": 303027307.29,
+   "yield_bp": 487.1,
+   "maturity_date": "2026-10-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00016",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-CUYE69-00016",
+   "currency": "EUR",
+   "notional": 309196839.54,
+   "yield_bp": 409.8,
+   "maturity_date": "2026-10-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00017",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-FOTY73-00017",
+   "currency": "EUR",
+   "notional": 102157696.42,
+   "yield_bp": 430.4,
+   "maturity_date": "2027-02-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00018",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-FOTY73-00018",
+   "currency": "EUR",
+   "notional": 22921837.57,
+   "yield_bp": 421.1,
+   "maturity_date": "2026-09-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00019",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-HPM605-00019",
+   "currency": "JPY",
+   "notional": 123293223.67,
+   "yield_bp": 495.0,
+   "maturity_date": "2027-02-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00020",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-FOTY73-00020",
+   "currency": "USD",
+   "notional": 320159842.91,
+   "yield_bp": 444.5,
+   "maturity_date": "2027-03-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00021",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300EZQXWQI2YL1T80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-YL1T80-00021",
+   "currency": "GBP",
+   "notional": 218673991.03,
+   "yield_bp": 411.7,
+   "maturity_date": "2026-09-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00022",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-FOTY73-00022",
+   "currency": "JPY",
+   "notional": 349362425.66,
+   "yield_bp": 382.5,
+   "maturity_date": "2026-11-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00023",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-HPM605-00023",
+   "currency": "USD",
+   "notional": 72912281.93,
+   "yield_bp": 483.9,
+   "maturity_date": "2027-01-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00024",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-HPM605-00024",
+   "currency": "EUR",
+   "notional": 115957145.16,
+   "yield_bp": 434.4,
+   "maturity_date": "2027-05-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00025",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300EZQXWQI2YL1T80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-YL1T80-00025",
+   "currency": "USD",
+   "notional": 230692601.95,
+   "yield_bp": 400.9,
+   "maturity_date": "2027-06-30",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00026",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "5493004PFHUPOR1PWN79",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-1PWN79-00026",
+   "currency": "EUR",
+   "notional": 789293.14,
+   "yield_bp": 432.0,
+   "maturity_date": "2026-10-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00027",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WMCE44-00027",
+   "currency": "JPY",
+   "notional": 330161548.64,
+   "yield_bp": 414.6,
+   "maturity_date": "2027-02-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00028",
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-CUYE69-00028",
+   "currency": "EUR",
+   "notional": 130960732.08,
+   "yield_bp": 418.3,
+   "maturity_date": "2027-06-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00029",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-1FRB91-00029",
+   "currency": "GBP",
+   "notional": 1374875012.23,
+   "yield_bp": 415.4,
+   "maturity_date": "2026-10-31",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00030",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1FRB91-00030",
+   "currency": "EUR",
+   "notional": 654888477.56,
+   "yield_bp": 432.8,
+   "maturity_date": "2027-03-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00031",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "529900ZNZBBLDE77MZ38",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-77MZ38-00031",
+   "currency": "JPY",
+   "notional": 1515540941.82,
+   "yield_bp": 450.3,
+   "maturity_date": "2027-05-05",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00032",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-NT6O92-00032",
+   "currency": "JPY",
+   "notional": 233305233.73,
+   "yield_bp": 432.3,
+   "maturity_date": "2026-10-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00033",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-1FRB91-00033",
+   "currency": "GBP",
+   "notional": 523354264.63,
+   "yield_bp": 451.9,
+   "maturity_date": "2027-07-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00034",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-HPM605-00034",
+   "currency": "GBP",
+   "notional": 1431188185.58,
+   "yield_bp": 455.5,
+   "maturity_date": "2026-08-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00035",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "549300OM4BWMCIXVCZ39",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XVCZ39-00035",
+   "currency": "USD",
+   "notional": 502446263.3,
+   "yield_bp": 430.9,
+   "maturity_date": "2026-12-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00036",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "549300WRECW11X94UB57",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-94UB57-00036",
+   "currency": "GBP",
+   "notional": 1132884566.65,
+   "yield_bp": 449.2,
+   "maturity_date": "2027-02-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00037",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WOAW87-00037",
+   "currency": "GBP",
+   "notional": 1369785268.02,
+   "yield_bp": 433.0,
+   "maturity_date": "2027-06-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00038",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-NT6O92-00038",
+   "currency": "EUR",
+   "notional": 1313955849.06,
+   "yield_bp": 412.1,
+   "maturity_date": "2027-08-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00039",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "529900ZNZBBLDE77MZ38",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-77MZ38-00039",
+   "currency": "GBP",
+   "notional": 388862684.95,
+   "yield_bp": 378.3,
+   "maturity_date": "2026-12-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00040",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WOAW87-00040",
+   "currency": "USD",
+   "notional": 121466858.99,
+   "yield_bp": 450.8,
+   "maturity_date": "2027-07-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00041",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WOAW87-00041",
+   "currency": "GBP",
+   "notional": 965927360.21,
+   "yield_bp": 422.7,
+   "maturity_date": "2027-01-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00042",
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-1FRB91-00042",
+   "currency": "USD",
+   "notional": 169621524.0,
+   "yield_bp": 481.6,
+   "maturity_date": "2027-06-17",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00043",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-PN7H13-00043",
+   "currency": "EUR",
+   "notional": 17707781.27,
+   "yield_bp": 434.2,
+   "maturity_date": "2026-08-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00044",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-WMCE44-00044",
+   "currency": "JPY",
+   "notional": 811097.82,
+   "yield_bp": 453.8,
+   "maturity_date": "2027-08-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00045",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WMCE44-00045",
+   "currency": "EUR",
+   "notional": 31935006.19,
+   "yield_bp": 387.4,
+   "maturity_date": "2026-10-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00046",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PN7H13-00046",
+   "currency": "USD",
+   "notional": 32089115.26,
+   "yield_bp": 474.0,
+   "maturity_date": "2027-08-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00047",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PDIN91-00047",
+   "currency": "GBP",
+   "notional": 2177720.59,
+   "yield_bp": 457.6,
+   "maturity_date": "2027-05-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00048",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WMCE44-00048",
+   "currency": "EUR",
+   "notional": 5082595.96,
+   "yield_bp": 457.7,
+   "maturity_date": "2027-01-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00049",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PDIN91-00049",
+   "currency": "USD",
+   "notional": 316006.27,
+   "yield_bp": 451.9,
+   "maturity_date": "2026-11-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00050",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "549300EZQXWQI2YL1T80",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-YL1T80-00050",
+   "currency": "EUR",
+   "notional": 30057342.79,
+   "yield_bp": 465.2,
+   "maturity_date": "2027-01-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00051",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "5493003QENHHS261UR94",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-61UR94-00051",
+   "currency": "USD",
+   "notional": 3202552.26,
+   "yield_bp": 421.6,
+   "maturity_date": "2026-11-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00052",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "5493003QENHHS261UR94",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-61UR94-00052",
+   "currency": "JPY",
+   "notional": 18664820.4,
+   "yield_bp": 464.0,
+   "maturity_date": "2026-12-16",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00053",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PDIN91-00053",
+   "currency": "EUR",
+   "notional": 8244810.97,
+   "yield_bp": 474.2,
+   "maturity_date": "2027-03-17",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00054",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "549300EZQXWQI2YL1T80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-YL1T80-00054",
+   "currency": "GBP",
+   "notional": 13021026.0,
+   "yield_bp": 435.2,
+   "maturity_date": "2027-05-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00055",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "54930002FEWTYF4YFF19",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-4YFF19-00055",
+   "currency": "GBP",
+   "notional": 16438601.68,
+   "yield_bp": 421.4,
+   "maturity_date": "2027-03-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00056",
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WMCE44-00056",
+   "currency": "JPY",
+   "notional": 13874293.89,
+   "yield_bp": 404.0,
+   "maturity_date": "2027-06-05",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00057",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00057",
+   "currency": "JPY",
+   "notional": 42742350.13,
+   "yield_bp": 400.5,
+   "maturity_date": "2027-06-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00058",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PN7H13-00058",
+   "currency": "GBP",
+   "notional": 17635256.42,
+   "yield_bp": 472.5,
+   "maturity_date": "2027-03-30",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00059",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "549300OM4BWMCIXVCZ39",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XVCZ39-00059",
+   "currency": "USD",
+   "notional": 54892491.6,
+   "yield_bp": 411.3,
+   "maturity_date": "2027-03-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00060",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "549300OM4BWMCIXVCZ39",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XVCZ39-00060",
+   "currency": "USD",
+   "notional": 1731291.08,
+   "yield_bp": 411.2,
+   "maturity_date": "2027-01-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00061",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XQ4886-00061",
+   "currency": "EUR",
+   "notional": 30506609.29,
+   "yield_bp": 440.7,
+   "maturity_date": "2027-03-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00062",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "G8NWFN4YP7CR6FOP4886",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-OP4886-00062",
+   "currency": "USD",
+   "notional": 26908069.59,
+   "yield_bp": 410.8,
+   "maturity_date": "2027-02-19",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00063",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "549300OM4BWMCIXVCZ39",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XVCZ39-00063",
+   "currency": "JPY",
+   "notional": 42864298.46,
+   "yield_bp": 401.7,
+   "maturity_date": "2027-04-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00064",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "G8NWFN4YP7CR6FOP4886",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-OP4886-00064",
+   "currency": "EUR",
+   "notional": 36097193.68,
+   "yield_bp": 392.7,
+   "maturity_date": "2027-08-13",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00065",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XQ4886-00065",
+   "currency": "EUR",
+   "notional": 20097468.66,
+   "yield_bp": 392.2,
+   "maturity_date": "2026-10-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00066",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "G8NWFN4YP7CR6FOP4886",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-OP4886-00066",
+   "currency": "JPY",
+   "notional": 45787850.68,
+   "yield_bp": 386.3,
+   "maturity_date": "2027-01-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00067",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XQ4886-00067",
+   "currency": "EUR",
+   "notional": 24482376.8,
+   "yield_bp": 448.3,
+   "maturity_date": "2026-10-05",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00068",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-PN7H13-00068",
+   "currency": "GBP",
+   "notional": 61949286.55,
+   "yield_bp": 410.4,
+   "maturity_date": "2026-11-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00069",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-PN7H13-00069",
+   "currency": "GBP",
+   "notional": 4379377.42,
+   "yield_bp": 417.6,
+   "maturity_date": "2027-06-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00070",
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00070",
+   "currency": "JPY",
+   "notional": 68937159.38,
+   "yield_bp": 456.2,
+   "maturity_date": "2027-01-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00071",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-18KY76-00071",
+   "currency": "USD",
+   "notional": 608282708.47,
+   "yield_bp": 436.2,
+   "maturity_date": "2027-05-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00072",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "54930022CZO1N2UGVW07",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-UGVW07-00072",
+   "currency": "EUR",
+   "notional": 1139787946.99,
+   "yield_bp": 436.8,
+   "maturity_date": "2026-10-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00073",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-JZAQ78-00073",
+   "currency": "USD",
+   "notional": 626199506.37,
+   "yield_bp": 421.0,
+   "maturity_date": "2027-06-19",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00074",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-18KY76-00074",
+   "currency": "GBP",
+   "notional": 507431795.63,
+   "yield_bp": 422.1,
+   "maturity_date": "2026-10-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00075",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-FOTY73-00075",
+   "currency": "EUR",
+   "notional": 1005278802.64,
+   "yield_bp": 456.2,
+   "maturity_date": "2027-06-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00076",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-18KY76-00076",
+   "currency": "EUR",
+   "notional": 340344872.67,
+   "yield_bp": 453.0,
+   "maturity_date": "2026-09-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00077",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCRV69-00077",
+   "currency": "EUR",
+   "notional": 902303725.62,
+   "yield_bp": 473.6,
+   "maturity_date": "2026-10-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00078",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300F1Y3LN5BX5WN75",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-X5WN75-00078",
+   "currency": "USD",
+   "notional": 121720666.58,
+   "yield_bp": 435.0,
+   "maturity_date": "2027-05-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00079",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "54930022CZO1N2UGVW07",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-UGVW07-00079",
+   "currency": "GBP",
+   "notional": 459633897.21,
+   "yield_bp": 413.0,
+   "maturity_date": "2027-05-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00080",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCRV69-00080",
+   "currency": "EUR",
+   "notional": 977558223.31,
+   "yield_bp": 403.9,
+   "maturity_date": "2027-06-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00081",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-FOTY73-00081",
+   "currency": "EUR",
+   "notional": 265318553.48,
+   "yield_bp": 441.3,
+   "maturity_date": "2027-04-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00082",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300OUUC900EVOGX10",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-VOGX10-00082",
+   "currency": "USD",
+   "notional": 535234086.86,
+   "yield_bp": 421.7,
+   "maturity_date": "2027-06-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00083",
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WMCE44-00083",
+   "currency": "GBP",
+   "notional": 698074190.33,
+   "yield_bp": 416.8,
+   "maturity_date": "2027-05-31",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00084",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-CUYE69-00084",
+   "currency": "JPY",
+   "notional": 47148925.35,
+   "yield_bp": 468.5,
+   "maturity_date": "2027-04-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00085",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-4XKX80-00085",
+   "currency": "USD",
+   "notional": 1727802.44,
+   "yield_bp": 438.6,
+   "maturity_date": "2027-01-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00086",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "5493004PFHUPOR1PWN79",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1PWN79-00086",
+   "currency": "GBP",
+   "notional": 13025869.99,
+   "yield_bp": 406.0,
+   "maturity_date": "2027-04-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00087",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-4XKX80-00087",
+   "currency": "GBP",
+   "notional": 20451562.01,
+   "yield_bp": 469.2,
+   "maturity_date": "2027-07-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00088",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-4XKX80-00088",
+   "currency": "GBP",
+   "notional": 64280054.7,
+   "yield_bp": 443.4,
+   "maturity_date": "2027-06-13",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00089",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300EC266625K12S42",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-K12S42-00089",
+   "currency": "EUR",
+   "notional": 23716064.39,
+   "yield_bp": 404.2,
+   "maturity_date": "2027-06-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00090",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300EQD0ZXRSMG3549",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-MG3549-00090",
+   "currency": "EUR",
+   "notional": 63118097.17,
+   "yield_bp": 415.9,
+   "maturity_date": "2027-05-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00091",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "254900HM1ABRDJ7T5718",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-7T5718-00091",
+   "currency": "GBP",
+   "notional": 1349913.34,
+   "yield_bp": 375.9,
+   "maturity_date": "2027-08-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00092",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCRV69-00092",
+   "currency": "USD",
+   "notional": 13406072.01,
+   "yield_bp": 490.8,
+   "maturity_date": "2027-03-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00093",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-4XKX80-00093",
+   "currency": "EUR",
+   "notional": 5175955.95,
+   "yield_bp": 400.0,
+   "maturity_date": "2027-05-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00094",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WMCE44-00094",
+   "currency": "JPY",
+   "notional": 26193234.93,
+   "yield_bp": 406.2,
+   "maturity_date": "2026-12-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00095",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WMCE44-00095",
+   "currency": "USD",
+   "notional": 62280800.79,
+   "yield_bp": 422.6,
+   "maturity_date": "2027-01-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00096",
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-18KY76-00096",
+   "currency": "EUR",
+   "notional": 71380447.5,
+   "yield_bp": 428.5,
+   "maturity_date": "2027-08-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00097",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-LLYG84-00097",
+   "currency": "GBP",
+   "notional": 62444782.59,
+   "yield_bp": 409.3,
+   "maturity_date": "2027-07-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00098",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-4XKX80-00098",
+   "currency": "JPY",
+   "notional": 359203519.89,
+   "yield_bp": 380.2,
+   "maturity_date": "2027-01-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00099",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-4XKX80-00099",
+   "currency": "EUR",
+   "notional": 761360519.1,
+   "yield_bp": 401.4,
+   "maturity_date": "2026-11-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00100",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "254900HM1ABRDJ7T5718",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-7T5718-00100",
+   "currency": "USD",
+   "notional": 372338017.24,
+   "yield_bp": 431.2,
+   "maturity_date": "2027-03-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00101",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCDI76-00101",
+   "currency": "USD",
+   "notional": 483598814.27,
+   "yield_bp": 416.8,
+   "maturity_date": "2027-01-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00102",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCDI76-00102",
+   "currency": "GBP",
+   "notional": 765348071.7,
+   "yield_bp": 448.6,
+   "maturity_date": "2027-02-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00103",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCDI76-00103",
+   "currency": "EUR",
+   "notional": 86824706.72,
+   "yield_bp": 424.3,
+   "maturity_date": "2026-10-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00104",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-4XKX80-00104",
+   "currency": "EUR",
+   "notional": 167180514.69,
+   "yield_bp": 426.9,
+   "maturity_date": "2026-12-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00105",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCDI76-00105",
+   "currency": "USD",
+   "notional": 166853143.31,
+   "yield_bp": 415.0,
+   "maturity_date": "2026-09-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00106",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-4XKX80-00106",
+   "currency": "GBP",
+   "notional": 427220112.87,
+   "yield_bp": 417.9,
+   "maturity_date": "2027-05-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00107",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-LLYG84-00107",
+   "currency": "USD",
+   "notional": 225025794.06,
+   "yield_bp": 478.6,
+   "maturity_date": "2026-09-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00108",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300Z3L8NU44NQEB29",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-NQEB29-00108",
+   "currency": "GBP",
+   "notional": 237382020.02,
+   "yield_bp": 395.2,
+   "maturity_date": "2026-09-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00109",
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300TMDIT8WREDOF45",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-EDOF45-00109",
+   "currency": "EUR",
+   "notional": 351835819.94,
+   "yield_bp": 430.3,
+   "maturity_date": "2026-12-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00110",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-2QGB24-00110",
+   "currency": "USD",
+   "notional": 437397755.94,
+   "yield_bp": 413.8,
+   "maturity_date": "2027-06-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00111",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "5493003J7157VP25NL57",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-25NL57-00111",
+   "currency": "GBP",
+   "notional": 454373169.57,
+   "yield_bp": 460.5,
+   "maturity_date": "2027-07-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00112",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00112",
+   "currency": "JPY",
+   "notional": 340549914.4,
+   "yield_bp": 449.4,
+   "maturity_date": "2026-09-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00113",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-DIQH89-00113",
+   "currency": "GBP",
+   "notional": 728800287.66,
+   "yield_bp": 423.7,
+   "maturity_date": "2027-07-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00114",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-03Y781-00114",
+   "currency": "USD",
+   "notional": 410831858.88,
+   "yield_bp": 470.6,
+   "maturity_date": "2027-08-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00115",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-JZAQ78-00115",
+   "currency": "USD",
+   "notional": 132922684.77,
+   "yield_bp": 394.8,
+   "maturity_date": "2027-07-23",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00116",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-2QGB24-00116",
+   "currency": "GBP",
+   "notional": 32931355.27,
+   "yield_bp": 417.5,
+   "maturity_date": "2027-01-01",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00117",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D3L3G0R4U4VT04",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-U4VT04-00117",
+   "currency": "USD",
+   "notional": 588913053.56,
+   "yield_bp": 420.5,
+   "maturity_date": "2027-03-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00118",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-JZAQ78-00118",
+   "currency": "JPY",
+   "notional": 440871800.29,
+   "yield_bp": 485.4,
+   "maturity_date": "2027-02-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00119",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-2QGB24-00119",
+   "currency": "JPY",
+   "notional": 262219099.21,
+   "yield_bp": 456.3,
+   "maturity_date": "2027-01-17",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00120",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-2QGB24-00120",
+   "currency": "JPY",
+   "notional": 200424799.01,
+   "yield_bp": 451.4,
+   "maturity_date": "2026-10-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00121",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "529900ZNZBBLDE77MZ38",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-77MZ38-00121",
+   "currency": "GBP",
+   "notional": 597645571.91,
+   "yield_bp": 454.5,
+   "maturity_date": "2027-04-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00122",
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "5493000C2SGNC7ZN3242",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-ZN3242-00122",
+   "currency": "GBP",
+   "notional": 423667959.06,
+   "yield_bp": 461.9,
+   "maturity_date": "2027-03-30",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00123",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5299001XWB5V3B5IPN93",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-5IPN93-00123",
+   "currency": "USD",
+   "notional": 73142839.53,
+   "yield_bp": 428.3,
+   "maturity_date": "2027-06-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00124",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCDI76-00124",
+   "currency": "EUR",
+   "notional": 49005757.66,
+   "yield_bp": 478.6,
+   "maturity_date": "2026-12-23",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00125",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-DI9P12-00125",
+   "currency": "USD",
+   "notional": 50424081.51,
+   "yield_bp": 445.2,
+   "maturity_date": "2026-12-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00126",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCDI76-00126",
+   "currency": "USD",
+   "notional": 86052109.43,
+   "yield_bp": 492.6,
+   "maturity_date": "2026-09-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00127",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-WOAW87-00127",
+   "currency": "GBP",
+   "notional": 31813409.97,
+   "yield_bp": 450.3,
+   "maturity_date": "2026-09-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00128",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-4XKX80-00128",
+   "currency": "GBP",
+   "notional": 20664129.59,
+   "yield_bp": 471.1,
+   "maturity_date": "2026-11-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00129",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XQ4886-00129",
+   "currency": "USD",
+   "notional": 34971351.87,
+   "yield_bp": 438.0,
+   "maturity_date": "2027-03-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00130",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-CUYE69-00130",
+   "currency": "USD",
+   "notional": 51328078.04,
+   "yield_bp": 433.6,
+   "maturity_date": "2026-12-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00131",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-FOTY73-00131",
+   "currency": "USD",
+   "notional": 8219375.29,
+   "yield_bp": 459.1,
+   "maturity_date": "2026-09-08",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00132",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCDI76-00132",
+   "currency": "JPY",
+   "notional": 40693177.78,
+   "yield_bp": 446.1,
+   "maturity_date": "2027-07-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00133",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-FOTY73-00133",
+   "currency": "USD",
+   "notional": 123898855.23,
+   "yield_bp": 465.3,
+   "maturity_date": "2027-05-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00134",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-DI9P12-00134",
+   "currency": "GBP",
+   "notional": 44011086.88,
+   "yield_bp": 481.4,
+   "maturity_date": "2027-07-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00135",
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WOAW87-00135",
+   "currency": "JPY",
+   "notional": 121447086.31,
+   "yield_bp": 425.1,
+   "maturity_date": "2026-08-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00136",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "254900HM1ABRDJ7T5718",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-7T5718-00136",
+   "currency": "USD",
+   "notional": 2216051744.01,
+   "yield_bp": 481.0,
+   "maturity_date": "2027-06-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00137",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300UZHTN0CNKBOB19",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-KBOB19-00137",
+   "currency": "GBP",
+   "notional": 1450314631.2,
+   "yield_bp": 415.6,
+   "maturity_date": "2026-11-30",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00138",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300UZHTN0CNKBOB19",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-KBOB19-00138",
+   "currency": "USD",
+   "notional": 5259300504.05,
+   "yield_bp": 484.5,
+   "maturity_date": "2026-11-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00139",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-2QGB24-00139",
+   "currency": "GBP",
+   "notional": 5795090272.09,
+   "yield_bp": 448.0,
+   "maturity_date": "2027-01-30",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00140",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-DI9P12-00140",
+   "currency": "USD",
+   "notional": 6433077848.26,
+   "yield_bp": 407.5,
+   "maturity_date": "2026-12-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00141",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PN7H13-00141",
+   "currency": "JPY",
+   "notional": 9821187980.85,
+   "yield_bp": 486.7,
+   "maturity_date": "2027-02-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00142",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300UZHTN0CNKBOB19",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-KBOB19-00142",
+   "currency": "JPY",
+   "notional": 7816446854.19,
+   "yield_bp": 425.5,
+   "maturity_date": "2027-01-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00143",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-DI9P12-00143",
+   "currency": "USD",
+   "notional": 2062391640.58,
+   "yield_bp": 458.8,
+   "maturity_date": "2027-07-17",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00144",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-2QGB24-00144",
+   "currency": "JPY",
+   "notional": 1507064018.43,
+   "yield_bp": 446.9,
+   "maturity_date": "2027-07-16",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00145",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-2QGB24-00145",
+   "currency": "USD",
+   "notional": 4612634707.66,
+   "yield_bp": 441.9,
+   "maturity_date": "2026-11-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00146",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-DI9P12-00146",
+   "currency": "USD",
+   "notional": 1342727770.17,
+   "yield_bp": 454.2,
+   "maturity_date": "2027-08-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00147",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-PN7H13-00147",
+   "currency": "EUR",
+   "notional": 4144888959.85,
+   "yield_bp": 493.9,
+   "maturity_date": "2026-11-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00148",
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-DI9P12-00148",
+   "currency": "EUR",
+   "notional": 3564931013.8,
+   "yield_bp": 433.0,
+   "maturity_date": "2027-05-14",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00149",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-0RLD36-00149",
+   "currency": "GBP",
+   "notional": 1915476539.28,
+   "yield_bp": 440.4,
+   "maturity_date": "2026-09-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00150",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300D3L3G0R4U4VT04",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-U4VT04-00150",
+   "currency": "EUR",
+   "notional": 2593198305.9,
+   "yield_bp": 417.8,
+   "maturity_date": "2027-03-26",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00151",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-LLYG84-00151",
+   "currency": "USD",
+   "notional": 1191674804.6,
+   "yield_bp": 443.4,
+   "maturity_date": "2026-09-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00152",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XCRV69-00152",
+   "currency": "GBP",
+   "notional": 1301754419.69,
+   "yield_bp": 412.3,
+   "maturity_date": "2026-10-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00153",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "5493004PFHUPOR1PWN79",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-1PWN79-00153",
+   "currency": "USD",
+   "notional": 778524729.93,
+   "yield_bp": 476.3,
+   "maturity_date": "2027-05-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00154",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-XCRV69-00154",
+   "currency": "EUR",
+   "notional": 2534718449.79,
+   "yield_bp": 458.8,
+   "maturity_date": "2027-04-09",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00155",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00155",
+   "currency": "JPY",
+   "notional": 2044782162.67,
+   "yield_bp": 449.2,
+   "maturity_date": "2027-05-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00156",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-03Y781-00156",
+   "currency": "EUR",
+   "notional": 2086525341.03,
+   "yield_bp": 432.8,
+   "maturity_date": "2026-12-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00157",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300D3L3G0R4U4VT04",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-U4VT04-00157",
+   "currency": "GBP",
+   "notional": 1705490867.31,
+   "yield_bp": 427.8,
+   "maturity_date": "2026-12-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00158",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-03Y781-00158",
+   "currency": "USD",
+   "notional": 889416651.48,
+   "yield_bp": 441.2,
+   "maturity_date": "2027-02-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00159",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-03Y781-00159",
+   "currency": "EUR",
+   "notional": 2444895125.81,
+   "yield_bp": 483.7,
+   "maturity_date": "2026-09-25",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00160",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "5493004PFHUPOR1PWN79",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-1PWN79-00160",
+   "currency": "USD",
+   "notional": 1963427828.3,
+   "yield_bp": 467.3,
+   "maturity_date": "2027-04-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00161",
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00161",
+   "currency": "USD",
+   "notional": 2533971384.2,
+   "yield_bp": 444.2,
+   "maturity_date": "2027-03-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00162",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-WOAW87-00162",
+   "currency": "JPY",
+   "notional": 6550509565.7,
+   "yield_bp": 451.3,
+   "maturity_date": "2026-08-31",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00163",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-HPM605-00163",
+   "currency": "JPY",
+   "notional": 3308885628.2,
+   "yield_bp": 383.6,
+   "maturity_date": "2027-02-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00164",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-1FRB91-00164",
+   "currency": "JPY",
+   "notional": 658310938.45,
+   "yield_bp": 459.8,
+   "maturity_date": "2026-10-23",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00165",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493003J7157VP25NL57",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-25NL57-00165",
+   "currency": "USD",
+   "notional": 5036158471.26,
+   "yield_bp": 405.3,
+   "maturity_date": "2026-10-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00166",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-18KY76-00166",
+   "currency": "GBP",
+   "notional": 3597317114.03,
+   "yield_bp": 419.1,
+   "maturity_date": "2026-12-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00167",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00167",
+   "currency": "JPY",
+   "notional": 1095132655.08,
+   "yield_bp": 414.3,
+   "maturity_date": "2027-01-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00168",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-WOAW87-00168",
+   "currency": "GBP",
+   "notional": 2914374010.07,
+   "yield_bp": 419.4,
+   "maturity_date": "2027-06-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00169",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "549300FHJQTDPPN41627",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-N41627-00169",
+   "currency": "JPY",
+   "notional": 2552186839.77,
+   "yield_bp": 390.6,
+   "maturity_date": "2027-01-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00170",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-18KY76-00170",
+   "currency": "GBP",
+   "notional": 5926019436.21,
+   "yield_bp": 456.9,
+   "maturity_date": "2026-12-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00171",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XCSI52-00171",
+   "currency": "JPY",
+   "notional": 4998203802.23,
+   "yield_bp": 419.7,
+   "maturity_date": "2026-11-18",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00172",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-03Y781-00172",
+   "currency": "GBP",
+   "notional": 6004101860.75,
+   "yield_bp": 400.8,
+   "maturity_date": "2027-05-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00173",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "549300FHJQTDPPN41627",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-N41627-00173",
+   "currency": "JPY",
+   "notional": 2468569000.93,
+   "yield_bp": 383.7,
+   "maturity_date": "2027-08-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00174",
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-WOAW87-00174",
+   "currency": "GBP",
+   "notional": 3901021690.73,
+   "yield_bp": 406.7,
+   "maturity_date": "2027-07-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00175",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "549300TMDIT8WREDOF45",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-EDOF45-00175",
+   "currency": "USD",
+   "notional": 118578572.74,
+   "yield_bp": 415.8,
+   "maturity_date": "2026-09-29",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00176",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00176",
+   "currency": "EUR",
+   "notional": 209752523.3,
+   "yield_bp": 400.6,
+   "maturity_date": "2027-02-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00177",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00177",
+   "currency": "EUR",
+   "notional": 190935734.27,
+   "yield_bp": 430.6,
+   "maturity_date": "2027-07-07",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00178",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-XCSI52-00178",
+   "currency": "USD",
+   "notional": 528411058.2,
+   "yield_bp": 414.7,
+   "maturity_date": "2026-12-15",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00179",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-JZAQ78-00179",
+   "currency": "GBP",
+   "notional": 41441014.35,
+   "yield_bp": 446.8,
+   "maturity_date": "2026-12-27",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00180",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-1FRB91-00180",
+   "currency": "GBP",
+   "notional": 605710145.4,
+   "yield_bp": 390.0,
+   "maturity_date": "2027-04-11",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00181",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5299001XWB5V3B5IPN93",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-5IPN93-00181",
+   "currency": "JPY",
+   "notional": 540581998.99,
+   "yield_bp": 385.7,
+   "maturity_date": "2026-10-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00182",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-DIQH89-00182",
+   "currency": "EUR",
+   "notional": 155899528.06,
+   "yield_bp": 403.8,
+   "maturity_date": "2027-01-28",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00183",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-NT6O92-00183",
+   "currency": "EUR",
+   "notional": 375003475.81,
+   "yield_bp": 389.0,
+   "maturity_date": "2027-06-21",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00184",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "549300TMDIT8WREDOF45",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-EDOF45-00184",
+   "currency": "JPY",
+   "notional": 7465813.11,
+   "yield_bp": 440.6,
+   "maturity_date": "2026-11-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00185",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-XCSI52-00185",
+   "currency": "GBP",
+   "notional": 383535638.84,
+   "yield_bp": 378.0,
+   "maturity_date": "2026-10-06",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00186",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-DIQH89-00186",
+   "currency": "EUR",
+   "notional": 542567079.94,
+   "yield_bp": 452.5,
+   "maturity_date": "2027-03-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00187",
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-NT6O92-00187",
+   "currency": "GBP",
+   "notional": 655120934.09,
+   "yield_bp": 398.1,
+   "maturity_date": "2026-11-19",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00188",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-HPM605-00188",
+   "currency": "JPY",
+   "notional": 3336098529.29,
+   "yield_bp": 459.1,
+   "maturity_date": "2027-04-10",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00189",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "5493000S8QXWHLIXDP75",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-IXDP75-00189",
+   "currency": "USD",
+   "notional": 4957902149.22,
+   "yield_bp": 393.7,
+   "maturity_date": "2027-01-24",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00190",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "5493000S8QXWHLIXDP75",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-IXDP75-00190",
+   "currency": "EUR",
+   "notional": 4834581825.31,
+   "yield_bp": 437.4,
+   "maturity_date": "2027-04-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00191",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-0RLD36-00191",
+   "currency": "GBP",
+   "notional": 2984323172.9,
+   "yield_bp": 390.0,
+   "maturity_date": "2026-12-14",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00192",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-HPM605-00192",
+   "currency": "USD",
+   "notional": 2367782851.3,
+   "yield_bp": 486.2,
+   "maturity_date": "2027-05-03",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00193",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300EC266625K12S42",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-K12S42-00193",
+   "currency": "USD",
+   "notional": 490238891.66,
+   "yield_bp": 488.1,
+   "maturity_date": "2027-04-20",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00194",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-PDIN91-00194",
+   "currency": "GBP",
+   "notional": 4552799178.7,
+   "yield_bp": 434.1,
+   "maturity_date": "2026-10-22",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00195",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300EC266625K12S42",
+   "instrument_kind": "commercial-paper",
+   "instrument_id": "COM-K12S42-00195",
+   "currency": "JPY",
+   "notional": 4599705481.22,
+   "yield_bp": 481.2,
+   "maturity_date": "2027-03-02",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00196",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-CUYE69-00196",
+   "currency": "JPY",
+   "notional": 1713887521.73,
+   "yield_bp": 413.9,
+   "maturity_date": "2027-07-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00197",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "money-market-fund",
+   "instrument_id": "MON-0RLD36-00197",
+   "currency": "JPY",
+   "notional": 1311310453.7,
+   "yield_bp": 414.3,
+   "maturity_date": "2027-06-14",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00198",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-0RLD36-00198",
+   "currency": "EUR",
+   "notional": 1814661257.39,
+   "yield_bp": 407.4,
+   "maturity_date": "2026-10-04",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00199",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "5493000S8QXWHLIXDP75",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-IXDP75-00199",
+   "currency": "USD",
+   "notional": 199607282.53,
+   "yield_bp": 407.6,
+   "maturity_date": "2027-08-12",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "position_id": "POS-00200",
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300EC266625K12S42",
+   "instrument_kind": "treasury-bill",
+   "instrument_id": "TRE-K12S42-00200",
+   "currency": "USD",
+   "notional": 141362873.57,
+   "yield_bp": 401.5,
+   "maturity_date": "2026-11-06",
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "limits": [
+  {
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "limit_pct": 24.6,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "limit_pct": 28.0,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "5299001XWB5V3B5IPN93",
+   "limit_pct": 29.2,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "limit_pct": 31.9,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "limit_pct": 15.7,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300EC266625K12S42",
+   "limit_pct": 24.0,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "limit_pct": 18.7,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "JJAX4X60DE65EYFOTY73",
+   "limit_pct": 30.2,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "limit_pct": 15.2,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "529900ZNZBBLDE77MZ38",
+   "limit_pct": 21.7,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2549004GGE2APGNT6O92",
+   "limit_pct": 34.4,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "limit_pct": 31.4,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "limit_pct": 22.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "limit_pct": 32.2,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "529900E95812SYWMCE44",
+   "limit_pct": 33.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "549300EZQXWQI2YL1T80",
+   "limit_pct": 23.7,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "limit_pct": 17.6,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "limit_pct": 29.7,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "549300OM4BWMCIXVCZ39",
+   "limit_pct": 17.5,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "5493002H8U24DJXQ4886",
+   "limit_pct": 26.8,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "limit_pct": 29.1,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "B3BS7ACMDUWISF18KY76",
+   "limit_pct": 27.3,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "54930022CZO1N2UGVW07",
+   "limit_pct": 32.6,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "limit_pct": 25.3,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "limit_pct": 31.1,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "0IDE18EMH1CUKQCUYE69",
+   "limit_pct": 25.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "limit_pct": 21.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "5493004PFHUPOR1PWN79",
+   "limit_pct": 29.7,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "limit_pct": 19.1,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "549300XN70JLF94XKX80",
+   "limit_pct": 29.4,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "254900HM1ABRDJ7T5718",
+   "limit_pct": 19.8,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "limit_pct": 24.5,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "limit_pct": 33.9,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "limit_pct": 34.5,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "5493003J7157VP25NL57",
+   "limit_pct": 18.2,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "limit_pct": 22.5,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "limit_pct": 26.1,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5299001XWB5V3B5IPN93",
+   "limit_pct": 34.0,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493004HBTOTE9DI9P12",
+   "limit_pct": 24.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "limit_pct": 25.8,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "limit_pct": 31.9,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "254900HM1ABRDJ7T5718",
+   "limit_pct": 15.5,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300UZHTN0CNKBOB19",
+   "limit_pct": 21.0,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "549300D0WZR1VI2QGB24",
+   "limit_pct": 34.2,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "limit_pct": 33.0,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "limit_pct": 28.2,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300D3L3G0R4U4VT04",
+   "limit_pct": 34.4,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "limit_pct": 34.8,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "limit_pct": 16.1,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493000TL30VL5WOAW87",
+   "limit_pct": 24.6,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "limit_pct": 28.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "5493003J7157VP25NL57",
+   "limit_pct": 26.5,
+   "intent": "operating-liquidity",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493000Q1S5TJIDIQH89",
+   "limit_pct": 18.5,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "549300TMDIT8WREDOF45",
+   "limit_pct": 16.1,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493004Q1NNH6JXCSI52",
+   "limit_pct": 16.3,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "limit_pct": 16.6,
+   "intent": "reserve-buffer",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300EC266625K12S42",
+   "limit_pct": 30.1,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "limit_pct": 21.6,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "5493000S8QXWHLIXDP75",
+   "limit_pct": 33.9,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "holder_lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "2549001IGRCG4F0RLD36",
+   "limit_pct": 27.1,
+   "intent": "short-term-investment",
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "mandates": [
+  {
+   "mandate_id": "MND-000",
+   "lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-000",
+   "lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-000",
+   "lei": "2549001IGRCG4F0RLD36",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-001",
+   "lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-001",
+   "lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-001",
+   "lei": "2549004GGE2APGNT6O92",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-002",
+   "lei": "529900E95812SYWMCE44",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-002",
+   "lei": "529900E95812SYWMCE44",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-002",
+   "lei": "529900E95812SYWMCE44",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-003",
+   "lei": "529900VN48L8QCMVPV36",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-003",
+   "lei": "529900VN48L8QCMVPV36",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-003",
+   "lei": "529900VN48L8QCMVPV36",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-004",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-004",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-004",
+   "lei": "5493000Q1S5TJIDIQH89",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-005",
+   "lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-005",
+   "lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-005",
+   "lei": "5493002H8U24DJXQ4886",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-006",
+   "lei": "5493003J7157VP25NL57",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-006",
+   "lei": "5493003J7157VP25NL57",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-006",
+   "lei": "5493003J7157VP25NL57",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-007",
+   "lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-007",
+   "lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-007",
+   "lei": "5493004Q1NNH6JXCSI52",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-008",
+   "lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-008",
+   "lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-008",
+   "lei": "54930096DB9LCLPN7H13",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-009",
+   "lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-009",
+   "lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-009",
+   "lei": "549300D0WZR1VI2QGB24",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-010",
+   "lei": "549300EQD0ZXRSMG3549",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-010",
+   "lei": "549300EQD0ZXRSMG3549",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-010",
+   "lei": "549300EQD0ZXRSMG3549",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-011",
+   "lei": "549300FHJQTDPPN41627",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-011",
+   "lei": "549300FHJQTDPPN41627",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-011",
+   "lei": "549300FHJQTDPPN41627",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-012",
+   "lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-012",
+   "lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-012",
+   "lei": "549300KTTIRAOGXCRV69",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-013",
+   "lei": "549300WRECW11X94UB57",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-013",
+   "lei": "549300WRECW11X94UB57",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-013",
+   "lei": "549300WRECW11X94UB57",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-014",
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "money-market-fund",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-014",
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "commercial-paper",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  },
+  {
+   "mandate_id": "MND-014",
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "instrument_kind": "treasury-bill",
+   "max_tenor_days": 365,
+   "provenance": "synthetic \u2014 internal"
+  }
+ ],
+ "stale_signal": [
+  {
+   "signal_id": "SIG-000",
+   "series_id": "LIQ-SOFR-INTRADAY",
+   "as_of": "2026-08-21T16:00:00+00:00",
+   "observed_at": "2026-08-21T15:15:00+00:00",
+   "value": 5.339,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "signal_id": "SIG-001",
+   "series_id": "LIQ-2Y-INTRADAY",
+   "as_of": "2026-08-21T16:00:00+00:00",
+   "observed_at": "2026-08-21T15:57:30+00:00",
+   "value": 5.4992,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "signal_id": "SIG-002",
+   "series_id": "LIQ-FEDFUNDS-INTRADAY",
+   "as_of": "2026-08-21T16:00:00+00:00",
+   "observed_at": "2026-08-21T15:58:43+00:00",
+   "value": 4.4703,
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "signal_id": "SIG-003",
+   "series_id": "LIQ-MMF-YIELD-INTRADAY",
+   "as_of": "2026-08-21T16:00:00+00:00",
+   "observed_at": "2026-08-21T15:58:27+00:00",
+   "value": 5.3249,
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "measured_allocations": [
+  {
+   "lei": "2549001IGRCG4F0RLD36",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "share_pct": 22.94,
+   "limit_pct": 24.6,
+   "breaches": false
+  },
+  {
+   "lei": "2549004GGE2APGNT6O92",
+   "counterparty_lei": "549300DUOO1KXOHPM605",
+   "share_pct": 16.83,
+   "limit_pct": 15.7,
+   "breaches": true
+  },
+  {
+   "lei": "529900E95812SYWMCE44",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "share_pct": 26.59,
+   "limit_pct": 15.2,
+   "breaches": true
+  },
+  {
+   "lei": "529900VN48L8QCMVPV36",
+   "counterparty_lei": "QBKYQD0ODE7DC7PDIN91",
+   "share_pct": 9.25,
+   "limit_pct": 22.5,
+   "breaches": false
+  },
+  {
+   "lei": "5493000Q1S5TJIDIQH89",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "share_pct": 21.3,
+   "limit_pct": 17.6,
+   "breaches": true
+  },
+  {
+   "lei": "5493002H8U24DJXQ4886",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "share_pct": 27.6,
+   "limit_pct": 29.1,
+   "breaches": false
+  },
+  {
+   "lei": "5493003J7157VP25NL57",
+   "counterparty_lei": "549300KTTIRAOGXCRV69",
+   "share_pct": 8.0,
+   "limit_pct": 31.1,
+   "breaches": false
+  },
+  {
+   "lei": "5493004Q1NNH6JXCSI52",
+   "counterparty_lei": "5493005IZFE4VJLLYG84",
+   "share_pct": 11.6,
+   "limit_pct": 19.1,
+   "breaches": false
+  },
+  {
+   "lei": "54930096DB9LCLPN7H13",
+   "counterparty_lei": "549300TRW1LZMDJZAQ78",
+   "share_pct": 16.3,
+   "limit_pct": 33.9,
+   "breaches": false
+  },
+  {
+   "lei": "549300D0WZR1VI2QGB24",
+   "counterparty_lei": "529900L7KB2N9KXCDI76",
+   "share_pct": 28.09,
+   "limit_pct": 26.1,
+   "breaches": true
+  },
+  {
+   "lei": "549300EQD0ZXRSMG3549",
+   "counterparty_lei": "54930096DB9LCLPN7H13",
+   "share_pct": 28.47,
+   "limit_pct": 31.9,
+   "breaches": false
+  },
+  {
+   "lei": "549300FHJQTDPPN41627",
+   "counterparty_lei": "549300FA4CTCW903Y781",
+   "share_pct": 45.14,
+   "limit_pct": 33.0,
+   "breaches": true
+  },
+  {
+   "lei": "549300KTTIRAOGXCRV69",
+   "counterparty_lei": "2P2YLDVPES3BXQ1FRB91",
+   "share_pct": 6.69,
+   "limit_pct": 16.1,
+   "breaches": false
+  },
+  {
+   "lei": "549300WRECW11X94UB57",
+   "counterparty_lei": "5493000Q1S5TJIDIQH89",
+   "share_pct": 19.9,
+   "limit_pct": 18.5,
+   "breaches": true
+  },
+  {
+   "lei": "B3BS7ACMDUWISF18KY76",
+   "counterparty_lei": "549300EC266625K12S42",
+   "share_pct": 20.09,
+   "limit_pct": 30.1,
+   "breaches": false
+  }
+ ]
+}

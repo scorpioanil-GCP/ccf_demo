@@ -1,0 +1,8 @@
+# Direct dependencies match ccf_code/main@3f914416e9e85cb348d20659d80f3c7e2d3685e6.
+# This is not the dependency list for a full CCF deployment.
+Jinja2==3.1.6
+pydantic==2.13.4
+PyYAML==6.0.3
+httpx==0.28.1
+mcp==1.28.1
+joserfc==1.7.4

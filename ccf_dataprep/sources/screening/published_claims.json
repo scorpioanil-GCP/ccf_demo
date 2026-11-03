@@ -1,0 +1,443 @@
+{
+  "_comment": "What the VAULT currently asserts about each bound term's estate state. This mirrors published caveats in wiki/context-products/*; it is not a description of the estate. validators/binding_drift.py compares these claims against what Fluree actually holds, because the failure this catches is a DISAGREEMENT between two documents, not a property of either one alone.",
+  "_states": {
+    "contradicted": "the estate holds a different (stale) IRI for this term; a consumer must not bind against the estate",
+    "materialized": "the estate holds this term at the correct IRI; do NOT forward-map it",
+    "not_materialized": "nothing generated against this term yet; an empty result means absent, not wrong"
+  },
+  "_maintenance": "Update when a vault caveat changes OR when a remediation lands. A claim left behind by a remediation is exactly the error this file exists to surface.",
+  "as_of": "2026-08-21",
+  "mirror_revision": "2026-08-17 Wave 8 + drift punch list applied",
+  "claims": [
+    {
+      "term": "LegalEntity",
+      "claimed_iri": "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/LegalEntity",
+      "kind": "class",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "counterparty-reference-snapshot",
+        "corporate-family-tree",
+        "kyc-refresh-beneficial-ownership"
+      ]
+    },
+    {
+      "term": "Party",
+      "claimed_iri": "https://www.omg.org/spec/Commons/PartiesAndSituations/Party",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/Party",
+      "kind": "class",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "counterparty-reference-snapshot"
+      ]
+    },
+    {
+      "term": "Corporation",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/Corporations/Corporations/Corporation",
+      "kind": "class",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "counterparty-reference-snapshot"
+      ]
+    },
+    {
+      "term": "Agent",
+      "claimed_iri": "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/Agents/Agent",
+      "kind": "class",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "counterparty-reference-snapshot"
+      ]
+    },
+    {
+      "term": "FormalOrganization",
+      "claimed_iri": "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/FormalBusinessOrganizations/FormalOrganization",
+      "kind": "class",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "counterparty-reference-snapshot"
+      ]
+    },
+    {
+      "term": "owns",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Ownership/hasOwnershipInterestIn",
+      "kind": "property",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "corporate-family-tree",
+        "kyc-refresh-beneficial-ownership"
+      ]
+    },
+    {
+      "term": "controls",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/controls",
+      "stale_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Control/hasControllingInterestIn",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "corporate-family-tree",
+        "kyc-refresh-beneficial-ownership"
+      ]
+    },
+    {
+      "term": "hasSubsidiary",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasSubsidiary",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "corporate-family-tree"
+      ]
+    },
+    {
+      "term": "hasGlobalUltimateParent",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasGlobalUltimateParent",
+      "kind": "property",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "corporate-family-tree"
+      ]
+    },
+    {
+      "term": "hasDomesticUltimateParent",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasDomesticUltimateParent",
+      "kind": "property",
+      "claim": "materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "corporate-family-tree"
+      ]
+    },
+    {
+      "term": "Tranche",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/Tranche",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "abs-securitization-surveillance"
+      ]
+    },
+    {
+      "term": "DepositAccount",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DepositAccount",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "collateral-and-setoff-coverage",
+        "treasury-liquidity-position"
+      ]
+    },
+    {
+      "term": "Person",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "kyc-refresh-beneficial-ownership",
+        "client-360-coverage-graph"
+      ]
+    },
+    {
+      "term": "hasBeneficialOwner",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/hasBeneficialOwner",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "kyc-refresh-beneficial-ownership"
+      ]
+    },
+    {
+      "term": "CorporateOfficer",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/CorporateOfficer",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ]
+    },
+    {
+      "term": "isEmployedBy",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployedBy",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ]
+    },
+    {
+      "term": "isOfficerOf",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/isOfficerOf",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ]
+    },
+    {
+      "term": "isDirectorOf",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/isDirectorOf",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ]
+    },
+    {
+      "term": "Banker",
+      "claimed_iri": "http://example.org/fibo/Banker",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "Interaction",
+      "claimed_iri": "http://example.org/fibo/Interaction",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "Deal",
+      "claimed_iri": "http://example.org/fibo/Deal",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "coversClient",
+      "claimed_iri": "http://example.org/fibo/coversClient",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "participatedIn",
+      "claimed_iri": "http://example.org/fibo/participatedIn",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "relatedToDeal",
+      "claimed_iri": "http://example.org/fibo/relatedToDeal",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "client-360-coverage-graph"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "DebtInstrument",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "CorporateBond",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CorporateBond",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "isIssuedBy",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/isIssuedBy",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "CreditRating",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditRatings/CreditRating",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "OrganizationCreditRating",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditRatings/OrganizationCreditRating",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "RatingAssessmentEvent",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Ratings/RatingAssessmentEvent",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "concernsParty",
+      "claimed_iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditRatings/concernsParty",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ]
+    },
+    {
+      "term": "IssuanceEvent",
+      "claimed_iri": "http://example.org/fibo/IssuanceEvent",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "filedBy",
+      "claimed_iri": "http://example.org/fibo/filedBy",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "rating-and-spread-migration"
+      ],
+      "note": "ex: extension, no FIBO equivalent"
+    },
+    {
+      "term": "supersededBy",
+      "claimed_iri": "http://example.org/fibo/supersededBy",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "covenant-in-force-as-of",
+        "rating-and-spread-migration"
+      ],
+      "note": "ex: extension (Wave 5 Covenant vocabulary, no FIBO property exists); declared since Wave 5, first populated by Wave 11a (215 assertions)"
+    },
+    {
+      "term": "WarningSignal",
+      "claimed_iri": "http://example.org/fibo/WarningSignal",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b. Absent from FIBO (295 modules) and OMG Commons (22 modules) \u2014 zero signal- or warning-bearing terms in either. The vault has not been asked about it, so claim=not_materialized reflects silence, not a read"
+    },
+    {
+      "term": "SignalSource",
+      "claimed_iri": "http://example.org/fibo/SignalSource",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b. Same zero result; FIBO's ...Provider classes type a vendor organisation, not a feed. Vault silence, not a read"
+    },
+    {
+      "term": "signalAbout",
+      "claimed_iri": "http://example.org/fibo/signalAbout",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b. Absent under any signal-bearing name. cmns-doc:isAbout is its generic, domain- and range-free superproperty and was deliberately NOT bound in its place \u2014 query specificity, and Fluree runs without reasoning so rdfs:subPropertyOf buys nothing. Vault silence, not a read"
+    },
+    {
+      "term": "triggeredBy",
+      "claimed_iri": "http://example.org/fibo/triggeredBy",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b. fibo-fnd-dt-oc:isTriggeredBy exists but its domain is OccurrenceBasedDate and its range OccurrenceKind, with a qualifiedCardinality-1 restriction making it definitional for that class \u2014 reusing it would entail a WarningSignal is a date. Vault silence, not a read"
+    },
+    {
+      "term": "PriorObservation",
+      "claimed_iri": "http://example.org/fibo/PriorObservation",
+      "kind": "class",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b. NOT one of the four candidates Task 1 named \u2014 found by enumerating every ex: token in the Wave 11b plan and design, per the known-issues.md 0.2 lesson. No Observation class in FIBO (295 modules) or OMG Commons (22 modules); fibo-fnd-arr-asmt:ObservedValue is a subClassOf Value, a measured data point, not a per-obligor sweep watermark. Vault silence, not a read"
+    },
+    {
+      "term": "item",
+      "claimed_iri": "http://example.org/fibo/item",
+      "kind": "property",
+      "claim": "not_materialized",
+      "published_in": [
+        "fibo-iri-binding",
+        "credit-surveillance-early-warning"
+      ],
+      "note": "ex: extension, Wave 11b \u2014 the SEC Form 8-K item code on an ex:SignalSource node. ADDED 2026-08-21 by the whole-branch review: the term carried 535 live Fluree assertions across 409 nodes while this file listed only five Wave 11b terms, because verify_fibo_wave11b_confirm.py tested doc membership with a bare substring match and the English word 'item' occurs in the binding document's prose. Absent from FIBO (295 modules, re-checked offline against the same clone Task 1 used: zero rdf:about/rdf:ID/rdfs:label reading 'item'; nearest neighbour is fibo-loan-spc-prod:LineItem) and the string '8-K' occurs nowhere in the corpus. Vault silence, not a read"
+    }
+  ],
+  "_verified_against": "vault text read via MCP 2026-08-17 ~17:00 \u2014 counterparty-reference-snapshot 'Currency, per term' and corporate-family-tree per-term currency table. Not inferred from the punch list. Wave 10 terms (CorporateOfficer, isEmployedBy, isOfficerOf, isDirectorOf, Banker, Interaction, Deal, coversClient, participatedIn, relatedToDeal) added 2026-08-18 from the estate's own load counts \u2014 the vault has not yet been asked about them, so claim=not_materialized reflects silence, not a read. Wave 11a terms (DebtInstrument, CorporateBond, isIssuedBy, CreditRating, OrganizationCreditRating, RatingAssessmentEvent, concernsParty, IssuanceEvent, filedBy, supersededBy) added 2026-08-19 on the identical basis \u2014 the vault has not been asked about any of them either, including supersededBy, which has been in the ex: extension register since Wave 5 but never previously carried a claim row here. Wave 11b terms (WarningSignal, SignalSource, signalAbout, triggeredBy, PriorObservation) added 2026-08-20 by Wave 11b Task 1, which BINDS them but loads nothing: they are recorded before any generator runs, which is why they are the only rows here that also agree with the estate today. They will flip to CAVEAT_STALE the moment the Wave 11b Fluree loader lands \u2014 that flip is the signal, not a regression, and it is what makes the next punch list generate itself. Verification method and the two deliberately-unused adjacent FIBO/Commons terms are recorded in docs/ccf_dataprep_v2.md, 'Wave 11b - early-warning surveillance'. Wave 11b terms (WarningSignal, SignalSource, signalAbout, triggeredBy, PriorObservation) were added 2026-08-20 on the identical basis. `item` was added 2026-08-21 after the whole-branch review found it asserting 535 triples with no claim row here and no binding-table row \u2014 the vault has not been asked about it either."
+}

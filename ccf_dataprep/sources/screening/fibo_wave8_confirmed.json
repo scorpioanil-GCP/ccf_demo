@@ -1,0 +1,1029 @@
+{
+  "source": "https://spec.edmcouncil.org/fibo/ontology/ (Production)",
+  "wave": 8,
+  "confirmed": [
+    {
+      "local_name": "Ownership",
+      "module": "FND/OwnershipAndControl/Ownership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Ownership",
+      "kind": "Class",
+      "label": "ownership",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "owns",
+      "module": "FND/OwnershipAndControl/Ownership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns",
+      "kind": "ObjectProperty",
+      "label": "owns",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isOwnedBy",
+      "module": "FND/OwnershipAndControl/Ownership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/isOwnedBy",
+      "kind": "ObjectProperty",
+      "label": "is owned by",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasOwningParty",
+      "module": "FND/OwnershipAndControl/Ownership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/hasOwningParty",
+      "kind": "ObjectProperty",
+      "label": "has owning party",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasOwnedAsset",
+      "module": "FND/OwnershipAndControl/Ownership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/hasOwnedAsset",
+      "kind": "ObjectProperty",
+      "label": "has owned asset",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasControllingParty",
+      "module": "FND/OwnershipAndControl/Control",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/hasControllingParty",
+      "kind": "ObjectProperty",
+      "label": "has controlling party",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isControllingPartyOf",
+      "module": "FND/OwnershipAndControl/Control",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/isControllingPartyOf",
+      "kind": "ObjectProperty",
+      "label": "is controlling party of",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isControlledPartyOf",
+      "module": "FND/OwnershipAndControl/Control",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Control/isControlledPartyOf",
+      "kind": "ObjectProperty",
+      "label": "is controlled party of",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "controls",
+      "module": "FND/Relations/Relations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/controls",
+      "kind": "ObjectProperty",
+      "label": "controls",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isControlledBy",
+      "module": "FND/Relations/Relations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/isControlledBy",
+      "kind": "ObjectProperty",
+      "label": "is controlled by",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "EntityOwnership",
+      "module": "BE/OwnershipAndControl/OwnershipParties",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/EntityOwnership",
+      "kind": "Class",
+      "label": "entity ownership",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasOwningEntity",
+      "module": "BE/OwnershipAndControl/OwnershipParties",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/hasOwningEntity",
+      "kind": "ObjectProperty",
+      "label": "has owning entity",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasOwnedEntity",
+      "module": "BE/OwnershipAndControl/OwnershipParties",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/hasOwnedEntity",
+      "kind": "ObjectProperty",
+      "label": "has owned entity",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasDirectOwnership",
+      "module": "BE/OwnershipAndControl/OwnershipParties",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/hasDirectOwnership",
+      "kind": "ObjectProperty",
+      "label": "has direct ownership",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasInvestmentOwnership",
+      "module": "BE/OwnershipAndControl/OwnershipParties",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/hasInvestmentOwnership",
+      "kind": "ObjectProperty",
+      "label": "has investment ownership",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasSubsidiary",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasSubsidiary",
+      "kind": "ObjectProperty",
+      "label": "has subsidiary",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isSubsidiaryOf",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isSubsidiaryOf",
+      "kind": "ObjectProperty",
+      "label": "is subsidiary of",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isParentCompanyOf",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isParentCompanyOf",
+      "kind": "ObjectProperty",
+      "label": "is parent company of",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasGlobalUltimateParent",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasGlobalUltimateParent",
+      "kind": "ObjectProperty",
+      "label": "has global ultimate parent",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasDomesticUltimateParent",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasDomesticUltimateParent",
+      "kind": "ObjectProperty",
+      "label": "has domestic ultimate parent",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "isWhollyOwnedBy",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isWhollyOwnedBy",
+      "kind": "ObjectProperty",
+      "label": "is wholly owned by",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "hasControllingAffiliate",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasControllingAffiliate",
+      "kind": "ObjectProperty",
+      "label": "has controlling affiliate",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "ControlledAffiliate",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControlledAffiliate",
+      "kind": "Class",
+      "label": "controlled affiliate",
+      "need": "OWNERSHIP / CONTROL (corrects the v1 starter defect)"
+    },
+    {
+      "local_name": "BeneficialOwner",
+      "module": "BE/OwnershipAndControl/CorporateOwnership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/BeneficialOwner",
+      "kind": "Class",
+      "label": "beneficial owner",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "BeneficialOwnership",
+      "module": "BE/OwnershipAndControl/CorporateOwnership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/BeneficialOwnership",
+      "kind": "Class",
+      "label": "beneficial ownership",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "hasBeneficialOwner",
+      "module": "BE/OwnershipAndControl/CorporateOwnership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/hasBeneficialOwner",
+      "kind": "ObjectProperty",
+      "label": "has beneficial owner",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "isBeneficialOwnerOf",
+      "module": "BE/OwnershipAndControl/CorporateOwnership",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateOwnership/isBeneficialOwnerOf",
+      "kind": "ObjectProperty",
+      "label": "is beneficial owner of",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "SignificantShareholder",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/SignificantShareholder",
+      "kind": "Class",
+      "label": "significant shareholder",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "VotingShareholder",
+      "module": "BE/OwnershipAndControl/CorporateControl",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/VotingShareholder",
+      "kind": "Class",
+      "label": "voting shareholder",
+      "need": "BENEFICIAL OWNERSHIP (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "Person",
+      "module": "FND/AgentsAndPeople/People",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/Person",
+      "kind": "Class",
+      "label": "person",
+      "need": "PERSON (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "PersonName",
+      "module": "FND/AgentsAndPeople/People",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/PersonName",
+      "kind": "Class",
+      "label": "person name",
+      "need": "PERSON (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "hasPersonName",
+      "module": "FND/AgentsAndPeople/People",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/AgentsAndPeople/People/hasPersonName",
+      "kind": "DatatypeProperty",
+      "label": "has person name",
+      "need": "PERSON (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "LegallyCompetentNaturalPerson",
+      "module": "BE/LegalEntities/LegalPersons",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/LegallyCompetentNaturalPerson",
+      "kind": "Class",
+      "label": "legally competent natural person",
+      "need": "PERSON (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "SpecialPurposeVehicle",
+      "module": "BE/LegalEntities/LegalPersons",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LegalPersons/SpecialPurposeVehicle",
+      "kind": "Class",
+      "label": "fonds commun de placement",
+      "need": "PERSON (kyc-refresh-beneficial-ownership)"
+    },
+    {
+      "local_name": "CorporateOfficer",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/CorporateOfficer",
+      "kind": "Class",
+      "label": "corporate officer",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "ChiefExecutiveOfficer",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/ChiefExecutiveOfficer",
+      "kind": "Class",
+      "label": "chief executive officer",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "ChiefFinancialOfficer",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/ChiefFinancialOfficer",
+      "kind": "Class",
+      "label": "chief financial officer",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "BoardOfDirectors",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/BoardOfDirectors",
+      "kind": "Class",
+      "label": "board of directors",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "hasCorporateOfficer",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/hasCorporateOfficer",
+      "kind": "ObjectProperty",
+      "label": "has corporate officer",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "isOfficerOf",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/isOfficerOf",
+      "kind": "ObjectProperty",
+      "label": "is officer of",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "hasDirector",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/hasDirector",
+      "kind": "ObjectProperty",
+      "label": "has director",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "isDirectorOf",
+      "module": "BE/OwnershipAndControl/Executives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Executives/isDirectorOf",
+      "kind": "ObjectProperty",
+      "label": "is director of",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "Employee",
+      "module": "FND/Organizations/FormalOrganizations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employee",
+      "kind": "Class",
+      "label": "employee",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "Employer",
+      "module": "FND/Organizations/FormalOrganizations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employer",
+      "kind": "Class",
+      "label": "employer",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "Employment",
+      "module": "FND/Organizations/FormalOrganizations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/Employment",
+      "kind": "Class",
+      "label": "employment",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "isEmployedBy",
+      "module": "FND/Organizations/FormalOrganizations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployedBy",
+      "kind": "ObjectProperty",
+      "label": "is employed by",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "employs",
+      "module": "FND/Organizations/FormalOrganizations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/employs",
+      "kind": "ObjectProperty",
+      "label": "employs",
+      "need": "OFFICER / DIRECTOR / EMPLOYMENT (client-360-coverage-graph)"
+    },
+    {
+      "local_name": "Account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account",
+      "kind": "Class",
+      "label": "account",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "DepositAccount",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DepositAccount",
+      "kind": "Class",
+      "label": "deposit account",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "DemandDepositAccount",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/DemandDepositAccount",
+      "kind": "Class",
+      "label": "demand deposit account",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "TimeDepositAccount",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/TimeDepositAccount",
+      "kind": "Class",
+      "label": "time deposit account",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "InvestmentAccount",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/InvestmentAccount",
+      "kind": "Class",
+      "label": "investment account",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "CertificateOfDeposit",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CertificateOfDeposit",
+      "kind": "Class",
+      "label": "certificate of deposit",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "AccountHolder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/AccountHolder",
+      "kind": "Class",
+      "label": "account holder",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "hasPrimaryAccountHolder",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/hasPrimaryAccountHolder",
+      "kind": "FunctionalProperty+ObjectProperty",
+      "label": "has primary account holder",
+      "need": "DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)"
+    },
+    {
+      "local_name": "DebtInstrument",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument",
+      "kind": "Class",
+      "label": "debt instrument",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "DerivativeInstrument",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DerivativeInstrument",
+      "kind": "Class",
+      "label": "derivative instrument",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "Option",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Option",
+      "kind": "Class",
+      "label": "option",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "Future",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/Future",
+      "kind": "Class",
+      "label": "future",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "SpotContract",
+      "module": "FBC/FinancialInstruments/FinancialInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/SpotContract",
+      "kind": "Class",
+      "label": "spot contract",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "TradableDebtInstrument",
+      "module": "SEC/Debt/DebtInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/TradableDebtInstrument",
+      "kind": "Class",
+      "label": "tradable debt instrument",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "isSubordinated",
+      "module": "SEC/Debt/DebtInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/isSubordinated",
+      "kind": "DatatypeProperty",
+      "label": "is subordinated",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "isSubordinatedTo",
+      "module": "SEC/Debt/DebtInstruments",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/isSubordinatedTo",
+      "kind": "ObjectProperty",
+      "label": "is subordinated to",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "Bond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/Bond",
+      "kind": "Class",
+      "label": "bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "CorporateBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CorporateBond",
+      "kind": "Class",
+      "label": "corporate bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "FixedCouponBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FixedCouponBond",
+      "kind": "Class",
+      "label": "fixed coupon bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "VariableCouponBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/VariableCouponBond",
+      "kind": "Class",
+      "label": "variable coupon bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "ZeroCouponBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ZeroCouponBond",
+      "kind": "Class",
+      "label": "zero coupon bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "CallableBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/CallableBond",
+      "kind": "Class",
+      "label": "callable bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "ConvertibleBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/ConvertibleBond",
+      "kind": "Class",
+      "label": "convertible bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "FloatingRateNote",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/FloatingRateNote",
+      "kind": "Class",
+      "label": "floating rate note",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "TreasuryBond",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/TreasuryBond",
+      "kind": "Class",
+      "label": "treasury bond",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "BondCoupon",
+      "module": "SEC/Debt/Bonds",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/BondCoupon",
+      "kind": "Class",
+      "label": "bond coupon",
+      "need": "DEBT INSTRUMENTS / BONDS (rating-and-spread-migration)"
+    },
+    {
+      "local_name": "InterestRateBenchmark",
+      "module": "IND/InterestRates/InterestRates",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark",
+      "kind": "Class",
+      "label": "interest rate benchmark",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "ReferenceInterestRate",
+      "module": "IND/InterestRates/InterestRates",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/ReferenceInterestRate",
+      "kind": "Class",
+      "label": "reference interest rate",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "InterestRateAuthority",
+      "module": "IND/InterestRates/InterestRates",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateAuthority",
+      "kind": "Class",
+      "label": "interest rate authority",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "SpecificProviderInterestRateBenchmark",
+      "module": "IND/InterestRates/InterestRates",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/SpecificProviderInterestRateBenchmark",
+      "kind": "Class",
+      "label": "specific-provider interest rate benchmark",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "CurrencySpotRate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencySpotRate",
+      "kind": "Class",
+      "label": "currency spot rate",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "CurrencyForwardRate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/CurrencyForwardRate",
+      "kind": "Class",
+      "label": "currency forward rate",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "QuotedExchangeRate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/QuotedExchangeRate",
+      "kind": "Class",
+      "label": "quoted exchange rate",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "ExchangeRateStructure",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/ExchangeRateStructure",
+      "kind": "Class",
+      "label": "exchange rate structure",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "hasQuotedExchangeRate",
+      "module": "IND/ForeignExchange/ForeignExchange",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/IND/ForeignExchange/ForeignExchange/hasQuotedExchangeRate",
+      "kind": "ObjectProperty",
+      "label": "has quoted exchange rate",
+      "need": "RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)"
+    },
+    {
+      "local_name": "Swap",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/Swap",
+      "kind": "Class",
+      "label": "swap",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SwapLeg",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLeg",
+      "kind": "Class",
+      "label": "swap leg",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SwapParty",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapParty",
+      "kind": "Class",
+      "label": "swap party",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SwapTerms",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapTerms",
+      "kind": "Class",
+      "label": "swap terms",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SwapConfirmation",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapConfirmation",
+      "kind": "Class",
+      "label": "swap confirmation",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "UniqueSwapIdentifier",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/UniqueSwapIdentifier",
+      "kind": "Class",
+      "label": "unique swap identifier",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SwapLifecycleEvent",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/SwapLifecycleEvent",
+      "kind": "Class",
+      "label": "swap lifecycle event",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "hasSwapIdentifier",
+      "module": "DER/DerivativesContracts/Swaps",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/Swaps/hasSwapIdentifier",
+      "kind": "ObjectProperty",
+      "label": "has swap identifier",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "ForwardRateAgreement",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/ForwardRateAgreement",
+      "kind": "Class",
+      "label": "",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "InterestRateDerivativeInstrument",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/InterestRateDerivativeInstrument",
+      "kind": "Class",
+      "label": "",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "ForeignExchangeRateObservable",
+      "module": "DER/RateDerivatives/RateDerivatives",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/DER/RateDerivatives/RateDerivatives/ForeignExchangeRateObservable",
+      "kind": "Class",
+      "label": "",
+      "need": "DERIVATIVES / SWAPS (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "Trade",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Trade",
+      "kind": "Class",
+      "label": "trade",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "TradeIdentifier",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeIdentifier",
+      "kind": "Class",
+      "label": "trade identifier",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "TradeLifecycle",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycle",
+      "kind": "Class",
+      "label": "trade lifecycle",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "TradeLifecycleEvent",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleEvent",
+      "kind": "Class",
+      "label": "trade lifecycle event",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "TradeLifecycleStage",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/TradeLifecycleStage",
+      "kind": "Class",
+      "label": "trade lifecycle stage",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "SettlementTerms",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/SettlementTerms",
+      "kind": "Class",
+      "label": "settlement terms",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "hasSettlementDate",
+      "module": "FBC/ProductsAndServices/FinancialProductsAndServices",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/hasSettlementDate",
+      "kind": "ObjectProperty",
+      "label": "has settlement date",
+      "need": "TRADE / SETTLEMENT (fx-post-trade-reconciliation)"
+    },
+    {
+      "local_name": "Tranche",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/Tranche",
+      "kind": "Class",
+      "label": "tranche",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "AssetBackedSecurity",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AssetBackedSecurity",
+      "kind": "Class",
+      "label": "asset-backed security",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "PoolBackedSecurity",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/PoolBackedSecurity",
+      "kind": "Class",
+      "label": "pool-backed security",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "StructuredFinanceInstrument",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/StructuredFinanceInstrument",
+      "kind": "Class",
+      "label": "structured finance instrument",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "AttachmentPoint",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/AttachmentPoint",
+      "kind": "Class",
+      "label": "attachment point",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "DetachmentPoint",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/DetachmentPoint",
+      "kind": "Class",
+      "label": "detachment point",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "DefaultRate",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/DefaultRate",
+      "kind": "Class",
+      "label": "default rate",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "PrepaymentSpeed",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/PrepaymentSpeed",
+      "kind": "Class",
+      "label": "prepayment speed",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "WeightedAverageCoupon",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/WeightedAverageCoupon",
+      "kind": "Class",
+      "label": "weighted average coupon",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "WeightedAverageLife",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/WeightedAverageLife",
+      "kind": "Class",
+      "label": "weighted average life",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "WeightedAverageMaturity",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/WeightedAverageMaturity",
+      "kind": "Class",
+      "label": "weighted average maturity",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "DebtPoolStatisticalMeasure",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/DebtPoolStatisticalMeasure",
+      "kind": "Class",
+      "label": "debt pool statistical measure",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "hasAttachmentPoint",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/hasAttachmentPoint",
+      "kind": "ObjectProperty",
+      "label": "has attachment point",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "hasDetachmentPoint",
+      "module": "SEC/Debt/PoolBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/PoolBackedSecurities/hasDetachmentPoint",
+      "kind": "ObjectProperty",
+      "label": "has detachment point",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "CollateralizedDebtObligation",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/CollateralizedDebtObligation",
+      "kind": "Class",
+      "label": "collateralized debt obligation",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "TriggerEvent",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/TriggerEvent",
+      "kind": "Class",
+      "label": "trigger event",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "TrancheType",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/TrancheType",
+      "kind": "Class",
+      "label": "tranche type",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "SeniorCDOTranche",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/SeniorCDOTranche",
+      "kind": "Class",
+      "label": "senior c d o tranche",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "MezzanineCDOTranche",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/MezzanineCDOTranche",
+      "kind": "Class",
+      "label": "mezzanine c d o tranche",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "SubordinatedMBSTranche",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/SubordinatedMBSTranche",
+      "kind": "Class",
+      "label": "subordinated m b s tranche",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "specifiesTrigger",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/specifiesTrigger",
+      "kind": "ObjectProperty",
+      "label": "specifies trigger",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "hasTrancheType",
+      "module": "SEC/Debt/CollateralizedDebtObligations",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/hasTrancheType",
+      "kind": "ObjectProperty",
+      "label": "has tranche type",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "MortgageBackedSecurity",
+      "module": "SEC/Debt/MortgageBackedSecurities",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/MortgageBackedSecurities/MortgageBackedSecurity",
+      "kind": "Class",
+      "label": "mortgage-backed security",
+      "need": "SECURITIZATION / TRANCHE (abs-securitization-surveillance)"
+    },
+    {
+      "local_name": "LenderLienPosition",
+      "module": "LOAN/LoansGeneral/Loans",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/LenderLienPosition",
+      "kind": "Class",
+      "label": "lender lien position",
+      "need": "LIEN POSITION (collateral-and-setoff-coverage)"
+    },
+    {
+      "local_name": "PrimaryLienPosition",
+      "module": "LOAN/LoansGeneral/Loans",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/PrimaryLienPosition",
+      "kind": "LenderLienPosition+NamedIndividual",
+      "label": "primary lien position",
+      "need": "LIEN POSITION (collateral-and-setoff-coverage)"
+    },
+    {
+      "local_name": "SubordinateLienPosition",
+      "module": "LOAN/LoansGeneral/Loans",
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/SubordinateLienPosition",
+      "kind": "LenderLienPosition+NamedIndividual",
+      "label": "subordinate lien position",
+      "need": "LIEN POSITION (collateral-and-setoff-coverage)"
+    }
+  ],
+  "missing": [],
+  "rejected": {
+    "BE/OwnershipAndControl/LegalPersons/LegalPerson": "no such class; the module declares CharteredLegalPerson and LegallyCompetentNaturalPerson but no bare LegalPerson",
+    "IND/InterestRates/InterestRates/FloatingInterestRate": "not in IND/InterestRates; use ReferenceInterestRate or SEC/Debt/Bonds/FloatingRateNote depending on what is meant"
+  },
+  "v1_starter_absent": [
+    [
+      "BE/OwnershipAndControl/Ownership/hasOwnershipInterestIn",
+      "FND/OwnershipAndControl/Ownership"
+    ],
+    [
+      "BE/OwnershipAndControl/Control/hasControllingInterestIn",
+      "FND/OwnershipAndControl/Control"
+    ]
+  ]
+}

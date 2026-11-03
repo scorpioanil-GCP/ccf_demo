@@ -1,0 +1,779 @@
+{
+ "generated_for": "wave18 · syndicated-lending-co-lender · Task 3",
+ "method": "group filed lender_raw strings by canonical_key(), resolve each group to one real GLEIF LEI (exact ACTIVE name match, or hand-verified MANUAL_LEI), then FDIC BankFind for RSSD and latest Call Report figures",
+ "provenance": "public",
+ "sources": {
+  "lei": "https://api.gleif.org/api/v1/lei-records",
+  "rssd_and_call_report": "https://api.fdic.gov/banks/institutions, https://api.fdic.gov/banks/financials"
+ },
+ "retrieved_at": "2026-08-25",
+ "members": [
+  {
+   "member_id": "SYNM-8b98e2bd",
+   "id_basis": "lei",
+   "legal_name": "AP LEAF, LLC",
+   "lei": "2549002JK9XZS0W40V22",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "AP LEAF, LLC"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-9147bfb8",
+   "id_basis": "legal_name",
+   "legal_name": "ASILIA CREDIT FUND, LP",
+   "lei": null,
+   "no_lei_reason": "No real GLEIF LEI found for 'ASILIA CREDIT FUND, LP' under any spelling tried (legalName filter, fulltext search, abbreviation expansions, parent-fund-family search). Not an ambiguity — a genuinely unregistered vehicle.",
+   "gleif_category": null,
+   "rssd": null,
+   "raw_names": [
+    "ASILIA CREDIT FUND, LP"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records) — searched, no match found",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-9d3fd0fd",
+   "id_basis": "lei",
+   "legal_name": "Bank Of America, National Association",
+   "lei": "B4TYDEB6GKMZO031MB27",
+   "gleif_category": "GENERAL",
+   "rssd": "480228",
+   "raw_names": [
+    "BANK OF AMERICA, N.A.",
+    "Bank of America, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-3e7b26ef",
+   "id_basis": "lei",
+   "legal_name": "Bank of Montreal",
+   "lei": "NQQ6HPCNCCU6TUTQYE16",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Bank of Montreal"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-84aeb357",
+   "id_basis": "lei",
+   "legal_name": "Barclays Bank PLC",
+   "lei": "G5GSEF7VJP5I7OUK5573",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Barclays Bank PLC"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-134261c1",
+   "id_basis": "lei",
+   "legal_name": "BMO Bank National Association",
+   "lei": "3Y4U8VZURTYWI1W2K376",
+   "gleif_category": "GENERAL",
+   "rssd": "75633",
+   "raw_names": [
+    "BMO BANK N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-2e08b511",
+   "id_basis": "lei",
+   "legal_name": "Canadian Imperial Bank of Commerce",
+   "lei": "2IGI19DL77OX0HC3ZE78",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Canadian Imperial Bank of Commerce"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-7eea4916",
+   "id_basis": "legal_name",
+   "legal_name": "CB NC Centerbridge Special Credit Partners IV – I Co-Invest, L.P.",
+   "lei": null,
+   "no_lei_reason": "No real GLEIF LEI found for 'CB NC Centerbridge Special Credit Partners IV – I Co-Invest, L.P.' under any spelling tried (legalName filter, fulltext search, abbreviation expansions, parent-fund-family search). Not an ambiguity — a genuinely unregistered vehicle.",
+   "gleif_category": null,
+   "rssd": null,
+   "raw_names": [
+    "CB NC Centerbridge Special Credit Partners IV – I Co-Invest, L.P."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records) — searched, no match found",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-318b73bf",
+   "id_basis": "legal_name",
+   "legal_name": "CB SA Fund, L.P.",
+   "lei": null,
+   "no_lei_reason": "No real GLEIF LEI found for 'CB SA Fund, L.P.' under any spelling tried (legalName filter, fulltext search, abbreviation expansions, parent-fund-family search). Not an ambiguity — a genuinely unregistered vehicle.",
+   "gleif_category": null,
+   "rssd": null,
+   "raw_names": [
+    "CB SA Fund, L.P."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records) — searched, no match found",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-4498193e",
+   "id_basis": "legal_name",
+   "legal_name": "Centerbridge Credit CS, L.P",
+   "lei": null,
+   "no_lei_reason": "No real GLEIF LEI found for 'Centerbridge Credit CS, L.P' under any spelling tried (legalName filter, fulltext search, abbreviation expansions, parent-fund-family search). Not an ambiguity — a genuinely unregistered vehicle.",
+   "gleif_category": null,
+   "rssd": null,
+   "raw_names": [
+    "Centerbridge Credit CS, L.P"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records) — searched, no match found",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-8e5427c6",
+   "id_basis": "lei",
+   "legal_name": "Citibank, National Association",
+   "lei": "E57ODZWZ7FF32TWEFA76",
+   "gleif_category": "GENERAL",
+   "rssd": "476810",
+   "raw_names": [
+    "Citibank, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-5c2b3d19",
+   "id_basis": "lei",
+   "legal_name": "CITICORP NORTH AMERICA, INC.",
+   "lei": "8CJXWGJILOHBPIDM5J39",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Citicorp North America, Inc."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-296cd7b6",
+   "id_basis": "lei",
+   "legal_name": "Citizens Bank, National Association",
+   "lei": "DRMSV1Q0EKMEXLAU1P80",
+   "gleif_category": "GENERAL",
+   "rssd": "3303298",
+   "raw_names": [
+    "Citizens Bank, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-dfd606a9",
+   "id_basis": "lei",
+   "legal_name": "CREDIT AGRICOLE CORPORATE AND INVESTMENT BANK",
+   "lei": "1VUV7VQFKUOQSJ21A208",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Credit Agricole Corporate and Investment Bank"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-5c9d4ff5",
+   "id_basis": "lei",
+   "legal_name": "Deutsche Bank Aktiengesellschaft",
+   "lei": "7LTWFZYICNSX8D621K86",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Deutsche Bank AG New York Branch"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-02282f39",
+   "id_basis": "lei",
+   "legal_name": "DNB CAPITAL LLC",
+   "lei": "549300QAZOXF51T3Y880",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "DNB Capital LLC"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-ff996510",
+   "id_basis": "lei",
+   "legal_name": "Export Development Canada",
+   "lei": "Z6MHCSLXHKYG4B6PHW02",
+   "gleif_category": "RESIDENT_GOVERNMENT_ENTITY",
+   "rssd": null,
+   "raw_names": [
+    "Export Development Canada"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-600395b6",
+   "id_basis": "lei",
+   "legal_name": "FÉDÉRATION DES CAISSES DESJARDINS DU QUÉBEC",
+   "lei": "549300B2Q47IR0CR5B54",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Fédération des caisses Desjardins du Québec"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-2928fca2",
+   "id_basis": "lei",
+   "legal_name": "Fifth Third Bank, National Association",
+   "lei": "QFROUN1UWUYU0DVIWD51",
+   "gleif_category": "GENERAL",
+   "rssd": "723112",
+   "raw_names": [
+    "FIFTH THIRD BANK, NATIONAL ASSOCIATION",
+    "Fifth Third Bank, National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-6d33e219",
+   "id_basis": "lei",
+   "legal_name": "Goldman Sachs Bank USA",
+   "lei": "KD3XUN7C6T14HNAYLU02",
+   "gleif_category": "GENERAL",
+   "rssd": "2182786",
+   "raw_names": [
+    "Goldman Sachs Bank USA"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-341930be",
+   "id_basis": "lei",
+   "legal_name": "Goldman Sachs Lending Partners LLC",
+   "lei": "5X7O2M1I3LNNJ4E5R997",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Goldman Sachs Lending Partners"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-90ba8afa",
+   "id_basis": "lei",
+   "legal_name": "HSBC BANK USA, NATIONAL ASSOCIATION",
+   "lei": "1IE8VN30JCEQV1H4R804",
+   "gleif_category": "GENERAL",
+   "rssd": "413208",
+   "raw_names": [
+    "HSBC Bank USA, NA",
+    "HSBC Bank USA, National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-80cbe8f1",
+   "id_basis": "lei",
+   "legal_name": "JPMorgan Chase Bank, National Association",
+   "lei": "7H6GLXDRUGQFU57RNE97",
+   "gleif_category": "GENERAL",
+   "rssd": "852218",
+   "raw_names": [
+    "JPMORGAN CHASE BANK, N.A.",
+    "JPMorgan Chase Bank, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-93bb6092",
+   "id_basis": "lei",
+   "legal_name": "KeyBank National Association",
+   "lei": "HUX2X73FUCYHUVH1BK78",
+   "gleif_category": "GENERAL",
+   "rssd": "280110",
+   "raw_names": [
+    "KEYBANK NATIONAL ASSOCIATION",
+    "KeyBank, National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-f002c800",
+   "id_basis": "lei",
+   "legal_name": "LAKE CENTRAL FUND, LP",
+   "lei": "254900G1Y7TUFDS8V347",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Lake Central Fund LP"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-c741f8cc",
+   "id_basis": "lei",
+   "legal_name": "Manufacturers and Traders Trust Company",
+   "lei": "WWB2V0FCW3A0EE3ZJN75",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "M&T BANK, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-8c1bbb7e",
+   "id_basis": "lei",
+   "legal_name": "Massachusetts Mutual Life Insurance Company",
+   "lei": "R6ZXK5P01NP6HXSY1S07",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Massachusetts Mutual Life Insurance Company"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-5f6164a0",
+   "id_basis": "lei",
+   "legal_name": "Metropolitan Life Insurance Company",
+   "lei": "549300H7EXFMRS487544",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Metropolitan Life Insurance Company"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-0198cdd5",
+   "id_basis": "lei",
+   "legal_name": "MIDCAP FINANCIAL INVESTMENT CORPORATION",
+   "lei": "5493005P14I7WFB3FW47",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "MIDCAP FINANCIAL INVESTMENT CORPORATION"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-22e55d0a",
+   "id_basis": "lei",
+   "legal_name": "MIDCAP FINANCIAL TRUST",
+   "lei": "549300C31O03HUIMRQ98",
+   "gleif_category": "FUND",
+   "rssd": null,
+   "raw_names": [
+    "MIDCAP FINANCIAL TRUST"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-5bdfe8cf",
+   "id_basis": "lei",
+   "legal_name": "Mizuho Bank, Ltd.",
+   "lei": "RB0PEZSDGCO3JS6CEU02",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "MIZUHO BANK, LTD."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-b52c9fd4",
+   "id_basis": "lei",
+   "legal_name": "Morgan Stanley Bank, N.A.",
+   "lei": "G1MLHIS0N32I3QPILB75",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Morgan Stanley Bank, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-ec5e05e6",
+   "id_basis": "lei",
+   "legal_name": "MUFG Bank, Ltd.",
+   "lei": "C3GTMMZIHMY46P4OIX74",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "MUFG Bank, Ltd., Canada Branch",
+    "MUFG Bank, Ltd., Chiba Branch"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-d855a7a6",
+   "id_basis": "lei",
+   "legal_name": "PNC Bank, National Association",
+   "lei": "AD6GFRVSDT01YPT1CS68",
+   "gleif_category": "GENERAL",
+   "rssd": "817824",
+   "raw_names": [
+    "PNC BANK, NATIONAL ASSOCIATION",
+    "PNC Bank Canada Branch",
+    "PNC Bank, National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-1f7eb72c",
+   "id_basis": "lei",
+   "legal_name": "Regions Bank",
+   "lei": "EQTWLK1G7ODGC2MGLV11",
+   "gleif_category": "GENERAL",
+   "rssd": "233031",
+   "raw_names": [
+    "Regions Bank"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-b61d5481",
+   "id_basis": "lei",
+   "legal_name": "Royal Bank of Canada",
+   "lei": "ES7IP3U3RHIGC71XBU11",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Royal Bank of Canada"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-6a54e6c8",
+   "id_basis": "legal_name",
+   "legal_name": "TCW RESCUE FINANCING FUND II LP",
+   "lei": null,
+   "no_lei_reason": "No real GLEIF LEI found for 'TCW RESCUE FINANCING FUND II LP' under any spelling tried (legalName filter, fulltext search, abbreviation expansions, parent-fund-family search). Not an ambiguity — a genuinely unregistered vehicle.",
+   "gleif_category": null,
+   "rssd": null,
+   "raw_names": [
+    "TCW RESCUE FINANCING FUND II LP"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records) — searched, no match found",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-cc6f64ec",
+   "id_basis": "lei",
+   "legal_name": "TD Bank, National Association",
+   "lei": "03D0JEWFDFUS0SEEKG89",
+   "gleif_category": "GENERAL",
+   "rssd": "497404",
+   "raw_names": [
+    "TD BANK, N.A."
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-fcb706ef",
+   "id_basis": "lei",
+   "legal_name": "THE BANK OF NOVA SCOTIA",
+   "lei": "L3I9ZG2KFGXZ61BMYR72",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "The Bank of Nova Scotia"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-d4027d35",
+   "id_basis": "lei",
+   "legal_name": "The Huntington National Bank",
+   "lei": "2WHM8VNJH63UN14OL754",
+   "gleif_category": "GENERAL",
+   "rssd": "12311",
+   "raw_names": [
+    "THE HUNTINGTON NATIONAL BANK"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-9bc30105",
+   "id_basis": "lei",
+   "legal_name": "THE TORONTO-DOMINION BANK",
+   "lei": "PT3QB789TSUIDF371261",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "The Toronto-Dominion Bank"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-774d74e4",
+   "id_basis": "lei",
+   "legal_name": "Truist Bank",
+   "lei": "JJKC32MCHWDI71265Z06",
+   "gleif_category": "GENERAL",
+   "rssd": "852320",
+   "raw_names": [
+    "TRUIST BANK",
+    "Truist",
+    "Truist Bank"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-bd62e4cb",
+   "id_basis": "lei",
+   "legal_name": "U.S. Bank National Association",
+   "lei": "6BYL5QZYBDK8S7L73M02",
+   "gleif_category": "GENERAL",
+   "rssd": "504713",
+   "raw_names": [
+    "U.S. Bank National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-81d79474",
+   "id_basis": "lei",
+   "legal_name": "Wells Fargo Bank, National Association",
+   "lei": "KB1H1DSPRFMYMCUFXT09",
+   "gleif_category": "GENERAL",
+   "rssd": "451965",
+   "raw_names": [
+    "WELLS FARGO BANK, NATIONAL ASSOCIATION",
+    "Wells Fargo Bank, N.A., Canadian Branch",
+    "Wells Fargo Bank, National Association"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); FDIC BankFind (https://api.fdic.gov/banks)",
+   "retrieved_at": "2026-08-25"
+  },
+  {
+   "member_id": "SYNM-e7bed519",
+   "id_basis": "lei",
+   "legal_name": "WESTPAC BANKING CORPORATION",
+   "lei": "EN5TNI6CI43VEPAMHL14",
+   "gleif_category": "GENERAL",
+   "rssd": null,
+   "raw_names": [
+    "Westpac Banking Corporation"
+   ],
+   "provenance": "public",
+   "source": "GLEIF LEI records (https://api.gleif.org/api/v1/lei-records); no FDIC BankFind match (non-FDIC-insured or non-bank)",
+   "retrieved_at": "2026-08-25"
+  }
+ ],
+ "call_reports": [
+  {
+   "rssd": "480228",
+   "report_date": "20260630",
+   "tier1_capital": 186728000,
+   "total_assets": 2654645000,
+   "total_equity": 240789000
+  },
+  {
+   "rssd": "75633",
+   "report_date": "20260630",
+   "tier1_capital": 27456100,
+   "total_assets": 254972746,
+   "total_equity": 36438373
+  },
+  {
+   "rssd": "476810",
+   "report_date": "20260630",
+   "tier1_capital": 155093000,
+   "total_assets": 1976180000,
+   "total_equity": 171296000
+  },
+  {
+   "rssd": "3303298",
+   "report_date": "20260630",
+   "tier1_capital": 20868060,
+   "total_assets": 232517438,
+   "total_equity": 26478553
+  },
+  {
+   "rssd": "723112",
+   "report_date": "20260630",
+   "tier1_capital": 28723000,
+   "total_assets": 299177000,
+   "total_equity": 37673000
+  },
+  {
+   "rssd": "2182786",
+   "report_date": "20260630",
+   "tier1_capital": 59262000,
+   "total_assets": 758788000,
+   "total_equity": 60184000
+  },
+  {
+   "rssd": "413208",
+   "report_date": "20260630",
+   "tier1_capital": 17524511,
+   "total_assets": 173101278,
+   "total_equity": 16602261
+  },
+  {
+   "rssd": "852218",
+   "report_date": "20260630",
+   "tier1_capital": 302589000,
+   "total_assets": 4091315000,
+   "total_equity": 341580000
+  },
+  {
+   "rssd": "280110",
+   "report_date": "20260630",
+   "tier1_capital": 18430210,
+   "total_assets": 188555486,
+   "total_equity": 18727875
+  },
+  {
+   "rssd": "817824",
+   "report_date": "20260630",
+   "tier1_capital": 53524844,
+   "total_assets": 609771726,
+   "total_equity": 63179108
+  },
+  {
+   "rssd": "233031",
+   "report_date": "20260630",
+   "tier1_capital": 14747000,
+   "total_assets": 159787000,
+   "total_equity": 17939000
+  },
+  {
+   "rssd": "497404",
+   "report_date": "20260630",
+   "tier1_capital": 34202551,
+   "total_assets": 342803746,
+   "total_equity": 45694407
+  },
+  {
+   "rssd": "12311",
+   "report_date": "20260630",
+   "tier1_capital": 25622044,
+   "total_assets": 283073605,
+   "total_equity": 33284616
+  },
+  {
+   "rssd": "852320",
+   "report_date": "20260630",
+   "tier1_capital": 52035000,
+   "total_assets": 548346000,
+   "total_equity": 62971000
+  },
+  {
+   "rssd": "504713",
+   "report_date": "20260630",
+   "tier1_capital": 63189592,
+   "total_assets": 705554946,
+   "total_equity": 68833913
+  },
+  {
+   "rssd": "451965",
+   "report_date": "20260630",
+   "tier1_capital": 148541000,
+   "total_assets": 1907928000,
+   "total_equity": 169518000
+  }
+ ],
+ "manual_review": [
+  {
+   "lender_raw": "BarclaysFifth Third Bank PLC, National Association",
+   "reason": "Two institutions (Barclays Bank PLC and Fifth Third Bank, National Association) interleaved at word level by a filing redline artifact that cannot be reconstructed without the source document's CSS. Never fuzzy-matched to either bank per CLAUDE.md's rule against inventing a lender relationship no filing states."
+  }
+ ]
+}

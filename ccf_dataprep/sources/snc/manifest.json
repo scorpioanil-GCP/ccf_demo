@@ -1,0 +1,17 @@
+{
+  "source": "snc",
+  "description": "Shared National Credit (SNC) Program annual review -- joint Federal Reserve / OCC / FDIC report on large syndicated credits",
+  "licence": "US government work / public report",
+  "fetches": [
+    {
+      "url": "https://www.occ.gov/publications-and-resources/publications/shared-national-credit-report/files/shared-national-credit-report-2025.pdf",
+      "path": "sources/snc/shared-national-credit-report-2025.pdf",
+      "retrieved_at": "2026-08-27T01:15:26+00:00",
+      "sha256": "87b311ff03f8aaebeb770d21565efeeb0765ff4bfe5c44f12dc063113b00c2f0",
+      "bytes": 407088,
+      "http_status": 200,
+      "content_type": "application/pdf",
+      "notes": ""
+    }
+  ]
+}

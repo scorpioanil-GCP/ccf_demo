@@ -1,0 +1,489 @@
+{
+  "generated_for": "credit-memo-context \u00a7F3 / \u00a7F7 / \u00a7F8",
+  "seed": 20260822,
+  "note": "memorandum ids are sha256-derived from (facility_id, memo_type) and carry a MEMO-13A- prefix, deliberately NOT extending Wave 6's positional MEMO-NNNN sequence \u2014 see known-issues.md \u00a713.3",
+  "memoranda": [
+    {
+      "memorandum_id": "MEMO-13A-E67EE06510",
+      "memo_type": "annual-review",
+      "title": "Annual review \u2014 AVIS BUDGET GROUP, INC.",
+      "body": "Relationship reviewed at the Term Loan. Performance is within the range assumed at last review and peer comparison at identical reporting periods places the obligor mid-cohort. No change to internal grade.",
+      "text_sha256": "45a833589c57207e90a0ed2f00e7adab1dc38b680ef0fa13b94e6604a7f0b902",
+      "facility_id": "FAC-044206",
+      "borrower_lei": "529900E95812SYWMCE44",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2025-01-14",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-5EC058758A",
+      "memo_type": "amendment",
+      "title": "Amendment recommendation \u2014 AGILYSYS INC",
+      "body": "Borrower requests an amendment to the covenant package on the Revolving Credit Facility. Credit view is supportive subject to a pricing step-up. Note the effective date precedes our booking date; exposure drawn in that window was governed by the prior terms.",
+      "text_sha256": "2c700ed5f0048f9abfaa5d79a09266cc3b0bac203538ca755d4fd2b5a715a536",
+      "facility_id": "FAC-08D5BB",
+      "borrower_lei": "5299001XWB5V3B5IPN93",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2026-02-28",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-0504D90478",
+      "memo_type": "annual-review",
+      "title": "Annual review \u2014 Bausch Health Companies Inc.",
+      "body": "Relationship reviewed at the Term Loan. Performance is within the range assumed at last review and peer comparison at identical reporting periods places the obligor mid-cohort. No change to internal grade.",
+      "text_sha256": "45a833589c57207e90a0ed2f00e7adab1dc38b680ef0fa13b94e6604a7f0b902",
+      "facility_id": "FAC-08F1D1",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2026-02-13",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-3C35AEFFD7",
+      "memo_type": "workout",
+      "title": "Workout assessment \u2014 City Office REIT, Inc.",
+      "body": "Obligor has breached the consolidated leverage covenant on the Term Loan. Collateral valuation is stale relative to the enforcement horizon and set-off across jurisdictions is untested. Recovery modelling assumes no enforcement outside the primary jurisdiction.",
+      "text_sha256": "b0b58d2d3c12f1298ac6df0be75e50f9d2f5a84d1c027b0378e2f1fde8443590",
+      "facility_id": "FAC-0B74B7",
+      "borrower_lei": "5493003J7157VP25NL57",
+      "classification": "internal-confidential",
+      "residency": "UK",
+      "authored_date": "2025-10-06",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-9F98D85A28",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 MASTEC INC",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-102496",
+      "borrower_lei": "549300TMDIT8WREDOF45",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2024-10-01",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-D0CC7730A4",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 XPO, Inc.",
+      "body": "Proposed Revolving Credit Facility for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "19287b9110e21486b98d7702364126092cc84c34e49e99bbd7eb8f066e58c147",
+      "facility_id": "FAC-1FF50C",
+      "borrower_lei": "54930096DB9LCLPN7H13",
+      "classification": "internal-confidential",
+      "residency": "EU",
+      "authored_date": "2026-04-26",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-D939AE87B1",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 Container Store Group, Inc.",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-2023D5",
+      "borrower_lei": "529900L7KB2N9KXCDI76",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2025-02-05",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-4468078AE9",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 Vertiv Holdings Co",
+      "body": "Proposed Term Loan B for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "82c080d416f6b4d1dd511ea2f9ff10a0d13592da4d4403cb50f1d5ce2b8dd6d6",
+      "facility_id": "FAC-276E10",
+      "borrower_lei": "549300KTTIRAOGXCRV69",
+      "classification": "internal-confidential",
+      "residency": "EU",
+      "authored_date": "2025-07-08",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-EF3B7AB1F1",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 Thermon Group Holdings, Inc.",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-2991EB",
+      "borrower_lei": "529900ZNZBBLDE77MZ38",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2024-09-17",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-BBF4C09B2C",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 EXTREME NETWORKS INC",
+      "body": "Proposed Revolving Credit Facility for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "19287b9110e21486b98d7702364126092cc84c34e49e99bbd7eb8f066e58c147",
+      "facility_id": "FAC-36D0CC",
+      "borrower_lei": "549300WRECW11X94UB57",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2024-12-01",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-4DAE8F854D",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 TransDigm Group INC",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-391D1E",
+      "borrower_lei": "549300EQD0ZXRSMG3549",
+      "classification": "internal-confidential",
+      "residency": "UK",
+      "authored_date": "2024-08-13",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-6F7A29B3B1",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 Sabre Corp",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-3DF1D5",
+      "borrower_lei": "529900VKCYZW8GZ4WW58",
+      "classification": "internal-confidential",
+      "residency": "UK",
+      "authored_date": "2026-03-25",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-6659049886",
+      "memo_type": "annual-review",
+      "title": "Annual review \u2014 Super Micro Computer, Inc.",
+      "body": "Relationship reviewed at the Revolving Credit Facility. Performance is within the range assumed at last review and peer comparison at identical reporting periods places the obligor mid-cohort. No change to internal grade.",
+      "text_sha256": "62895a2ca7c466032dd0ded0b1f460c4ee4f161ac83f6db78716765c6909d51e",
+      "facility_id": "FAC-517638",
+      "borrower_lei": "54930022CZO1N2UGVW07",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2024-03-06",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-CC501E41AD",
+      "memo_type": "annual-review",
+      "title": "Annual review \u2014 BGC Group, Inc.",
+      "body": "Relationship reviewed at the Revolving Credit Facility. Performance is within the range assumed at last review and peer comparison at identical reporting periods places the obligor mid-cohort. No change to internal grade.",
+      "text_sha256": "62895a2ca7c466032dd0ded0b1f460c4ee4f161ac83f6db78716765c6909d51e",
+      "facility_id": "FAC-5B8418",
+      "borrower_lei": "2549001IGRCG4F0RLD36",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2025-06-10",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-98CA9E526D",
+      "memo_type": "new-facility",
+      "title": "New facility \u2014 Viskase Holdings, Inc.",
+      "body": "Proposed Term Loan for general corporate purposes. Sources and uses are consistent with the stated purpose. Covenant package follows the existing agreement with a tightened restricted-payments basket.",
+      "text_sha256": "9ce84201f074bbc432dd30bde7de8f389a48d976315cc34f338878346a262f26",
+      "facility_id": "FAC-5BE9FC",
+      "borrower_lei": "529900VN48L8QCMVPV36",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2025-08-08",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-5C517B79B4",
+      "memo_type": "amendment",
+      "title": "Amendment recommendation \u2014 RB GLOBAL INC.",
+      "body": "Borrower requests an amendment to the covenant package on the Term Loan A. Credit view is supportive subject to a pricing step-up. Note the effective date precedes our booking date; exposure drawn in that window was governed by the prior terms.",
+      "text_sha256": "4b99e4858d948891b7d848c80938c65d56776a33784329b7980999820ef9d29d",
+      "facility_id": "FAC-6F4065",
+      "borrower_lei": "5493002H8U24DJXQ4886",
+      "classification": "internal-confidential",
+      "residency": "US",
+      "authored_date": "2026-01-17",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-C7823B2C4D",
+      "memo_type": "amendment",
+      "title": "Amendment recommendation \u2014 Pebblebrook Hotel Trust",
+      "body": "Borrower requests an amendment to the covenant package on the Term Loan. Credit view is supportive subject to a pricing step-up. Note the effective date precedes our booking date; exposure drawn in that window was governed by the prior terms.",
+      "text_sha256": "723b26c1cb9d8f07e1d5cd65422284f5839eabf63d08646067258d1f3f447000",
+      "facility_id": "FAC-96FD71",
+      "borrower_lei": "5493004Q1NNH6JXCSI52",
+      "classification": "internal-confidential",
+      "residency": "UK",
+      "authored_date": "2025-07-06",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    },
+    {
+      "memorandum_id": "MEMO-13A-3E2C58F434",
+      "memo_type": "amendment",
+      "title": "Amendment recommendation \u2014 PAYCHEX INC",
+      "body": "Borrower requests an amendment to the covenant package on the Revolving Credit Facility. Credit view is supportive subject to a pricing step-up. Note the effective date precedes our booking date; exposure drawn in that window was governed by the prior terms.",
+      "text_sha256": "2c700ed5f0048f9abfaa5d79a09266cc3b0bac203538ca755d4fd2b5a715a536",
+      "facility_id": "FAC-E386A4",
+      "borrower_lei": "529900K900DW6SUBM174",
+      "classification": "internal-confidential",
+      "residency": "UK",
+      "authored_date": "2026-02-18",
+      "provenance": "synthetic \u2014 internal",
+      "source": "generated: no public equivalent exists for internal credit opinions",
+      "retrieved_at": "2026-08-22"
+    }
+  ],
+  "section_templates": [
+    {
+      "memo_type": "new-facility",
+      "section_order": 1,
+      "section_name": "Transaction summary",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 2,
+      "section_name": "Borrower and sponsor",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 3,
+      "section_name": "Sources and uses",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 4,
+      "section_name": "Facility terms",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 5,
+      "section_name": "Covenant package",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 6,
+      "section_name": "Collateral and security",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 7,
+      "section_name": "Financial projections",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 8,
+      "section_name": "Risk factors",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "new-facility",
+      "section_order": 9,
+      "section_name": "Recommendation",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 1,
+      "section_name": "Relationship summary",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 2,
+      "section_name": "Financial performance",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 3,
+      "section_name": "Peer comparison",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 4,
+      "section_name": "Covenant compliance",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 5,
+      "section_name": "Exposure and limits",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 6,
+      "section_name": "Collateral position",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 7,
+      "section_name": "Internal grade",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "annual-review",
+      "section_order": 8,
+      "section_name": "Recommendation",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 1,
+      "section_name": "Requested amendment",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 2,
+      "section_name": "Rationale",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 3,
+      "section_name": "Covenant impact",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 4,
+      "section_name": "Pricing and fees",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 5,
+      "section_name": "Exposure between effective and booking",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 6,
+      "section_name": "Conditions precedent",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "amendment",
+      "section_order": 7,
+      "section_name": "Recommendation",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 1,
+      "section_name": "Situation summary",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 2,
+      "section_name": "Default and breach history",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 3,
+      "section_name": "Collateral valuation and enforceability",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 4,
+      "section_name": "Set-off position",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 5,
+      "section_name": "Recovery scenarios",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 6,
+      "section_name": "Legal and jurisdictional",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "memo_type": "workout",
+      "section_order": 7,
+      "section_name": "Strategy and next steps",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "debt_weights": {
+    "unresolved_passage_anchor": 0.3,
+    "peer_set_thinness": 0.25,
+    "signal_staleness": 0.15,
+    "inherited_prerequisite_debt": 0.3
+  },
+  "policy_versions": [
+    {
+      "policy_version": "credit-memo-policy-v1",
+      "effective_date": "2024-01-01",
+      "ecoa_reasoning_path_restricted": true,
+      "reg_o_insider_threshold_usd": 500000,
+      "credit_limit_envelope_usd": 750000000,
+      "debt_tolerance_default": 0.3
+    },
+    {
+      "policy_version": "credit-memo-policy-v2",
+      "effective_date": "2025-07-01",
+      "ecoa_reasoning_path_restricted": true,
+      "reg_o_insider_threshold_usd": 250000,
+      "credit_limit_envelope_usd": 600000000,
+      "debt_tolerance_default": 0.25
+    }
+  ]
+}

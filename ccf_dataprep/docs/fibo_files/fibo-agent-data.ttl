@@ -1,0 +1,110 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix fibo-fnd-pty-pty: <https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/> .
+@prefix fibo-be-corp-corp: <https://spec.edmcouncil.org/fibo/ontology/BE/Corporations/Corporations/> .
+@prefix fibo-be-oac-cown: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Ownership/> .
+@prefix fibo-be-oac-cctl: <https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/Control/> .
+@prefix ex: <http://example.org/fibo/> .
+
+# === Clients ===
+ex:AcmeCorp a fibo-be-corp-corp:Corporation ;
+  rdfs:label "Acme Corporation" ;
+  ex:lei "5493001KJTIIGC8Y1R12" ;
+  ex:legalName "Acme Corporation Inc." ;
+  ex:jurisdiction "US-DE" ;
+  ex:entityStatus "ACTIVE" ;
+  ex:clientType "Corporate Client" ;
+  ex:riskRating "Medium" ;
+  ex:onboardingDate "2021-03-15"^^xsd:date ;
+  ex:kycStatus "Approved" .
+
+ex:BetaHoldings a fibo-be-corp-corp:Corporation ;
+  rdfs:label "Beta Holdings LLC" ;
+  ex:lei "549300ABCDEF12345678" ;
+  ex:legalName "Beta Holdings Limited Liability Company" ;
+  ex:jurisdiction "US-NY" ;
+  ex:entityStatus "ACTIVE" ;
+  ex:clientType "Investment Vehicle" ;
+  ex:riskRating "Low" ;
+  ex:onboardingDate "2022-07-01"^^xsd:date ;
+  ex:kycStatus "Approved" .
+
+ex:DeltaFund a fibo-be-corp-corp:Corporation ;
+  rdfs:label "Delta Private Equity Fund LP" ;
+  ex:lei "549300XYZ98765432109" ;
+  ex:legalName "Delta Private Equity Fund Limited Partnership" ;
+  ex:jurisdiction "US-DE" ;
+  ex:entityStatus "ACTIVE" ;
+  ex:clientType "Fund / Investor" ;
+  ex:riskRating "Medium" ;
+  ex:onboardingDate "2023-01-10"^^xsd:date ;
+  ex:kycStatus "Approved" .
+
+# === Counterparties ===
+ex:GammaBank a fibo-be-corp-corp:Corporation ;
+  rdfs:label "Gamma Bank AG" ;
+  ex:lei "529900T8BM49AURSDO55" ;
+  ex:legalName "Gamma Bank Aktiengesellschaft" ;
+  ex:jurisdiction "DE" ;
+  ex:entityStatus "ACTIVE" ;
+  ex:clientType "Financial Institution / Counterparty" ;
+  ex:riskRating "Low" ;
+  ex:onboardingDate "2019-11-20"^^xsd:date ;
+  ex:kycStatus "Approved" .
+
+ex:OmegaSecurities a fibo-be-corp-corp:Corporation ;
+  rdfs:label "Omega Securities Ltd" ;
+  ex:lei "213800ABCDE12345XYZ9" ;
+  ex:legalName "Omega Securities Limited" ;
+  ex:jurisdiction "GB" ;
+  ex:entityStatus "ACTIVE" ;
+  ex:clientType "Broker / Counterparty" ;
+  ex:riskRating "Medium" ;
+  ex:onboardingDate "2020-05-12"^^xsd:date ;
+  ex:kycStatus "Approved" .
+
+# === Natural persons / UBOs ===
+ex:JohnSmith a fibo-fnd-pty-pty:Party ;
+  rdfs:label "John Smith" ;
+  ex:fullName "John Michael Smith" ;
+  ex:nationality "US" ;
+  ex:dateOfBirth "1975-04-12"^^xsd:date ;
+  ex:role "Ultimate Beneficial Owner" ;
+  ex:ownershipPercent "45.0" ;
+  fibo-be-oac-cown:hasOwnershipInterestIn ex:AcmeCorp ;
+  fibo-be-oac-cctl:hasControllingInterestIn ex:AcmeCorp .
+
+ex:JaneDoe a fibo-fnd-pty-pty:Party ;
+  rdfs:label "Jane Doe" ;
+  ex:fullName "Jane Elizabeth Doe" ;
+  ex:nationality "US" ;
+  ex:dateOfBirth "1982-09-03"^^xsd:date ;
+  ex:role "Managing Member" ;
+  ex:ownershipPercent "60.0" ;
+  fibo-be-oac-cown:hasOwnershipInterestIn ex:BetaHoldings .
+
+ex:HansMueller a fibo-fnd-pty-pty:Party ;
+  rdfs:label "Hans Müller" ;
+  ex:fullName "Hans Müller" ;
+  ex:nationality "DE" ;
+  ex:dateOfBirth "1968-11-22"^^xsd:date ;
+  ex:role "Director" ;
+  fibo-be-oac-cown:hasOwnershipInterestIn ex:GammaBank .
+
+ex:SarahChen a fibo-fnd-pty-pty:Party ;
+  rdfs:label "Sarah Chen" ;
+  ex:fullName "Sarah Wei Chen" ;
+  ex:nationality "SG" ;
+  ex:dateOfBirth "1988-02-17"^^xsd:date ;
+  ex:role "Limited Partner" ;
+  ex:ownershipPercent "25.0" ;
+  fibo-be-oac-cown:hasOwnershipInterestIn ex:DeltaFund .
+
+# === Relationships ===
+ex:AcmeCorp fibo-fnd-pty-pty:isRelatedTo ex:BetaHoldings ;
+            fibo-fnd-pty-pty:isRelatedTo ex:GammaBank ;
+            fibo-fnd-pty-pty:isRelatedTo ex:OmegaSecurities .
+
+ex:BetaHoldings fibo-fnd-pty-pty:isRelatedTo ex:DeltaFund .
+ex:DeltaFund fibo-fnd-pty-pty:isRelatedTo ex:AcmeCorp .
+ex:GammaBank fibo-fnd-pty-pty:isRelatedTo ex:OmegaSecurities .

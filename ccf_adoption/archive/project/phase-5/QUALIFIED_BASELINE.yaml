@@ -1,0 +1,60 @@
+phase: 5
+name: SDK Developer and Engineer Manual
+status: release_candidate
+
+adoption_repository:
+  repository: drcastillo/ccf_adoption
+  writable: true
+  branch: decision-replay-finalize
+
+sdk_baseline:
+  repository: drcastillo/ccf_code
+  writable: false
+  branch: main
+  commit: ff470d400976815e9a1e49176ca51f97e4e691b1
+  qualification: qualified_merged
+  observed_date: 2026-09-23
+
+authority:
+  implementation_claims:
+    - current_code
+    - current_tests_and_gates
+    - qualified_runnable_examples
+    - public_reference_when_consistent
+    - historical_evidence
+  rule: >-
+    Never infer a public contract from stale prose when current code, tests,
+    gates, or qualified examples establish a different surface.
+
+context_product_catalog:
+  numbered_examples:
+    first: cp-00
+    last: cp-24
+  decision_replay_capabilities:
+    - examples/dr-01-replay-a-governed-determination
+    - examples/dr-02-package-a-context-product
+  canonical_preference:
+    cp-03: examples/cp-03-canonical-obligor-financial-spread
+    cp-04: examples/cp-04-canonical-corporate-family-tree
+    cp-06: examples/cp-06-canonical-collateral-and-setoff-coverage
+    cp-13: examples/cp-13-canonical-covenant-cross-reference
+
+replay:
+  status: qualified_complete
+  environment: ccf.replay.environment.RecordedEnvironment
+  served_entrypoint: ccf.replay.engine.replay
+  refusal_entrypoint: ccf.replay.engine.replay_refusal
+  mode_2_example: examples/dr-02-package-a-context-product
+
+specification_sources:
+  standard: public/reference/specifications/Context_Product_Specification_Standard_v0-3.md
+  generation_recipe: public/reference/specifications/spec_generation.md
+  delivery_recipe: public/reference/specifications/example_delivery.md
+  all_read_from: sdk_baseline
+
+workflow_rule:
+  statement: >-
+    SME plus data engineer settle the design. AI helps turn the settled design
+    into a rigorous, reviewable, falsifiable specification and then helps
+    generate code from the approved specification. Missing authority-owned terms
+    remain explicit TBCs.

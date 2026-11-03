@@ -1,0 +1,144 @@
+# ---------------------------------------------------------------------------
+# Secrets — never commit
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Pseudonymization mapping — links real PSC/registry persons to their synthetic
+# replacements. Committing it defeats the pseudonymization entirely.
+**/pseudonym-map.*
+**/*-pseudonym-map.*
+
+# ---------------------------------------------------------------------------
+# Fetched public source data — large, re-fetchable, sometimes licence-bound.
+# Commit the fetch manifest (source, URL, retrieval date, checksum), not payloads.
+# GLEIF LEI-CDF alone is ~GB scale; a single ABS-EE file is tens of MB.
+# ---------------------------------------------------------------------------
+sources/**
+!sources/*/
+!sources/**/manifest.json
+!sources/**/manifest.yaml
+!sources/.gitkeep
+!sources/README.md
+
+# Screening output is a decision artifact, not a fetched payload: it records
+# which obligors were selected and which §F conditions each satisfies. It must
+# survive a restart and be reviewable in diff, so it is tracked despite living
+# under sources/. Small (~200KB) and derived from public metadata only.
+!sources/screening/
+!sources/screening/*.json
+
+# Wave 14 (abs-securitization-surveillance) commits four small JSON artifacts
+# describing what was loaded: the deal registry, the prospectus extract, the
+# engineered trigger amendment, and the internal overlay. The PAYLOADS beside
+# them -- ~5.4 GB of ABS-EE XML and filing HTML -- stay ignored by the
+# `sources/**` rule above. Only `sources/absee/*.json` is un-ignored, and the
+# payloads live one directory deeper, so this cannot catch them.
+!sources/absee/*.json
+
+# GLEIF Level 1 for the 103 non-anchor family-tree entities. The three raw API
+# pages (288KB) stay ignored; the parsed 52KB record is the input to
+# `loaders/load_gleif_subsidiaries.py`, so a fresh checkout can load without
+# re-fetching. Same reasoning as sources/screening/ above: small, derived,
+# public metadata only.
+!sources/gleif_l1/subsidiaries_l1.json
+
+# Wave 17 (aml-typology-match) Task 1's advisory selection is a reviewed
+# DECISION artifact, not a fetched payload: it records which four FinCEN
+# advisories anchor the typology claims and why. The cached advisory-page
+# HTML fetched alongside it (to resolve each pdf_url) stays ignored under the
+# `sources/**` rule above; only the decision and its manifest are tracked.
+!sources/fincen/selection.json
+
+# Wave 18 Task 12's SNC report extract is the derived text + retrieval
+# metadata `loaders/load_mongo_wave18.py` reads to build the `document`
+# row -- small (~30KB), derived only, no privacy concern. The fetched PDF
+# payload beside it stays ignored under the `sources/**` rule above.
+!sources/snc/extract.json
+
+# The USASpending recipient allow-list is a HAND-VERIFIED DECISION artifact, not
+# fetched output. USASpending carries no LEI and no CIK, so every row in it is a
+# human judgement about whether a federal award recipient is really our obligor.
+# Without it committed, `generators/fetch_usaspending.py` exits 1 on a fresh
+# checkout and the curation has to be redone from scratch. Small, and the whole
+# point of the source.
+!sources/usaspending/
+!sources/usaspending/recipient_allowlist.json
+
+# ...except the passage corpus, which is a large regenerable intermediate
+# rather than a decision artifact. It embeds full document text (49MB) and the
+# authoritative copy now lives in MongoDB fibo_v2. Regenerate with
+# generators/segment_passages.py.
+sources/screening/passages.json
+
+# ---------------------------------------------------------------------------
+# Generated / regenerable build output
+# ---------------------------------------------------------------------------
+build/
+out/
+generated/
+*.sqlite
+*.sqlite3
+*.db
+# SQLite WAL sidecars. `*.sqlite` alone does not cover these, so any run
+# that opens the departmental store in WAL mode leaves two untracked
+# files behind and `git add -A` commits half a database -- which is the
+# thing this file's own "never commit a database" rule is about.
+*.sqlite-shm
+*.sqlite-wal
+
+# Loader intermediates (regenerated from generators/).
+# docs/fibo_files/ is exempt — those are the historical v1 artifacts the
+# backstory document refers to, and are kept as reference.
+**/mongo-entities.json
+**/mongo-relationships.json
+*.bak
+!docs/fibo_files/**
+
+# Embeddings — large, regenerable, model-version-dependent
+**/embeddings/
+*.npy
+*.faiss
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# ---------------------------------------------------------------------------
+# Editor / OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+._*
+.vscode/
+.idea/
+
+# ---------------------------------------------------------------------------
+# Claude Code per-machine state (project settings stay committed)
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+
+# Wave 13a: cached EDGAR narrative filings. Large, re-fetchable, and the
+# derived sections live in sources/screening/wave13a_narrative_index.json.
+sources/narrative/*.htm
+sources/narrative/*.html
+
+# Ledger dumps from loaders/dump_fluree.py. Regenerable in seconds, ~9 MB
+# each, and a checked-in backup goes stale the moment the ledger moves —
+# which is worse than no backup, because it looks like one.
+backups/
+
+# portable/dump/dump_all.sh's local staging area for workstation-side dump
+# output (a live SQLite snapshot, a real Neo4j graph export) before it ships
+# to db1. Never commit a database into this repo.
+.b1-staging/

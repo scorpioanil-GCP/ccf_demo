@@ -1,0 +1,11 @@
+{"from": "http://example.org/fibo/AcmeCorp", "to": "http://example.org/fibo/BetaHoldings", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:1"}
+{"from": "http://example.org/fibo/AcmeCorp", "to": "http://example.org/fibo/GammaBank", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:2"}
+{"from": "http://example.org/fibo/AcmeCorp", "to": "http://example.org/fibo/OmegaSecurities", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:3"}
+{"from": "http://example.org/fibo/BetaHoldings", "to": "http://example.org/fibo/DeltaFund", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:4"}
+{"from": "http://example.org/fibo/JohnSmith", "to": "http://example.org/fibo/AcmeCorp", "type": "hasOwnershipInterestIn", "source": "fluree:fibo:main", "_id": "rel:5"}
+{"from": "http://example.org/fibo/JohnSmith", "to": "http://example.org/fibo/AcmeCorp", "type": "hasControllingInterestIn", "source": "fluree:fibo:main", "_id": "rel:6"}
+{"from": "http://example.org/fibo/JaneDoe", "to": "http://example.org/fibo/BetaHoldings", "type": "hasOwnershipInterestIn", "source": "fluree:fibo:main", "_id": "rel:7"}
+{"from": "http://example.org/fibo/GammaBank", "to": "http://example.org/fibo/OmegaSecurities", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:8"}
+{"from": "http://example.org/fibo/DeltaFund", "to": "http://example.org/fibo/AcmeCorp", "type": "isRelatedTo", "source": "fluree:fibo:main", "_id": "rel:9"}
+{"from": "http://example.org/fibo/HansMueller", "to": "http://example.org/fibo/GammaBank", "type": "hasOwnershipInterestIn", "source": "fluree:fibo:main", "_id": "rel:10"}
+{"from": "http://example.org/fibo/SarahChen", "to": "http://example.org/fibo/DeltaFund", "type": "hasOwnershipInterestIn", "source": "fluree:fibo:main", "_id": "rel:11"}

@@ -1,0 +1,195 @@
+{
+  "provenance": "synthetic — internal",
+  "sar_count": 12,
+  "sars": [
+    {
+      "alert_id": "ALT-000098",
+      "case_id": "CASE-002",
+      "classification": "restricted",
+      "filed_at": "2026-02-09",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-002 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-FUNNEL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0001",
+      "subject_party": "AMLP-0060",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000098 (case CASE-002) matched typology TYP-FUNNEL (funnel account activity). subject: Geoffrey Pennington Enterprises (internal party AMLP-0060). over a 2 day window, 3 cash deposits originating from DEU, IMN, MHL were made into an account associated with Geoffrey Pennington Enterprises, aggregating $12,529.00 before rapid consolidated outbound transfer -- consistent with funnel account activity concentrating geographically dispersed deposits ahead of aggregated withdrawal. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-FUNNEL",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000074",
+      "case_id": "CASE-003",
+      "classification": "restricted",
+      "filed_at": "2025-10-26",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-003 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-FUNNEL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0002",
+      "subject_party": "AMLP-0075",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000074 (case CASE-003) matched typology TYP-FUNNEL (funnel account activity). subject: Harborview Properties Pte Ltd (internal party AMLP-0075). over a 3 day window, 3 cash deposits originating from GBR, HKG, JPN were made into an account associated with Harborview Properties Pte Ltd, aggregating $20,504.21 before rapid consolidated outbound transfer -- consistent with funnel account activity concentrating geographically dispersed deposits ahead of aggregated withdrawal. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-FUNNEL",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000060",
+      "case_id": "CASE-006",
+      "classification": "restricted",
+      "filed_at": "2025-09-07",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-006 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-FUNNEL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0003",
+      "subject_party": "AMLP-0200",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000060 (case CASE-006) matched typology TYP-FUNNEL (funnel account activity). subject: Zakharova Trading (internal party AMLP-0200). over a 2 day window, 3 cash deposits originating from AUS, SGP, VGB were made into an account associated with Zakharova Trading, aggregating $9,855.39 before rapid consolidated outbound transfer -- consistent with funnel account activity concentrating geographically dispersed deposits ahead of aggregated withdrawal. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-FUNNEL",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000005",
+      "case_id": "CASE-009",
+      "classification": "confidential",
+      "filed_at": "2025-03-13",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-009 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-SHELL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0004",
+      "subject_party": "AMLP-0074",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000005 (case CASE-009) matched typology TYP-SHELL (shell company ownership concealment). subject: Harborview Holdings LLC (internal party AMLP-0074). Harborview Holdings LLC purchased an asset for $726,635.43, funded by an upstream transfer of $762,967.20 routed through 3 layer(s) of ownership involving Hollowbrook Partners before reaching Larchwood Capital Corp as seller; no linked financing was used. the layered ownership structure obscures the ultimate beneficial owner of the funds used in the purchase -- consistent with shell company ownership concealment. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-SHELL",
+      "visible_to_perspectives": [
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000110",
+      "case_id": "CASE-011",
+      "classification": "confidential",
+      "filed_at": "2026-03-31",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-011 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-SHELL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0005",
+      "subject_party": "AMLP-0180",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000110 (case CASE-011) matched typology TYP-SHELL (shell company ownership concealment). subject: Thornfield International Inc (internal party AMLP-0180). Thornfield International Inc purchased an asset for $1,779,508.89, funded by an upstream transfer of $1,868,484.33 routed through 4 layer(s) of ownership involving Harborview Holdings LLC before reaching Pinegrove Enterprises Corp as seller; no linked financing was used. the layered ownership structure obscures the ultimate beneficial owner of the funds used in the purchase -- consistent with shell company ownership concealment. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-SHELL",
+      "visible_to_perspectives": [
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000034",
+      "case_id": "CASE-012",
+      "classification": "confidential",
+      "filed_at": "2025-07-08",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-012 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-SHELL's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0006",
+      "subject_party": "AMLP-0192",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000034 (case CASE-012) matched typology TYP-SHELL (shell company ownership concealment). subject: Westbrook Capital LLC (internal party AMLP-0192). Westbrook Capital LLC purchased an asset for $996,275.37, funded by an upstream transfer of $1,046,089.14 routed through 2 layer(s) of ownership involving Hollowbrook Partners before reaching Margaret Ashworth Holdings as seller; no linked financing was used. the layered ownership structure obscures the ultimate beneficial owner of the funds used in the purchase -- consistent with shell company ownership concealment. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-SHELL",
+      "visible_to_perspectives": [
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000021",
+      "case_id": "CASE-014",
+      "classification": "restricted",
+      "filed_at": "2025-06-05",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-014 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-STRUCT's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0007",
+      "subject_party": "AMLP-0023",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000021 (case CASE-014) matched typology TYP-STRUCT (structuring). subject: Clearwater Properties GmbH (internal party AMLP-0023). over a 6 day window, Clearwater Properties GmbH conducted 4 wire transfer transactions, each between $8,000 and $9,900, consistently below the $10,000 currency transaction reporting threshold -- consistent with structuring to avoid currency transaction reporting. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-STRUCT",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000136",
+      "case_id": "CASE-016",
+      "classification": "restricted",
+      "filed_at": "2026-07-06",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-016 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-STRUCT's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0008",
+      "subject_party": "AMLP-0071",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000136 (case CASE-016) matched typology TYP-STRUCT (structuring). subject: Greystone Foods Ltd (internal party AMLP-0071). over a 10 day window, Greystone Foods Ltd conducted 4 check payment transactions, each between $8,000 and $9,900, consistently below the $10,000 currency transaction reporting threshold -- consistent with structuring to avoid currency transaction reporting. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-STRUCT",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000128",
+      "case_id": "CASE-018",
+      "classification": "restricted",
+      "filed_at": "2026-06-24",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-018 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-STRUCT's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0009",
+      "subject_party": "AMLP-0175",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000128 (case CASE-018) matched typology TYP-STRUCT (structuring). subject: Stonebridge Properties LLC (internal party AMLP-0175). over a 8 day window, Stonebridge Properties LLC conducted 6 wire transfer transactions, each between $8,000 and $9,900, consistently below the $10,000 currency transaction reporting threshold -- consistent with structuring to avoid currency transaction reporting. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-STRUCT",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000076",
+      "case_id": "CASE-019",
+      "classification": "restricted",
+      "filed_at": "2025-10-28",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-019 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-TBML's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0010",
+      "subject_party": "AMLP-0007",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000076 (case CASE-019) matched typology TYP-TBML (trade-based value transfer). subject: Blackwood Foods (internal party AMLP-0007). Blackwood Foods was party to 3 shipments with a counterparty (Harborview Timber B.V.) in which invoiced values diverged from expected shipment value by as much as 83.7 percent, with double-invoiced documentation -- consistent with trade-based value transfer used to move value outside formal banking channels. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-TBML",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000097",
+      "case_id": "CASE-020",
+      "classification": "restricted",
+      "filed_at": "2026-02-06",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-020 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-TBML's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0011",
+      "subject_party": "AMLP-0150",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000097 (case CASE-020) matched typology TYP-TBML (trade-based value transfer). subject: Quarrystone Technologies Pte Ltd (internal party AMLP-0150). Quarrystone Technologies Pte Ltd was party to 2 shipments with a counterparty (Fairhaven Group GmbH) in which invoiced values diverged from expected shipment value by as much as 105.9 percent, with double-invoiced documentation -- consistent with trade-based value transfer used to move value outside formal banking channels. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-TBML",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    },
+    {
+      "alert_id": "ALT-000089",
+      "case_id": "CASE-023",
+      "classification": "restricted",
+      "filed_at": "2025-12-21",
+      "filing_rationale": "synthetic — engineered selection (CLAUDE.md's third provenance class): CASE-023 was chosen to file by filing_digest(case_id) landing in the lower half of TYP-TBML's 6 cases, salted with FILING_DIGEST_SALT. This is deliberately NOT a materiality or business rule -- it is constructed to carry no relationship to the case's aggregate transaction exposure, the alert trigger text, raised_at, or any other quantity an analyst-facing view can extract, so that which cases file cannot be inferred from a first-line (l1) perspective. See generate_sar_records.py select_filed_case_ids() and docs/known-issues.md #30.",
+      "provenance": "synthetic — internal",
+      "sar_id": "SAR-0012",
+      "subject_party": "AMLP-0185",
+      "text": "Suspicious Activity Report narrative. Internal alert ALT-000089 (case CASE-023) matched typology TYP-TBML (trade-based value transfer). subject: Underhill Systems S.A. (internal party AMLP-0185). Underhill Systems S.A. was party to 3 shipments with a counterparty (Cedarbrook Group B.V.) in which invoiced values diverged from expected shipment value by as much as 69.7 percent, with double-invoiced documentation -- consistent with trade-based value transfer used to move value outside formal banking channels. this narrative is filed as a suspicious activity report; its existence is confidential, and in many jurisdictions disclosure of that fact is itself an offense.",
+      "typology_id": "TYP-TBML",
+      "visible_to_perspectives": [
+        "l2",
+        "examiner"
+      ]
+    }
+  ]
+}

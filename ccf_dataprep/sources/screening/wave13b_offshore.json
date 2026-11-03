@@ -1,0 +1,2519 @@
+{
+ "generated_for": "Wave 13b \u2014 offshore intermediary layer (kyc-refresh-beneficial-ownership \u00a7C, ICIJ STRUCTURE only; see the generator docstring for the recorded deviation)",
+ "generated_at": "2026-08-22T19:50:27+00:00",
+ "provenance": "synthetic \u2014 engineered",
+ "shape_source": {
+  "name": "ICIJ Offshore Leaks Database",
+  "url": "https://offshoreleaks-data.icij.org/offshoreleaks/csv/full-oldb.LATEST.zip",
+  "relationships_read": 3339267,
+  "intermediaries_observed": 26608,
+  "names_taken": false
+ },
+ "resolution_vocabulary": {
+  "same_name_as": 104170,
+  "similar": 46761,
+  "same_company_as": 15523,
+  "same_as": 4272,
+  "same_id_as": 3120,
+  "similar_company_as": 203,
+  "probably_same_officer_as": 132
+ },
+ "officer_role_vocabulary": {
+  "shareholder of": 589938,
+  "director of": 457922,
+  "secretary of": 115652,
+  "judicial representative of": 109526,
+  "legal representative of": 99181,
+  "records & registers of": 36318,
+  "auditor of": 27242,
+  "ultimate beneficial owner": 25883,
+  "managing director of": 23830,
+  "beneficiary of": 23637,
+  "director": 20514,
+  "owner of": 20405,
+  "vice-president of": 19678,
+  "liquidator of": 17365,
+  "is signatory for": 16158,
+  "president of": 13498,
+  "beneficial owner": 9231,
+  "auditor": 6379,
+  "secretary": 6046,
+  "proxy of": 6001
+ },
+ "fanout_compression": {
+  "observed_draws_sorted": [
+   770,
+   48,
+   36,
+   25,
+   15,
+   13,
+   11,
+   9,
+   6,
+   5,
+   5,
+   4,
+   3,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "allocated": [
+   9,
+   10,
+   9,
+   8,
+   7,
+   6,
+   6,
+   6,
+   5,
+   4,
+   4,
+   4,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2
+  ],
+  "note": "Observed ICIJ fan-out compressed by log1p. The ordering and the dominant agent are preserved; the magnitudes are not. Proportional allocation over a 150-vehicle budget left 21 of 40 intermediaries with no vehicle at all."
+ },
+ "intermediary_count": 40,
+ "vehicle_count": 150,
+ "edge_count": 150,
+ "intermediaries": [
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "name": "Meridian Trustees S.A.",
+   "country_code": "PAN",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "name": "Northgate Partners Ltd",
+   "country_code": "GBR",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "name": "Harbourline Trading Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "name": "Northgate Group Ltd",
+   "country_code": "CYP",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "name": "Sundial Trustees Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "name": "Driftwood Nominees Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "name": "Zephyr Group Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "name": "Blackwater Group Ltd",
+   "country_code": "GBR",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "name": "Evergreen Ventures Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-010",
+   "name": "Ashgrove Holdings AG",
+   "country_code": "CHE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-011",
+   "name": "Blackwater Investments Limited",
+   "country_code": "HKG",
+   "status": "UNRECOVERABLE ACCOUNTS",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-012",
+   "name": "Alderway Enterprises S.a r.l.",
+   "country_code": "LUX",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-013",
+   "name": "Goldcrest Trading Ltd",
+   "country_code": "GBR",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-014",
+   "name": "Ashgrove Partners Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-015",
+   "name": "Juniper Enterprises AG",
+   "country_code": "CHE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-016",
+   "name": "Orchard Holdings Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-017",
+   "name": "Northwind Management Ltd",
+   "country_code": "BHS",
+   "status": "UNRECOVERABLE ACCOUNTS",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-018",
+   "name": "Westbourne Management AG",
+   "country_code": "CHE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-019",
+   "name": "Highmark Trustees Pte Ltd",
+   "country_code": "SGP",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-020",
+   "name": "Yardley Trustees AG",
+   "country_code": "CHE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-021",
+   "name": "Meridian Assets Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-022",
+   "name": "Fairhaven Nominees Ltd",
+   "country_code": "BHS",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-023",
+   "name": "Fairhaven Trustees S.a r.l.",
+   "country_code": "LUX",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-024",
+   "name": "Quarry Group Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-025",
+   "name": "Driftwood Nominees S.A.",
+   "country_code": "PAN",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-026",
+   "name": "Thornhill Group LLC",
+   "country_code": "USA",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-027",
+   "name": "Vantage Partners Ltd",
+   "country_code": "BHS",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-028",
+   "name": "Pinnacle Enterprises Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-029",
+   "name": "Quarry Trustees Limited",
+   "country_code": "HKG",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-030",
+   "name": "Evergreen Investments AG",
+   "country_code": "LIE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-031",
+   "name": "Kestrel Partners Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-032",
+   "name": "Ashgrove Holdings Limited",
+   "country_code": "HKG",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-033",
+   "name": "Vantage Ventures Ltd",
+   "country_code": "GBR",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-034",
+   "name": "Highmark Ventures S.a r.l.",
+   "country_code": "LUX",
+   "status": "PROSPECT",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-035",
+   "name": "Zephyr Management Ltd",
+   "country_code": "GBR",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-036",
+   "name": "Pinnacle Trustees S.a r.l.",
+   "country_code": "LUX",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-037",
+   "name": "Meridian Ventures Ltd",
+   "country_code": "BHS",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-038",
+   "name": "Juniper Holdings FZE",
+   "country_code": "ARE",
+   "status": "ACTIVE",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-039",
+   "name": "Westbourne Investments Ltd",
+   "country_code": "GBR",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-040",
+   "name": "Thornhill Trading Ltd",
+   "country_code": "GGY",
+   "status": "SUSPENDED",
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "vehicles": [
+  {
+   "vehicle_id": "ICJ-SPV-001",
+   "name": "Orchard Capital S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-002",
+   "name": "Alderway Trading S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-003",
+   "name": "Harbourline Holdings AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-004",
+   "name": "Alderway Trustees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-005",
+   "name": "Larkspur Capital LLC",
+   "jurisdiction": "USA",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-006",
+   "name": "Alderway Group Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-007",
+   "name": "Zephyr Management LLC",
+   "jurisdiction": "USA",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-008",
+   "name": "Redstone Partners S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Regular (Local) Company",
+   "status": "Transferred OUT",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-009",
+   "name": "Vantage Assets AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-010",
+   "name": "Yardley Investments AG",
+   "jurisdiction": "CHE",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-011",
+   "name": "Quarry Partners AG",
+   "jurisdiction": "LIE",
+   "company_type": "Client Sundry Account",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-012",
+   "name": "Northgate Enterprises Ltd",
+   "jurisdiction": "MLT",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-013",
+   "name": "Alderway Ventures Ltd",
+   "jurisdiction": "JEY",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-014",
+   "name": "Thornhill Investments Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Corporation",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-015",
+   "name": "Orchard Trading Ltd",
+   "jurisdiction": "CYP",
+   "company_type": "Business Corporation",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-016",
+   "name": "Cobalt Management Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Corporation",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-017",
+   "name": "Vantage Trustees FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Business Corporation",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-018",
+   "name": "Silverbirch Management Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Standard Company under IBC Act",
+   "status": "In Dissolution",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-019",
+   "name": "Quarry Group FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-020",
+   "name": "Larkspur Group LLC",
+   "jurisdiction": "USA",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-021",
+   "name": "Quarry Nominees Pte Ltd",
+   "jurisdiction": "SGP",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-022",
+   "name": "Yardley Enterprises Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-023",
+   "name": "Juniper Management Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Standard International Company",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-024",
+   "name": "Juniper Assets Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Regular (Local) Company",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-025",
+   "name": "Harbourline Enterprises Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Standard International Company",
+   "status": "Resigned as agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-026",
+   "name": "Cobalt Investments LLC",
+   "jurisdiction": "USA",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-027",
+   "name": "Redstone Ventures S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Sundry Account",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-028",
+   "name": "Zephyr Ventures Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Regular (Local) Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-029",
+   "name": "Westbourne Investments FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-030",
+   "name": "Ironbridge Investments Ltd",
+   "jurisdiction": "MLT",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-031",
+   "name": "Quarry Holdings Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Business Corporation",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-032",
+   "name": "Quarry Management Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-033",
+   "name": "Driftwood Nominees FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-034",
+   "name": "Pinnacle Trading Ltd",
+   "jurisdiction": "MLT",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-035",
+   "name": "Northwind Holdings FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-036",
+   "name": "Yardley Trading FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-037",
+   "name": "Westbourne Trading LLC",
+   "jurisdiction": "USA",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-038",
+   "name": "Evergreen Holdings Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-039",
+   "name": "Millstone Partners S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Corporation",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-040",
+   "name": "Harbourline Management S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-041",
+   "name": "Umbra Management Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-042",
+   "name": "Juniper Ventures Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Business Corporation",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-043",
+   "name": "Goldcrest Investments Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-044",
+   "name": "Pinnacle Assets S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Nominee Only Entity",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-045",
+   "name": "Larkspur Trustees Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-046",
+   "name": "Pinnacle Partners S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-047",
+   "name": "Northwind Nominees Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-048",
+   "name": "Yardley Nominees Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Regular (Local) Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-049",
+   "name": "Redstone Partners Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-050",
+   "name": "Goldcrest Management Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-051",
+   "name": "Northgate Holdings LLC",
+   "jurisdiction": "USA",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-052",
+   "name": "Evergreen Partners Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-053",
+   "name": "Larkspur Assets Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-054",
+   "name": "Quarry Nominees Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Regular (Local) Company",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-055",
+   "name": "Yardley Trading Pte Ltd",
+   "jurisdiction": "SGP",
+   "company_type": "Client Sundry Account",
+   "status": "Struck Off Following Merger",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-056",
+   "name": "Evergreen Management FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-057",
+   "name": "Millstone Investments Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-058",
+   "name": "Redstone Assets Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-059",
+   "name": "Sundial Capital Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Transferred OUT",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-060",
+   "name": "Pinnacle Assets FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Client Sundry Account",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-061",
+   "name": "Vantage Partners AG",
+   "jurisdiction": "LIE",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-062",
+   "name": "Sundial Trading Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Client Sundry Account",
+   "status": "Not To Be Renewed / In Deregistration",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-063",
+   "name": "Kestrel Trustees Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Standard International Company",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-064",
+   "name": "Alderway Investments Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-065",
+   "name": "Highmark Enterprises Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-066",
+   "name": "Juniper Trading Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-067",
+   "name": "Umbra Group Ltd",
+   "jurisdiction": "MLT",
+   "company_type": "Regular (Local) Company",
+   "status": "Inactivated",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-068",
+   "name": "Millstone Partners Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-069",
+   "name": "Kestrel Management AG",
+   "jurisdiction": "CHE",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-070",
+   "name": "Millstone Nominees Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-071",
+   "name": "Juniper Ventures S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Transferred Out",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-072",
+   "name": "Harbourline Nominees Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-073",
+   "name": "Vantage Nominees Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-074",
+   "name": "Meridian Partners Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Corporation",
+   "status": "Transferred OUT",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-075",
+   "name": "Pinnacle Partners Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-076",
+   "name": "Umbra Enterprises Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Regular (Local) Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-077",
+   "name": "Kestrel Nominees AG",
+   "jurisdiction": "CHE",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-078",
+   "name": "Juniper Trading S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-079",
+   "name": "Ironbridge Enterprises Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-080",
+   "name": "Ironbridge Holdings Ltd",
+   "jurisdiction": "MLT",
+   "company_type": "Regular (Local) Company",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-081",
+   "name": "Yardley Investments Pte Ltd",
+   "jurisdiction": "SGP",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-082",
+   "name": "Juniper Group LLC",
+   "jurisdiction": "USA",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-083",
+   "name": "Umbra Trading Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Struck Off Following Merger",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-084",
+   "name": "Quarry Assets Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-085",
+   "name": "Northwind Enterprises Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Client Sundry Account",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-086",
+   "name": "Harbourline Capital S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-087",
+   "name": "Umbra Nominees AG",
+   "jurisdiction": "LIE",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-088",
+   "name": "Sundial Partners Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-089",
+   "name": "Cobalt Holdings Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-090",
+   "name": "Meridian Enterprises Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-091",
+   "name": "Juniper Capital Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Standard International Company",
+   "status": "Transferred Out",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-092",
+   "name": "Orchard Trustees Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-093",
+   "name": "Highmark Investments Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Corporation",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-094",
+   "name": "Vantage Ventures Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard International Company",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-095",
+   "name": "Driftwood Nominees AG",
+   "jurisdiction": "CHE",
+   "company_type": "Client Sundry Account",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-096",
+   "name": "Umbra Trustees FZE",
+   "jurisdiction": "ARE",
+   "company_type": "Standard International Company",
+   "status": "Struck Off",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-097",
+   "name": "Sundial Capital Pte Ltd",
+   "jurisdiction": "SGP",
+   "company_type": "Standard International Company",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-098",
+   "name": "Zephyr Management Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-099",
+   "name": "Driftwood Holdings S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Corporation",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-100",
+   "name": "Kestrel Investments Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Corporation",
+   "status": "Struck / Defunct / Deregistered",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-101",
+   "name": "Blackwater Assets Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Client Sundry Account",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-102",
+   "name": "Highmark Ventures Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Regular (Local) Company",
+   "status": "Resigned as agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-103",
+   "name": "Quarry Trading Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-104",
+   "name": "Northwind Enterprises Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-105",
+   "name": "Larkspur Trading Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-106",
+   "name": "Quarry Partners Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-107",
+   "name": "Ironbridge Management Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Cook Islands Asset Protection Trust",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-108",
+   "name": "Silverbirch Capital Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-109",
+   "name": "Pinnacle Trustees AG",
+   "jurisdiction": "CHE",
+   "company_type": "Business Corporation",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-110",
+   "name": "Thornhill Trustees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-111",
+   "name": "Silverbirch Assets Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Regular (Local) Company",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-112",
+   "name": "Umbra Nominees Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-113",
+   "name": "Yardley Capital Ltd",
+   "jurisdiction": "BHS",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-114",
+   "name": "Harbourline Nominees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-115",
+   "name": "Pinnacle Enterprises S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-116",
+   "name": "Northwind Assets S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Regular (Local) Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-117",
+   "name": "Ashgrove Assets Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-118",
+   "name": "Fairhaven Enterprises LLC",
+   "jurisdiction": "USA",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-119",
+   "name": "Highmark Partners Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-120",
+   "name": "Blackwater Trading Ltd",
+   "jurisdiction": "IMN",
+   "company_type": "Regular (Local) Company",
+   "status": "Company liquidated",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-121",
+   "name": "Northwind Ventures AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard Company under IBC Act",
+   "status": "In Dissolution",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-122",
+   "name": "Goldcrest Capital S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-123",
+   "name": "Larkspur Holdings Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Regular (Local) Company",
+   "status": "Inactivated",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-124",
+   "name": "Northgate Nominees Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-125",
+   "name": "Millstone Assets Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-126",
+   "name": "Ashgrove Nominees Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-127",
+   "name": "Larkspur Investments Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Client Sundry Account",
+   "status": "In Penalty",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-128",
+   "name": "Westbourne Trading Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-129",
+   "name": "Driftwood Holdings Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-130",
+   "name": "Larkspur Nominees LLC",
+   "jurisdiction": "USA",
+   "company_type": "Regular (Local) Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-131",
+   "name": "Silverbirch Trading Limited",
+   "jurisdiction": "HKG",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-132",
+   "name": "Zephyr Nominees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-133",
+   "name": "Sundial Ventures Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-134",
+   "name": "Harbourline Trading Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-135",
+   "name": "Fairhaven Investments AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-136",
+   "name": "Thornhill Investments Pte Ltd",
+   "jurisdiction": "SGP",
+   "company_type": "Standard International Company",
+   "status": "Resigned as agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-137",
+   "name": "Fairhaven Holdings Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-138",
+   "name": "Orchard Ventures Ltd",
+   "jurisdiction": "SYC",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-139",
+   "name": "Driftwood Capital Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Business Corporation",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-140",
+   "name": "Kestrel Trading Ltd",
+   "jurisdiction": "JEY",
+   "company_type": "Business Company Limited by Shares",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-141",
+   "name": "Evergreen Group Ltd",
+   "jurisdiction": "CYP",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-142",
+   "name": "Alderway Nominees AG",
+   "jurisdiction": "CHE",
+   "company_type": "Business Corporation",
+   "status": "Dissolved",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-143",
+   "name": "Yardley Trading Ltd",
+   "jurisdiction": "VGB",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-144",
+   "name": "Kestrel Ventures Ltd",
+   "jurisdiction": "CYM",
+   "company_type": "Client Sundry Account",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-145",
+   "name": "Quarry Investments AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard International Company",
+   "status": "Changed agent",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-146",
+   "name": "Driftwood Enterprises Ltd",
+   "jurisdiction": "GBR",
+   "company_type": "Standard International Company",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-147",
+   "name": "Goldcrest Assets AG",
+   "jurisdiction": "CHE",
+   "company_type": "Standard International Company",
+   "status": "Active",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-148",
+   "name": "Highmark Trading Ltd",
+   "jurisdiction": "BLZ",
+   "company_type": "Standard Company under IBC Act",
+   "status": "Defaulted",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-149",
+   "name": "Thornhill Nominees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Standard International Company",
+   "status": "Dead",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "vehicle_id": "ICJ-SPV-150",
+   "name": "Goldcrest Trustees S.A.",
+   "jurisdiction": "PAN",
+   "company_type": "Business Corporation",
+   "status": "Struck Off as Defunct",
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ],
+ "edges": [
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-001",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-002",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-003",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-004",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-005",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-006",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-007",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-008",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-001",
+   "vehicle_id": "ICJ-SPV-009",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-010",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-011",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-012",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-013",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-014",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-015",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-016",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-017",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-018",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-002",
+   "vehicle_id": "ICJ-SPV-019",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-020",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-021",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-022",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-023",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-024",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-025",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-026",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-027",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-003",
+   "vehicle_id": "ICJ-SPV-028",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-029",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-030",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-031",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-032",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-033",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-034",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-035",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-004",
+   "vehicle_id": "ICJ-SPV-036",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-037",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-038",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-039",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-040",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-041",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-042",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-005",
+   "vehicle_id": "ICJ-SPV-043",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-044",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-045",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-046",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-047",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-048",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-006",
+   "vehicle_id": "ICJ-SPV-049",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-050",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-051",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-052",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-053",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-054",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-007",
+   "vehicle_id": "ICJ-SPV-055",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-056",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-057",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-058",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-059",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-060",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-008",
+   "vehicle_id": "ICJ-SPV-061",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "vehicle_id": "ICJ-SPV-062",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "vehicle_id": "ICJ-SPV-063",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "vehicle_id": "ICJ-SPV-064",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "vehicle_id": "ICJ-SPV-065",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-009",
+   "vehicle_id": "ICJ-SPV-066",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-010",
+   "vehicle_id": "ICJ-SPV-067",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-010",
+   "vehicle_id": "ICJ-SPV-068",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-010",
+   "vehicle_id": "ICJ-SPV-069",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-010",
+   "vehicle_id": "ICJ-SPV-070",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-011",
+   "vehicle_id": "ICJ-SPV-071",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-011",
+   "vehicle_id": "ICJ-SPV-072",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-011",
+   "vehicle_id": "ICJ-SPV-073",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-011",
+   "vehicle_id": "ICJ-SPV-074",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-012",
+   "vehicle_id": "ICJ-SPV-075",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-012",
+   "vehicle_id": "ICJ-SPV-076",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-012",
+   "vehicle_id": "ICJ-SPV-077",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-012",
+   "vehicle_id": "ICJ-SPV-078",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-013",
+   "vehicle_id": "ICJ-SPV-079",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-013",
+   "vehicle_id": "ICJ-SPV-080",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-013",
+   "vehicle_id": "ICJ-SPV-081",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-014",
+   "vehicle_id": "ICJ-SPV-082",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-014",
+   "vehicle_id": "ICJ-SPV-083",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-014",
+   "vehicle_id": "ICJ-SPV-084",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-015",
+   "vehicle_id": "ICJ-SPV-085",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-015",
+   "vehicle_id": "ICJ-SPV-086",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-015",
+   "vehicle_id": "ICJ-SPV-087",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-016",
+   "vehicle_id": "ICJ-SPV-088",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-016",
+   "vehicle_id": "ICJ-SPV-089",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-016",
+   "vehicle_id": "ICJ-SPV-090",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-017",
+   "vehicle_id": "ICJ-SPV-091",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-017",
+   "vehicle_id": "ICJ-SPV-092",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-017",
+   "vehicle_id": "ICJ-SPV-093",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-018",
+   "vehicle_id": "ICJ-SPV-094",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-018",
+   "vehicle_id": "ICJ-SPV-095",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-018",
+   "vehicle_id": "ICJ-SPV-096",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-019",
+   "vehicle_id": "ICJ-SPV-097",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-019",
+   "vehicle_id": "ICJ-SPV-098",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-019",
+   "vehicle_id": "ICJ-SPV-099",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-020",
+   "vehicle_id": "ICJ-SPV-100",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-020",
+   "vehicle_id": "ICJ-SPV-101",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-020",
+   "vehicle_id": "ICJ-SPV-102",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-021",
+   "vehicle_id": "ICJ-SPV-103",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-021",
+   "vehicle_id": "ICJ-SPV-104",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-021",
+   "vehicle_id": "ICJ-SPV-105",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-022",
+   "vehicle_id": "ICJ-SPV-106",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-022",
+   "vehicle_id": "ICJ-SPV-107",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-022",
+   "vehicle_id": "ICJ-SPV-108",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-023",
+   "vehicle_id": "ICJ-SPV-109",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-023",
+   "vehicle_id": "ICJ-SPV-110",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-023",
+   "vehicle_id": "ICJ-SPV-111",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-024",
+   "vehicle_id": "ICJ-SPV-112",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-024",
+   "vehicle_id": "ICJ-SPV-113",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-024",
+   "vehicle_id": "ICJ-SPV-114",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-025",
+   "vehicle_id": "ICJ-SPV-115",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-025",
+   "vehicle_id": "ICJ-SPV-116",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-025",
+   "vehicle_id": "ICJ-SPV-117",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-026",
+   "vehicle_id": "ICJ-SPV-118",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-026",
+   "vehicle_id": "ICJ-SPV-119",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-026",
+   "vehicle_id": "ICJ-SPV-120",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-027",
+   "vehicle_id": "ICJ-SPV-121",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-027",
+   "vehicle_id": "ICJ-SPV-122",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-027",
+   "vehicle_id": "ICJ-SPV-123",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-028",
+   "vehicle_id": "ICJ-SPV-124",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-028",
+   "vehicle_id": "ICJ-SPV-125",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-028",
+   "vehicle_id": "ICJ-SPV-126",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-029",
+   "vehicle_id": "ICJ-SPV-127",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-029",
+   "vehicle_id": "ICJ-SPV-128",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-030",
+   "vehicle_id": "ICJ-SPV-129",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-030",
+   "vehicle_id": "ICJ-SPV-130",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-031",
+   "vehicle_id": "ICJ-SPV-131",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-031",
+   "vehicle_id": "ICJ-SPV-132",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-032",
+   "vehicle_id": "ICJ-SPV-133",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-032",
+   "vehicle_id": "ICJ-SPV-134",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-033",
+   "vehicle_id": "ICJ-SPV-135",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-033",
+   "vehicle_id": "ICJ-SPV-136",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-034",
+   "vehicle_id": "ICJ-SPV-137",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-034",
+   "vehicle_id": "ICJ-SPV-138",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-035",
+   "vehicle_id": "ICJ-SPV-139",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-035",
+   "vehicle_id": "ICJ-SPV-140",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-036",
+   "vehicle_id": "ICJ-SPV-141",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-036",
+   "vehicle_id": "ICJ-SPV-142",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-037",
+   "vehicle_id": "ICJ-SPV-143",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-037",
+   "vehicle_id": "ICJ-SPV-144",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-038",
+   "vehicle_id": "ICJ-SPV-145",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-038",
+   "vehicle_id": "ICJ-SPV-146",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-039",
+   "vehicle_id": "ICJ-SPV-147",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-039",
+   "vehicle_id": "ICJ-SPV-148",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-040",
+   "vehicle_id": "ICJ-SPV-149",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  },
+  {
+   "intermediary_id": "ICJ-INT-040",
+   "vehicle_id": "ICJ-SPV-150",
+   "relationship": "intermediary_of",
+   "provenance": "synthetic \u2014 engineered"
+  }
+ ]
+}

@@ -1,0 +1,6981 @@
+{
+  "generated_for": "Wave 3 \u2014 Exhibit 21 subsidiary lists",
+  "source": "SEC EDGAR Exhibit 21 (most recent 10-K per filer)",
+  "anchors_with_exhibit": 27,
+  "total_subsidiaries": 1635,
+  "note": "Hierarchy is NOT inferred from indentation; these are flat subsidiary lists as filed. Most hold no LEI and become `synthetic \u2014 bridging` stub entities.",
+  "filers": [
+    {
+      "cik": 1008654,
+      "lei": "G8NWFN4YP7CR6FOP4886",
+      "sec_name": "TUPPERWARE BRANDS CORP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1008654/000100865423000079/tup10k123122ex21.htm",
+      "filed_date": "2023-10-13",
+      "subsidiary_count": 0,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1375365,
+      "lei": "54930022CZO1N2UGVW07",
+      "sec_name": "Super Micro Computer, Inc.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1375365/000137536525000027/smci-ex211_2025630xxex211s.htm",
+      "filed_date": "2025-08-28",
+      "subsidiary_count": 17,
+      "subsidiaries": [
+        {
+          "name": "Super Micro Computer B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Super Micro Computer Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Super Micro Computer International Inc",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Super Micro Computer Limited",
+          "jurisdiction": "England"
+        },
+        {
+          "name": "Super Micro Asia Science and Technology Park, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Super Micro Computer, Inc. Taiwan",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Super Micro Computer US LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Super Micro Computer Malaysia Sdn Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Supermicro KK",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Supermicro Technology (Beijing) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Super Micro Computer SARL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Super Micro Computer GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Super Micro Computer Arabia Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Super Micro Computer Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Super Micro Computer Korea YH",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Super Micro Computer Spain, S.L",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Super Micro Computer, S.R.L",
+          "jurisdiction": "Italy"
+        }
+      ]
+    },
+    {
+      "cik": 1166003,
+      "lei": "54930096DB9LCLPN7H13",
+      "sec_name": "XPO, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 885590,
+      "lei": "B3BS7ACMDUWISF18KY76",
+      "sec_name": "Bausch Health Companies Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1590895,
+      "lei": "549300FA4CTCW903Y781",
+      "sec_name": "Caesars Entertainment, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1091667,
+      "lei": "0J0XRGZE3PBRFEZ7MV65",
+      "sec_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1593222,
+      "lei": "5493003J7157VP25NL57",
+      "sec_name": "City Office REIT, Inc.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1593222/000095017025023714/cio-ex21_1.htm",
+      "filed_date": "2025-02-20",
+      "subsidiary_count": 0,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1574085,
+      "lei": "549300JDUUEBN868C776",
+      "sec_name": "Braemar Hotels & Resorts Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 723612,
+      "lei": "529900E95812SYWMCE44",
+      "sec_name": "AVIS BUDGET GROUP, INC.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1022321,
+      "lei": "254900HM1ABRDJ7T5718",
+      "sec_name": "GENESIS ENERGY LP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1022321/000102232126000008/annual_ex211xgel12312025.htm",
+      "filed_date": "2026-02-18",
+      "subsidiary_count": 68,
+      "subsidiaries": [
+        {
+          "name": "AP MARINE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "BR PORT SERVICES, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "CAMERON HIGHWAY PIPELINE GP, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "CAMERON HIGHWAY PIPELINE I, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "CASPER EXPRESS PIPELINE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "DAVISON PETROLEUM SUPPLY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "DAVISON TRANSPORTATION SERVICES, INC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "DAVISON TRANSPORTATION SERVICES, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "DEEPWATER GATEWAY, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "FLEXTREND DEVELOPMENT COMPANY, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL CHOPS GP, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL CHOPS I, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL CHOPS II, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL DEEPWATER, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL IHUB, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL LOUISIANA FUELS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL ODYSSEY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL OFFSHORE PIPELINE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL OFFSHORE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL PALOMA, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL PIPELINE OFFSHORE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL POSEIDON, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL SEKCO, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL SYNC LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL TEX MARKETING, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL TEXAS PIPELINE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GEL WYOMING, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS ALKALI HOLDINGS COMPANY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS BR, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS CHOPS I, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS CHOPS II, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS CRUDE OIL, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS DAVISON, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS DEEPWATER HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS ENERGY FINANCE CORPORATION",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS ENERGY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS GTM OFFSHORE OPERATING COMPANY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS IHUB HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS MARINE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS ODYSSEY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS OFFSHORE HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS OFFSHORE, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS PIPELINE ALABAMA, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "GENESIS PIPELINE TEXAS, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS PIPELINE USA, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS POSEIDON HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS POSEIDON, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS RAIL SERVICES, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS SAILFISH HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS SEKCO, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS SMR HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS SYNGAS INVESTMENTS, L.P",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "GENESIS TEXAS CITY TERMINAL, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "HIGH ISLAND OFFSHORE SYSTEM, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "MANTA RAY GATHERING COMPANY, L.L.C",
+          "jurisdiction": "TEXAS"
+        },
+        {
+          "name": "MATAGORDA OFFSHORE, LLC",
+          "jurisdiction": "TEXAS"
+        },
+        {
+          "name": "MILAM SERVICES, INC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "POSEIDON PIPELINE COMPANY, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "RED RIVER TERMINALS, L.L.C",
+          "jurisdiction": ""
+        },
+        {
+          "name": "SAILFISH PIPELINE COMPANY, L.L.C",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "SEAHAWK SHORELINE SYSTEM, LLC",
+          "jurisdiction": "TEXAS"
+        },
+        {
+          "name": "SOUTHEAST KEATHLEY CANYON PIPELINE COMPANY, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "SYNC PIPELINE LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "TDC SERVICES, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "TDC, L.L.C",
+          "jurisdiction": ""
+        },
+        {
+          "name": "TEXAS CITY CRUDE OIL TERMINAL, LLC",
+          "jurisdiction": "DELAWARE"
+        },
+        {
+          "name": "THUNDER BASIN HOLDINGS, LLC",
+          "jurisdiction": "DELAWARE"
+        }
+      ]
+    },
+    {
+      "cik": 1632970,
+      "lei": "2549004GGE2APGNT6O92",
+      "sec_name": "American Healthcare REIT, Inc.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1632970/000119312526082692/ahr-ex21_1.htm",
+      "filed_date": "2026-02-27",
+      "subsidiary_count": 0,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1466085,
+      "lei": "549300Z3L8NU44NQEB29",
+      "sec_name": "INDEPENDENCE REALTY TRUST, INC.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 820313,
+      "lei": "549300D3L3G0R4U4VT04",
+      "sec_name": "AMPHENOL CORP /DE/",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/820313/000110465926013549/aph-20251231xex21d1.htm",
+      "filed_date": "2026-02-11",
+      "subsidiary_count": 469,
+      "subsidiaries": [
+        {
+          "name": "3395 Walden Avenue Acquisition Corp",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "ABA Medical Technology (Dongguan) Co. Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Accumetrics, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Add-On Computer Peripherals LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Advantage Medical Electronics, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Airmar EMEA EURL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Airmar Technology Corp",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Aither Groupe",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "All Sensors Corporation",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Alturna Connect N.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Alturna Direct N.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Alturna Financial Services N.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Alturna Networks N.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "American Biosurgical Asia Medical Technology Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "American Biosurgical, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "American Conec Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Adronics, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Advanced Connector Vietnam Company Limited (AACVN)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Advanced Sensors Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Advanced Sensors Puerto Rico, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol-Air LB GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Air LB North America, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Amphenol-Air LB SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol Airwave (Haiyan) Communication Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Alden Products Company",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Alden Products Mexico, S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Amphenol Andrew Antennas India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Andrew Networks India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Antenna Solutions, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Amphenol Aorora Technology (Huizhou) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol AssembleTech (Xiamen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Australia Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Amphenol Automotive Connection Systems (Changzhou) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Automotive Technology d.o.o. Trstenik",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Bar-Tec, LTD",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Benelux B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Amphenol-Borg Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol-Borg Pension Trustees Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol Borisch Technologies, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Cabelcon ApS",
+          "jurisdiction": "Denmark"
+        },
+        {
+          "name": "Amphenol Cable and Interconnect Technologies Asia Pacific Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol Cable and Interconnect Technologies de Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Amphenol Cable and Interconnect Technologies, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Cable and Interconnect Technologies Switzerland GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Amphenol Cables On Demand Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Canada Acquisition Corporation",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Amphenol Canada Corp",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Amphenol (Changzhou) Advanced Connector Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol (Changzhou) Connector Systems Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol (Changzhou) Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol CIT CV Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol CNT (Xian) Technology Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Comercial S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Amphenol Commercial and Industrial UK, Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol Commercial Interconnect Korea Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Commercial Products (Chengdu) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Communication Electronics (Thailand) Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Communication Electronics Vietnam Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Connexus AB",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "Amphenol ConneXus Ou",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Critical Medical Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Critical Medical Technologies, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Amphenol Custom Cable, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Amphenol-Daeshin Electronics and Precision Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol DC Electronics, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Amphenol DC Electronics Malaysia Sdn. Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Development Center Tunisia SARL",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol East Asia Electronic Technology (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol East Asia Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol EEC, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Amphenol FCI Asia Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Amphenol FCI Besancon SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol FCI Connectors Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Amphenol FCI India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Fiber Optic Technology (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Finland Oy",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol France Acquisition SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol France SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Gesellschaft m.b.H",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Amphenol Goldstar Electronic Systems (Baicheng) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Goldstar Electronic Systems (Yulin) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol (Haiyan) Advanced Connector Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol High Speed Cable Vietnam Company Limited (AHSCV)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol High Speed Technology India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol High Speed Technology (Nantong) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol High Speed Technology Vietnam Company Limited (AHSTV)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Highspeed IO Technology Vietnam Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Holding SG Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Amphenol Holding UK, Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol Indemnity Inc",
+          "jurisdiction": "Connecticut"
+        },
+        {
+          "name": "Amphenol Industrial Products India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Industrial Technology LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Intercon Systems, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Interconnect Electronics (Dongguan) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Interconnect India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Interconnect Products Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Interconnect South Africa (Proprietary) Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol International Ltd",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Invotec Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol Italia S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Amphenol Japan Ltd",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Amphenol JET (Haiyan) Interconnect Technology Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Jet (Vietnam) Interconnect Technology Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol-Kai Jack (Shenzhen) Inc",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Kopek Electronics Hardware (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Kopek Holdings Company Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol Kopek Trading Company Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol LTW Technology Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol L\u00fctze Verwaltungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol (Maryland), Inc",
+          "jurisdiction": "Maryland"
+        },
+        {
+          "name": "Amphenol MCP Korea Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Medical Technologies (Dongguan) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Middle East Enterprises FZE",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Mobile Connector Solutions (Changzhou) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Nelson-Dunn Technologies, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Amphenol Netherlands Holdings 1 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Amphenol Netherlands Holdings 2 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Amphenol Network Solutions, Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Amphenol (Ningde) Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Omniconnect India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Amphenol Optimize Manufacturing Co",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Amphenol Optimize Mexico S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Amphenol PCD, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol PCD (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Phitek Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Phoenix (Anji) Telecom Parts Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Phoenix (Thailand) Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Precision Optics GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Printed Circuits, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Procom Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Provens SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol Qujing Technology Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol RF Asia Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol RF Vietnam Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Sensing Korea Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Services Asia Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Amphenol Sincere Industrial Product Gyarto Kft",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Amphenol Socapex SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Amphenol Sunpool (Haiyan) Automotive Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Sunpool (Liaoning) Automotive Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Systems GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol T&M Antennas, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Taiwan Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol TCS de Mexico S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Amphenol TCS Ireland Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Amphenol TCS (Malaysia) Sdn. Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Technical Products International Co",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Amphenol Technologies Holding GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Technology Macedonia Dooel Kocani",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Technology (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Technology Vietnam Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Technology (Zhuhai) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Tecvox LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Tel-Ad Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol-TFC (Changzhou) Communication Equipment Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol TFC do Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Amphenol TFC Fios e Cabos do Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Amphenol TFC MDE Participacoes Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Amphenol Thermometrics, Inc",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "Amphenol Thermometrics (UK) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol (Tianjin) Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Times Microwave Electronics (Shanghai) Limited",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol Trackwise Designs Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Amphenol Treasury Co., Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol-Tuchel Electronics GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Tuchel Industrial GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Amphenol Tunisia SARL",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Turkey Ba\u011flant\u0131 \u00c7\u00f6z\u00fcmleri Limited \u015eirketi",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol Turkey Teknoloji Limited Sirketi",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol USHoldco Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Amphenol Xgiga (Vietnam) Communication Technology Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Amphenol (Xiamen) High Speed Cable Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphenol (Yibin) Sensors & Connection Systems Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Amphetronix Offset Interconnect Solutions Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Andrew Design & Integration UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Andrew Espana, S.A.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Andrew Finland Oy",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Andrew France S.A.R.L",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Andrew Italy S.rl",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Andrew Japan K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Andrew Technologies AG",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Andrew Wireless Austria GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Andrew Wireless Czech spol. s r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Andrew Wireless Switzerland AG",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Andrew Wireless Systems GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Andrew Wireless Systems UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Anytek Electronic Technology (Shenzhen) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Anytek International Co. Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Anytek International (Shanghai) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Anytek Technology Corporation Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Ardent Concepts, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Aria (Shenzhen) Technologies Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Aria Technologies, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Asia Connector Services, Ltd",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Auxel FTG India Pvt Ltd",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Auxel S.A.S",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Berg (UK) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Bernd Richter GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Bipho SRL",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "C&S Antennas, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Cablage International SARL",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Cablescan B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Cablescan Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Cablescan Slovakia s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Casco Automotive Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Casco Automotive (Suzhou) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Casco Automotive Tunisia SARL",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Casco do Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Casco Holdings GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Casco Imos Italia S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Casco Logistics GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Casco Products Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Casco Schoeller GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Cemm-Mex, S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Cemm Thome Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Cemm Thome SK, spol s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Changzhou Amphenol Fuyang Communication Equipment Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Charles Industries, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "CIT Mexico Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CIT Switzerland Holdings GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "CMR Control Systems India Private Ltd",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "CMR (Far East) PTE LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "CMR Group SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "CMR Hong Kong Holding Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "C.M.R. U.S.A., Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "C.M.R. USA, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CommScope Mauritius International Holdings Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "CommScope Telecommunications (China) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Conec Corporation",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Conec Elektronische Bauelemente GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Conec Polska Sp. z.o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "Conec (Shanghai) International Trading Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Conec Slovakia s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Conec s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Connor Manufacturing Service (Asia) Pte Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Connor Manufacturing Services, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Connor Manufacturing Services (JB) Sdn. Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Connor Manufacturing Services (Kunshan) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Connor Manufacturing (Su Zhou) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Connor Metal Stamping de Mexico, S. DE R.L. DE C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Contactserve (Proprietary) Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Contr\u00f4le Mesure Regulation Tunisie C.M.R.T",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Controle Mesure Regulation (UK) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Costronic S.A",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "CSL Manufacturing C.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "CTI Industries Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Dalimar Instruments ULC",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Data Guide Cable Corporation",
+          "jurisdiction": "Massachusetts"
+        },
+        {
+          "name": "DI U.S. Holdings, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Doubletree Ranch Holdings, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "East Asia Connector Services, Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "EBY Electro Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Edwin Deutgen Kunststofftechnik GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Ehrlich Werkzeug- und Ger\u00e4tebau GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "El-Cab Sp. z o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "EMC Srl",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "EWC Acquisition, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Exa Thermometrics India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "FCI Connectors Canada, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "FCI Connectors Dongguan Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "FCI Connectors Hong Kong Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "FCI Connectors Korea Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "FCI Connectors Malaysia Sdn. Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "FCI Connectors (Shanghai) Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "FCI Connectors Sweden Aktiebolag",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "FCI Connectors UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "FCI Deutschland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "FCI Electronics Hungary Kft",
+          "jurisdiction": ""
+        },
+        {
+          "name": "FCI GBS India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "FCI Japan K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "FCI Nantong Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "FCI PRC Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "FCI\u2019s-Hertogenbosch B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "FCI Taiwan Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "FCI USA LLC",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "FEP Fahrzeugelektrik Pirna GmbH & Co. KG",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "FEP Fahrzeugelektrik Pirna Verwaltungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Fiber Systems International, Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Filec Production SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Filec SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Flexus USA Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Fozmula GmbH (Germany)",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Friedrich G\u00f6hringer Elektrotechnik GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Friedrich L\u00fctze GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Gemeco Marine Accessories, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Genasco S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "General Assembly Corporation",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "GIC & GJM Automotive Harnesses S.R.L",
+          "jurisdiction": ""
+        },
+        {
+          "name": "GJM Components MX, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "GJM Components N.A., Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "GJM Components S.R.L",
+          "jurisdiction": ""
+        },
+        {
+          "name": "GJM S.A",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Glaxid Holding SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "GreenElec Integrated Power Solutions Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Guangzhou Amphenol Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Guangzhou Amphenol Sincere Flex Circuits Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Guangzhou FEP Automotive Electric Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Halo Technology Bidco B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Halo Technology Bidco, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Halo Technology Bidco Limited",
+          "jurisdiction": "Guernsey"
+        },
+        {
+          "name": "Halo Technology Bidco SRL",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Halo Technology Limited",
+          "jurisdiction": "Guernsey"
+        },
+        {
+          "name": "Halo Technology Midco Limited",
+          "jurisdiction": "Guernsey"
+        },
+        {
+          "name": "Hangzhou Amphenol JET Interconnect Technology Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Hangzhou Amphenol Phoenix Hong Kong Company Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Hangzhou Amphenol Phoenix Telecom Parts Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Holland Electronics, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Hurricane Rd, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "ICA de Mexico, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ICA Mid-Atlantic, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ICA Midwest, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ICA Northeast, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ICA South, Inc",
+          "jurisdiction": "Georgia"
+        },
+        {
+          "name": "Integra Biotechnical S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Integrated Cable Assembly Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Integrated Cable Assembly Holdings, S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Intelligente Sensorsysteme Dresden GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Ionix Systems Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ionix Systems Ou",
+          "jurisdiction": ""
+        },
+        {
+          "name": "IRF Intelligent-RF Solutions, LLC",
+          "jurisdiction": "Maryland"
+        },
+        {
+          "name": "Jaybeam Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Jaybeam Wireless SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "KE Elektronik GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "KE Ostrov-Elektrik, s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "KE Presov Elektrik, s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "KonneKtech, Ltd",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Kunshan Amphenol Zhengri Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Lectric SARL",
+          "jurisdiction": ""
+        },
+        {
+          "name": "LID Technologies SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "LifeSync Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LinxIT LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "LTW Technology (Samoa) Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "LTW Top Tech (Samoa) Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "LUETZE International GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Luetze Trading (HongKong) Co., Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Luetze Trading (Shanghai) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "L\u00fctze AG",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "L\u00fctze Consulting & Services GmbH & Co",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "L\u00fctze Elektrotechnische Erzeugnisse GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "LUTZE Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "LUTZE S.A.S",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "LUTZE S.L",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "L\u00fctze Transportation GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Lutze, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "L\u00fctze, s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "LWL-Sachsenkabel GmbH-Spezialkabel und Vernetzungstechnik",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Marport Americas, Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Marport ehf",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Marport France SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Marport Norge AS",
+          "jurisdiction": "Norway"
+        },
+        {
+          "name": "Marport South Africa Proprietary Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Marport Spain S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Marport UK Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Martec Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "MedTech Asia Holdings Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "MicroConnex Corporation",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Mocorp Holding A/S",
+          "jurisdiction": "Denmark"
+        },
+        {
+          "name": "MSI Transducers Corp",
+          "jurisdiction": "Massachusetts"
+        },
+        {
+          "name": "MTI Medical Cables, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Nantong Docharm Amphenol Automotive Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Narda AcquistionCo., Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NARDA Euro AcquiCo GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Narda Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Narda Safety Test Solutions GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Narda Safety Test Solutions Srl",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "New Product Integration Solutions, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "NPI Cable Manufacturing (Suzhou) Co. Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "NPI Solutions (Singapore) (Pte.) Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Office Leasing Corporation, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Onanon Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Outdoor Wireless IP Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Outdoor Wireless Networks Australia Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Outdoor Wireless Networks LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PCB Group Sales Company, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PCB Piezotronics BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "PCB Piezotronics GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "PCB Piezotronics, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "PCB Piezotronics Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "PCB Piezotronics of North Carolina, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PCB Piezotronics S.A",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "PCB Piezotronics Sensor Technology (Beijing) Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "PCB Piezotronics Srl",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "PCTEL, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PCTEL Europe AB",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "PCTEL (Tianjin) Wireless Telecommunications Products Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "PerLoga Personal und Logistik GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Piezotech, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Piher Sensors & Controls S.A",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Plasmotech Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Positronic Asia Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Positronic Industries, Inc",
+          "jurisdiction": "Missouri"
+        },
+        {
+          "name": "Positronic Industries, SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Positronic Interconnects Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Precision Wireless LLC",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Procaly",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Procom A/S",
+          "jurisdiction": "Denmark"
+        },
+        {
+          "name": "Procom Deutschland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Procom France SARL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "ProLabs (UK) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "ProLabs Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Providien Machining & Metals, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "PT Casco SEA",
+          "jurisdiction": ""
+        },
+        {
+          "name": "PT Plasmotech Batam",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Pyle-National Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Q Microwave, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "RFS Technologies, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Rochester Acquisition Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Rochester Electro-Medical, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Rochester Guages Mexico, S. de R.L. de C.V. (Mexico)",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Rochester Sensors Europe Limited (Ireland)",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Rochester Sensors, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Rochester Sensors SA",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Rochester Sensors, S.A. de C.V. (Mexico)",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Rochester Sensors (Shanghai) Co. Ltd. (China)",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Rochester Sensors UK Limited (UK)",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "S.C.I. Palin",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "SGX Europe Sp. z.o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "SGX Sensortech China Holdco Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "SGX Sensortech China Limited",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "SGX Sensortech GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "SGX Sensortech SA",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Shanghai Amphenol Airwave Communication Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Shanghai Amphenol Airwave Communication Electronics (Hong Kong) Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Shanghai Tecvox Trading Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Shenyang Amphenol Sunpool Automotive Electronics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Shenzhen, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Sine Systems Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Skylane Optics do Brasil Servicos de Pesquisa Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Skylane Optics Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Skylane Optics SA",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Societe d\u2019Etudes et de Fabrications Electroniques et Electriques",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Solid Optics EU N.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Solid Optics LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Sous-traitance international du Sahel",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Spectra Strip Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "SSI Technologies GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "SSI Technologies LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "SSI Technologies s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Starpall Limited (Ireland)",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Stemfi S.A.S",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Suzhou CMR Electronic Devices Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "SV Microwave, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "TCS Japan K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Tecvox Europe S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Telect de Mexico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Temposonics GmbH & Co. KG",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Temposonics, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Temposonics Verwaltungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "TFC South America S.A",
+          "jurisdiction": ""
+        },
+        {
+          "name": "The Modal Shop, Inc",
+          "jurisdiction": "Ohio"
+        },
+        {
+          "name": "Thermometrics Mexico, S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Times Fiber Canada Limited",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Times Fiber Communications, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Times Microwave Systems, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Times Wire and Cable Company",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "TPC Wire & Cable Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "TPC Wire & Cable Canada Corp",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "TPCW Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Tri-Star Electronics International, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "U-Jin Cable Industry Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Unlimited Services of Wisconsin, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "US Wire Group, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "VCI Acquisition, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Xgiga Communication Technology Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "XMA Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zhongshan Feisaide Electromechanical Co., Ltd",
+          "jurisdiction": "China"
+        }
+      ]
+    },
+    {
+      "cik": 1600626,
+      "lei": "549300EZQXWQI2YL1T80",
+      "sec_name": "Peakstone Realty Trust",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1597033,
+      "lei": "529900VKCYZW8GZ4WW58",
+      "sec_name": "Sabre Corp",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1585389,
+      "lei": "549300EC266625K12S42",
+      "sec_name": "SmartStop Self Storage REIT, Inc.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1585389/000119312526082573/ck0001585389-ex21_1.htm",
+      "filed_date": "2026-02-27",
+      "subsidiary_count": 1,
+      "subsidiaries": [
+        {
+          "name": "SmartStop OP, L.P",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 1260221,
+      "lei": "549300EQD0ZXRSMG3549",
+      "sec_name": "TransDigm Group INC",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1534254,
+      "lei": "549300XN70JLF94XKX80",
+      "sec_name": "CION Investment Corp",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1300514,
+      "lei": "549300DUOO1KXOHPM605",
+      "sec_name": "LAS VEGAS SANDS CORP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1300514/000130051426000013/lvs-ex211_20251231x10k.htm",
+      "filed_date": "2026-02-06",
+      "subsidiary_count": 12,
+      "subsidiaries": [
+        {
+          "name": "Las Vegas Sands, LLC",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "LVS (Nevada) International Holdings, Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "Marina Bay Sands Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "MBS Holdings Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Sands China Ltd",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Venetian Casino Resort, LLC",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "Venetian Cotai Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Venetian Macau Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Venetian Orient Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Venetian Venture Development Intermediate II",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Venetian Venture Development Intermediate Limited",
+          "jurisdiction": "Cayman Islands"
+        }
+      ]
+    },
+    {
+      "cik": 1389170,
+      "lei": "5493003QENHHS261UR94",
+      "sec_name": "Targa Resources Corp.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1389170/000119312526059296/trgp-ex21_1.htm",
+      "filed_date": "2026-02-19",
+      "subsidiary_count": 13,
+      "subsidiaries": [
+        {
+          "name": "Grand Prix Pipeline LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Lasso Acquiror LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Downstream LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa GP Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Midstream Services LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Northern Delaware LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Pipeline Mid-Continent Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Pipeline Operating Partnership LP",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Pipeline Partners LP",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Resources LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Resources Operating LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Targa Resources Partners LP",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 1538849,
+      "lei": "549300OUUC900EVOGX10",
+      "sec_name": "CrossAmerica Partners LP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1538849/000119312526071870/capl-ex21_1.htm",
+      "filed_date": "2026-02-25",
+      "subsidiary_count": 74,
+      "subsidiaries": [
+        {
+          "name": "CAP OPERATIONS, INC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CAP WEST VIRGINIA HOLDINGS, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CAPL JKM HOLDINGS LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CAPL JKM PARTNERS LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CAPL JKM WHOLESALE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CAPL RETAIL LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "COBBLER\u2019S CREEK LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CROSSAMERICA PARTNERS LP",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "DELG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ERICKSON OIL PRODUCTS, INC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "EXPRESS LANE, INC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "FLLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "FREEDOM VALU CENTERS, INC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "HARLEYSVILLE GAS STATION, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "JOE\u2019S KWIK MARTS LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "JOE\u2019S KWIK MARTS MA LLC",
+          "jurisdiction": "Massachusetts"
+        },
+        {
+          "name": "KYLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LANSDALE GAS STATION LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LEHIGH GAS WHOELSALE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LEHIGH GAS WHOLESALE SERVICES, INC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LGP OPERATIONS LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LGP REALTY HOLDINGS GP LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LGP REALTY HOLDINGS LP",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "M & J OPERATIONS, LLC",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "MALG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MALG - UST II, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MELG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MINNESOTA NICE HOLDINGS INC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NHLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NJLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NTI DROP DOWN ONE, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NYLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "OHLG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST II, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST III, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST IV, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST V, LLV",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST VI, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST VII, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST VIII, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PALG \u2013 UST IX, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PETROLEUM MARKETERS, INCORPORATED",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "PM PROPERTIES, INC",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "STOP IN FOOD STORES, INC",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "79 NEEDHAM STREET NEWTON, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "1001 BALTIMORE AVE. EAST LANDSDOWNE, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "103 N. POTTSTOWN PIKE EXTON, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "1130 BALTIMORE PIKE GLEN MILLS, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "1229 MCDADE BLVD. WOODLYN, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "123 NORTH PINE LANGHORNE, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "1266 E. OLD LINCOLN HWY. LANGHORNE, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "201 W. GERMANTOWN PIKE NORRISTOWN, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "2306 LYCOMING CREEK ROAD WILLIAMSPORT, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "2311 N TRIPHAMMER RD LANSING, LLC",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "234-248 N. 63RD ST. PHILADELPHIA, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "2401 HAVERFORD ROAD ARDMORE, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "2405 ROUTE 286, PITTSBURGH, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "2501 BRIGHTON AVE PITTSBURGH, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "301 S. KEMP ST. LYONS, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "3221 ROUTE 22 BRANCHBURG, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "3300 GRAYS FERRY AVE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "4200 WHITAKER AVE. PHILADELPHIA, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "4616 MCKNIGHT RD PITTSBURGH, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "4640 CHESTNUT ST LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "5110 CITY LINE AVE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "5250 TORRESDALE AVE., PHILADELPHIA, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "528 ALTAMONT BOULEVARD FRACKVILLE, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "5716 HULMEVILLE ROAD BENSALEM, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "6101 PASSYUNK AVENUE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "615 S BROAD ST LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "7000 FRANKFURT AVE LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "7424 WEST CHESTER PIKE UPPER DARBY, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "799 VALLEY FORGE PHOENIXVILLE LLC",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 1474098,
+      "lei": "5493004Q1NNH6JXCSI52",
+      "sec_name": "Pebblebrook Hotel Trust",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1474098/000147409826000015/peb-20251231ex211subsidiar.htm",
+      "filed_date": "2026-02-25",
+      "subsidiary_count": 0,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1306830,
+      "lei": "549300FHJQTDPPN41627",
+      "sec_name": "Celanese Corp",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1306830/000130683026000031/ex211-10k123125.htm",
+      "filed_date": "2026-02-24",
+      "subsidiary_count": 241,
+      "subsidiaries": [
+        {
+          "name": "Aggregate Ownership of more than 70% (100% aggregate ownership unless otherwise indicated)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Acetate (Malta) Company Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Acetate Belgium Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Acetate Belgium Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetate Europe Co\u00f6peratief U.A",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Acetate Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetate Intermediate Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetate International LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetate Hong Kong Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetate Luxembourg S.\u00e0 r.l",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Acetate Sales U.S. Ltd",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Acetate UTP Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Acetex Chimie S.A.S",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Advanced Elastomer Systems Unlimited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "CdwllMex S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "CE Mexico Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CE Receivables LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese (Bermuda) Holdings GP Limited",
+          "jurisdiction": "Bermuda"
+        },
+        {
+          "name": "Celanese (Bermuda) Manufacturing Holdings Limited",
+          "jurisdiction": "Bermuda"
+        },
+        {
+          "name": "Celanese (Bermuda) Mercury GP Limited",
+          "jurisdiction": "Bermuda"
+        },
+        {
+          "name": "Celanese (China) Holding Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Germany) Infraserv Holdings I GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese (Germany) Infraserv Holdings 2 GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese (Malta) 2 Partnership",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) Acetyls Holding Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) Company Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) EUR FinCo Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) Finance Holdings Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) Finance Holdings 2 Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) JPY FinCo Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Malta) Partnership",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese (Nanjing) Business Management Co. Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Nanjing) Chemical Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shanghai) Chemical Trading Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shanghai) Electronic Materials Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shanghai) International Trading Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shanghai) Polymers Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shenzhen) Engineered Materials Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shenzhen) New Materials Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Shenzhen) Performance Materials Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Suzhou) Engineering Plastics Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Celanese (Switzerland) Acetyls Holdings S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Switzerland) AT Holdings S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Switzerland) Holdings S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Switzerland) IP Holdings 2 S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Switzerland) IP Holdings S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Switzerland) IPCo S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese (Thailand) Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Acetate C.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Acetate LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Acetate Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Acetyls IP Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Americas LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Beteiligungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Celanese Canada Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Canada ULC",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Celanese Chemicals, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Chemicals India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Celanese Chemicals S.A. (Pty) Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese China Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Comercial S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Celanese Deutschland Holding GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Electronic Materials Hong Kong Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Celanese Electronic Materials Kabushiki Kaisha",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Celanese Electronic Materials UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Emulsions Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Emulsions Pension Plan Trustees Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Europe B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese EVA Performance Polymers LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Europe Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Far East Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Celanese Finance Holdings 2 Limited",
+          "jurisdiction": "Jersey"
+        },
+        {
+          "name": "Celanese France Holdings S.\u00e0 r.l",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Celanese Global Relocation LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Holding 1, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Celanese Holding Company Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Celanese Holdings (Malta) Limited",
+          "jurisdiction": "Malta"
+        },
+        {
+          "name": "Celanese Holdings Germany One GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Holdings Germany Two GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Hong Kong Holdings 1 LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Hong Kong Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Hungary Kft",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese India Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Intermediate Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese International Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese IP Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese IP Hungary Bt",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese ISH Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Japan Limited",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Celanese Kabushiki Kaisha",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Celanese Korea Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Ltd",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Celanese Materials India Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Celanese Materials Korea Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Materials M\u00e9xico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Celanese Mediterranean Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Mercury Holdings Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Mercury Holdings UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Mercury Property Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Mexico Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese MHI Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Microcircuits Industries, Ltd",
+          "jurisdiction": "Bermuda"
+        },
+        {
+          "name": "Celanese Operations M\u00e9xico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Celanese Performance Solutions Belgium BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Celanese Performance Solutions Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Performance Solutions Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Performance Solutions Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Performance Solutions Switzerland S\u00e0rl",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese Polymer Products (Thailand) Company Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Polymer Products Canada Company",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Celanese Polymer Products Canada Holdings Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Celanese Polymer Products Netherlands B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Polymer Products UK Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Polymer Products, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Polymers Holding, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Production Belgium BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Celanese Production Germany GmbH & Co. KG",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Production Italy S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Celanese Production Netherlands B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Production Sweden AB",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "Celanese Production Switzerland AG",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese Production UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Property Germany GmbH & Co. KG",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Property Holding Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese S.A",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Sales Austria GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Celanese Sales Czech Republic s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Sales France S.A.S",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Celanese Sales Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Sales Ib\u00e9rica, S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Celanese Sales Italy S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Celanese Sales Netherlands B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Sales UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Sales U.S. Ltd",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Celanese Services Belgium BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Celanese Services Germany GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese Services Italy S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Celanese Services Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Services UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Celanese Shanghai Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Singapore Acetyls Holding PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Singapore Chemical Holding PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Singapore Emulsions PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Singapore PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Singapore VAM PTE. LTD",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Celanese Specialty Products, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Specialty Products Austria GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Celanese Switzerland AG",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Celanese Turkey Performans \u00c7\u00f6z\u00fcmleri Limited \u015eirketi",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Uentrop GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Celanese US Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese US IPCo, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Ventas Mexico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Celanese Worldwide Holdings 2 LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Worldwide Holdings 3 Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Worldwide Holdings 5 LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Worldwide Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celtran, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celwood Insurance Company",
+          "jurisdiction": ""
+        },
+        {
+          "name": "CELX Investments S.\u00e0 r.l",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "CEMX Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CNA Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Elwood Limited",
+          "jurisdiction": "Bermuda"
+        },
+        {
+          "name": "FKAT LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Grupo Celanese, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Holding Softer America S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Infraserv Verwaltungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "KEP Americas Engineering Plastics, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Micromax (Germany) GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Micromax (Taiwan) Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Micromax (US) Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Micromax (US) LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Micromax Electronic Materials (Singapore) Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Performance Solutions do Brasil Com\u00e9rcio de Pol\u00edmeros Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Performance Solutions Hong Kong Company Limited",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Performance Solutions Japan Kabushiki Kaisha",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Performance Solutions Luxembourg S.\u00e0 r.l",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Performance Specialty Products (India) Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Performance Specialty Products Sverige AB",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "PM China, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Polymer Products France SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Polymer Products Italy S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Polymer Solutions Ib\u00e9rica S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Polymers & Resins de M\u00e9xico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "PP EMEA Holding 1 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "PT Celanese Indonesia Operations",
+          "jurisdiction": ""
+        },
+        {
+          "name": "PT Celanese Indonesia Services",
+          "jurisdiction": ""
+        },
+        {
+          "name": "RIOMAVA GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Santoprene Production Pensacola LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Servicios Corporativos Celanese S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "SP Asia, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SP China, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SP EMEA Holding 2 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "SP India Holding 1 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "SP International Holding 1 B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Specialty Products Czech Republic s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Specialty Products Hungary Kft",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Specialty Products Poland sp. z.o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "T&I NL Holding B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Tenedora Tercera de Toluca S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Ticona Fortron Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ticona LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ticona Polymers, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ticona Polymers Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "UM Umweltmanagement GmbH & Co. KG",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "UM Umweltmanagement Verwaltungs GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Aggregate Ownership of 70% or less",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Celanese Filaments-Americas, LLC1",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Celanese Filaments-Europe, B.V.1",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Celanese Xingda Filaments Company Limited1",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Ceramer GmbH2",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "CTE Petrochemicals Company3",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "DuBay Polymer GmbH3",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Fairway Methanol LLC3",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Fortron (Shanghai) International Trading Co. Ltd.3",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Fortron Industries, LLC3",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Fortron China Holdings LLC3",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "InfraServ GmbH & Co. Gendorf KG5",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Infraserv GmbH & Co. H\u00f6chst KG6",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "InfraServ GmbH & Co. Wiesbaden KG7",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Korea Engineering Plastics Co., Ltd.3",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Kunming Cellulose Fibers Company, Limited8",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Mylar Hongji Films Foshan Co. Ltd.4",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Mylar Hongji Films Ningbo Co. Ltd.4",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Mylar Specialty Films China Limited9",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Mylar Specialty Films Incorporated3",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Mylar Specialty Films Luxembourg S.A.3",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Mylar Specialty Films Netherlands B.V.3",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Mylar Specialty Films UK Limited3",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Mylar Specialty Films U.S. Limited Partnership10",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "National Methanol Company11",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Nantong Cellulose Fibers Company, Limited12",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Nutrinova Germany GmbH8",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Nutrinova Holdings GmbH8",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Nutrinova Netherlands B.V.8",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Nutrinova US LLC8",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Toray Celanese Co., Ltd.3",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Yncoris GmbH & Co. KG13",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zhuhai Cellulose Fibers Company, Limited8",
+          "jurisdiction": "China"
+        }
+      ]
+    },
+    {
+      "cik": 1398987,
+      "lei": "5493004HBTOTE9DI9P12",
+      "sec_name": "Anywhere Real Estate Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1136869,
+      "lei": "2P2YLDVPES3BXQ1FRB91",
+      "sec_name": "ZIMMER BIOMET HOLDINGS, INC.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1136869/000119312526059853/zbh-ex21.htm",
+      "filed_date": "2026-02-20",
+      "subsidiary_count": 179,
+      "subsidiaries": [
+        {
+          "name": "Domestic subsidiaries:",
+          "jurisdiction": ""
+        },
+        {
+          "name": "A&E Medical Corp",
+          "jurisdiction": "New Jersey"
+        },
+        {
+          "name": "Alto Development Corp",
+          "jurisdiction": "New Jersey"
+        },
+        {
+          "name": "Avitus Orthopaedics, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Biomet Biologics, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet CV Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Biomet Fair Lawn LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet International, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Biomet Manufacturing, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet Microfixation, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "dba Zimmer Biomet CMF and Thoracic",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Orthopedics, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet Sports Medicine, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "dba Biomet Sports Medicine Limited Liability Company (Forced)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Trauma, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet U.S. Reconstruction, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Biomet, Inc",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "dba Zimmer Biomet",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Cayenne Medical, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CD Diagnostics, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CD Laboratories, Inc",
+          "jurisdiction": "Maryland"
+        },
+        {
+          "name": "Citra Labs, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "dba Biomet Citra Labs, LLC (Forced)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Dornoch Medical Systems, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Embody, Inc",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "ETEX Corporation",
+          "jurisdiction": "Massachusetts"
+        },
+        {
+          "name": "dba Zimmer ETEX",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba Zimmer Biomet ETEX",
+          "jurisdiction": ""
+        },
+        {
+          "name": "ETEX Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Interpore Cross International, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "dba Zimmer Biomet Irvine",
+          "jurisdiction": ""
+        },
+        {
+          "name": "LVB Acquisition, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Medtech Surgical, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Monogram Technologies Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "OrthoGrid Systems, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Paragon 28, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ReLign Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ZB Manufacturing, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Biomet CMFT Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Biomet Contract Solutions, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "dba ZTECH",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba ZTECH LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Integrations LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Biomet Leasing LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Caribe, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Co-op Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer CV, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Knee Creations, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Orthobiologics, Inc",
+          "jurisdiction": "New Jersey"
+        },
+        {
+          "name": "Zimmer Production, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Surgical, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Zimmer Trabecular Metal Technology, Inc",
+          "jurisdiction": "New Jersey"
+        },
+        {
+          "name": "Zimmer US, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "dba Zimmer Biomet Bay Area",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba Zimmer Biomet Mid-Atlantic",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba Zimmer Biomet North",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "dba Zimmer Biomet Southern",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "dba Zimmer US Cooperative",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba Compression Therapy Concepts",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba CTC Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "dba Zimmer Biomet Corporate Services (Forced)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba Z Hotel",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba CD Diagnostics",
+          "jurisdiction": ""
+        },
+        {
+          "name": "dba CD Laboratories",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Foreign subsidiaries:",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Argentina SA",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Paragon 28 Australia PTY LTD",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Zimmer Australia Holding Pty. Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Zimmer Biomet Pty. Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Zimmer Biomet Austria GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Zimmer Biomet Finance Srl",
+          "jurisdiction": "Barbados"
+        },
+        {
+          "name": "Zimmer Biomet BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "WM World Medical Importacao e Exportacao Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Zimmer Biomet Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "ORTHOsoft ULC",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "dba Zimmer CAS",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Canada, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "ZB Cayman (Asia) Holding Ltd",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Biomet Chile SA",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Beijing Montagne Medical Device Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Biomet China Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Changzhou Biomet Medical Devices Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Shanghai Biomet Business Consulting Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Zhejiang Biomet Medical Products Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Zimmer Biomet CBT",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Zimmer (Shanghai) Medical International Trading Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Zimmer (Shanghai) Medical International Trading Co., Ltd. - Beijing Branch (branch)",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Zimmer Biomet Colombia SAS",
+          "jurisdiction": ""
+        },
+        {
+          "name": "3-102-910623 Sociedad de Responsabilidad Limitada",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Centroamerica SA",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Czech sro",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Denmark ApS",
+          "jurisdiction": "Denmark"
+        },
+        {
+          "name": "Disior Oy",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Finland Oy",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet France Sarl",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Medtech SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Neosteo SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "OrthoGrid Systems SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "V.I.M.S. VIDEO INTERVENTIONNELLE MEDICALE SCIENTIFIQUE SA",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Zimmer Biomet France SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Zimmer Biomet France Holdings SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Biomet Deutschland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Paragon 28 DE GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zimmer Biomet Healthcare Management GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zimmer Biomet Deutschland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zimmer Germany Holdings GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zimmer International Logistics GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Zimmer Biomet Hellas SA",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Hong Kong Holding Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "ZB Hong Kong Holding Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "ZB Hong Kong Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Zimmer Asia (HK) Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Zimmer India Private Ltd",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Paragon 28 Medical Devices Trading Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Zimmer Biomet Ireland Holdings Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Zimmer Biomet Ireland Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Zimmer Orthopedics Manufacturing Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Zimmer Biomet Medical Israel Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Paragon 28 Italia SRL",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Zimmer Biomet Italia Srl",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Paragon 28 Japan K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Zimmer Biomet G.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Zimmer Biomet Korea Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer GmbH Representative Office Lebanon (branch)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet OUS Holdings GmbH",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Luxembourg Sarl",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Zimmer Luxembourg II Sarl",
+          "jurisdiction": "Luxembourg"
+        },
+        {
+          "name": "Zimmer Medical Malaysia SDN BHD",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Mexico S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Representaciones Zimmer Inc., S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Biomet C.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Biomet Global Supply Chain Center B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Biomet Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "ZB COOP C.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Zimmer Biomet Asia Holding B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Zimmer Biomet Nederland B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Zimmer Manufacturing B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "OSSIS Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet New Zealand Company",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet NZ Holdings Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Norway AS",
+          "jurisdiction": "Norway"
+        },
+        {
+          "name": "Zimmer Biomet Polska Sp. z.o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "Zimmer Biomet Portugal, Unipessoal Lda",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Manufacturing B.V. (Puerto Rico Branch)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Romania S.R.L",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer CIS Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Asel Alarabiya Limited Company",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer GmbH, Zimmer Biomet Regional Headquarters (branch)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Asia Holdings Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Zimmer Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Zimmer Slovakia sro",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Paragon 28 Medical Devices Trading Limited, Cape Town Branch (branch)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet South Africa (Pty) Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet Spain Orthopaedics S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Zimmer Biomet Spain S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Zimmer Biomet Sweden AB",
+          "jurisdiction": "Sweden"
+        },
+        {
+          "name": "Zimmer Biomet Global Holdings Switzerland GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer Biomet OUS Holdings 1 GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer GmbH, Euro IP Branch (branch)",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer GmbH, Distribution (branch)",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer GmbH, Zug Branch (branch)",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer Surgical SA",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer Switzerland Holdings LLC",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer Switzerland Manufacturing GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Zimmer Biomet Taiwan Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet (Thailand) Co., Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Biomet Tibbi Cihazlar Sanayi ve Ticaret Anonim Sirketi",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Zimmer Gulf FZ LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Biomet UK Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Biomet UK Healthcare Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Paragon 28 UK, LTD",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "ZB EMEA Finance UK 1 Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "ZB UK Group Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "ZB UK Plant Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Zimmer Biomet UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Zimmer Trustee Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Zimmer Pte. Ltd., The Representative Office of Zimmer Pte. Ltd. in Hanoi City (branch)",
+          "jurisdiction": ""
+        }
+      ]
+    },
+    {
+      "cik": 15615,
+      "lei": "549300TMDIT8WREDOF45",
+      "sec_name": "MASTEC INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/15615/000001561526000020/mtz12312510-kex211.htm",
+      "filed_date": "2026-02-26",
+      "subsidiary_count": 190,
+      "subsidiaries": [
+        {
+          "name": "A-1 Excavating, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "A-1 Express Trucking, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "A1 Traffic Control & Safety, LLC",
+          "jurisdiction": "Colorado"
+        },
+        {
+          "name": "Acietel Mexicana, S.A",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Aidco de Mexico, S.A. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "American Civil Constructors West Coast, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "American Civil Constructors, LLC ACC Mountain West",
+          "jurisdiction": "Colorado"
+        },
+        {
+          "name": "Bakken Aggregates, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Belividere Stone, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Bianchi Electric, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Biggs Construction Company, Inc",
+          "jurisdiction": "Virginia"
+        },
+        {
+          "name": "BLDM \u2013 Precision, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Bottom Line Services, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Broadband Access Services, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Byers Engineering Company Byers Technical Services, Inc",
+          "jurisdiction": "Georgia"
+        },
+        {
+          "name": "C&T Insurance Company",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Casey Industrial, Inc",
+          "jurisdiction": "Oregon"
+        },
+        {
+          "name": "Cash Construction Company, Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "CCM Investment Holding Co",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "CE&I Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Church & Tower, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "CIDE Engenharia, Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "CJ 320, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Condotte \u2013 Ryan JV",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Condotte America Industrial Properties, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Condotte America Properties, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Condotte de Moya JV",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Confluence Networks, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Consolidated Construction Solutions I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Consolidated Construction Solutions II, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Decisive Communications, Inc",
+          "jurisdiction": "Maryland"
+        },
+        {
+          "name": "DPK, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "East State Stone, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "EC Source Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "ECS West, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Energy Erectors, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Environmental and Dewatering Solutions, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Environmental Contractors, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Florence 80, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "FNF Construction, Inc",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "FNF New Mexico, LLC",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Foothills Energy Services, Inc",
+          "jurisdiction": "Colorado"
+        },
+        {
+          "name": "Forest City Logistics, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "GGI Constructors JV",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "H&M Shared Services, Inc",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "H.B. White Canada Corp",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Hanging H Companies, LLC",
+          "jurisdiction": "Colorado"
+        },
+        {
+          "name": "Henkels & McCoy Holdings, Inc",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "Henkels & McCoy West, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Henkels & McCoy, Inc",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "HMSS Realty Co., LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "IEA Constructors, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "IEA Energy Services, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IEA Engineering North Carolina, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "IEA Engineering, LLC",
+          "jurisdiction": "Michigan"
+        },
+        {
+          "name": "IEA Equipment Management, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IEA Intermediate Holdco, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IEA Management Services, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Illinois CCDD Operating Co., LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Infrastructure and Energy Alternatives, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Infrastructure Development Holdings, Inc",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Infrastructure Holdings Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Intren West, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Intren, LLC L2 Construction Management Solutions Trench-It",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "John's Stone, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Johnston Quarry Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "JRD Texas, LLC Maslonka Powerline Services",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Kingsley Constructors, Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Lemartec Corporation",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Lemartec PR Corporation",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Lemartec USVI, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Masco Energy Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasCo PR, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Brasil S/A",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "MasTec Brazil I, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Brazil II, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Canadian Holdco, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "MasTec Caribbean KY, Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Caribbean PR, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Civil Constructors, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Civil, LLC Condotte America, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Comanche, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Condotte Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Engineering Corp",
+          "jurisdiction": "Michigan"
+        },
+        {
+          "name": "MasTec ETS Service Company, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec EV Solutions, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MasTec Foreign Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec India Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Industrial Corp. MasTec Power Corp",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Infraestructuras de Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "MasTec Infrastructure Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec International, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Latin America Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MasTec Latin America, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MasTec Mexico Foreign Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Mexico Holding Company, LLC MasTec Crane & Equipment Services, Inc. MasTec Mexico Holding Company, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Network Services Colombia S.A.S",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Network Solutions Puerto Rico, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Network Solutions, Inc. Nsoro MasTec, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Network Solutions, LLC Nsoro Acquisition, LLC Nsoro MasTec, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec North America, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Nsoro Procurement Company, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Participacoes Do Brasil LTDA",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "MasTec Philippines, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Pipeline Argentina, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Pipeline Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Precision, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Property Holdings, LLC",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "MasTec Puerto Rico Engineering Services Holding, LLP",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Puerto Rico Holdings, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Purnell Canada, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "MasTec Quadgen Wireless, LLP",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "MasTec Renewables Construction Company, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Renewables Puerto Rico, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Services Company, Inc. Central America Construction, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Servicios Publicos Soterrados, S. de R. L",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Solutions Puerto Rico, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "MasTec Spain, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec TPP, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Utility Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec Venezuela, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MasTec West, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "MasTec Wireless Services, LLC MasTec North America AC, LLC Nsoro Construction Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MBS Investors, LLC",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "MCC Investment and Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Meadow Valley Trucking, Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "MNS South, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MP Drilling Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "MSTEC Enterprises Mexico",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "MTCO Energias de Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "MTZ Energias S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "MTZ Enterprises, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "MTZ Purnell, Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Mulford Stone, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "NALL Communications, LLC",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "New A-1 Express, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "New A-1 Power, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "New Stout Excavating Group Texas, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "New Stout Excavating Group, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Nsoro MasTec India Private, Ltd",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Nsoro MasTec International, Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "NV2A Bahamas, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "NV2A Construction, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "NV2A Group, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "NV2A Infrastructure, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Phoenix Industrial, Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Porter Brothers, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Porter's Stone, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PPMASI Klamath I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Precision Acquisition, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Precision Aggregate Products, LLC",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "Precision Dewatering, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Precision Engineering Solutions, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Precision Fabrication Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Precision Infrastructure, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Precision Pipeline, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Precision Transport Company, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Precision West, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Pretec Directional Drilling, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Pumpco, Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Quadgen Wireless Solutions, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "R&J Leasing, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "R.J. Carroll Company, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Ragnar Benson, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Rhino Cable Services, Inc",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "Rockford Blacktop Construction Co., LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Saiia Construction Company, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Saiia Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SEFNCO Communications, Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Sequoia Utility Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Shade Tree Service Company",
+          "jurisdiction": "Missouri"
+        },
+        {
+          "name": "Stout Construction, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Stout Trucking, LLC",
+          "jurisdiction": "Wisconsin"
+        },
+        {
+          "name": "Structors, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Support Operations Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "SUS Holdings, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "T & D Power, Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "Thornton 40, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Three Phase Line Construction, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Three-Way 28, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Union Real Estate, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Utility Services Group West, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Wanzek Construction, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "White Construction Energy Services, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "White Construction, LLC",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "William Charles Construction Company, LLC",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "William Charles Electric, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "William Charles Purchasing, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "William Charles, Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "WYCO Field Services, LLC",
+          "jurisdiction": ""
+        }
+      ]
+    },
+    {
+      "cik": 1278027,
+      "lei": "549300TRW1LZMDJZAQ78",
+      "sec_name": "B&G Foods, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 50725,
+      "lei": "5493000C2SGNC7ZN3242",
+      "sec_name": "GRIFFON CORP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/50725/000162828025053242/gff9_30x2025xex21listofsub.htm",
+      "filed_date": "2025-11-19",
+      "subsidiary_count": 23,
+      "subsidiaries": [
+        {
+          "name": "Clopay Ames Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Clopay Ames LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Clopay Ames Holding Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Clopay Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CornellCookson, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Cornell Real Estate Holdings, LLC",
+          "jurisdiction": "Arizona"
+        },
+        {
+          "name": "Cornell Storefront Systems, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "CC Installation Company, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "The Ames Companies, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "1346039 Alberta ULC",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Garant GP",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Griffon Australia Holdings PTY Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "AMES Australasia Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Ames New Zealand Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Quatro Design Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Ames UK Holdings Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ames UK Property Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "The Ames Companies UK Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "ClosetMaid LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ames Hunter Holdings Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hunter Fan Company",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hunter Fan International, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hunter Ventiladores de Mexico S.A. de C.V",
+          "jurisdiction": "Mexico"
+        }
+      ]
+    },
+    {
+      "cik": 1489096,
+      "lei": "529900ZNZBBLDE77MZ38",
+      "sec_name": "Thermon Group Holdings, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 105016,
+      "lei": "549300F1Y3LN5BX5WN75",
+      "sec_name": "WATSCO INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/105016/000119312526082486/wso-ex21_1.htm",
+      "filed_date": "2026-02-27",
+      "subsidiary_count": 21,
+      "subsidiaries": [
+        {
+          "name": "Acme Refrigeration LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Alert Labs Inc",
+          "jurisdiction": "Ontario"
+        },
+        {
+          "name": "Baker Distributing Company LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Boreal International Corporation",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Carrier Enterprise Canada, L.P",
+          "jurisdiction": "Ontario"
+        },
+        {
+          "name": "Carrier Enterprise Mexico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Carrier Enterprise Servicios Mexico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Expert TTL Solutions S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Carrier Enterprise, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Carrier Enterprise Northeast, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Carrier InterAmerica Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Carrier (Puerto Rico), Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "East Coast Metal Distributors LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Gateway Supply LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Gemaire Distributors LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Heating & Cooling Supply LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Homans Associates II LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "N&S Supply LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Peirce-Phelps LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "TEC Distribution LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Tradewinds Distributing Company, LLC",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 1094831,
+      "lei": "2549001IGRCG4F0RLD36",
+      "sec_name": "BGC Group, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1005210,
+      "lei": "JJAX4X60DE65EYFOTY73",
+      "sec_name": "SUBURBAN PROPANE PARTNERS LP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1005210/000119312525298630/sph-ex21_1.htm",
+      "filed_date": "2025-11-26",
+      "subsidiary_count": 0,
+      "subsidiaries": []
+    },
+    {
+      "cik": 910406,
+      "lei": "5493000S8QXWHLIXDP75",
+      "sec_name": "HAIN CELESTIAL GROUP INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/910406/000119312525203534/hain-ex21_1.htm",
+      "filed_date": "2025-09-15",
+      "subsidiary_count": 69,
+      "subsidiaries": [
+        {
+          "name": "Acirca, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "AMI HLDGS, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "AMI Operating, Inc",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Celestial Seasonings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Charter Baking Company, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Cully & Sully Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Daily Bread Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Dana Alexander, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Daniels Chilled Foods Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "De Boles Nutritional Foods, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Ella\u2019s Kitchen (Brands) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ella\u2019s Kitchen Group Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ella\u2019s Kitchen, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ella\u2019s Kitchen (IP) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Epicurean Farms, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Farmhouse Fare Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Formatio Beratungs- und Beteiligungs GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "HCGI Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HCGI International Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HCGI U.S. Finance Co., LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HPPC I, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HPPC II, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HPPC Transportation, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Avalon Holdings LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain BluePrint, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Canada Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Celestial C&S Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Hain-Celestial Canada, ULC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Hain Celestial DMCC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Hain Celestial Europe B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Hain Celestial India Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Celestial India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Hain Celestial Ireland Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Hain Celestial Jersey Limited",
+          "jurisdiction": "Jersey"
+        },
+        {
+          "name": "Hain Celestial UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Hain Foods Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Hain Frozen Foods UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Hain Gourmet, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Holding Cyprus Limited",
+          "jurisdiction": "Cyprus"
+        },
+        {
+          "name": "Hain Marketing, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain Pure Food Co., Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Hain Refrigerated Foods Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Hain-Yves, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "HCGI WN, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Health Valley Company",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "KTB Foods Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Lima Natuurvoedingsbedrijf BV",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Little Bear Organic Foods, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Mona Naturprodukte GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Mona Oberwart Produktions GmbH",
+          "jurisdiction": "Austria"
+        },
+        {
+          "name": "Mona Sojaland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Natumi GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Natural Nutrition Group, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "New Oxford Foods, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "nSpired Natural Foods, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PC Operating Co., Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Plainville Farms, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Proven Brands, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Queen Personal Care, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Rudi\u2019s Organic Bakery, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "S Daniels Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Sonmundo, Inc",
+          "jurisdiction": "Oregon"
+        },
+        {
+          "name": "Spectrum Organic Products, LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "TenderCare International, Inc",
+          "jurisdiction": "Colorado"
+        },
+        {
+          "name": "That\u2019s How We Roll LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "The Hain Daniels Group Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Westbrae Natural Foods, Inc",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Zia Cosmetics, Inc",
+          "jurisdiction": "California"
+        }
+      ]
+    },
+    {
+      "cik": 1078271,
+      "lei": "549300WRECW11X94UB57",
+      "sec_name": "EXTREME NETWORKS INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1078271/000095017025109742/extr-ex21_1.htm",
+      "filed_date": "2025-08-18",
+      "subsidiary_count": 42,
+      "subsidiaries": [
+        {
+          "name": "Extreme Networks, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Aerohive Networks, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Aerohive Networks, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Aerohive Networks Ltd",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Enterasys Networks, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Extreme Federal Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Extreme Networks GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Extreme Networks SRL",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Extreme Networks s.r.o",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Bilisim Teknolojileri Hizmetleri Limited Sirketi",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks APAC Sdn Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Arabia LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Australia PTY, Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Extreme Networks Belgium SARL",
+          "jurisdiction": "Belgium"
+        },
+        {
+          "name": "Extreme Networks Canada Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Extreme Networks Chile, Ltda",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks China Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Extreme Networks Colombia Technology SAS",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Delaware LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Extreme Networks Do Brazil, Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Extreme Networks EMEA Ltd",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Extreme Networks France SA",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Extreme Networks (Hangzhou) Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Extreme Networks Hong Kong Ltd",
+          "jurisdiction": "Hong Kong"
+        },
+        {
+          "name": "Extreme Networks IHC, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Extreme Networks India Private Ltd",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Extreme Networks International Ltd",
+          "jurisdiction": "Cayman Islands"
+        },
+        {
+          "name": "Extreme Networks Ireland Ltd",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Extreme Networks Ireland Holding UC",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Extreme Networks Ireland Ops UC",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Extreme Networks KK",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Extreme Networks Korea Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Mauritius",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Extreme Networks Mexico, SA de CV",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Extreme Networks Netherlands BV",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Extreme Networks Norway AS",
+          "jurisdiction": "Norway"
+        },
+        {
+          "name": "Extreme Networks Singapore Pte. Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Extreme Networks Spain SL",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Extreme Networks Switzerland GmbH",
+          "jurisdiction": "Switzerland"
+        },
+        {
+          "name": "Extreme Networks Technology Co. (Beijing) Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Extreme Networks UK Technology Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IHC Networks AB",
+          "jurisdiction": "Sweden"
+        }
+      ]
+    },
+    {
+      "cik": 105132,
+      "lei": "549300UZHTN0CNKBOB19",
+      "sec_name": "WD 40 CO",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/105132/000010513225000067/wdfc-20250831xex21.htm",
+      "filed_date": "2025-10-27",
+      "subsidiary_count": 13,
+      "subsidiaries": [
+        {
+          "name": "WD-40 Manufacturing Company",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "WD-40 Company (Canada) Ltd",
+          "jurisdiction": "Ontario"
+        },
+        {
+          "name": "WD-40 Holdings Limited",
+          "jurisdiction": "England"
+        },
+        {
+          "name": "WD-40 Company Limited",
+          "jurisdiction": "England"
+        },
+        {
+          "name": "WD-40 Company (Australia) Pty. Limited",
+          "jurisdiction": "Wales"
+        },
+        {
+          "name": "WD-40 Co. M\u00e9xico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "HPD Laboratories, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Heartland Corporation",
+          "jurisdiction": "Kansas"
+        },
+        {
+          "name": "Wu Di (Shanghai) Industrial Co., Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "WD-40 Company (Malaysia) Sdn. Bhd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "WD-40 Holding Company Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "WD-40 Company Brasil Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "PT WDForty Industrial Indonesia",
+          "jurisdiction": ""
+        }
+      ]
+    },
+    {
+      "cik": 1423221,
+      "lei": "5493000TL30VL5WOAW87",
+      "sec_name": "Quanex Building Products CORP",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1092796,
+      "lei": "5493004PFHUPOR1PWN79",
+      "sec_name": "SMITH & WESSON BRANDS, INC.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1092796/000119312526274254/swbi-ex21_1.htm",
+      "filed_date": "2026-06-17",
+      "subsidiary_count": 2,
+      "subsidiaries": [
+        {
+          "name": "Smith & Wesson Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Smith & Wesson Sales Company",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 723531,
+      "lei": "529900K900DW6SUBM174",
+      "sec_name": "PAYCHEX INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/723531/000119312526307785/payx-ex21_1.htm",
+      "filed_date": "2026-07-17",
+      "subsidiary_count": 27,
+      "subsidiaries": [
+        {
+          "name": "ACH Insurance, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Alterna Capital Solutions, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Advantage Payroll Services, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "ESG Insurance, LLC",
+          "jurisdiction": "Utah"
+        },
+        {
+          "name": "Fast 401k, Inc. d/b/a ePlan Services",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Lessor A/S (DK)",
+          "jurisdiction": "Denmark"
+        },
+        {
+          "name": "Oasis Advisory Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Oasis HR Solutions III, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Oasis Outsourcing Acquisition Corporation",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Oasis Outsourcing Holdings, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Oasis Outsourcing, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Paychex Administrative Services, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Paychex Advance, LLC",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paychex Deutschland, GmbH (GM)",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "Paychex Holdings, LLC",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paychex Insurance Agency, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paychex Insurance Concepts, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paychex Investment, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Paychex North America, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Paychex of New York, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Paychex PEO VI, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Paychex PEO VII, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Paychex Retirement, LLC",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paychex Securities Corporation",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "Paycor HCM, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PXC, Inc",
+          "jurisdiction": "New York"
+        },
+        {
+          "name": "SurePayroll, Inc",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 78749,
+      "lei": "5299001XWB5V3B5IPN93",
+      "sec_name": "AGILYSYS INC",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/78749/000119312526234423/agys-ex21.htm",
+      "filed_date": "2026-05-21",
+      "subsidiary_count": 3,
+      "subsidiaries": [
+        {
+          "name": "Agilysys NV, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Agilysys Technologies India Private Limited",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Agilysys Canada, Inc",
+          "jurisdiction": "Canada"
+        }
+      ]
+    },
+    {
+      "cik": 317788,
+      "lei": "549300D0WZR1VI2QGB24",
+      "sec_name": "Digital Turbine, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 861459,
+      "lei": "549300OM4BWMCIXVCZ39",
+      "sec_name": "GRANITE CONSTRUCTION INC",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 716643,
+      "lei": "5493000Q1S5TJIDIQH89",
+      "sec_name": "REGIS CORP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/716643/000071664325000031/rgs-20250630xex211.htm",
+      "filed_date": "2025-09-03",
+      "subsidiary_count": 19,
+      "subsidiaries": [
+        {
+          "name": "The Barbers, Hairstyling for Men & Women, Inc",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "Roosters MGC International LLC",
+          "jurisdiction": "Michigan"
+        },
+        {
+          "name": "Supercuts, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Supercuts Corporate Shops, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "RPC Acquisition Corp",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "RPC Corporate Shops, Inc",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "Regis Corp",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "Regis, LLC",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "Regis Insurance Group, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "First Choice Haircutters International, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Cutco Acquisition Corp",
+          "jurisdiction": "Minnesota"
+        },
+        {
+          "name": "Super C Group, LLC",
+          "jurisdiction": "Michigan"
+        },
+        {
+          "name": "Roger Merger Subco LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Regis Holdings (Canada), Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "First Choice Haircutters, Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Magicuts, Ltd",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Supercuts UK (Franchise) Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Fremont Software, LLC",
+          "jurisdiction": "Delaware"
+        }
+      ]
+    },
+    {
+      "cik": 727510,
+      "lei": "529900VN48L8QCMVPV36",
+      "sec_name": "Viskase Holdings, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1059262,
+      "lei": "0IDE18EMH1CUKQCUYE69",
+      "sec_name": "SP Plus Corp",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1059262/000095017024021554/sp-ex21.htm",
+      "filed_date": "2024-02-28",
+      "subsidiary_count": 33,
+      "subsidiaries": [
+        {
+          "name": "CORPORATE ENTITIES",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Central Parking Corporation",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Standard Parking Corporation IL",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SP Plus Corporation Canada",
+          "jurisdiction": "Ontario"
+        },
+        {
+          "name": "SP Plus Security of Canada, Ltd",
+          "jurisdiction": "British Columbia"
+        },
+        {
+          "name": "ZWB Holdings, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Rynn's Luggage Corporation",
+          "jurisdiction": "Pennsylvania"
+        },
+        {
+          "name": "Baggage Airline Guest Services, Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Central Parking System, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Connecticut, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Georgia, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Maryland, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Puerto Rico",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Washington, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of New York, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System Reality of New York, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "USA Parking System, Inc",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "USA Parking Systems of Puerto Rico, Inc",
+          "jurisdiction": ""
+        },
+        {
+          "name": "KCPC Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SP Plus Global Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "K M P Associates, Ltd",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "SP Plus Technology Labs",
+          "jurisdiction": "India"
+        },
+        {
+          "name": "Kinney Systems, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "LLCs and PARTNERSHIPS",
+          "jurisdiction": ""
+        },
+        {
+          "name": "APCOA LaSalle Parking Company, LLC",
+          "jurisdiction": ""
+        },
+        {
+          "name": "APCOA Bradley Parking Company, LLC",
+          "jurisdiction": "Connecticut"
+        },
+        {
+          "name": "Central Parking System of Mississippi, LLC",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Central Parking System of Missouri, LLC",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Home Serv Delivery, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Orlando DTTS, LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Aeroparker U.S.A., LLC GP",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Roker LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Maple Leaf Logistics, LLC",
+          "jurisdiction": "Florida"
+        }
+      ]
+    },
+    {
+      "cik": 1494582,
+      "lei": "54930002FEWTYF4YFF19",
+      "sec_name": "BOSTON OMAHA Corp",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 717423,
+      "lei": "QBKYQD0ODE7DC7PDIN91",
+      "sec_name": "MURPHY OIL CORP",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/717423/000162828026011709/mur-20251231xex211.htm",
+      "filed_date": "2026-02-25",
+      "subsidiary_count": 6,
+      "subsidiaries": [
+        {
+          "name": "Murphy Oil Corporation (REGISTRANT)",
+          "jurisdiction": ""
+        },
+        {
+          "name": "a.Murphy Netherlands Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "i.Murphy Sur, S. de R. L. de C.V. (see company F.b.i.4.a.ii.1. below)",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "ii. Murphy Netherlands Holdings II B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "1.Murphy Sur, S. de R. L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "a.Murphy Australia AC/P 36 Oil Pty. Limited",
+          "jurisdiction": "Australia"
+        }
+      ]
+    },
+    {
+      "cik": 1674101,
+      "lei": "549300KTTIRAOGXCRV69",
+      "sec_name": "Vertiv Holdings Co",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 89439,
+      "lei": "5493005IZFE4VJLLYG84",
+      "sec_name": "MUELLER INDUSTRIES INC",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1411688,
+      "lei": "529900L7KB2N9KXCDI76",
+      "sec_name": "Container Store Group, Inc.",
+      "exhibit21_url": null,
+      "subsidiaries": []
+    },
+    {
+      "cik": 1046102,
+      "lei": "5493002H8U24DJXQ4886",
+      "sec_name": "RB GLOBAL INC.",
+      "exhibit21_url": "https://www.sec.gov/Archives/edgar/data/1046102/000162828026011682/rba20251231-ex211.htm",
+      "filed_date": "2026-02-25",
+      "subsidiary_count": 113,
+      "subsidiaries": [
+        {
+          "name": "Rouse Services LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Rouse Appraisals LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Rouse Sales LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "Rouse Analytics LLC",
+          "jurisdiction": "California"
+        },
+        {
+          "name": "RBA Holdings Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "AssetNation, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Boom & Bucket, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SalvageSale Mexico Holding LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Xcira, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IronPlanet, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IronPlanet Motors, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "J.M. Wood Auction Co., LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "J.M.W. Land Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "SmartEquip, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "1035 E. Rankin Road LLC.,",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IAA Holdings, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Axle Holdings Acquisition Company, LLC",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Axle Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IAA Acquisition Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "IAA Holdings, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Insurance Auto Auctions Corp",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "PJH Ventures, Inc",
+          "jurisdiction": "Delaware"
+        },
+        {
+          "name": "Ritchie Bros. Asset Solutions Inc",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "VeriTread LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "VeriTread Exchange LLC",
+          "jurisdiction": "Florida"
+        },
+        {
+          "name": "Insurance Auto Auctions of Georgia, LLC",
+          "jurisdiction": "Georgia"
+        },
+        {
+          "name": "IAA Services, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Insurance Auto Auctions, Inc",
+          "jurisdiction": "Illinois"
+        },
+        {
+          "name": "Automotive Recovery Services, Inc",
+          "jurisdiction": "Indiana"
+        },
+        {
+          "name": "Ritchie Bros. Financial Services (America) Inc",
+          "jurisdiction": "Nevada"
+        },
+        {
+          "name": "Auto Disposal Systems, Inc",
+          "jurisdiction": "Ohio"
+        },
+        {
+          "name": "Leake Auction Company",
+          "jurisdiction": "Oklahoma"
+        },
+        {
+          "name": "Insurance Auto Auctions Tennessee LLC",
+          "jurisdiction": "Tennessee"
+        },
+        {
+          "name": "Kruse Energy & Equipment Auctioneers, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "Impact Texas, LLC",
+          "jurisdiction": "Texas"
+        },
+        {
+          "name": "RB Global Holdings Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (America) Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Ritchie Bros. Properties Inc",
+          "jurisdiction": "Washington"
+        },
+        {
+          "name": "Ritchie Bros. Holdings Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (Canada) Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Real Estate Service Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Properties Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Financial Services Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "IronPlanet Canada Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Rouse Services Canada Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Finance Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "1206397 B.C. Unlimited Liability Company",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Impact Auto Auction Sudbury Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Impact Auto Auctions Ltd",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Suburban Auto Parts Inc",
+          "jurisdiction": "Canada"
+        },
+        {
+          "name": "Ritchie Bros. Holdings B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Ritchie Bros. B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Ritchie Bros. Shared Services B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Ritchie Bros. Properties B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Mascus International B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Mascus IP B.V",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "Mascus A/S",
+          "jurisdiction": "Netherlands"
+        },
+        {
+          "name": "IronPlanet UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ritchie Bros. UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "1st Interactive Design Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Car Transplants (Holdings) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Car Transplants (Hurleston) Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Car Transplants Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Car Transplants Recycling Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "D.H. Systems Consultancy Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Doncaster Motor Spares Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "FAB Recycling Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Gilbert Mitchell Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Gilbert Mitchell Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IAA International Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IAA UK Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IAA UK Auctions Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IAA UK Auctions Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "IAA Vehicle Services Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Motorhog Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Motor Bundle Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Newhog Holdings Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Repossessions-UK Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Synetiq Nominees Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "LKQ Synetiq Limited",
+          "jurisdiction": "United Kingdom"
+        },
+        {
+          "name": "Ritchie Bros. Holdings Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Ritchie Bros. Properties Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Smith Broughton Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Allied Plant Pty Ltd",
+          "jurisdiction": "Australia"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers Comercial de Equipamentos Industriais Ltda",
+          "jurisdiction": "Brazil"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (Beijing) Co. Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Ritchie Auction (Beijing) Co. Ltd",
+          "jurisdiction": "China"
+        },
+        {
+          "name": "Ritchie Bros. Investment Holdings (Luxembourg) SARL",
+          "jurisdiction": "Cyprus"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (ME) Limited",
+          "jurisdiction": "Cyprus"
+        },
+        {
+          "name": "Ritchie Bros. Finland Oy",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers France SAS",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "R.B. Services SARL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "R.B. Holdings SARL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "R.B. Properties EURL",
+          "jurisdiction": "France"
+        },
+        {
+          "name": "Ritchie Bros. Deutschland GmbH",
+          "jurisdiction": "Germany"
+        },
+        {
+          "name": "IronPlanet Limited",
+          "jurisdiction": "Ireland"
+        },
+        {
+          "name": "Ritchie Bros. Properties S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Ritchie Bros. Italia S.r.l",
+          "jurisdiction": "Italy"
+        },
+        {
+          "name": "Ritchie Bros. Properties Japan K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (Japan) K.K",
+          "jurisdiction": "Japan"
+        },
+        {
+          "name": "IronPlanet Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers de Mexico, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Ritchie Bros. Properties, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "SalvageSale De Mexico S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "SalvageSale Servicios, S. de R.L. de C.V",
+          "jurisdiction": "Mexico"
+        },
+        {
+          "name": "Ritchie Bros. (NZ) Limited",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers (Panama) S.A",
+          "jurisdiction": ""
+        },
+        {
+          "name": "Ritchie Bros. Polska Sp. Z.o.o",
+          "jurisdiction": "Poland"
+        },
+        {
+          "name": "Ritchie Bros. Auctioneers Pte Ltd",
+          "jurisdiction": "Singapore"
+        },
+        {
+          "name": "Ritchie Bros. Spain, SL",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Ritchie Bros. Properties (Spain) S.L.U",
+          "jurisdiction": "Spain"
+        },
+        {
+          "name": "Ritchie Bros. Sweden AB",
+          "jurisdiction": "Sweden"
+        }
+      ]
+    }
+  ],
+  "header_rows_removed": {
+    "when": "2026-08-24",
+    "why": "Re-applied generators/fetch_exhibit21.py's CORRECTED header filter to this already-parsed artifact. The original filter's first alternative was `subsidiaries?`, whose `?` applies to the final `s` -- it matched 'Subsidiaries' and never 'Subsidiary' -- and it was anchored at ^ only, so 'Legal Name' and 'Company Name' passed as well. All three reached Fluree as legal entities jointly owned by two unrelated filers. See docs/known-issues.md 19.6. Not re-fetched: re-parsing 50 filings would churn every subsidiary name and orphan the 341 stub URIs already in an append-only ledger. The corrected filter drops exactly these rows and nothing else.",
+    "rows": [
+      {
+        "lei": "254900HM1ABRDJ7T5718",
+        "name": "SUBSIDIARY"
+      },
+      {
+        "lei": "549300DUOO1KXOHPM605",
+        "name": "Legal Name"
+      },
+      {
+        "lei": "5493003QENHHS261UR94",
+        "name": "Legal Name"
+      },
+      {
+        "lei": "5493000S8QXWHLIXDP75",
+        "name": "Subsidiary"
+      },
+      {
+        "lei": "5493000Q1S5TJIDIQH89",
+        "name": "Company Name"
+      }
+    ]
+  }
+}

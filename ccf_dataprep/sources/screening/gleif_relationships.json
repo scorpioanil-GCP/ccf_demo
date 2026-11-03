@@ -1,0 +1,2688 @@
+{
+  "generated_for": "Wave 3 \u2014 GLEIF Level 2 ownership edges",
+  "source": "https://api.gleif.org/api/v1/lei-records/{lei}/{relationship}",
+  "edge_count": 309,
+  "entity_count": 153,
+  "anchors_depth_ge_4": 0,
+  "depths": {
+    "G8NWFN4YP7CR6FOP4886": 0,
+    "54930022CZO1N2UGVW07": 0,
+    "54930096DB9LCLPN7H13": 0,
+    "B3BS7ACMDUWISF18KY76": 0,
+    "549300FA4CTCW903Y781": 0,
+    "0J0XRGZE3PBRFEZ7MV65": 0,
+    "5493003J7157VP25NL57": 0,
+    "549300JDUUEBN868C776": 0,
+    "529900E95812SYWMCE44": 0,
+    "254900HM1ABRDJ7T5718": 0,
+    "2549004GGE2APGNT6O92": 0,
+    "549300Z3L8NU44NQEB29": 0,
+    "549300D3L3G0R4U4VT04": 0,
+    "549300EZQXWQI2YL1T80": 0,
+    "529900VKCYZW8GZ4WW58": 0,
+    "549300EC266625K12S42": 0,
+    "549300EQD0ZXRSMG3549": 0,
+    "549300XN70JLF94XKX80": 0,
+    "549300DUOO1KXOHPM605": 0,
+    "5493003QENHHS261UR94": 0,
+    "549300OUUC900EVOGX10": 0,
+    "5493004Q1NNH6JXCSI52": 0,
+    "549300FHJQTDPPN41627": 0,
+    "5493004HBTOTE9DI9P12": 0,
+    "2P2YLDVPES3BXQ1FRB91": 0,
+    "549300TMDIT8WREDOF45": 0,
+    "549300TRW1LZMDJZAQ78": 0,
+    "5493000C2SGNC7ZN3242": 0,
+    "529900ZNZBBLDE77MZ38": 0,
+    "549300F1Y3LN5BX5WN75": 0,
+    "2549001IGRCG4F0RLD36": 0,
+    "JJAX4X60DE65EYFOTY73": 0,
+    "5493000S8QXWHLIXDP75": 0,
+    "549300WRECW11X94UB57": 0,
+    "549300UZHTN0CNKBOB19": 0,
+    "5493000TL30VL5WOAW87": 0,
+    "5493004PFHUPOR1PWN79": 0,
+    "529900K900DW6SUBM174": 0,
+    "5299001XWB5V3B5IPN93": 0,
+    "549300D0WZR1VI2QGB24": 0,
+    "549300OM4BWMCIXVCZ39": 0,
+    "5493000Q1S5TJIDIQH89": 0,
+    "529900VN48L8QCMVPV36": 0,
+    "0IDE18EMH1CUKQCUYE69": 0,
+    "54930002FEWTYF4YFF19": 0,
+    "QBKYQD0ODE7DC7PDIN91": 0,
+    "549300KTTIRAOGXCRV69": 0,
+    "5493005IZFE4VJLLYG84": 0,
+    "529900L7KB2N9KXCDI76": 0,
+    "5493002H8U24DJXQ4886": 0
+  },
+  "entities": {
+    "G8NWFN4YP7CR6FOP4886": "Tupperware Brands Corporation",
+    "54930022CZO1N2UGVW07": "SUPER MICRO COMPUTER, INC.",
+    "54930096DB9LCLPN7H13": "XPO, INC.",
+    "B3BS7ACMDUWISF18KY76": "BAUSCH HEALTH COMPANIES INC.",
+    "549300FA4CTCW903Y781": "CAESARS ENTERTAINMENT, INC.",
+    "0J0XRGZE3PBRFEZ7MV65": "CHARTER COMMUNICATIONS, INC.",
+    "5493003J7157VP25NL57": "City Office REIT, Inc.",
+    "549300JDUUEBN868C776": "BRAEMAR HOTELS & RESORTS INC.",
+    "529900E95812SYWMCE44": "AVIS BUDGET GROUP, INC.",
+    "254900HM1ABRDJ7T5718": "Genesis Energy Limited",
+    "2549004GGE2APGNT6O92": "AMERICAN HEALTHCARE REIT, INC.",
+    "549300Z3L8NU44NQEB29": "INDEPENDENCE REALTY TRUST, INC.",
+    "549300D3L3G0R4U4VT04": "AMPHENOL CORPORATION",
+    "549300EZQXWQI2YL1T80": "PEAKSTONE REALTY TRUST",
+    "529900VKCYZW8GZ4WW58": "SABRE CORPORATION",
+    "549300EC266625K12S42": "SMARTSTOP SELF STORAGE REIT, INC.",
+    "549300EQD0ZXRSMG3549": "Transdigm Inc.,",
+    "549300XN70JLF94XKX80": "CION INVESTMENT CORPORATION",
+    "549300DUOO1KXOHPM605": "LAS VEGAS SANDS CORP.",
+    "5493003QENHHS261UR94": "TARGA RESOURCES CORP.",
+    "549300OUUC900EVOGX10": "CROSSAMERICA PARTNERS LP",
+    "5493004Q1NNH6JXCSI52": "PEBBLEBROOK HOTEL TRUST",
+    "549300FHJQTDPPN41627": "CELANESE CORPORATION",
+    "5493004HBTOTE9DI9P12": "ANYWHERE REAL ESTATE INC.",
+    "2P2YLDVPES3BXQ1FRB91": "ZIMMER BIOMET HOLDINGS, INC.",
+    "549300TMDIT8WREDOF45": "MASTEC, INC.",
+    "549300TRW1LZMDJZAQ78": "B&G Foods, Inc.",
+    "5493000C2SGNC7ZN3242": "GRIFFON CORPORATION",
+    "529900ZNZBBLDE77MZ38": "THERMON GROUP HOLDINGS, INC.",
+    "549300F1Y3LN5BX5WN75": "Watsco, Inc.",
+    "2549001IGRCG4F0RLD36": "BGC Group, Inc.",
+    "JJAX4X60DE65EYFOTY73": "SUBURBAN PROPANE PARTNERS, L.P.",
+    "5493000S8QXWHLIXDP75": "THE HAIN CELESTIAL GROUP, INC.",
+    "549300WRECW11X94UB57": "EXTREME NETWORKS, INC.",
+    "549300UZHTN0CNKBOB19": "WD-40 Company",
+    "5493000TL30VL5WOAW87": "QUANEX BUILDING PRODUCTS CORPORATION",
+    "5493004PFHUPOR1PWN79": "SMITH & WESSON BRANDS, INC.",
+    "529900K900DW6SUBM174": "Paychex, Inc.",
+    "5299001XWB5V3B5IPN93": "AGILYSYS, INC.",
+    "549300D0WZR1VI2QGB24": "DIGITAL TURBINE, INC.",
+    "549300OM4BWMCIXVCZ39": "GRANITE CONSTRUCTION INCORPORATED",
+    "5493000Q1S5TJIDIQH89": "Regis Corporation",
+    "529900VN48L8QCMVPV36": "VISKASE HOLDINGS, INC.",
+    "0IDE18EMH1CUKQCUYE69": "SP PLUS CORPORATION",
+    "54930002FEWTYF4YFF19": "Boston Omaha Corporation",
+    "QBKYQD0ODE7DC7PDIN91": "MURPHY OIL CORPORATION",
+    "549300KTTIRAOGXCRV69": "VERTIV HOLDINGS CO",
+    "5493005IZFE4VJLLYG84": "MUELLER INDUSTRIES, INC.",
+    "529900L7KB2N9KXCDI76": "THE CONTAINER STORE GROUP, INC.",
+    "5493002H8U24DJXQ4886": "RB Global, Inc",
+    "335800HASBEZBU2IJX50": "TUPPERWARE INDIA PRIVATE LIMITED",
+    "549300F16C4PEFXU0S92": "SUPER MICRO COMPUTER B.V.",
+    "549300NY6OZM39SO6475": "Bausch + Lomb Corporation",
+    "335800AZT6EBS5WNGK55": "BAUSCH & LOMB INDIA PRIVATE LIMITED",
+    "549300TPZNMN50BJ3745": "CHARTER COMMUNICATIONS OPERATING, LLC",
+    "254900DYWAH2QI3QLK13": "Central Fairwinds Limited Partnership",
+    "98450009684D6AA5B532": "AMPHENOL OMNICONNECT INDIA PRIVATE LIMITED",
+    "549300B57885SRM8AH08": "\uc554\ud398\ub180\uc5e0\uc528\ud53c\ucf54\ub9ac\uc544 \uc720\ud55c\ud68c\uc0ac",
+    "335800PBDBA1W5BGM153": "AMPHENOL INTERCONNECT INDIA PRIVATE LIMITED",
+    "549300110BRSS7DV8V39": "AMPHENOL TECHNOLOGIES HOLDING GMBH",
+    "549300E24EKS3CO4DQ67": "AMPHENOL BENELUX B.V.",
+    "529900RY8P0DMIAMMD31": "Bernd Richter GmbH",
+    "549300BJL4VZ28J8MJ68": "AMPHENOL EAST ASIA LIMITED",
+    "549300F13YWKRMGG5N27": "PKST OP, L.P.",
+    "222100VTO7LO43KCFL41": "Sabre Finance (Luxembourg) S.\u00e0 r.l.",
+    "5493006KO3220FUKFW21": "SABRE TRAVEL NETWORK (AUSTRALIA) PTY LIMITED",
+    "549300IJD0O8EGS77N62": "SABRE ASIA PACIFIC PTE. LTD.",
+    "549300EVO6UZDGY05787": "SANDS CHINA LTD.",
+    "549300S6XH8IQ3O1NU90": "Las Vegas Sands, LLC",
+    "549300HL8ESACQCOXL24": "CELANESE INTERNATIONAL CORPORATION",
+    "984500746F981A487E92": "PERFORMANCE SPECIALTY PRODUCTS (INDIA) PRIVATE LIMITED",
+    "5493009NNVZVSFGMFK59": "Acetate Luxembourg S.\u00e0 r.l.",
+    "549300VTWTOVMWSJ0Y05": "Celanese EVA Performance Polymers Partnership",
+    "549300O8ASOMXX46IF03": "CELANESE SALES IBERICA SL",
+    "5493000257O6F56APL79": "CELANESE SERVICES UK LIMITED",
+    "549300R3BOJWX2H76M26": "CELANESE SALES UK LIMITED",
+    "549300OWSFLVMGI3AH90": "HNA ACQUISITION ULC",
+    "549300BXJKHKWO6O5577": "CELANESE PRODUCTION NETHERLANDS B.V.",
+    "5493002MY4BMEPPL2X25": "\u8d5b\u62c9\u5c3c\u65af\uff08\u4e0a\u6d77\uff09\u56fd\u9645\u8d38\u6613\u6709\u9650\u516c\u53f8",
+    "549300W60AP87GAZZJ78": "CELANESE MAGYARORSZ\u00c1G ADMINISZTRAT\u00cdV SZOLG\u00c1LTAT\u00d3 KORL\u00c1TOLT FELEL\u0150SS\u00c9G\u0170 T\u00c1RSAS\u00c1G",
+    "549300PYLRRI4B8C7982": "CELANESE SINGAPORE VAM PTE. LTD.",
+    "549300BO7WJYLJNCIE65": "CELANESE SERVICES GERMANY GMBH",
+    "5493009OW3NVRQETKP25": "CELANESE",
+    "549300D72Y8XVM7DOW45": "CELANESE FAR EAST LIMITED",
+    "8945006RQIKJKSW0AF49": "zimmer biomet",
+    "984500FED5C82B7B9F62": "ZIMMER INDIA PRIVATE LIMITED",
+    "52990077N9WBD16A2803": "Zimmer Biomet Austria GmbH",
+    "SCXO0QYKPUQ9JCY48411": "ZIMMER GMBH",
+    "7XA5ENNLHE17WTWL1P78": "ZIMMER, INC.",
+    "9845000JD0C9VU140F67": "GRIFFON AUSTRALIA HOLDINGS PTY LTD",
+    "5493000CITHR0JY70A08": "FMX Execution, LLC",
+    "5493000ACF2FJCWRCD19": "\uae34\uac00\uc11d\uc720\ucf54\ub9ac\uc544",
+    "549300DVF4EIWTEUDA46": "POTEN & PARTNERS (UK) LTD",
+    "5493009KYZC58EWV8M04": "\u30d4\u30fc\u30b8\u30fc\u30b7\u30fc\u30fb\u30c6\u30af\u30ce\u30ed\u30b8\u30fc\u30fb\u30b8\u30e3\u30d1\u30f3\u682a\u5f0f\u4f1a \u793e",
+    "549300FLZ5WMZ7ZQC356": "FENICS SOFTWARE, INC.",
+    "549300FW645HHXJ7H995": "GFINET INC.",
+    "5493000FS50F1LVP4G31": "BGC SECURITIES S\u00c0RL",
+    "549300C15QIPCZQGZ397": "BGC PARTNERS, L.P.",
+    "549300OV4QXDMDQFC495": "BGC CAPITAL MARKETS, L.P.",
+    "549300SCXEKMD1BJEN95": "BGC INTERNATIONAL LP",
+    "549300XEP5RQZP144L47": "BGC GLOBAL LIMITED",
+    "549300Q888VP8OPJQX30": "BGC TECHNOLOGY SUPPORT SERVICES LIMITED",
+    "549300ZEM7BWQWW4NU17": "SUNRISE GLOBAL BROKERS LIMITED",
+    "549300P5P8RXOD23W720": "BGC EUROPEAN HOLDINGS L.P.",
+    "549300LMBDLURU8UJW27": "BGC TECHNOLOGY INTERNATIONAL LIMITED",
+    "254900CVWLWNDUYC0V33": "SUBURBAN RENEWABLE ENERGY, LLC",
+    "54930032IDF0ISPUVN09": "SUBURBAN HEATING OIL PARTNERS, LLC",
+    "54930045PZWQ1LQK2F77": "AGWAY ENERGY SERVICES, LLC",
+    "MPDV78HPQUU2Y5NDOP54": "SUBURBAN PROPANE, L.P.",
+    "213800LSZGXDFDW75766": "ELLA'S KITCHEN (BRANDS) LIMITED",
+    "335800VAJ45A8FL45R30": "EXTREME NETWORKS INDIA PRIVATE LIMITED",
+    "2138003OH6E57UMQAM23": "WD-40 COMPANY LIMITED",
+    "9845004A4908CF071A81": "QUANEX HARDWARE SOLUTIONS LIMITED",
+    "213800FTGMKCJ9U8PD95": "SCHLEGEL ACQUISITION HOLDINGS LIMITED",
+    "549300ZOQUOSRDVMES86": "FLAMSTEAD HOLDINGS LIMITED",
+    "815600446C0A0A969946": "GIESSE S.P.A.",
+    "54930027MFOS1R0YZS11": "SMITH & WESSON SALES COMPANY",
+    "33580042H8NCOTVDDR84": "AGILYSYS TECHNOLOGIES INDIA PRIVATE LIMITED",
+    "2549006FEPBCMW266H93": "Agilysys NV LLC",
+    "529900Z6WVU8JWAGRM34": "Digital Turbine Media, Inc.",
+    "38BB4H4JFWMQTNI3W911": "MURPHY OIL COMPANY LTD.",
+    "549300ZT8RQ5VK10E643": "VERTIV GROUP CORPORATION",
+    "5493005UAF5R2W4DL323": "GREAT LAKES COPPER LTD.",
+    "549300TKT1JP4UN6YN06": "HEATLINK GROUP INC.",
+    "549300CT6WFJXW2YG540": "MUELLER STREAMLINE CO.",
+    "549300EYPX77JH2ICQ48": "Elfa International AB",
+    "RU4H3CU9QRX4TIC35822": "THE CONTAINER STORE, INC.",
+    "254900LH3N0EGB1LQ203": "RB GLOBAL HOLDINGS INC.",
+    "5493000GP0Y6NM6XGJ56": "RITCHIE BROS. AUCTIONEERS PTY. LTD.",
+    "549300ZZMVC73C3T5608": "RITCHIE BROS. HOLDINGS LTD.",
+    "894500KLOKHY6FFDSA39": "Bausch+Lomb Netherlands B.V.",
+    "549300JPRACCHT4C0232": "Bausch & Lomb Incorporated",
+    "549300XTL5YGZD1RKS27": "\u91d1\u5149\u6e21\u8f2a\u6709\u9650\u516c\u53f8",
+    "549300SPVW6G4W4Y9O76": "VML US FINANCE LLC",
+    "549300RZOCHHSDHO6Y44": "\u30bb\u30e9\u30cb\u30fc\u30ba\u30b8\u30e3\u30d1\u30f3\u682a\u5f0f\u4f1a\u793e",
+    "549300QLDS937N6WKM57": "TICONA POLYMERS, INC.",
+    "549300ZRRCTNB91PR748": "CELANESE LTD.",
+    "549300FQ5KXL2V5LNT65": "CELANESE SALES GERMANY GMBH",
+    "549300CTC73UD7MM5758": "CELANESE PRODUCTION UK LIMITED",
+    "549300GA2S032QXTVL07": "CELANESE PRODUCTION BELGIUM",
+    "5493001ZE72S70KKJE37": "\u585e\u62c9\u5c3c\u65af\uff08\u4e2d\u56fd\uff09\u6295\u8d44\u6709\u9650\u516c\u53f8",
+    "MT3LDT79700QIEG45M48": "MURPHY CANADA, LTD.",
+    "25490023HKGD2QUA4F16": "VERTIV HEDGING CORPORATION",
+    "549300PTE27TUVKM7578": "Ritchie Bros. Financial Services Ltd.",
+    "549300CPPSWYFZGV4E38": "RITCHIE BROS. PROPERTIES LTD.",
+    "549300DVU9VW3416N810": "RITCHIE BROS. AUCTIONEERS (CANADA) LTD.",
+    "549300358YQNJNPWC886": "CELANESE PRODUCTION GERMANY GMBH & CO. KG",
+    "549300XCZRSK74RU1479": "Celanese Production Sweden AB",
+    "549300RDU9Z76QOPLZ89": "CELANESE HOLDINGS B.V.",
+    "549300YQQAONVZ0VTZ32": "TICONA KOREA CO. LTD.",
+    "549300MC87HVK7MGJJ18": "CELANESE (NANJING) CHEMICALS CO., LTD",
+    "54930048O7L2IYCFTJ19": "CELANESE (NANJING) DIVERSIFIED CHEMICAL CO., LTD",
+    "54930068P3OSWFCUHH28": "CELANESE (NANJING) ACETYL DERIVATIVES CO., LTD."
+  },
+  "edges": [
+    {
+      "parent_lei": "G8NWFN4YP7CR6FOP4886",
+      "child_lei": "335800HASBEZBU2IJX50",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "54930022CZO1N2UGVW07",
+      "child_lei": "549300F16C4PEFXU0S92",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "NL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "549300NY6OZM39SO6475",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "335800AZT6EBS5WNGK55",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "0J0XRGZE3PBRFEZ7MV65",
+      "child_lei": "549300TPZNMN50BJ3745",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493003J7157VP25NL57",
+      "child_lei": "254900DYWAH2QI3QLK13",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-FL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "98450009684D6AA5B532",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300B57885SRM8AH08",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "KR",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "335800PBDBA1W5BGM153",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300110BRSS7DV8V39",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300E24EKS3CO4DQ67",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "NL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "529900RY8P0DMIAMMD31",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300BJL4VZ28J8MJ68",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "HK",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EZQXWQI2YL1T80",
+      "child_lei": "549300F13YWKRMGG5N27",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "222100VTO7LO43KCFL41",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "LU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "5493006KO3220FUKFW21",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "AU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "549300IJD0O8EGS77N62",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "SG",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300EVO6UZDGY05787",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "KY",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300S6XH8IQ3O1NU90",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300HL8ESACQCOXL24",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "984500746F981A487E92",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009NNVZVSFGMFK59",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "LU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300VTWTOVMWSJ0Y05",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300O8ASOMXX46IF03",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "ES",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493000257O6F56APL79",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300R3BOJWX2H76M26",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300OWSFLVMGI3AH90",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BXJKHKWO6O5577",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "NL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493002MY4BMEPPL2X25",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300W60AP87GAZZJ78",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "HU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300PYLRRI4B8C7982",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "SG",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BO7WJYLJNCIE65",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009OW3NVRQETKP25",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "BE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300D72Y8XVM7DOW45",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "HK",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "8945006RQIKJKSW0AF49",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "BE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "984500FED5C82B7B9F62",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "52990077N9WBD16A2803",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "AT",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "SCXO0QYKPUQ9JCY48411",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "7XA5ENNLHE17WTWL1P78",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000C2SGNC7ZN3242",
+      "child_lei": "9845000JD0C9VU140F67",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "AU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000CITHR0JY70A08",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-NY",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000ACF2FJCWRCD19",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "KR",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300DVF4EIWTEUDA46",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493009KYZC58EWV8M04",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "JP",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FLZ5WMZ7ZQC356",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FW645HHXJ7H995",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000FS50F1LVP4G31",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300C15QIPCZQGZ397",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300OV4QXDMDQFC495",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300SCXEKMD1BJEN95",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300XEP5RQZP144L47",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300Q888VP8OPJQX30",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300ZEM7BWQWW4NU17",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300P5P8RXOD23W720",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300LMBDLURU8UJW27",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "254900CVWLWNDUYC0V33",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930032IDF0ISPUVN09",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930045PZWQ1LQK2F77",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "MPDV78HPQUU2Y5NDOP54",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000S8QXWHLIXDP75",
+      "child_lei": "213800LSZGXDFDW75766",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300WRECW11X94UB57",
+      "child_lei": "335800VAJ45A8FL45R30",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300UZHTN0CNKBOB19",
+      "child_lei": "2138003OH6E57UMQAM23",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "9845004A4908CF071A81",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "213800FTGMKCJ9U8PD95",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "549300ZOQUOSRDVMES86",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "815600446C0A0A969946",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IT",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493004PFHUPOR1PWN79",
+      "child_lei": "54930027MFOS1R0YZS11",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "33580042H8NCOTVDDR84",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "IN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "2549006FEPBCMW266H93",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D0WZR1VI2QGB24",
+      "child_lei": "529900Z6WVU8JWAGRM34",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "QBKYQD0ODE7DC7PDIN91",
+      "child_lei": "38BB4H4JFWMQTNI3W911",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300KTTIRAOGXCRV69",
+      "child_lei": "549300ZT8RQ5VK10E643",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "5493005UAF5R2W4DL323",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-NS",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300TKT1JP4UN6YN06",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300CT6WFJXW2YG540",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "549300EYPX77JH2ICQ48",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "SE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "RU4H3CU9QRX4TIC35822",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-TX",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "254900LH3N0EGB1LQ203",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-WA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "5493000GP0Y6NM6XGJ56",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "AU",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300ZZMVC73C3T5608",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "G8NWFN4YP7CR6FOP4886",
+      "child_lei": "335800HASBEZBU2IJX50",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "G8NWFN4YP7CR6FOP4886",
+      "child_lei": "335800HASBEZBU2IJX50",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "54930022CZO1N2UGVW07",
+      "child_lei": "549300F16C4PEFXU0S92",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "54930022CZO1N2UGVW07",
+      "child_lei": "549300F16C4PEFXU0S92",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "549300NY6OZM39SO6475",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "549300NY6OZM39SO6475",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300NY6OZM39SO6475",
+      "child_lei": "894500KLOKHY6FFDSA39",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "NL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300NY6OZM39SO6475",
+      "child_lei": "549300JPRACCHT4C0232",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-NY",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "335800AZT6EBS5WNGK55",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "335800AZT6EBS5WNGK55",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "0J0XRGZE3PBRFEZ7MV65",
+      "child_lei": "549300TPZNMN50BJ3745",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "0J0XRGZE3PBRFEZ7MV65",
+      "child_lei": "549300TPZNMN50BJ3745",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493003J7157VP25NL57",
+      "child_lei": "254900DYWAH2QI3QLK13",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-MD",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493003J7157VP25NL57",
+      "child_lei": "254900DYWAH2QI3QLK13",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-MD",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "98450009684D6AA5B532",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "98450009684D6AA5B532",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300B57885SRM8AH08",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300B57885SRM8AH08",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "335800PBDBA1W5BGM153",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "335800PBDBA1W5BGM153",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300110BRSS7DV8V39",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300110BRSS7DV8V39",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300E24EKS3CO4DQ67",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300E24EKS3CO4DQ67",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "529900RY8P0DMIAMMD31",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "529900RY8P0DMIAMMD31",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300BJL4VZ28J8MJ68",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D3L3G0R4U4VT04",
+      "child_lei": "549300BJL4VZ28J8MJ68",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EZQXWQI2YL1T80",
+      "child_lei": "549300F13YWKRMGG5N27",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-MD",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EZQXWQI2YL1T80",
+      "child_lei": "549300F13YWKRMGG5N27",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-MD",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "222100VTO7LO43KCFL41",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "222100VTO7LO43KCFL41",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "5493006KO3220FUKFW21",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "5493006KO3220FUKFW21",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "549300IJD0O8EGS77N62",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900VKCYZW8GZ4WW58",
+      "child_lei": "549300IJD0O8EGS77N62",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300EVO6UZDGY05787",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300EVO6UZDGY05787",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EVO6UZDGY05787",
+      "child_lei": "549300XTL5YGZD1RKS27",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "MO",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EVO6UZDGY05787",
+      "child_lei": "549300SPVW6G4W4Y9O76",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300S6XH8IQ3O1NU90",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300S6XH8IQ3O1NU90",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300HL8ESACQCOXL24",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300HL8ESACQCOXL24",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300RZOCHHSDHO6Y44",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "JP",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300QLDS937N6WKM57",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300ZRRCTNB91PR748",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-TX",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "984500746F981A487E92",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "984500746F981A487E92",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009NNVZVSFGMFK59",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009NNVZVSFGMFK59",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300VTWTOVMWSJ0Y05",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300VTWTOVMWSJ0Y05",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300O8ASOMXX46IF03",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300O8ASOMXX46IF03",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493000257O6F56APL79",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493000257O6F56APL79",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300R3BOJWX2H76M26",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300R3BOJWX2H76M26",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300OWSFLVMGI3AH90",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300OWSFLVMGI3AH90",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BXJKHKWO6O5577",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BXJKHKWO6O5577",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493002MY4BMEPPL2X25",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493002MY4BMEPPL2X25",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300W60AP87GAZZJ78",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300W60AP87GAZZJ78",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300PYLRRI4B8C7982",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300PYLRRI4B8C7982",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BO7WJYLJNCIE65",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300BO7WJYLJNCIE65",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300BO7WJYLJNCIE65",
+      "child_lei": "549300FQ5KXL2V5LNT65",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300BO7WJYLJNCIE65",
+      "child_lei": "549300CTC73UD7MM5758",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "GB",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009OW3NVRQETKP25",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493009OW3NVRQETKP25",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493009OW3NVRQETKP25",
+      "child_lei": "549300GA2S032QXTVL07",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "BE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300D72Y8XVM7DOW45",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300D72Y8XVM7DOW45",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D72Y8XVM7DOW45",
+      "child_lei": "5493001ZE72S70KKJE37",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "8945006RQIKJKSW0AF49",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "8945006RQIKJKSW0AF49",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "984500FED5C82B7B9F62",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "984500FED5C82B7B9F62",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "52990077N9WBD16A2803",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "52990077N9WBD16A2803",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "SCXO0QYKPUQ9JCY48411",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "SCXO0QYKPUQ9JCY48411",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "7XA5ENNLHE17WTWL1P78",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2P2YLDVPES3BXQ1FRB91",
+      "child_lei": "7XA5ENNLHE17WTWL1P78",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000C2SGNC7ZN3242",
+      "child_lei": "9845000JD0C9VU140F67",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000C2SGNC7ZN3242",
+      "child_lei": "9845000JD0C9VU140F67",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000CITHR0JY70A08",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000CITHR0JY70A08",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000ACF2FJCWRCD19",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000ACF2FJCWRCD19",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300DVF4EIWTEUDA46",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300DVF4EIWTEUDA46",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493009KYZC58EWV8M04",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493009KYZC58EWV8M04",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FLZ5WMZ7ZQC356",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FLZ5WMZ7ZQC356",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FW645HHXJ7H995",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300FW645HHXJ7H995",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000FS50F1LVP4G31",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "5493000FS50F1LVP4G31",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300C15QIPCZQGZ397",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300C15QIPCZQGZ397",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300OV4QXDMDQFC495",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300OV4QXDMDQFC495",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300SCXEKMD1BJEN95",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300SCXEKMD1BJEN95",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300XEP5RQZP144L47",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300XEP5RQZP144L47",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300Q888VP8OPJQX30",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300Q888VP8OPJQX30",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300ZEM7BWQWW4NU17",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300ZEM7BWQWW4NU17",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300P5P8RXOD23W720",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300P5P8RXOD23W720",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300LMBDLURU8UJW27",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "2549001IGRCG4F0RLD36",
+      "child_lei": "549300LMBDLURU8UJW27",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "254900CVWLWNDUYC0V33",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "254900CVWLWNDUYC0V33",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930032IDF0ISPUVN09",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930032IDF0ISPUVN09",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930045PZWQ1LQK2F77",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "54930045PZWQ1LQK2F77",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "MPDV78HPQUU2Y5NDOP54",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "JJAX4X60DE65EYFOTY73",
+      "child_lei": "MPDV78HPQUU2Y5NDOP54",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000S8QXWHLIXDP75",
+      "child_lei": "213800LSZGXDFDW75766",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000S8QXWHLIXDP75",
+      "child_lei": "213800LSZGXDFDW75766",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300WRECW11X94UB57",
+      "child_lei": "335800VAJ45A8FL45R30",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300WRECW11X94UB57",
+      "child_lei": "335800VAJ45A8FL45R30",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300UZHTN0CNKBOB19",
+      "child_lei": "2138003OH6E57UMQAM23",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300UZHTN0CNKBOB19",
+      "child_lei": "2138003OH6E57UMQAM23",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "9845004A4908CF071A81",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "9845004A4908CF071A81",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "213800FTGMKCJ9U8PD95",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "213800FTGMKCJ9U8PD95",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "549300ZOQUOSRDVMES86",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "549300ZOQUOSRDVMES86",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "815600446C0A0A969946",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493000TL30VL5WOAW87",
+      "child_lei": "815600446C0A0A969946",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493004PFHUPOR1PWN79",
+      "child_lei": "54930027MFOS1R0YZS11",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493004PFHUPOR1PWN79",
+      "child_lei": "54930027MFOS1R0YZS11",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "33580042H8NCOTVDDR84",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-OH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "33580042H8NCOTVDDR84",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-OH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "2549006FEPBCMW266H93",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-OH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5299001XWB5V3B5IPN93",
+      "child_lei": "2549006FEPBCMW266H93",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-OH",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D0WZR1VI2QGB24",
+      "child_lei": "529900Z6WVU8JWAGRM34",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D0WZR1VI2QGB24",
+      "child_lei": "529900Z6WVU8JWAGRM34",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "QBKYQD0ODE7DC7PDIN91",
+      "child_lei": "38BB4H4JFWMQTNI3W911",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "QBKYQD0ODE7DC7PDIN91",
+      "child_lei": "38BB4H4JFWMQTNI3W911",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "38BB4H4JFWMQTNI3W911",
+      "child_lei": "MT3LDT79700QIEG45M48",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300KTTIRAOGXCRV69",
+      "child_lei": "549300ZT8RQ5VK10E643",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300KTTIRAOGXCRV69",
+      "child_lei": "549300ZT8RQ5VK10E643",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZT8RQ5VK10E643",
+      "child_lei": "25490023HKGD2QUA4F16",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "5493005UAF5R2W4DL323",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "5493005UAF5R2W4DL323",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300TKT1JP4UN6YN06",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300TKT1JP4UN6YN06",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300CT6WFJXW2YG540",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493005IZFE4VJLLYG84",
+      "child_lei": "549300CT6WFJXW2YG540",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "549300EYPX77JH2ICQ48",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "549300EYPX77JH2ICQ48",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "RU4H3CU9QRX4TIC35822",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "529900L7KB2N9KXCDI76",
+      "child_lei": "RU4H3CU9QRX4TIC35822",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "254900LH3N0EGB1LQ203",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "254900LH3N0EGB1LQ203",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "5493000GP0Y6NM6XGJ56",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "5493000GP0Y6NM6XGJ56",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300ZZMVC73C3T5608",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300ZZMVC73C3T5608",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300PTE27TUVKM7578",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300CPPSWYFZGV4E38",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300DVU9VW3416N810",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300NY6OZM39SO6475",
+      "child_lei": "894500KLOKHY6FFDSA39",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "894500KLOKHY6FFDSA39",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300NY6OZM39SO6475",
+      "child_lei": "549300JPRACCHT4C0232",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "B3BS7ACMDUWISF18KY76",
+      "child_lei": "549300JPRACCHT4C0232",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EVO6UZDGY05787",
+      "child_lei": "549300XTL5YGZD1RKS27",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "KY",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300XTL5YGZD1RKS27",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300EVO6UZDGY05787",
+      "child_lei": "549300SPVW6G4W4Y9O76",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "KY",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300DUOO1KXOHPM605",
+      "child_lei": "549300SPVW6G4W4Y9O76",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-NV",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300RZOCHHSDHO6Y44",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300RZOCHHSDHO6Y44",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300QLDS937N6WKM57",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300QLDS937N6WKM57",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300HL8ESACQCOXL24",
+      "child_lei": "549300ZRRCTNB91PR748",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300ZRRCTNB91PR748",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300BO7WJYLJNCIE65",
+      "child_lei": "549300FQ5KXL2V5LNT65",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300FQ5KXL2V5LNT65",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300358YQNJNPWC886",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300XCZRSK74RU1479",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "SE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300RDU9Z76QOPLZ89",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "NL",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300YQQAONVZ0VTZ32",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "KR",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300BO7WJYLJNCIE65",
+      "child_lei": "549300CTC73UD7MM5758",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300CTC73UD7MM5758",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493009OW3NVRQETKP25",
+      "child_lei": "549300GA2S032QXTVL07",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "BE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300GA2S032QXTVL07",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300D72Y8XVM7DOW45",
+      "child_lei": "5493001ZE72S70KKJE37",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "HK",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "5493001ZE72S70KKJE37",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493001ZE72S70KKJE37",
+      "child_lei": "549300MC87HVK7MGJJ18",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493001ZE72S70KKJE37",
+      "child_lei": "54930048O7L2IYCFTJ19",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "38BB4H4JFWMQTNI3W911",
+      "child_lei": "MT3LDT79700QIEG45M48",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "QBKYQD0ODE7DC7PDIN91",
+      "child_lei": "MT3LDT79700QIEG45M48",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZT8RQ5VK10E643",
+      "child_lei": "25490023HKGD2QUA4F16",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300KTTIRAOGXCRV69",
+      "child_lei": "25490023HKGD2QUA4F16",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300PTE27TUVKM7578",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300PTE27TUVKM7578",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300CPPSWYFZGV4E38",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300CPPSWYFZGV4E38",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300ZZMVC73C3T5608",
+      "child_lei": "549300DVU9VW3416N810",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CA-BC",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493002H8U24DJXQ4886",
+      "child_lei": "549300DVU9VW3416N810",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "CA",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300358YQNJNPWC886",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300358YQNJNPWC886",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300XCZRSK74RU1479",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300XCZRSK74RU1479",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300RDU9Z76QOPLZ89",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300RDU9Z76QOPLZ89",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FQ5KXL2V5LNT65",
+      "child_lei": "549300YQQAONVZ0VTZ32",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300YQQAONVZ0VTZ32",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493001ZE72S70KKJE37",
+      "child_lei": "549300MC87HVK7MGJJ18",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "549300MC87HVK7MGJJ18",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300MC87HVK7MGJJ18",
+      "child_lei": "54930068P3OSWFCUHH28",
+      "edge_type": "hasDirectChild",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "5493001ZE72S70KKJE37",
+      "child_lei": "54930048O7L2IYCFTJ19",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "54930048O7L2IYCFTJ19",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300MC87HVK7MGJJ18",
+      "child_lei": "54930068P3OSWFCUHH28",
+      "edge_type": "hasDirectParent",
+      "jurisdiction": "CN",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    },
+    {
+      "parent_lei": "549300FHJQTDPPN41627",
+      "child_lei": "54930068P3OSWFCUHH28",
+      "edge_type": "hasUltimateParent",
+      "jurisdiction": "US-DE",
+      "provenance": "public",
+      "source": "GLEIF RR-CDF Level 2 relationship API"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "source": "warn",
+  "description": "State WARN Act layoff notices \u2014 TX Socrata, CA XLSX + PDF",
+  "licence": "US state government work, public",
+  "fetches": [
+    {
+      "url": "https://data.texas.gov/resource/8w53-c4f6.json?$limit=50000",
+      "path": "sources/warn/tx-warn.json",
+      "retrieved_at": "2026-08-20T23:05:32+00:00",
+      "sha256": "cdfa5c5ee1b0eeb006599e5e4df0c66289a7b85b8c4e751cbd356908448223f6",
+      "bytes": 661476,
+      "http_status": 200,
+      "content_type": "application/json;charset=utf-8",
+      "notes": ""
+    },
+    {
+      "url": "https://edd.ca.gov/siteassets/files/jobs_and_training/warn/warn_report1.xlsx",
+      "path": "sources/warn/warn_report1.xlsx",
+      "retrieved_at": "2026-08-20T23:05:32+00:00",
+      "sha256": "0fdffa0e9e41210e2a03484fe84e62a34e4468be3ec89aae608ab735f9cc0258",
+      "bytes": 45498,
+      "http_status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "notes": ""
+    },
+    {
+      "url": "https://edd.ca.gov/siteassets/files/jobs_and_training/warn/warn-report-for-7-1-2024-to-06-30-2025.pdf",
+      "path": "sources/warn/warn-report-for-7-1-2024-to-06-30-2025.pdf",
+      "retrieved_at": "2026-08-20T23:05:32+00:00",
+      "sha256": "4bfe3ff5201d3f2d0a6cfb8dea6ae22f818f2f14a162c6914076c13e5cb1ca57",
+      "bytes": 742949,
+      "http_status": 200,
+      "content_type": "application/pdf",
+      "notes": ""
+    },
+    {
+      "url": "https://edd.ca.gov/siteassets/files/jobs_and_training/warn/warn-report-for-7-1-25-to-6-30-26.pdf",
+      "path": "sources/warn/warn-report-for-7-1-25-to-6-30-26.pdf",
+      "retrieved_at": "2026-08-20T23:05:33+00:00",
+      "sha256": "c4239543ffcf87e406005c99b2282f757cbd0e4f7b102f3ea4bdaa33aeabc4df",
+      "bytes": 754005,
+      "http_status": 200,
+      "content_type": "application/pdf",
+      "notes": ""
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.DS_Store
+00-dataprep/ccf-estate-bundle.tar
+._.DS_Store
+02-overview/Engineering_the_Defensible_Agent.mp4
+._*
+._*
+
+# Local verification environments and generated demonstration evidence
+.venv/
+__pycache__/
+.pytest_cache/
+examples/agent-skills-covenant-review/output/

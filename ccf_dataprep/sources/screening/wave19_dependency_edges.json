@@ -1,0 +1,42 @@
+{
+  "analyst": "BKR011",
+  "provenance": "synthetic — engineered",
+  "edges": [
+    {
+      "dependent_lei": "549300KTTIRAOGXCRV69",
+      "dependent_name": "Vertiv Holdings Co",
+      "depended_lei": "549300EQD0ZXRSMG3549",
+      "depended_name": "TransDigm Group Inc",
+      "basis": "shared funding — Vertiv's committed-but-undrawn revolver sits within a lending syndicate whose largest capacity provider also leads TransDigm's term loan B; the desk's note treats a liquidity shock at that shared lender as a common driver of available capacity for both names (depended-upon: TransDigm Group Inc, 549300EQD0ZXRSMG3549).",
+      "asserted_on": "2026-05-14",
+      "job": "job1 (new group) + job2 (changes binding limit)"
+    },
+    {
+      "dependent_lei": "529900L7KB2N9KXCDI76",
+      "dependent_name": "The Container Store Group, Inc.",
+      "depended_lei": "5493000C2SGNC7ZN3242",
+      "depended_name": "Griffon Corporation",
+      "basis": "supplier concentration — Container Store's private-label closet and shelving line sources a material share of components from Griffon's ClosetMaid/home-storage segment; the coverage desk's note treats continuity of that single supplier as a point of failure for a same-day-available SKU range (depended-upon: Griffon Corporation, 5493000C2SGNC7ZN3242).",
+      "asserted_on": "2026-06-02",
+      "job": "job1 (new group) + job3 (SE, AU, US)"
+    },
+    {
+      "dependent_lei": "54930022CZO1N2UGVW07",
+      "dependent_name": "Super Micro Computer, Inc.",
+      "depended_lei": "549300WRECW11X94UB57",
+      "depended_name": "Extreme Networks, Inc.",
+      "basis": "supplier concentration — Super Micro's qualified rack-scale AI/GPU reference architecture designates Extreme Networks' switch fabric as the sole qualified network interconnect for that platform SKU; the desk's vendor-concentration note flags that single-sourced component as a shipment-risk driver (depended-upon: Extreme Networks, Inc., 549300WRECW11X94UB57).",
+      "asserted_on": "2026-07-08",
+      "job": "job1 (new group) + job3 (NL, IN, US)"
+    },
+    {
+      "dependent_lei": "5493000S8QXWHLIXDP75",
+      "dependent_name": "The Hain Celestial Group, Inc.",
+      "depended_lei": "G8NWFN4YP7CR6FOP4886",
+      "depended_name": "Tupperware Brands Corporation",
+      "basis": "supplier concentration — a material share of Hain Celestial's on-the-go snack and beverage SKUs ship in Tupperware-manufactured reusable packaging under a single-source packaging arrangement the coverage desk has flagged (depended-upon: Tupperware Brands Corporation, G8NWFN4YP7CR6FOP4886).",
+      "asserted_on": "2026-07-29",
+      "job": "job1 (new group) + job3 (GB, IN, US)"
+    }
+  ]
+}

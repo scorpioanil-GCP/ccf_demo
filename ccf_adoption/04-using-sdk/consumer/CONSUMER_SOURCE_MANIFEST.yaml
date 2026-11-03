@@ -1,0 +1,72 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+phase: 4A
+name: Consumer SDK path
+status: READY_FOR_REVIEW
+
+ccf_code:
+  repository: drcastillo/ccf_code
+  branch: main
+  commit: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+  approved_state: "CP-13 gated and merged; rung 14 next"
+
+consumer_surface:
+  package: src/ccf/client
+  exported_names:
+    - BindingError
+    - ProductClient
+    - Result
+    - TransportError
+  evidence:
+    package_surface: src/ccf/client/__init__.py
+    product_client: src/ccf/client/client.py
+    result: src/ccf/client/result.py
+    binding: src/ccf/client/binding.py
+
+learning_examples:
+  sdk_client:
+    path: examples/hw1-companies-over-revenue
+    reader_file: examples/hw1-companies-over-revenue/consume.py
+    teaches:
+      - one product class
+      - one question
+      - governed refusal branch
+      - debt
+      - content address
+      - replay reference
+      - expiry
+      - binding-independent caller logic
+  mcp_harness_neutral:
+    path: examples/hw1-harness-clients
+    reader_files:
+      - examples/hw1-harness-clients/client_adk.py
+      - examples/hw1-harness-clients/client_anthropic.py
+      - examples/hw1-harness-clients/client_langgraph.py
+    teaches:
+      - same product
+      - same MCP door
+      - harness as variable
+      - no ccf import in reader-visible harness clients
+      - MCP request wire shape is a documentation obligation
+
+consumer_rules:
+  - A governed refusal is a Result value, not a transport exception.
+  - Producer-side deployment, manifest, graph, Control Plane, and assembly types stay outside the beginner consumer path.
+  - Binding resolution is explicit binding, then CCF_BINDING, then BindingError.
+  - Transport choice is operational; product question is application logic.
+  - Served-only fields are guarded on refused results.
+  - replay_ref may be readable on either served or refused outcomes when emitted by the producer.
+  - Current shipped adapters resolve as_of=None client-side; served lineage records the graph snapshot actually used.
+  - MCP-capable harnesses can consume through the door without importing CCF in the harness-side client program.
+
+historical_note:
+  phase_1_sdk_baseline: 1a04e565504f712350b51777cfe398be46d5e157
+  reason_for_new_baseline: "Phase 4A started after CP-13 merged to approved main; tutorial docs describe the approved SDK users would encounter now."

@@ -1,0 +1,782 @@
+{
+  "source": "https://spec.edmcouncil.org/fibo/ontology/ (Production)",
+  "modules_fetched": [
+    "LOAN/LoansGeneral/Loans",
+    "LOAN/LoansGeneral/LoanRestructuring",
+    "LOAN/SpecificLoans/CreditCardLoans",
+    "LOAN/RealEstateLoans/RealEstateLoansGeneral",
+    "FBC/ProductsAndServices/FinancialProductsAndServices",
+    "FBC/ProductsAndServices/ClientsAndAccounts",
+    "FBC/DebtAndEquities/Debt",
+    "FBC/DebtAndEquities/CreditEvents",
+    "FND/Agreements/Contracts",
+    "FND/Agreements/Agreements",
+    "SEC/Debt/DebtInstruments",
+    "SEC/Securities/SecuritiesIssuance",
+    "DER/DerivativesContracts/ContractualProducts"
+  ],
+  "classes": [
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/BilateralNettingProvision",
+      "local_name": "BilateralNettingProvision",
+      "label": "bilateral netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Borrower",
+      "local_name": "Borrower",
+      "label": "borrower",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Debtor",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractParty",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/ProductsAndServices/Customer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/BorrowerIdentificationScheme",
+      "local_name": "BorrowerIdentificationScheme",
+      "label": "borrower identification scheme",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/PartyRoleIdentificationScheme"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/BorrowerIdentifier",
+      "local_name": "BorrowerIdentifier",
+      "label": "borrower identifier",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Parties/Parties/PartyRoleIdentifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/BreachOfCovenant",
+      "local_name": "BreachOfCovenant",
+      "label": "breach of covenant",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/Occurrences/OccurrenceKind"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/CloseOutNettingProvision",
+      "local_name": "CloseOutNettingProvision",
+      "label": "close-out netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Collateral",
+      "local_name": "Collateral",
+      "label": "collateral",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Undergoer"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/CollateralAgreement",
+      "local_name": "CollateralAgreement",
+      "label": "collateral agreement",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/WrittenContract"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CollateralValueAsOfDate",
+      "local_name": "CollateralValueAsOfDate",
+      "label": "collateral value as of date",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Assessments/AppraisedValue"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/CollateralizedLoan",
+      "local_name": "CollateralizedLoan",
+      "label": "collateralized loan",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/SecuredLoan"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/CombinedLoanToValueRatio",
+      "local_name": "CombinedLoanToValueRatio",
+      "label": "combined loan-to-value ratio",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/PercentageMonetaryAmount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Agreements/Commitment",
+      "local_name": "Commitment",
+      "label": "commitment",
+      "module": "FND/Agreements/Agreements",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Situation"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Agreements/CommitmentAtLarge",
+      "local_name": "CommitmentAtLarge",
+      "label": "commitment at large",
+      "module": "FND/Agreements/Agreements",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Agreements/UnilateralCommitment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CommittedCreditFacility",
+      "local_name": "CommittedCreditFacility",
+      "label": "committed credit facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditFacility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CommittedSubFacility",
+      "local_name": "CommittedSubFacility",
+      "label": "committed sub-facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/SubFacility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractPrincipal",
+      "local_name": "ContractPrincipal",
+      "label": "contract principal",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractualCommitment",
+      "local_name": "ContractualCommitment",
+      "label": "contractual commitment",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractualElement"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreement",
+      "local_name": "CreditAgreement",
+      "label": "credit agreement",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/WrittenContract"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreementRepaidAtMaturity",
+      "local_name": "CreditAgreementRepaidAtMaturity",
+      "label": "credit agreement repaid at maturity",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreement"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreementRepaidPeriodically",
+      "local_name": "CreditAgreementRepaidPeriodically",
+      "label": "credit agreement repaid periodically",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreement"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditFacility",
+      "local_name": "CreditFacility",
+      "label": "credit facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreementRepaidPeriodically"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/CrossDefaultProvision",
+      "local_name": "CrossDefaultProvision",
+      "label": "cross default provision",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ConditionPrecedent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/DefaultEvent",
+      "local_name": "DefaultEvent",
+      "label": "default event",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/ObligationSpecificCreditEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/FailureToPayPrincipal",
+      "local_name": "FailureToPayPrincipal",
+      "label": "failure to pay principal",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/FailureToPay"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIssuance/FirmCommitmentOffering",
+      "local_name": "FirmCommitmentOffering",
+      "label": "firm commitment offering",
+      "module": "SEC/Securities/SecuritiesIssuance",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIssuance/SecuritiesOffering"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/GuaranteedLoan",
+      "local_name": "GuaranteedLoan",
+      "label": "guaranteed loan",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/SecuredLoan"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/InstallmentDefault",
+      "local_name": "InstallmentDefault",
+      "label": "installment default",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/DefaultEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/InterestObligationInLightOfDefault",
+      "local_name": "InterestObligationInLightOfDefault",
+      "label": "interest obligation in light of default",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Law/LegalCapacity/ContingentObligation",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Law/LegalCapacity/ContractualObligation"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Lender",
+      "local_name": "Lender",
+      "label": "lender",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Creditor",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractParty"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/LenderLienPosition",
+      "local_name": "LenderLienPosition",
+      "label": "lender lien position",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Classifiers/Classifier"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/Loan",
+      "local_name": "Loan",
+      "label": "loan",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditAgreementRepaidPeriodically",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LoanOrCreditAccount",
+      "local_name": "LoanOrCreditAccount",
+      "label": "loan or credit account",
+      "module": "FBC/ProductsAndServices/ClientsAndAccounts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/LoanPaymentSchedule",
+      "local_name": "LoanPaymentSchedule",
+      "label": "loan payment schedule",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/PaymentsAndSchedules/PaymentSchedule"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/LoanSpecificCustomerAccount",
+      "local_name": "LoanSpecificCustomerAccount",
+      "label": "loan-specific customer account",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/LoanOrCreditAccount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/LoanToValueRatio",
+      "local_name": "LoanToValueRatio",
+      "label": "loan-to-value ratio",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/PercentageMonetaryAmount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/MaturityExtension",
+      "local_name": "MaturityExtension",
+      "label": "maturity extension",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/ObligationSpecificCreditEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/MultilateralNettingProvision",
+      "local_name": "MultilateralNettingProvision",
+      "label": "multilateral netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision",
+      "local_name": "NettingProvision",
+      "label": "netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractualCommitment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/NonPhysicalCollateral",
+      "local_name": "NonPhysicalCollateral",
+      "label": "non-physical collateral",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Collateral"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NovationNettingProvision",
+      "local_name": "NovationNettingProvision",
+      "label": "novation netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/ObligationDefault",
+      "local_name": "ObligationDefault",
+      "label": "obligation default",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/DefaultEvent",
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/ObligationSpecificCreditEvent"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/PaymentNettingProvision",
+      "local_name": "PaymentNettingProvision",
+      "label": "payment netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PhysicalCollateral",
+      "local_name": "PhysicalCollateral",
+      "label": "physical collateral",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Collateral"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Principal",
+      "local_name": "Principal",
+      "label": "principal",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://www.omg.org/spec/Commons/Classifiers/Aspect"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/PrincipalOnlyStrip",
+      "local_name": "PrincipalOnlyStrip",
+      "label": "principal-only strip",
+      "module": "SEC/Debt/DebtInstruments",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/Strip"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PrincipalPayment",
+      "local_name": "PrincipalPayment",
+      "label": "principal payment",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/PaymentsAndSchedules/Payment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PrincipalPaymentSchedule",
+      "local_name": "PrincipalPaymentSchedule",
+      "label": "principal payment schedule",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/ProjectedContractEventSchedule",
+        "https://spec.edmcouncil.org/fibo/ontology/FND/ProductsAndServices/PaymentsAndSchedules/PaymentSchedule"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PrincipalRepaymentTerms",
+      "local_name": "PrincipalRepaymentTerms",
+      "label": "principal repayment terms",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/DebtTerms"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/RetailCreditFacility",
+      "local_name": "RetailCreditFacility",
+      "label": "retail credit facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CommittedCreditFacility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/SecuredLoan",
+      "local_name": "SecuredLoan",
+      "label": "secured loan",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/Loan"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/SettlementNettingProvision",
+      "local_name": "SettlementNettingProvision",
+      "label": "settlement netting provision",
+      "module": "FND/Agreements/Contracts",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/SubFacility",
+      "local_name": "SubFacility",
+      "label": "sub-facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/WrittenContract"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/TotalOutstandingPrincipal",
+      "local_name": "TotalOutstandingPrincipal",
+      "label": "total outstanding principal",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Principal"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/UncommittedCreditFacility",
+      "local_name": "UncommittedCreditFacility",
+      "label": "uncommitted credit facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/CreditFacility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/UncommittedSubFacility",
+      "local_name": "UncommittedSubFacility",
+      "label": "uncommitted sub-facility",
+      "module": "FBC/DebtAndEquities/Debt",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/SubFacility"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Agreements/UnilateralCommitment",
+      "local_name": "UnilateralCommitment",
+      "label": "unilateral commitment",
+      "module": "FND/Agreements/Agreements",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Agreements/Commitment"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/UnsecuredLoan",
+      "local_name": "UnsecuredLoan",
+      "label": "unsecured loan",
+      "module": "LOAN/LoansGeneral/Loans",
+      "subclass_of": [
+        "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/Loan"
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasBorrower",
+      "local_name": "hasBorrower",
+      "label": "has borrower",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Borrower"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/hasDefaultInterestCompoundingBasis",
+      "local_name": "hasDefaultInterestCompoundingBasis",
+      "label": "has default interest compounding basis",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/InterestObligationInLightOfDefault"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/DatePeriod"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/hasDefaultLotSize",
+      "local_name": "hasDefaultLotSize",
+      "label": "has default lot size",
+      "module": "SEC/Debt/DebtInstruments",
+      "kind": "DatatypeProperty",
+      "domain": [],
+      "range": [
+        "http://www.w3.org/2001/XMLSchema#decimal"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/hasDefaultThresholdAmount",
+      "local_name": "hasDefaultThresholdAmount",
+      "label": "has default threshold amount",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/MonetaryAmount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasInitialPrincipalPaymentDate",
+      "local_name": "hasInitialPrincipalPaymentDate",
+      "label": "has initial principal payment date",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/Date"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasLender",
+      "local_name": "hasLender",
+      "label": "has lender",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Lender"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/hasLoanBalance",
+      "local_name": "hasLoanBalance",
+      "label": "has loan balance",
+      "module": "LOAN/LoansGeneral/Loans",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasMaturityDate",
+      "local_name": "hasMaturityDate",
+      "label": "has maturity date",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDate"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasOriginalTimeToMaturity",
+      "local_name": "hasOriginalTimeToMaturity",
+      "label": "has time to maturity",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/ExplicitDuration"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasPrincipal",
+      "local_name": "hasPrincipal",
+      "label": "has principal",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Principal"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/LOAN/LoansGeneral/Loans/hasPrincipalAmount",
+      "local_name": "hasPrincipalAmount",
+      "label": "has principal amount",
+      "module": "LOAN/LoansGeneral/Loans",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/MonetaryAmount"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/hasPrincipalParty",
+      "local_name": "hasPrincipalParty",
+      "label": "has principal party",
+      "module": "FND/Agreements/Contracts",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/Contract"
+      ],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/ContractPrincipal"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasPrincipalPaymentDay",
+      "local_name": "hasPrincipalPaymentDay",
+      "label": "has principal payment day",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/RecurrenceInterval"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasPrincipalPaymentFrequency",
+      "local_name": "hasPrincipalPaymentFrequency",
+      "label": "has principal payment frequency",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/RecurrenceInterval"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/hasPrincipalRepaymentDate",
+      "local_name": "hasPrincipalRepaymentDate",
+      "label": "has principal repayment date",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/PrincipalRepaymentTerms"
+      ],
+      "range": [
+        "https://www.omg.org/spec/Commons/DatesAndTimes/Date"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/hasRelativePriceAtMaturity",
+      "local_name": "hasRelativePriceAtMaturity",
+      "label": "has relative price at maturity",
+      "module": "SEC/Debt/DebtInstruments",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/RelativePrice"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/isCollateralizationOf",
+      "local_name": "isCollateralizationOf",
+      "label": "is collateralization of",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Collateral"
+      ],
+      "range": []
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/isCollateralizedBy",
+      "local_name": "isCollateralizedBy",
+      "label": "is collateralized by",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [],
+      "range": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Collateral"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/isDefaultInterestApplicable",
+      "local_name": "isDefaultInterestApplicable",
+      "label": "is default interest applicable",
+      "module": "FBC/DebtAndEquities/CreditEvents",
+      "kind": "DatatypeProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditEvents/InterestObligationInLightOfDefault"
+      ],
+      "range": [
+        "http://www.w3.org/2001/XMLSchema#boolean"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/isNettingAutomatic",
+      "local_name": "isNettingAutomatic",
+      "label": "is netting automatic",
+      "module": "FND/Agreements/Contracts",
+      "kind": "DatatypeProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/NettingProvision"
+      ],
+      "range": [
+        "http://www.w3.org/2001/XMLSchema#boolean"
+      ]
+    },
+    {
+      "iri": "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/isPrincipalOf",
+      "local_name": "isPrincipalOf",
+      "label": "is principal of",
+      "module": "FBC/DebtAndEquities/Debt",
+      "kind": "ObjectProperty",
+      "domain": [
+        "https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/Principal"
+      ],
+      "range": []
+    }
+  ]
+}

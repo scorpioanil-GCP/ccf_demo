@@ -1,0 +1,6020 @@
+{
+ "k_anonymity": 20,
+ "dob_band_years": 5,
+ "observations_dropped_below_k": {
+  "structural": 220,
+  "joint_nationality_dob": 8321,
+  "natures_of_control": 4486,
+  "country_of_residence": 1316,
+  "dob_bands": 14,
+  "multiplicity": 80
+ },
+ "source_records_scanned": 500000,
+ "individual_shapes_used": 461690,
+ "structural": [
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 221415
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 174494
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 25851
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 16272
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 6071
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 4790
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 3742
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 3081
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 1121
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 788
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 655
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 421
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 405
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 2,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 348
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 280
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 277
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 253
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": true,
+   "count": 164
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 2,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 145
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 127
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 122
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": true,
+   "count": 122
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 111
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": true,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 81
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": true,
+   "has_diacritics": false,
+   "count": 72
+  },
+  {
+   "has_title": true,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 3,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 57
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": true,
+   "count": 38
+  },
+  {
+   "has_title": true,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 2,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 35
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 3,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 33
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": true,
+   "count": 29
+  },
+  {
+   "has_title": false,
+   "has_middle": false,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 25
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": true,
+   "forename_tokens": 1,
+   "surname_hyphenated": false,
+   "surname_has_particle": false,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 24
+  },
+  {
+   "has_title": false,
+   "has_middle": true,
+   "middle_is_initial": false,
+   "forename_tokens": 1,
+   "surname_hyphenated": true,
+   "surname_has_particle": true,
+   "surname_has_apostrophe": false,
+   "has_diacritics": false,
+   "count": 21
+  }
+ ],
+ "joint_nationality_dob": [
+  {
+   "nationality": "British",
+   "dob_band": 1965,
+   "count": 48217
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1970,
+   "count": 47238
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1975,
+   "count": 42594
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1960,
+   "count": 41625
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1980,
+   "count": 40765
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1985,
+   "count": 32452
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1955,
+   "count": 29490
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1990,
+   "count": 21140
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1950,
+   "count": 18102
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1945,
+   "count": 11820
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1995,
+   "count": 9966
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1940,
+   "count": 5154
+  },
+  {
+   "nationality": "British",
+   "dob_band": 2000,
+   "count": 2282
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1935,
+   "count": 2069
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1980,
+   "count": 1549
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1965,
+   "count": 1545
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1985,
+   "count": 1543
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1970,
+   "count": 1539
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1985,
+   "count": 1492
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1980,
+   "count": 1440
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1975,
+   "count": 1344
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1960,
+   "count": 1272
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1980,
+   "count": 1152
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1980,
+   "count": 1141
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1990,
+   "count": 1129
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1980,
+   "count": 1117
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1985,
+   "count": 1105
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1975,
+   "count": 1095
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1990,
+   "count": 1038
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1985,
+   "count": 988
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1985,
+   "count": 968
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1955,
+   "count": 959
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1970,
+   "count": 901
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1965,
+   "count": 860
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1930,
+   "count": 808
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1975,
+   "count": 795
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1985,
+   "count": 791
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1975,
+   "count": 781
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1990,
+   "count": 753
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1975,
+   "count": 733
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1995,
+   "count": 721
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1980,
+   "count": 718
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1975,
+   "count": 712
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1960,
+   "count": 708
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1990,
+   "count": 665
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1995,
+   "count": 647
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1985,
+   "count": 633
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1980,
+   "count": 632
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1970,
+   "count": 631
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1990,
+   "count": 621
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1975,
+   "count": 619
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1965,
+   "count": 606
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1990,
+   "count": 604
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1950,
+   "count": 580
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1980,
+   "count": 535
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1985,
+   "count": 526
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1990,
+   "count": 525
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1970,
+   "count": 500
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1970,
+   "count": 490
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1965,
+   "count": 488
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1955,
+   "count": 468
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1995,
+   "count": 467
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1980,
+   "count": 465
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1980,
+   "count": 464
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1980,
+   "count": 461
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1985,
+   "count": 453
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1970,
+   "count": 451
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1995,
+   "count": 447
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1995,
+   "count": 430
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1970,
+   "count": 415
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1970,
+   "count": 412
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1945,
+   "count": 412
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1975,
+   "count": 411
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1960,
+   "count": 409
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1985,
+   "count": 393
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1980,
+   "count": 380
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1975,
+   "count": 376
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1975,
+   "count": 375
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1970,
+   "count": 372
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1985,
+   "count": 371
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1975,
+   "count": 367
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1950,
+   "count": 362
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1980,
+   "count": 362
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1985,
+   "count": 357
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1980,
+   "count": 354
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1985,
+   "count": 339
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1965,
+   "count": 336
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1960,
+   "count": 332
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1985,
+   "count": 331
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1990,
+   "count": 328
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1975,
+   "count": 327
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1980,
+   "count": 327
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1960,
+   "count": 321
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1965,
+   "count": 315
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1990,
+   "count": 311
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1965,
+   "count": 310
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1985,
+   "count": 309
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1975,
+   "count": 309
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1980,
+   "count": 304
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1980,
+   "count": 294
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1990,
+   "count": 294
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1975,
+   "count": 291
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1975,
+   "count": 289
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1970,
+   "count": 282
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1970,
+   "count": 282
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1970,
+   "count": 273
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1980,
+   "count": 270
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1975,
+   "count": 269
+  },
+  {
+   "nationality": "English",
+   "dob_band": 2000,
+   "count": 267
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1995,
+   "count": 267
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1965,
+   "count": 266
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1985,
+   "count": 264
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1925,
+   "count": 260
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1965,
+   "count": 260
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1955,
+   "count": 259
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1955,
+   "count": 258
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1960,
+   "count": 257
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1970,
+   "count": 253
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1965,
+   "count": 250
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1985,
+   "count": 250
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1965,
+   "count": 248
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1990,
+   "count": 248
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1975,
+   "count": 244
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1990,
+   "count": 244
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1980,
+   "count": 242
+  },
+  {
+   "nationality": "British",
+   "dob_band": 2015,
+   "count": 241
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1955,
+   "count": 238
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1990,
+   "count": 238
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1965,
+   "count": 237
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1970,
+   "count": 237
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1965,
+   "count": 225
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1975,
+   "count": 223
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1985,
+   "count": 223
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1975,
+   "count": 222
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1985,
+   "count": 222
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1990,
+   "count": 220
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1960,
+   "count": 219
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1975,
+   "count": 219
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1970,
+   "count": 217
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1980,
+   "count": 216
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1970,
+   "count": 214
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1960,
+   "count": 213
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 2000,
+   "count": 213
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 2000,
+   "count": 211
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1970,
+   "count": 210
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1995,
+   "count": 208
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1980,
+   "count": 205
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1980,
+   "count": 203
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1975,
+   "count": 200
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1955,
+   "count": 198
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1990,
+   "count": 198
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1965,
+   "count": 198
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1985,
+   "count": 196
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1960,
+   "count": 194
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1975,
+   "count": 193
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1965,
+   "count": 191
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1985,
+   "count": 187
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1995,
+   "count": 185
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1940,
+   "count": 184
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1970,
+   "count": 184
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1970,
+   "count": 183
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1975,
+   "count": 181
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1975,
+   "count": 179
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1995,
+   "count": 178
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1965,
+   "count": 177
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1980,
+   "count": 175
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1980,
+   "count": 175
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1975,
+   "count": 173
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1945,
+   "count": 172
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1990,
+   "count": 171
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1975,
+   "count": 170
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1970,
+   "count": 168
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1980,
+   "count": 167
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1965,
+   "count": 166
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1975,
+   "count": 166
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1985,
+   "count": 166
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1995,
+   "count": 166
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1985,
+   "count": 166
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1970,
+   "count": 165
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1995,
+   "count": 161
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1980,
+   "count": 161
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1970,
+   "count": 159
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1980,
+   "count": 159
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1960,
+   "count": 159
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1990,
+   "count": 158
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1975,
+   "count": 158
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1985,
+   "count": 157
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1960,
+   "count": 155
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1990,
+   "count": 154
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1980,
+   "count": 151
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1970,
+   "count": 150
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1965,
+   "count": 150
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1970,
+   "count": 148
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1985,
+   "count": 148
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1945,
+   "count": 147
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1950,
+   "count": 146
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1955,
+   "count": 145
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1960,
+   "count": 145
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1970,
+   "count": 145
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1990,
+   "count": 145
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1985,
+   "count": 143
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1980,
+   "count": 141
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1970,
+   "count": 139
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1995,
+   "count": 139
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1955,
+   "count": 138
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1960,
+   "count": 138
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1970,
+   "count": 138
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1990,
+   "count": 138
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1950,
+   "count": 136
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1995,
+   "count": 135
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1985,
+   "count": 134
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 2000,
+   "count": 133
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1980,
+   "count": 130
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1965,
+   "count": 130
+  },
+  {
+   "nationality": "British",
+   "dob_band": 2005,
+   "count": 130
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1990,
+   "count": 124
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1965,
+   "count": 123
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1970,
+   "count": 123
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1950,
+   "count": 123
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1960,
+   "count": 122
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1965,
+   "count": 120
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1985,
+   "count": 117
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1960,
+   "count": 117
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 2000,
+   "count": 117
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1980,
+   "count": 116
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1990,
+   "count": 116
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1985,
+   "count": 116
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1980,
+   "count": 115
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1960,
+   "count": 113
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1955,
+   "count": 113
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1970,
+   "count": 112
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1965,
+   "count": 112
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1995,
+   "count": 112
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1995,
+   "count": 112
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1990,
+   "count": 111
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1985,
+   "count": 111
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1955,
+   "count": 110
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1950,
+   "count": 109
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1975,
+   "count": 109
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1980,
+   "count": 108
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1990,
+   "count": 108
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1980,
+   "count": 107
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1980,
+   "count": 107
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1980,
+   "count": 107
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1955,
+   "count": 106
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1985,
+   "count": 104
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1965,
+   "count": 104
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1975,
+   "count": 103
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1970,
+   "count": 103
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1980,
+   "count": 103
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1975,
+   "count": 103
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1975,
+   "count": 101
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1970,
+   "count": 101
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1985,
+   "count": 100
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1985,
+   "count": 100
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1980,
+   "count": 100
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1965,
+   "count": 99
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1995,
+   "count": 99
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 2000,
+   "count": 99
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1990,
+   "count": 98
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1955,
+   "count": 98
+  },
+  {
+   "nationality": "Albanian",
+   "dob_band": 1985,
+   "count": 98
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1990,
+   "count": 98
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1995,
+   "count": 98
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1980,
+   "count": 97
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1985,
+   "count": 97
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1980,
+   "count": 96
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1990,
+   "count": 96
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1995,
+   "count": 96
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1965,
+   "count": 96
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1995,
+   "count": 95
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1975,
+   "count": 94
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1975,
+   "count": 93
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1960,
+   "count": 92
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1975,
+   "count": 92
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1970,
+   "count": 91
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1985,
+   "count": 91
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1970,
+   "count": 90
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1990,
+   "count": 90
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 2000,
+   "count": 90
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1985,
+   "count": 90
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1965,
+   "count": 88
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1960,
+   "count": 88
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1995,
+   "count": 88
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1950,
+   "count": 87
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1950,
+   "count": 87
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1970,
+   "count": 87
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1975,
+   "count": 87
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1980,
+   "count": 87
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1965,
+   "count": 86
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1960,
+   "count": 86
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1975,
+   "count": 86
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1960,
+   "count": 85
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1980,
+   "count": 85
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1955,
+   "count": 85
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1995,
+   "count": 85
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1960,
+   "count": 84
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1975,
+   "count": 84
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1970,
+   "count": 84
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1975,
+   "count": 84
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1985,
+   "count": 84
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1955,
+   "count": 84
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1965,
+   "count": 83
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1975,
+   "count": 83
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1970,
+   "count": 83
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1965,
+   "count": 82
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1955,
+   "count": 81
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1965,
+   "count": 81
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1975,
+   "count": 81
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1975,
+   "count": 80
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1990,
+   "count": 79
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1975,
+   "count": 79
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1960,
+   "count": 78
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1975,
+   "count": 78
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1945,
+   "count": 78
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1965,
+   "count": 78
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1955,
+   "count": 77
+  },
+  {
+   "nationality": "United Kingdom",
+   "dob_band": 1945,
+   "count": 77
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1985,
+   "count": 77
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1960,
+   "count": 76
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1965,
+   "count": 76
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1965,
+   "count": 76
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1985,
+   "count": 76
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1990,
+   "count": 76
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1940,
+   "count": 75
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1980,
+   "count": 75
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 2000,
+   "count": 75
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1960,
+   "count": 74
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1950,
+   "count": 74
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1985,
+   "count": 74
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1990,
+   "count": 74
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1965,
+   "count": 73
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1985,
+   "count": 73
+  },
+  {
+   "nationality": "Albanian",
+   "dob_band": 1980,
+   "count": 71
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1970,
+   "count": 70
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1960,
+   "count": 70
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1945,
+   "count": 70
+  },
+  {
+   "nationality": "British",
+   "dob_band": 1920,
+   "count": 70
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1980,
+   "count": 69
+  },
+  {
+   "nationality": "Albanian",
+   "dob_band": 1990,
+   "count": 69
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1990,
+   "count": 69
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1980,
+   "count": 69
+  },
+  {
+   "nationality": "Vietnamese",
+   "dob_band": 1990,
+   "count": 69
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1960,
+   "count": 68
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1965,
+   "count": 68
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1955,
+   "count": 68
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1960,
+   "count": 67
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1990,
+   "count": 67
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1975,
+   "count": 66
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1960,
+   "count": 66
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1955,
+   "count": 66
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1960,
+   "count": 65
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1980,
+   "count": 65
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1985,
+   "count": 65
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1985,
+   "count": 65
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1995,
+   "count": 65
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1970,
+   "count": 65
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1940,
+   "count": 64
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1965,
+   "count": 64
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1945,
+   "count": 61
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1970,
+   "count": 61
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1950,
+   "count": 61
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1940,
+   "count": 61
+  },
+  {
+   "nationality": "English",
+   "dob_band": 1935,
+   "count": 60
+  },
+  {
+   "nationality": "British",
+   "dob_band": 2020,
+   "count": 60
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1960,
+   "count": 60
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1985,
+   "count": 60
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1950,
+   "count": 59
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1995,
+   "count": 59
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1950,
+   "count": 58
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1975,
+   "count": 58
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1985,
+   "count": 58
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1985,
+   "count": 58
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1985,
+   "count": 56
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1960,
+   "count": 56
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1970,
+   "count": 55
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1970,
+   "count": 55
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1990,
+   "count": 55
+  },
+  {
+   "nationality": "Afghan",
+   "dob_band": 1990,
+   "count": 55
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1990,
+   "count": 55
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1955,
+   "count": 54
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1965,
+   "count": 54
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1975,
+   "count": 54
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1950,
+   "count": 54
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1970,
+   "count": 53
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1990,
+   "count": 53
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1975,
+   "count": 53
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1980,
+   "count": 53
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1965,
+   "count": 52
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1980,
+   "count": 52
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1970,
+   "count": 52
+  },
+  {
+   "nationality": "Vietnamese",
+   "dob_band": 1985,
+   "count": 52
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1970,
+   "count": 52
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1985,
+   "count": 51
+  },
+  {
+   "nationality": "Vietnamese",
+   "dob_band": 1995,
+   "count": 51
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1995,
+   "count": 51
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1990,
+   "count": 51
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1960,
+   "count": 50
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1945,
+   "count": 50
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1980,
+   "count": 50
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1960,
+   "count": 50
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1955,
+   "count": 50
+  },
+  {
+   "nationality": "Afghan",
+   "dob_band": 1985,
+   "count": 50
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1950,
+   "count": 49
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1970,
+   "count": 49
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1955,
+   "count": 49
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1940,
+   "count": 49
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1950,
+   "count": 48
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1955,
+   "count": 48
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1955,
+   "count": 48
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 1955,
+   "count": 48
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1990,
+   "count": 48
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1970,
+   "count": 47
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1960,
+   "count": 47
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1965,
+   "count": 46
+  },
+  {
+   "nationality": "Albanian",
+   "dob_band": 1975,
+   "count": 46
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1985,
+   "count": 46
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 2000,
+   "count": 46
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1990,
+   "count": 46
+  },
+  {
+   "nationality": "Afghan",
+   "dob_band": 1995,
+   "count": 46
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1970,
+   "count": 45
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1970,
+   "count": 45
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1950,
+   "count": 45
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1980,
+   "count": 45
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1995,
+   "count": 45
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1990,
+   "count": 44
+  },
+  {
+   "nationality": "Lithuanian",
+   "dob_band": 1960,
+   "count": 44
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1970,
+   "count": 44
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1995,
+   "count": 44
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1990,
+   "count": 43
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1955,
+   "count": 43
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1975,
+   "count": 43
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1980,
+   "count": 42
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 2000,
+   "count": 42
+  },
+  {
+   "nationality": "Thai",
+   "dob_band": 1980,
+   "count": 42
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1960,
+   "count": 42
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1975,
+   "count": 41
+  },
+  {
+   "nationality": "Irish",
+   "dob_band": 1935,
+   "count": 41
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1960,
+   "count": 41
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1995,
+   "count": 41
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1980,
+   "count": 41
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1990,
+   "count": 41
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1975,
+   "count": 41
+  },
+  {
+   "nationality": "Japanese",
+   "dob_band": 1975,
+   "count": 40
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1960,
+   "count": 40
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1945,
+   "count": 40
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1970,
+   "count": 40
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1950,
+   "count": 40
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1990,
+   "count": 40
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1955,
+   "count": 40
+  },
+  {
+   "nationality": "French",
+   "dob_band": 2000,
+   "count": 40
+  },
+  {
+   "nationality": "British",
+   "dob_band": 2010,
+   "count": 39
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1975,
+   "count": 39
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 2000,
+   "count": 39
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1945,
+   "count": 39
+  },
+  {
+   "nationality": "Albanian",
+   "dob_band": 1995,
+   "count": 39
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1960,
+   "count": 38
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1975,
+   "count": 38
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1980,
+   "count": 38
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1990,
+   "count": 38
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1985,
+   "count": 38
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1990,
+   "count": 38
+  },
+  {
+   "nationality": "Estonian",
+   "dob_band": 1985,
+   "count": 37
+  },
+  {
+   "nationality": "Japanese",
+   "dob_band": 1970,
+   "count": 37
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1985,
+   "count": 37
+  },
+  {
+   "nationality": "Syrian",
+   "dob_band": 1985,
+   "count": 37
+  },
+  {
+   "nationality": "Vietnamese",
+   "dob_band": 1980,
+   "count": 37
+  },
+  {
+   "nationality": "Romanian",
+   "dob_band": 1955,
+   "count": 37
+  },
+  {
+   "nationality": "Kenyan",
+   "dob_band": 1970,
+   "count": 37
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1985,
+   "count": 37
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1955,
+   "count": 36
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 1950,
+   "count": 36
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1965,
+   "count": 36
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1995,
+   "count": 36
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 2000,
+   "count": 36
+  },
+  {
+   "nationality": "Estonian",
+   "dob_band": 1980,
+   "count": 36
+  },
+  {
+   "nationality": "Australian",
+   "dob_band": 1945,
+   "count": 35
+  },
+  {
+   "nationality": "Nepalese",
+   "dob_band": 1980,
+   "count": 35
+  },
+  {
+   "nationality": "Polish",
+   "dob_band": 1950,
+   "count": 35
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1970,
+   "count": 35
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1955,
+   "count": 35
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1995,
+   "count": 35
+  },
+  {
+   "nationality": "Canadian",
+   "dob_band": 1945,
+   "count": 34
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1960,
+   "count": 34
+  },
+  {
+   "nationality": "Thai",
+   "dob_band": 1970,
+   "count": 34
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1990,
+   "count": 34
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1990,
+   "count": 34
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1990,
+   "count": 34
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1990,
+   "count": 34
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1955,
+   "count": 34
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1965,
+   "count": 34
+  },
+  {
+   "nationality": "Ukrainian",
+   "dob_band": 1960,
+   "count": 33
+  },
+  {
+   "nationality": "German",
+   "dob_band": 1935,
+   "count": 33
+  },
+  {
+   "nationality": "Syrian",
+   "dob_band": 1980,
+   "count": 33
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1960,
+   "count": 33
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1985,
+   "count": 33
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1965,
+   "count": 33
+  },
+  {
+   "nationality": "Nepalese",
+   "dob_band": 1985,
+   "count": 33
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1955,
+   "count": 33
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1970,
+   "count": 33
+  },
+  {
+   "nationality": "Chinese",
+   "dob_band": 1945,
+   "count": 32
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1955,
+   "count": 32
+  },
+  {
+   "nationality": "Croatian",
+   "dob_band": 1980,
+   "count": 32
+  },
+  {
+   "nationality": "Algerian",
+   "dob_band": 1995,
+   "count": 32
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1995,
+   "count": 32
+  },
+  {
+   "nationality": "Japanese",
+   "dob_band": 1960,
+   "count": 31
+  },
+  {
+   "nationality": "Croatian",
+   "dob_band": 1975,
+   "count": 31
+  },
+  {
+   "nationality": "Swedish",
+   "dob_band": 1995,
+   "count": 31
+  },
+  {
+   "nationality": "South African",
+   "dob_band": 1950,
+   "count": 31
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1975,
+   "count": 31
+  },
+  {
+   "nationality": "Israeli",
+   "dob_band": 1965,
+   "count": 31
+  },
+  {
+   "nationality": "American",
+   "dob_band": 1935,
+   "count": 30
+  },
+  {
+   "nationality": "Jamaican",
+   "dob_band": 1960,
+   "count": 30
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1990,
+   "count": 30
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1955,
+   "count": 30
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1980,
+   "count": 30
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1995,
+   "count": 30
+  },
+  {
+   "nationality": "Finnish",
+   "dob_band": 1975,
+   "count": 29
+  },
+  {
+   "nationality": "Malaysian",
+   "dob_band": 1990,
+   "count": 29
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1950,
+   "count": 29
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1955,
+   "count": 29
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1995,
+   "count": 29
+  },
+  {
+   "nationality": "Iranian",
+   "dob_band": 1965,
+   "count": 29
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1945,
+   "count": 28
+  },
+  {
+   "nationality": "Singaporean",
+   "dob_band": 1970,
+   "count": 28
+  },
+  {
+   "nationality": "Turkish",
+   "dob_band": 1955,
+   "count": 28
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 2000,
+   "count": 28
+  },
+  {
+   "nationality": "Ghanaian",
+   "dob_band": 1965,
+   "count": 28
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 1945,
+   "count": 28
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1995,
+   "count": 28
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1950,
+   "count": 27
+  },
+  {
+   "nationality": "Cypriot",
+   "dob_band": 1955,
+   "count": 27
+  },
+  {
+   "nationality": "Slovak",
+   "dob_band": 1965,
+   "count": 27
+  },
+  {
+   "nationality": "Dutch",
+   "dob_band": 2000,
+   "count": 27
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1995,
+   "count": 27
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 2000,
+   "count": 27
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1995,
+   "count": 27
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1965,
+   "count": 27
+  },
+  {
+   "nationality": "Colombian",
+   "dob_band": 1980,
+   "count": 27
+  },
+  {
+   "nationality": "Brazilian",
+   "dob_band": 1965,
+   "count": 27
+  },
+  {
+   "nationality": "Finnish",
+   "dob_band": 1980,
+   "count": 27
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1965,
+   "count": 27
+  },
+  {
+   "nationality": "New Zealander",
+   "dob_band": 1955,
+   "count": 26
+  },
+  {
+   "nationality": "Zimbabwean",
+   "dob_band": 1955,
+   "count": 26
+  },
+  {
+   "nationality": "Austrian",
+   "dob_band": 1990,
+   "count": 26
+  },
+  {
+   "nationality": "Lebanese",
+   "dob_band": 1975,
+   "count": 26
+  },
+  {
+   "nationality": "Spanish",
+   "dob_band": 2000,
+   "count": 26
+  },
+  {
+   "nationality": "Thai",
+   "dob_band": 1975,
+   "count": 26
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 1965,
+   "count": 25
+  },
+  {
+   "nationality": "Welsh",
+   "dob_band": 1945,
+   "count": 25
+  },
+  {
+   "nationality": "Slovenian",
+   "dob_band": 1980,
+   "count": 25
+  },
+  {
+   "nationality": "Pakistani",
+   "dob_band": 1950,
+   "count": 25
+  },
+  {
+   "nationality": "South Korean",
+   "dob_band": 1970,
+   "count": 25
+  },
+  {
+   "nationality": "Algerian",
+   "dob_band": 1985,
+   "count": 25
+  },
+  {
+   "nationality": "Mexican",
+   "dob_band": 1980,
+   "count": 25
+  },
+  {
+   "nationality": "French",
+   "dob_band": 1940,
+   "count": 25
+  },
+  {
+   "nationality": "Finnish",
+   "dob_band": 1985,
+   "count": 25
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1995,
+   "count": 25
+  },
+  {
+   "nationality": "Belarusian",
+   "dob_band": 1980,
+   "count": 24
+  },
+  {
+   "nationality": "Japanese",
+   "dob_band": 1965,
+   "count": 24
+  },
+  {
+   "nationality": "Indian",
+   "dob_band": 1940,
+   "count": 24
+  },
+  {
+   "nationality": "Kenyan",
+   "dob_band": 1975,
+   "count": 24
+  },
+  {
+   "nationality": "Japanese",
+   "dob_band": 1980,
+   "count": 24
+  },
+  {
+   "nationality": "Syrian",
+   "dob_band": 1990,
+   "count": 24
+  },
+  {
+   "nationality": "Kenyan",
+   "dob_band": 1980,
+   "count": 24
+  },
+  {
+   "nationality": "Cameroonian",
+   "dob_band": 1985,
+   "count": 24
+  },
+  {
+   "nationality": "Norwegian",
+   "dob_band": 1945,
+   "count": 24
+  },
+  {
+   "nationality": "South Korean",
+   "dob_band": 1975,
+   "count": 23
+  },
+  {
+   "nationality": "Kenyan",
+   "dob_band": 1965,
+   "count": 23
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 2000,
+   "count": 23
+  },
+  {
+   "nationality": "German",
+   "dob_band": 2000,
+   "count": 23
+  },
+  {
+   "nationality": "Filipino",
+   "dob_band": 1945,
+   "count": 23
+  },
+  {
+   "nationality": "Iraqi",
+   "dob_band": 1970,
+   "count": 23
+  },
+  {
+   "nationality": "Lebanese",
+   "dob_band": 1980,
+   "count": 22
+  },
+  {
+   "nationality": "Belgian",
+   "dob_band": 1950,
+   "count": 22
+  },
+  {
+   "nationality": "Saudi Arabian",
+   "dob_band": 1980,
+   "count": 22
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1985,
+   "count": 22
+  },
+  {
+   "nationality": "Kenyan",
+   "dob_band": 1985,
+   "count": 22
+  },
+  {
+   "nationality": "Hungarian",
+   "dob_band": 1955,
+   "count": 22
+  },
+  {
+   "nationality": "Singaporean",
+   "dob_band": 1975,
+   "count": 22
+  },
+  {
+   "nationality": "Nepalese",
+   "dob_band": 1995,
+   "count": 22
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1965,
+   "count": 22
+  },
+  {
+   "nationality": "Czech",
+   "dob_band": 1960,
+   "count": 22
+  },
+  {
+   "nationality": "Croatian",
+   "dob_band": 1970,
+   "count": 22
+  },
+  {
+   "nationality": "Hong Konger",
+   "dob_band": 1990,
+   "count": 22
+  },
+  {
+   "nationality": "Swiss",
+   "dob_band": 1950,
+   "count": 21
+  },
+  {
+   "nationality": "Italian",
+   "dob_band": 1935,
+   "count": 21
+  },
+  {
+   "nationality": "Northern Irish",
+   "dob_band": 1995,
+   "count": 21
+  },
+  {
+   "nationality": "Scottish",
+   "dob_band": 1940,
+   "count": 21
+  },
+  {
+   "nationality": "South Korean",
+   "dob_band": 1980,
+   "count": 21
+  },
+  {
+   "nationality": "Singaporean",
+   "dob_band": 1980,
+   "count": 21
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1945,
+   "count": 21
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 2000,
+   "count": 21
+  },
+  {
+   "nationality": "Syrian",
+   "dob_band": 1975,
+   "count": 21
+  },
+  {
+   "nationality": "Afghan",
+   "dob_band": 1980,
+   "count": 21
+  },
+  {
+   "nationality": "Egyptian",
+   "dob_band": 1995,
+   "count": 21
+  },
+  {
+   "nationality": "Thai",
+   "dob_band": 1985,
+   "count": 21
+  },
+  {
+   "nationality": "Uk",
+   "dob_band": 1955,
+   "count": 21
+  },
+  {
+   "nationality": "Danish",
+   "dob_band": 1950,
+   "count": 20
+  },
+  {
+   "nationality": "Portuguese",
+   "dob_band": 1945,
+   "count": 20
+  },
+  {
+   "nationality": "Tunisian",
+   "dob_band": 1985,
+   "count": 20
+  },
+  {
+   "nationality": "Sri Lankan",
+   "dob_band": 1995,
+   "count": 20
+  },
+  {
+   "nationality": "Moroccan",
+   "dob_band": 1970,
+   "count": 20
+  },
+  {
+   "nationality": "Bulgarian",
+   "dob_band": 1950,
+   "count": 20
+  },
+  {
+   "nationality": "Bangladeshi",
+   "dob_band": 1960,
+   "count": 20
+  },
+  {
+   "nationality": "Latvian",
+   "dob_band": 2000,
+   "count": 20
+  },
+  {
+   "nationality": "Nigerian",
+   "dob_band": 2000,
+   "count": 20
+  },
+  {
+   "nationality": "Russian",
+   "dob_band": 1950,
+   "count": 20
+  },
+  {
+   "nationality": "Finnish",
+   "dob_band": 1970,
+   "count": 20
+  },
+  {
+   "nationality": "Cameroonian",
+   "dob_band": 1980,
+   "count": 20
+  },
+  {
+   "nationality": "Greek",
+   "dob_band": 1950,
+   "count": 20
+  },
+  {
+   "nationality": "Mauritian",
+   "dob_band": 1975,
+   "count": 20
+  },
+  {
+   "nationality": "Algerian",
+   "dob_band": 1990,
+   "count": 20
+  }
+ ],
+ "natures_of_control": [
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 107894
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent"
+   ],
+   "count": 72319
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 63797
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent"
+   ],
+   "count": 48650
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 37458
+  },
+  {
+   "codes": [
+    "significant-influence-or-control"
+   ],
+   "count": 36327
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 21640
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent"
+   ],
+   "count": 7935
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 7565
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 4335
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors"
+   ],
+   "count": 4196
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 3657
+  },
+  {
+   "codes": [
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 3295
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-limited-liability-partnership"
+   ],
+   "count": 1859
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors"
+   ],
+   "count": 1847
+  },
+  {
+   "codes": [
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust"
+   ],
+   "count": 1817
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 1404
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-25-to-50-percent-limited-liability-partnership",
+    "voting-rights-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 1296
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 1070
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 1042
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 1027
+  },
+  {
+   "codes": [
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 942
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 934
+  },
+  {
+   "codes": [
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 855
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-trust"
+   ],
+   "count": 810
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 680
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 598
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 588
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 543
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 539
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 534
+  },
+  {
+   "codes": [
+    "voting-rights-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 519
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors"
+   ],
+   "count": 498
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 492
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-members-limited-liability-partnership",
+    "right-to-share-surplus-assets-25-to-50-percent-limited-liability-partnership",
+    "voting-rights-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 485
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust"
+   ],
+   "count": 409
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 372
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors"
+   ],
+   "count": 369
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 363
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 355
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 334
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 329
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 302
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 296
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 293
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "significant-influence-or-control"
+   ],
+   "count": 286
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-trust"
+   ],
+   "count": 265
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "significant-influence-or-control"
+   ],
+   "count": 244
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-members-limited-liability-partnership",
+    "right-to-share-surplus-assets-75-to-100-percent-limited-liability-partnership",
+    "voting-rights-75-to-100-percent-limited-liability-partnership"
+   ],
+   "count": 242
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 238
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 228
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 226
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 226
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control"
+   ],
+   "count": 218
+  },
+  {
+   "codes": [
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 216
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 212
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 196
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 196
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 196
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 188
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm"
+   ],
+   "count": 187
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 186
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 181
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-firm"
+   ],
+   "count": 180
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 175
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 173
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 172
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 169
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 169
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 166
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 164
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors-as-firm"
+   ],
+   "count": 161
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 150
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 149
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 148
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm"
+   ],
+   "count": 148
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 146
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 146
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 145
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 145
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 142
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-firm"
+   ],
+   "count": 140
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm"
+   ],
+   "count": 139
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 139
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control"
+   ],
+   "count": 138
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust"
+   ],
+   "count": 136
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 127
+  },
+  {
+   "codes": [
+    "part-right-to-share-surplus-assets-75-to-100-percent",
+    "right-to-appoint-and-remove-person",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 122
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 120
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-75-to-100-percent-limited-liability-partnership",
+    "voting-rights-75-to-100-percent-limited-liability-partnership"
+   ],
+   "count": 117
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-trust"
+   ],
+   "count": 115
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 111
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-firm-limited-liability-partnership",
+    "significant-influence-or-control-as-trust-limited-liability-partnership",
+    "significant-influence-or-control-limited-liability-partnership"
+   ],
+   "count": 108
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-members-limited-liability-partnership"
+   ],
+   "count": 107
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 105
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 105
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 102
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 102
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 100
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 97
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 95
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 91
+  },
+  {
+   "codes": [
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-trust"
+   ],
+   "count": 91
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 89
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 85
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 85
+  },
+  {
+   "codes": [
+    "voting-rights-75-to-100-percent-limited-liability-partnership"
+   ],
+   "count": 76
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 74
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 73
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 71
+  },
+  {
+   "codes": [
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 71
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "significant-influence-or-control",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors-as-trust"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 70
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 69
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 68
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-75-to-100-percent-limited-liability-partnership"
+   ],
+   "count": 66
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 66
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-members-limited-liability-partnership",
+    "right-to-share-surplus-assets-50-to-75-percent-limited-liability-partnership",
+    "voting-rights-50-to-75-percent-limited-liability-partnership"
+   ],
+   "count": 65
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 65
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 65
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-trust"
+   ],
+   "count": 64
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 62
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 61
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-50-to-75-percent-limited-liability-partnership",
+    "voting-rights-50-to-75-percent-limited-liability-partnership"
+   ],
+   "count": 61
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 60
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 59
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 58
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 58
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust"
+   ],
+   "count": 58
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent-as-firm"
+   ],
+   "count": 57
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 57
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 56
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 56
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 55
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 55
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust"
+   ],
+   "count": 55
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors"
+   ],
+   "count": 55
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 54
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 53
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-members-limited-liability-partnership",
+    "right-to-share-surplus-assets-25-to-50-percent-limited-liability-partnership",
+    "significant-influence-or-control-limited-liability-partnership",
+    "voting-rights-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 53
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 52
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control"
+   ],
+   "count": 51
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 50
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust"
+   ],
+   "count": 50
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 50
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 50
+  },
+  {
+   "codes": [
+    "voting-rights-50-to-75-percent-limited-liability-partnership"
+   ],
+   "count": 49
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "significant-influence-or-control"
+   ],
+   "count": 48
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 47
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 46
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 46
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 45
+  },
+  {
+   "codes": [
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 43
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 43
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 43
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 41
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 41
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 39
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 39
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 37
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 37
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 36
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 36
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-25-to-50-percent-limited-liability-partnership",
+    "significant-influence-or-control-limited-liability-partnership",
+    "voting-rights-25-to-50-percent-limited-liability-partnership"
+   ],
+   "count": 35
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 34
+  },
+  {
+   "codes": [
+    "right-to-share-surplus-assets-50-to-75-percent-limited-liability-partnership"
+   ],
+   "count": 33
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 33
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 33
+  },
+  {
+   "codes": [
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 33
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 32
+  },
+  {
+   "codes": [
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 32
+  },
+  {
+   "codes": [
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 31
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 31
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 31
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 30
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 30
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 30
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 28
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 28
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 28
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm"
+   ],
+   "count": 28
+  },
+  {
+   "codes": [
+    "part-right-to-share-surplus-assets-25-to-50-percent",
+    "right-to-appoint-and-remove-person",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 28
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "part-right-to-share-surplus-assets-75-to-100-percent",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 27
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 26
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-firm-limited-liability-partnership",
+    "significant-influence-or-control-limited-liability-partnership"
+   ],
+   "count": 26
+  },
+  {
+   "codes": [
+    "part-right-to-share-surplus-assets-25-to-50-percent"
+   ],
+   "count": 26
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors-as-firm"
+   ],
+   "count": 26
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 26
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 25
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent-as-trust"
+   ],
+   "count": 25
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-25-to-50-percent"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-firm-limited-liability-partnership"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "significant-influence-or-control",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm"
+   ],
+   "count": 24
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 23
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 23
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm",
+    "ownership-of-shares-50-to-75-percent-as-trust",
+    "voting-rights-50-to-75-percent",
+    "voting-rights-50-to-75-percent-as-firm",
+    "voting-rights-50-to-75-percent-as-trust"
+   ],
+   "count": 23
+  },
+  {
+   "codes": [
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm"
+   ],
+   "count": 22
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 22
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "ownership-of-shares-75-to-100-percent-as-trust",
+    "voting-rights-75-to-100-percent"
+   ],
+   "count": 22
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "significant-influence-or-control",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-50-to-75-percent"
+   ],
+   "count": 21
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "voting-rights-75-to-100-percent",
+    "voting-rights-75-to-100-percent-as-firm",
+    "voting-rights-75-to-100-percent-as-trust"
+   ],
+   "count": 21
+  },
+  {
+   "codes": [
+    "ownership-of-shares-50-to-75-percent",
+    "ownership-of-shares-50-to-75-percent-as-firm"
+   ],
+   "count": 20
+  },
+  {
+   "codes": [
+    "significant-influence-or-control-as-trust-limited-liability-partnership"
+   ],
+   "count": 20
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "right-to-appoint-and-remove-directors",
+    "significant-influence-or-control-as-firm",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm"
+   ],
+   "count": 20
+  },
+  {
+   "codes": [
+    "ownership-of-shares-25-to-50-percent",
+    "ownership-of-shares-25-to-50-percent-as-firm",
+    "ownership-of-shares-25-to-50-percent-as-trust",
+    "right-to-appoint-and-remove-directors",
+    "right-to-appoint-and-remove-directors-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust",
+    "significant-influence-or-control-as-firm",
+    "significant-influence-or-control-as-trust",
+    "voting-rights-25-to-50-percent",
+    "voting-rights-25-to-50-percent-as-firm",
+    "voting-rights-25-to-50-percent-as-trust"
+   ],
+   "count": 20
+  },
+  {
+   "codes": [
+    "ownership-of-shares-75-to-100-percent",
+    "ownership-of-shares-75-to-100-percent-as-firm",
+    "right-to-appoint-and-remove-directors-as-trust"
+   ],
+   "count": 20
+  }
+ ],
+ "country_of_residence": [
+  {
+   "country": "England",
+   "count": 242790
+  },
+  {
+   "country": "United Kingdom",
+   "count": 152585
+  },
+  {
+   "country": "Scotland",
+   "count": 17916
+  },
+  {
+   "country": "Wales",
+   "count": 8941
+  },
+  {
+   "country": "Northern Ireland",
+   "count": 5205
+  },
+  {
+   "country": "Philippines",
+   "count": 3648
+  },
+  {
+   "country": "China",
+   "count": 3120
+  },
+  {
+   "country": "United States",
+   "count": 1862
+  },
+  {
+   "country": "India",
+   "count": 1607
+  },
+  {
+   "country": "France",
+   "count": 1435
+  },
+  {
+   "country": "Germany",
+   "count": 1391
+  },
+  {
+   "country": "Italy",
+   "count": 1022
+  },
+  {
+   "country": "Spain",
+   "count": 980
+  },
+  {
+   "country": "Pakistan",
+   "count": 830
+  },
+  {
+   "country": "Ireland",
+   "count": 793
+  },
+  {
+   "country": "United Arab Emirates",
+   "count": 689
+  },
+  {
+   "country": "Turkey",
+   "count": 681
+  },
+  {
+   "country": "Isle Of Man",
+   "count": 647
+  },
+  {
+   "country": "Australia",
+   "count": 641
+  },
+  {
+   "country": "Switzerland",
+   "count": 641
+  },
+  {
+   "country": "Poland",
+   "count": 605
+  },
+  {
+   "country": "Sweden",
+   "count": 561
+  },
+  {
+   "country": "Norway",
+   "count": 544
+  },
+  {
+   "country": "Netherlands",
+   "count": 523
+  },
+  {
+   "country": "Morocco",
+   "count": 499
+  },
+  {
+   "country": "Ukraine",
+   "count": 454
+  },
+  {
+   "country": "South Africa",
+   "count": 436
+  },
+  {
+   "country": "Belgium",
+   "count": 408
+  },
+  {
+   "country": "Hong Kong",
+   "count": 390
+  },
+  {
+   "country": "Israel",
+   "count": 357
+  },
+  {
+   "country": "Greece",
+   "count": 356
+  },
+  {
+   "country": "Canada",
+   "count": 351
+  },
+  {
+   "country": "Russia",
+   "count": 346
+  },
+  {
+   "country": "Portugal",
+   "count": 328
+  },
+  {
+   "country": "Guernsey",
+   "count": 279
+  },
+  {
+   "country": "Czech Republic",
+   "count": 247
+  },
+  {
+   "country": "Cyprus",
+   "count": 234
+  },
+  {
+   "country": "Monaco",
+   "count": 219
+  },
+  {
+   "country": "Bangladesh",
+   "count": 208
+  },
+  {
+   "country": "Hungary",
+   "count": 206
+  },
+  {
+   "country": "Singapore",
+   "count": 201
+  },
+  {
+   "country": "Austria",
+   "count": 189
+  },
+  {
+   "country": "Romania",
+   "count": 168
+  },
+  {
+   "country": "New Zealand",
+   "count": 167
+  },
+  {
+   "country": "Denmark",
+   "count": 165
+  },
+  {
+   "country": "Jamaica",
+   "count": 163
+  },
+  {
+   "country": "Gibraltar",
+   "count": 161
+  },
+  {
+   "country": "Egypt",
+   "count": 159
+  },
+  {
+   "country": "Saudi Arabia",
+   "count": 157
+  },
+  {
+   "country": "Nigeria",
+   "count": 155
+  },
+  {
+   "country": "Thailand",
+   "count": 150
+  },
+  {
+   "country": "Malta",
+   "count": 150
+  },
+  {
+   "country": "Malaysia",
+   "count": 149
+  },
+  {
+   "country": "Latvia",
+   "count": 145
+  },
+  {
+   "country": "Jersey",
+   "count": 134
+  },
+  {
+   "country": "Bulgaria",
+   "count": 122
+  },
+  {
+   "country": "Gb",
+   "count": 116
+  },
+  {
+   "country": "Brazil",
+   "count": 114
+  },
+  {
+   "country": "Great Britain",
+   "count": 111
+  },
+  {
+   "country": "Vietnam",
+   "count": 107
+  },
+  {
+   "country": "Britain",
+   "count": 106
+  },
+  {
+   "country": "Lithuania",
+   "count": 92
+  },
+  {
+   "country": "Usa",
+   "count": 92
+  },
+  {
+   "country": "British",
+   "count": 82
+  },
+  {
+   "country": "Japan",
+   "count": 80
+  },
+  {
+   "country": "Lebanon",
+   "count": 72
+  },
+  {
+   "country": "Algeria",
+   "count": 72
+  },
+  {
+   "country": "Slovakia",
+   "count": 71
+  },
+  {
+   "country": "Qatar",
+   "count": 70
+  },
+  {
+   "country": "Serbia",
+   "count": 63
+  },
+  {
+   "country": "Azerbaijan",
+   "count": 61
+  },
+  {
+   "country": "Croatia",
+   "count": 61
+  },
+  {
+   "country": "Estonia",
+   "count": 57
+  },
+  {
+   "country": "Iran",
+   "count": 56
+  },
+  {
+   "country": "Mexico",
+   "count": 56
+  },
+  {
+   "country": "Finland",
+   "count": 56
+  },
+  {
+   "country": "Sri Lanka",
+   "count": 55
+  },
+  {
+   "country": "Taiwan",
+   "count": 53
+  },
+  {
+   "country": "Indonesia",
+   "count": 53
+  },
+  {
+   "country": "Tunisia",
+   "count": 52
+  },
+  {
+   "country": "Luxembourg",
+   "count": 48
+  },
+  {
+   "country": "Uzbekistan",
+   "count": 45
+  },
+  {
+   "country": "Benin",
+   "count": 45
+  },
+  {
+   "country": "Belarus",
+   "count": 44
+  },
+  {
+   "country": "Jordan",
+   "count": 44
+  },
+  {
+   "country": "Kenya",
+   "count": 43
+  },
+  {
+   "country": "Kuwait",
+   "count": 41
+  },
+  {
+   "country": "Bahamas",
+   "count": 41
+  },
+  {
+   "country": "Slovenia",
+   "count": 38
+  },
+  {
+   "country": "Bermuda",
+   "count": 37
+  },
+  {
+   "country": "Iraq",
+   "count": 36
+  },
+  {
+   "country": "Andorra",
+   "count": 35
+  },
+  {
+   "country": "Kazakhstan",
+   "count": 35
+  },
+  {
+   "country": "London",
+   "count": 32
+  },
+  {
+   "country": "Channel Islands",
+   "count": 31
+  },
+  {
+   "country": "Argentina",
+   "count": 30
+  },
+  {
+   "country": "Cayman Islands",
+   "count": 29
+  },
+  {
+   "country": "Mauritius",
+   "count": 29
+  },
+  {
+   "country": "Moldova",
+   "count": 28
+  },
+  {
+   "country": "Liechtenstein",
+   "count": 27
+  },
+  {
+   "country": "Ghana",
+   "count": 27
+  },
+  {
+   "country": "Bahrain",
+   "count": 27
+  },
+  {
+   "country": "Georgia",
+   "count": 25
+  },
+  {
+   "country": "Uganda",
+   "count": 25
+  },
+  {
+   "country": "Zimbabwe",
+   "count": 24
+  },
+  {
+   "country": "Venezuela",
+   "count": 24
+  },
+  {
+   "country": "Panama",
+   "count": 23
+  },
+  {
+   "country": "South Korea",
+   "count": 22
+  },
+  {
+   "country": "Uk",
+   "count": 21
+  },
+  {
+   "country": "Tanzania",
+   "count": 20
+  },
+  {
+   "country": "N Ireland",
+   "count": 20
+  },
+  {
+   "country": "Barbados",
+   "count": 20
+  },
+  {
+   "country": "Ivory Coast",
+   "count": 20
+  },
+  {
+   "country": "Russian Federation",
+   "count": 20
+  }
+ ],
+ "dob_months": [
+  {
+   "month": 1,
+   "count": 40178
+  },
+  {
+   "month": 2,
+   "count": 35959
+  },
+  {
+   "month": 3,
+   "count": 40337
+  },
+  {
+   "month": 4,
+   "count": 38882
+  },
+  {
+   "month": 5,
+   "count": 40585
+  },
+  {
+   "month": 6,
+   "count": 38658
+  },
+  {
+   "month": 7,
+   "count": 39611
+  },
+  {
+   "month": 8,
+   "count": 38725
+  },
+  {
+   "month": 9,
+   "count": 38543
+  },
+  {
+   "month": 10,
+   "count": 37922
+  },
+  {
+   "month": 11,
+   "count": 35577
+  },
+  {
+   "month": 12,
+   "count": 36713
+  }
+ ],
+ "dob_bands": [
+  {
+   "band": 1920,
+   "count": 77
+  },
+  {
+   "band": 1925,
+   "count": 293
+  },
+  {
+   "band": 1930,
+   "count": 922
+  },
+  {
+   "band": 1935,
+   "count": 2427
+  },
+  {
+   "band": 1940,
+   "count": 5961
+  },
+  {
+   "band": 1945,
+   "count": 13559
+  },
+  {
+   "band": 1950,
+   "count": 20890
+  },
+  {
+   "band": 1955,
+   "count": 34332
+  },
+  {
+   "band": 1960,
+   "count": 48771
+  },
+  {
+   "band": 1965,
+   "count": 57866
+  },
+  {
+   "band": 1970,
+   "count": 59130
+  },
+  {
+   "band": 1975,
+   "count": 57151
+  },
+  {
+   "band": 1980,
+   "count": 58107
+  },
+  {
+   "band": 1985,
+   "count": 48486
+  },
+  {
+   "band": 1990,
+   "count": 32253
+  },
+  {
+   "band": 1995,
+   "count": 16399
+  },
+  {
+   "band": 2000,
+   "count": 4337
+  },
+  {
+   "band": 2005,
+   "count": 221
+  },
+  {
+   "band": 2010,
+   "count": 53
+  },
+  {
+   "band": 2015,
+   "count": 354
+  },
+  {
+   "band": 2020,
+   "count": 87
+  }
+ ],
+ "multiplicity": [
+  {
+   "companies": 1,
+   "count": 419020
+  },
+  {
+   "companies": 2,
+   "count": 15203
+  },
+  {
+   "companies": 3,
+   "count": 1815
+  },
+  {
+   "companies": 4,
+   "count": 473
+  },
+  {
+   "companies": 5,
+   "count": 134
+  },
+  {
+   "companies": 6,
+   "count": 90
+  },
+  {
+   "companies": 7,
+   "count": 45
+  },
+  {
+   "companies": 8,
+   "count": 47
+  },
+  {
+   "companies": 9,
+   "count": 21
+  }
+ ],
+ "ceased": [
+  {
+   "ceased": false,
+   "count": 377800
+  },
+  {
+   "ceased": true,
+   "count": 83890
+  }
+ ]
+}

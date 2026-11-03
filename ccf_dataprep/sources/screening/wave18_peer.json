@@ -1,0 +1,214 @@
+{
+  "generated_for": "wave18 · syndicated-lending-co-lender · Tasks 14-15",
+  "method": "peer positions derived live from OUR Fluree ledger's ex:SyndicateParticipation nodes (the six filed commitment schedules, Task 8), keyed on the counterparty's real GLEIF LEI and confirmed against ccf_v2.facility. Bank of America discloses an exact figure; Citibank discloses only the band from a fixed published ladder that contains its position -- the ladder is a lookup, not a function of the figure, so it narrows nothing. The peer's internal rating and workout posture use the SNC programme's coarse regulatory categories, deliberately not our notch grades: the peer is less precise than we are, and that is what makes the boundary visible. Product declarations (Task 15) are the three §F conditions that sound like runtime behaviour -- a request that times out, a claim nobody attested, a remote TTL shorter than ours -- represented as declarations in data. The SDK reads and acts on them; this project never does.",
+  "generated_at": "2026-08-27T02:26:28.039699+00:00",
+  "as_of": "2026-08-26",
+  "band_ladder_usd": [
+    0,
+    20000000,
+    140000000,
+    500000000
+  ],
+  "counterparties": [
+    {
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "legal_name": "Bank Of America, National Association",
+      "disclosure_precision": "exact",
+      "facility_ids": [
+        "FAC-2A2C38",
+        "FAC-3DF1D5",
+        "FAC-405B7A",
+        "FAC-6F4065",
+        "FAC-A4A5EE",
+        "FAC-E386A4"
+      ],
+      "provenance": "synthetic — internal"
+    },
+    {
+      "counterparty": "E57ODZWZ7FF32TWEFA76",
+      "legal_name": "Citibank, National Association",
+      "disclosure_precision": "band",
+      "facility_ids": [
+        "FAC-405B7A"
+      ],
+      "provenance": "synthetic — engineered"
+    }
+  ],
+  "positions": [
+    {
+      "position_id": "PPOS-2AEF582F65",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-2A2C38",
+      "share_usd": 87000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=564076-564097"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-7BE5FE9FBC",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-3DF1D5",
+      "share_usd": 25000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "special mention",
+      "workout_posture": "enhanced monitoring",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "1597033_0001193125-26-340356_d133770dex101.htm#offset=620423-620444"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-5AD02CA9FA",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-405B7A",
+      "share_usd": 110000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=564076-564097"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-BF930B96FA",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-6F4065",
+      "share_usd": 187000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=790384-790405"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-A93FA1DDCA",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-A4A5EE",
+      "share_usd": 182000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=784963-784984",
+          "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=788429-788450",
+          "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=789524-789545"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-24C85F8FC9",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "facility_id": "FAC-E386A4",
+      "share_usd": 145000000,
+      "band_low": null,
+      "band_high": null,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — internal",
+      "disclosure_precision": "exact",
+      "basis": {
+        "source_passages": [
+          "723531_0001193125-26-021794_payx-ex10_1.htm#offset=512193-512214"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does"
+      }
+    },
+    {
+      "position_id": "PPOS-72ADD2D847",
+      "counterparty": "E57ODZWZ7FF32TWEFA76",
+      "facility_id": "FAC-405B7A",
+      "share_usd": null,
+      "band_low": 20000000,
+      "band_high": 140000000,
+      "internal_rating": "pass",
+      "workout_posture": "standard servicing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic — engineered",
+      "disclosure_precision": "band",
+      "basis": {
+        "source_passages": [
+          "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=564610-564624"
+        ],
+        "note": "the filed commitment-schedule rows this position is derived from, cited as document#offset exactly as Task 8's ex:sourcePassage does; the figure itself is deliberately absent from this artifact and from the peer fabric -- re-derive it from the cited filing offsets if you hold our estate"
+      }
+    }
+  ],
+  "declarations": [
+    {
+      "declaration_id": "PDEC-4BEB7CE1F8",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "product_id": "/context-products/cb/syndicate/FAC-6F4065/co-lender-position",
+      "declared_ttl_seconds": 21600,
+      "declared_latency_ms": 650,
+      "attestation": {
+        "method": "bilateral signed digest",
+        "signer": "bofa_syndicated federation service",
+        "signed_at": "2026-08-26T00:00:00Z"
+      },
+      "provenance": "synthetic — internal",
+      "note": "baseline: fast (well under the 5s bound), attested, TTL at 6h (above the 4h local composite) -- the contrast case for both the timeout floor and the TTL floor. Without this row, every declaration would be slow or short-TTL and neither floor would prove anything."
+    },
+    {
+      "declaration_id": "PDEC-AC14CC0870",
+      "counterparty": "E57ODZWZ7FF32TWEFA76",
+      "product_id": "/context-products/cb/syndicate/FAC-405B7A/co-lender-position",
+      "declared_ttl_seconds": 10800,
+      "declared_latency_ms": 7200,
+      "attestation": {
+        "method": "bilateral signed digest",
+        "signer": "bofa_syndicated federation service",
+        "signed_at": "2026-08-26T00:00:00Z"
+      },
+      "provenance": "synthetic — engineered",
+      "note": "engineered to breach the default 5s max_federation_latency bound (§B) so fail-closed is observed rather than merely described. Still attested -- it is the LATENCY floor's contrast case, not the attestation floor's."
+    },
+    {
+      "declaration_id": "PDEC-14A62D69A5",
+      "counterparty": "B4TYDEB6GKMZO031MB27",
+      "product_id": "/context-products/cb/syndicate/FAC-A4A5EE/co-lender-position",
+      "declared_ttl_seconds": 7200,
+      "declared_latency_ms": 900,
+      "attestation": null,
+      "provenance": "synthetic — engineered",
+      "note": "engineered unattested claim (attestation IS NULL) with a sub-4h TTL, so both the attestation floor and the 'TTL below the local composite' floor bind on one row. Fast latency on purpose -- it must not also be the timeout contrast, or the three floors stop being independently demonstrated."
+    }
+  ]
+}

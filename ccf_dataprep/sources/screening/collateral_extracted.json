@@ -1,0 +1,3992 @@
+{
+  "wave": 9,
+  "source": "EDGAR EX-10 exhibits already cached in MongoDB fibo_v2",
+  "ucc_status": "unavailable \u2014 64% of the cast files in Delaware, whose UCC database is not publicly searchable; see docs/data-acquisition-plan.md Wave 9 decision",
+  "priority_provenance": "synthetic \u2014 engineered. EX-10 gives contractual seniority language but no filing dates, and filing date is what establishes UCC priority.",
+  "facilities": [
+    {
+      "facility_id": "FAC-01BB3F",
+      "borrower_lei": "5493000Q1S5TJIDIQH89",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 25000000.0,
+      "currency": "USD",
+      "source_document": "d761586dex101.htm",
+      "source_accession": "0001193125-24-281618",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 114134,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 441861,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 84964,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 59868,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 74872,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 61431,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 13541,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 5644,
+          "excerpt": "grant to the Collateral Agent, for the benefit of the Agents and the Lenders, a "
+        },
+        "pledge_agreement": {
+          "offset": 440346,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 379743,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 26133,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 130135,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 439931,
+          "excerpt": "first-priority Lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-044206",
+      "borrower_lei": "529900E95812SYWMCE44",
+      "facility_type": "Term Loan",
+      "commitment_amount": 500000000.0,
+      "currency": "USD",
+      "source_document": "eh260800571_ex1001.htm",
+      "source_accession": "0000950142-26-001951",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 16,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 131135,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 94028,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 121970,
+          "excerpt": "receivables"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 490694,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 122058,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 453132,
+          "excerpt": "grant to\nthe Administrative Agent, for the benefit of the Lenders, a security in"
+        },
+        "financing_statement": {
+          "offset": 424864,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 37629,
+          "excerpt": "Set-off"
+        },
+        "guarantor_schedule": {
+          "offset": 141713,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 101265,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 146259,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 142786,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 142834,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-08F1D1",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Term Loan",
+      "commitment_amount": 2325000000.0,
+      "currency": "USD",
+      "source_document": "d949183dex101.htm",
+      "source_accession": "0001193125-25-149731",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 387921,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 137934,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 388111,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206385,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206239,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 145844,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 37953,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 388340,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 89232,
+          "excerpt": "Pledge Agreement"
+        },
+        "financing_statement": {
+          "offset": 46728,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 459559,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 104309,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 145356,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 88131,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 112729,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 845052,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-0B74B7",
+      "borrower_lei": "5493003J7157VP25NL57",
+      "facility_type": "Term Loan",
+      "commitment_amount": 25000000.0,
+      "currency": "USD",
+      "source_document": "d927791dex101.htm",
+      "source_accession": "0001193125-25-181880",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 37506,
+          "excerpt": "real properties"
+        },
+        "marketable_securities": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 309972,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113646,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113508,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113519,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 4,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 436253,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 136147,
+          "excerpt": "security agreement"
+        },
+        "pledge_agreement": {
+          "offset": 136111,
+          "excerpt": "Pledge\n Agreement"
+        },
+        "financing_statement": {
+          "offset": 21978,
+          "excerpt": "Financing Statements"
+        },
+        "negative_pledge": {
+          "offset": 89312,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 22123,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 420,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 92429,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-0E6E58",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 2325000000.0,
+      "currency": "USD",
+      "source_document": "dp239511_ex1001.htm",
+      "source_accession": "0000950103-26-000052",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 17,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323563,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 76060,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323755,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 143046,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 142900,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 82952,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 51320,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 323983,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 728470,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 113475,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 392992,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 48278,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 82464,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 372,
+          "excerpt": "Subsidiary\nGuarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45919,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 55412,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 746962,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-105FC5",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 2325000000.0,
+      "currency": "USD",
+      "source_document": "d949183dex101.htm",
+      "source_accession": "0001193125-25-149731",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 387921,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 137934,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 388111,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206385,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206239,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 145844,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 37953,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 388340,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 89232,
+          "excerpt": "Pledge Agreement"
+        },
+        "financing_statement": {
+          "offset": 46728,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 459559,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 104309,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 145356,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 88131,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 112729,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 845052,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-18DF7D",
+      "borrower_lei": "549300D0WZR1VI2QGB24",
+      "facility_type": "Term Loan",
+      "commitment_amount": 285000000.0,
+      "currency": "USD",
+      "source_document": "ef20054891_ex10-1.htm",
+      "source_accession": "0001140361-25-033513",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 18,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 87710,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 65577,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 34960,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 47991,
+          "excerpt": "Inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 38196,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 43990,
+          "excerpt": "Security Agreement"
+        },
+        "pledge_agreement": {
+          "offset": 99130,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 151930,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 6911,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 138220,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 160595,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 0,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-1F0DF6",
+      "borrower_lei": "529900E95812SYWMCE44",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 1000000000.0,
+      "currency": "USD",
+      "source_document": "eh260800571_ex1001.htm",
+      "source_accession": "0000950142-26-001951",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 16,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 131135,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 94028,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 121970,
+          "excerpt": "receivables"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 490694,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 122058,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 453132,
+          "excerpt": "grant to\nthe Administrative Agent, for the benefit of the Lenders, a security in"
+        },
+        "financing_statement": {
+          "offset": 424864,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 37629,
+          "excerpt": "Set-off"
+        },
+        "guarantor_schedule": {
+          "offset": 141713,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 101265,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 146259,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 142786,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 142834,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-1FF50C",
+      "borrower_lei": "54930096DB9LCLPN7H13",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 1000000000.0,
+      "currency": "USD",
+      "source_document": "tm2616097d1_ex10-1.htm",
+      "source_accession": "0001104659-26-068522",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 24,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 255682,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 51981,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 7,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 254859,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 13,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 255813,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52893,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 236274,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 33269,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 256676,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 120038,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 30323,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 226152,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45565,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 590,
+          "excerpt": "Senior Secured"
+        },
+        "subordinated_lien": {
+          "offset": 201992,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-20385C",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 2500000000.0,
+      "currency": "USD",
+      "source_document": "dp239511_ex1001.htm",
+      "source_accession": "0000950103-26-000052",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 17,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323563,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 76060,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323755,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 143046,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 142900,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 82952,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 51320,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 323983,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 728470,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 113475,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 392992,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 48278,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 82464,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 372,
+          "excerpt": "Subsidiary\nGuarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45919,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 55412,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 746962,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-25F991",
+      "borrower_lei": "5493000Q1S5TJIDIQH89",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 35000000.0,
+      "currency": "USD",
+      "source_document": "d761586dex101.htm",
+      "source_accession": "0001193125-24-281618",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 114134,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 441861,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 84964,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 59868,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 74872,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 61431,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 13541,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 5644,
+          "excerpt": "grant to the Collateral Agent, for the benefit of the Agents and the Lenders, a "
+        },
+        "pledge_agreement": {
+          "offset": 440346,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 379743,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 26133,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 130135,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 439931,
+          "excerpt": "first-priority Lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-276E10",
+      "borrower_lei": "549300KTTIRAOGXCRV69",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 2086505256.0,
+      "currency": "USD",
+      "source_document": "d25970dex101.htm",
+      "source_accession": "0001193125-25-178982",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 27840,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407402,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 477871,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 15,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 55707,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 81371,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407878,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 12139,
+          "excerpt": "Security Agreement"
+        },
+        "financing_statement": {
+          "offset": 384329,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 553767,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 25306,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 191584,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 93425,
+          "excerpt": "Subsidiary Guarantor"
+        },
+        "cross_default": {
+          "offset": 174803,
+          "excerpt": "cross-default"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 41504,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 213415,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 213467,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 135733,
+          "excerpt": "junior-lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-2A2C38",
+      "borrower_lei": "2549004GGE2APGNT6O92",
+      "facility_type": "Term Loan",
+      "commitment_amount": 35000000.0,
+      "currency": "USD",
+      "source_document": "ahr-ex10_1.htm",
+      "source_accession": "0001193125-26-145647",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 85941,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407584,
+          "excerpt": "Capital Stock of each"
+        },
+        "receivables": {
+          "mentions": 3,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 188934,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 392388,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 419103,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 95599,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 188884,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 410868,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 129006,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 70781,
+          "excerpt": "Set off"
+        },
+        "netting": {
+          "offset": 194761,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 1796,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 430508,
+          "excerpt": "Cross Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-36D0CC",
+      "borrower_lei": "549300WRECW11X94UB57",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 35000000.0,
+      "currency": "USD",
+      "source_document": "extr-ex10_1.htm",
+      "source_accession": "0001193125-26-324888",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 127847,
+          "excerpt": "deed of trust"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 148536,
+          "excerpt": "investment property"
+        },
+        "receivables": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 75947,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 430311,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 58771,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 42373,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 53508,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 250618,
+          "excerpt": "grants to the Administrative Agent, for the benefit of the Secured Parties, a se"
+        },
+        "financing_statement": {
+          "offset": 147943,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 7159,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 133189,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 7680,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 70051,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-385962",
+      "borrower_lei": "54930096DB9LCLPN7H13",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 1600000000.0,
+      "currency": "USD",
+      "source_document": "tm2616097d1_ex10-1.htm",
+      "source_accession": "0001104659-26-068522",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 24,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 255682,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 51981,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 7,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 254859,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 13,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 255813,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52893,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 236274,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 33269,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 256676,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 120038,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 30323,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 226152,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45565,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 590,
+          "excerpt": "Senior Secured"
+        },
+        "subordinated_lien": {
+          "offset": 201992,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-391D1E",
+      "borrower_lei": "549300EQD0ZXRSMG3549",
+      "facility_type": "Term Loan",
+      "commitment_amount": 4800000000.0,
+      "currency": "USD",
+      "source_document": "d108525dex101.htm",
+      "source_accession": "0001193125-26-161564",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 462424,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 161922,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 17,
+          "pledged_mentions": 6,
+          "pledged": true,
+          "first_offset": 208867,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52470,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52417,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 86676,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 135839,
+          "excerpt": "security agreement"
+        },
+        "grants_security_interest": {
+          "offset": 210073,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 184209,
+          "excerpt": "financing\nstatement"
+        },
+        "setoff": {
+          "offset": 35959,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 126879,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 465646,
+          "excerpt": "first priority Lien"
+        },
+        "senior_secured": {
+          "offset": 165357,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 165433,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 3,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-3F7AAD",
+      "borrower_lei": "549300KTTIRAOGXCRV69",
+      "facility_type": "Term Loan",
+      "commitment_amount": 2200000000.0,
+      "currency": "USD",
+      "source_document": "d25970dex101.htm",
+      "source_accession": "0001193125-25-178982",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 27840,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407402,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 477871,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 15,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 55707,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 81371,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407878,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 12139,
+          "excerpt": "Security Agreement"
+        },
+        "financing_statement": {
+          "offset": 384329,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 553767,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 25306,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 191584,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 93425,
+          "excerpt": "Subsidiary Guarantor"
+        },
+        "cross_default": {
+          "offset": 174803,
+          "excerpt": "cross-default"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 41504,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 213415,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 213467,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 135733,
+          "excerpt": "junior-lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-405B7A",
+      "borrower_lei": "2549004GGE2APGNT6O92",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 550000000.0,
+      "currency": "USD",
+      "source_document": "ahr-ex10_1.htm",
+      "source_accession": "0001193125-26-145647",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 85941,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407584,
+          "excerpt": "Capital Stock of each"
+        },
+        "receivables": {
+          "mentions": 3,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 188934,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 392388,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 419103,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 95599,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 188884,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 410868,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 129006,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 70781,
+          "excerpt": "Set off"
+        },
+        "netting": {
+          "offset": 194761,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 1796,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 430508,
+          "excerpt": "Cross Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-4170DB",
+      "borrower_lei": "549300FHJQTDPPN41627",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 900000000.0,
+      "currency": "USD",
+      "source_document": "tm2523061d1_ex10-1.htm",
+      "source_accession": "0001104659-25-076253",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 91496,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 41356,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 355433,
+          "excerpt": "equipment"
+        },
+        "deposit_accounts": {
+          "mentions": 6,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29547,
+          "excerpt": "deposit\naccount"
+        }
+      },
+      "structure": {
+        "setoff": {
+          "offset": 6397,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 46225,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 3481,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 386663,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 0,
+      "is_secured": false
+    },
+    {
+      "facility_id": "FAC-427357",
+      "borrower_lei": "549300KTTIRAOGXCRV69",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 500000000.0,
+      "currency": "USD",
+      "source_document": "d25970dex101.htm",
+      "source_accession": "0001193125-25-178982",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 27840,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407402,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 477871,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 15,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 55707,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 81371,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 407878,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 12139,
+          "excerpt": "Security Agreement"
+        },
+        "financing_statement": {
+          "offset": 384329,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 553767,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 25306,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 191584,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 93425,
+          "excerpt": "Subsidiary Guarantor"
+        },
+        "cross_default": {
+          "offset": 174803,
+          "excerpt": "cross-default"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 41504,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 213415,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 213467,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 135733,
+          "excerpt": "junior-lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-5B8418",
+      "borrower_lei": "2549001IGRCG4F0RLD36",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 40000000.0,
+      "currency": "USD",
+      "source_document": "ea029103901ex10-1.htm",
+      "source_accession": "0001213900-26-057808",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 71769,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 59159,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 2,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 94338,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 266864,
+          "excerpt": "equipment"
+        },
+        "deposit_accounts": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 21988,
+          "excerpt": "deposit\naccount"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 94288,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 275621,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 7652,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 99623,
+          "excerpt": "netting"
+        },
+        "cross_default": {
+          "offset": 296769,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-5BE9FC",
+      "borrower_lei": "529900VN48L8QCMVPV36",
+      "facility_type": "Term Loan",
+      "commitment_amount": 25000000.0,
+      "currency": "USD",
+      "source_document": "tm2612273d1_ex10-1.htm",
+      "source_accession": "0001104659-26-046064",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 499937,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29848,
+          "excerpt": "Pledged Equity"
+        },
+        "receivables": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52423,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 17,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 51300,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52444,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 19,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29607,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 61578,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 500131,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 168679,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 362619,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 26101,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 28288,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 133381,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "subordinated_lien": {
+          "offset": 493503,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-5F29AF",
+      "borrower_lei": "5493000Q1S5TJIDIQH89",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 15000000.0,
+      "currency": "USD",
+      "source_document": "d761586dex101.htm",
+      "source_accession": "0001193125-24-281618",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 114134,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 441861,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 84964,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 59868,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 74872,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 61431,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 13541,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 5644,
+          "excerpt": "grant to the Collateral Agent, for the benefit of the Agents and the Lenders, a "
+        },
+        "pledge_agreement": {
+          "offset": 440346,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 379743,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 26133,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 130135,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 439931,
+          "excerpt": "first-priority Lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-66B83D",
+      "borrower_lei": "529900E95812SYWMCE44",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 1950000000.0,
+      "currency": "USD",
+      "source_document": "eh260800571_ex1001.htm",
+      "source_accession": "0000950142-26-001951",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 16,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 131135,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 94028,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 121970,
+          "excerpt": "receivables"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 490694,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 122058,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 453132,
+          "excerpt": "grant to\nthe Administrative Agent, for the benefit of the Lenders, a security in"
+        },
+        "financing_statement": {
+          "offset": 424864,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 37629,
+          "excerpt": "Set-off"
+        },
+        "guarantor_schedule": {
+          "offset": 141713,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 101265,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 146259,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 142786,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 142834,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-6910BD",
+      "borrower_lei": "549300D0WZR1VI2QGB24",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 90000000.0,
+      "currency": "USD",
+      "source_document": "ef20054891_ex10-1.htm",
+      "source_accession": "0001140361-25-033513",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 18,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 87710,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 65577,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 34960,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 47991,
+          "excerpt": "Inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 38196,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 43990,
+          "excerpt": "Security Agreement"
+        },
+        "pledge_agreement": {
+          "offset": 99130,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 151930,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 6911,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 138220,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 160595,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 0,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "borrower_lei": "5493002H8U24DJXQ4886",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 500000000.0,
+      "currency": "USD",
+      "source_document": "tm2511351d1_ex10-1.htm",
+      "source_accession": "0001104659-25-031884",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 19,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 1154766,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 25,
+          "pledged_mentions": 5,
+          "pledged": true,
+          "first_offset": 898222,
+          "excerpt": "Pledged Equity"
+        },
+        "receivables": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 69184,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 157120,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 21,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 1057202,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 1056899,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 10556,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 900391,
+          "excerpt": "GRANTS TO SELLER A SECURITY INTEREST"
+        },
+        "pledge_agreement": {
+          "offset": 51502,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 99029,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 9156,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 183579,
+          "excerpt": "netting"
+        },
+        "cross_default": {
+          "offset": 589054,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 1111816,
+          "excerpt": "first priority lien"
+        },
+        "senior_secured": {
+          "offset": 108969,
+          "excerpt": "senior secured"
+        }
+      },
+      "grant_clauses": 4,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-756912",
+      "borrower_lei": "549300WRECW11X94UB57",
+      "facility_type": "Delayed Draw Term Loan",
+      "commitment_amount": 500000000.0,
+      "currency": "USD",
+      "source_document": "extr-ex10_1.htm",
+      "source_accession": "0001193125-26-324888",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 127847,
+          "excerpt": "deed of trust"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 148536,
+          "excerpt": "investment property"
+        },
+        "receivables": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 75947,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 430311,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 58771,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 42373,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 53508,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 250618,
+          "excerpt": "grants to the Administrative Agent, for the benefit of the Secured Parties, a se"
+        },
+        "financing_statement": {
+          "offset": 147943,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 7159,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 133189,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 7680,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 70051,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-75758B",
+      "borrower_lei": "549300EQD0ZXRSMG3549",
+      "facility_type": "Term Loan",
+      "commitment_amount": 4800000000.0,
+      "currency": "USD",
+      "source_document": "d83933dex101.htm",
+      "source_accession": "0001193125-26-051416",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 459233,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 159152,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 17,
+          "pledged_mentions": 6,
+          "pledged": true,
+          "first_offset": 206113,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 50047,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 49994,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 83919,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 133066,
+          "excerpt": "security agreement"
+        },
+        "grants_security_interest": {
+          "offset": 207304,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 181453,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 34067,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 124123,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 462472,
+          "excerpt": "first priority Lien"
+        },
+        "senior_secured": {
+          "offset": 162592,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 162668,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 3,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-83731D",
+      "borrower_lei": "529900E95812SYWMCE44",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 500000000.0,
+      "currency": "USD",
+      "source_document": "eh260800571_ex1001.htm",
+      "source_accession": "0000950142-26-001951",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 16,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 131135,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 94028,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 121970,
+          "excerpt": "receivables"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 490694,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 122058,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "grants_security_interest": {
+          "offset": 453132,
+          "excerpt": "grant to\nthe Administrative Agent, for the benefit of the Lenders, a security in"
+        },
+        "financing_statement": {
+          "offset": 424864,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 37629,
+          "excerpt": "Set-off"
+        },
+        "guarantor_schedule": {
+          "offset": 141713,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 101265,
+          "excerpt": "First Lien"
+        },
+        "second_lien": {
+          "offset": 146259,
+          "excerpt": "Second Lien"
+        },
+        "senior_secured": {
+          "offset": 142786,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 142834,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-96FD71",
+      "borrower_lei": "5493004Q1NNH6JXCSI52",
+      "facility_type": "Term Loan",
+      "commitment_amount": 10000000.0,
+      "currency": "USD",
+      "source_document": "a021126debtamendmentex101.htm",
+      "source_accession": "0001474098-26-000011",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 33685,
+          "excerpt": "Real Property"
+        },
+        "receivables": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 92062,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 404537,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 432990,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 6,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 64380,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "financing_statement": {
+          "offset": 422986,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 135258,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 13781,
+          "excerpt": "SETOFF"
+        },
+        "netting": {
+          "offset": 174736,
+          "excerpt": "netting"
+        },
+        "cross_default": {
+          "offset": 450471,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 0,
+      "is_secured": false
+    },
+    {
+      "facility_id": "FAC-A09638",
+      "borrower_lei": "549300D0WZR1VI2QGB24",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 25000000.0,
+      "currency": "USD",
+      "source_document": "ef20054891_ex10-1.htm",
+      "source_accession": "0001140361-25-033513",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 18,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 87710,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 65577,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 34960,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 47991,
+          "excerpt": "Inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 38196,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 43990,
+          "excerpt": "Security Agreement"
+        },
+        "pledge_agreement": {
+          "offset": 99130,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 151930,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 6911,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 138220,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 160595,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 0,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-A34485",
+      "borrower_lei": "549300EQD0ZXRSMG3549",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 2500000000.0,
+      "currency": "USD",
+      "source_document": "d83933dex101.htm",
+      "source_accession": "0001193125-26-051416",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 459233,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 159152,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 17,
+          "pledged_mentions": 6,
+          "pledged": true,
+          "first_offset": 206113,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 50047,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 49994,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 83919,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 133066,
+          "excerpt": "security agreement"
+        },
+        "grants_security_interest": {
+          "offset": 207304,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 181453,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 34067,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 124123,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 462472,
+          "excerpt": "first priority Lien"
+        },
+        "senior_secured": {
+          "offset": 162592,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 162668,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 3,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "borrower_lei": "5493002H8U24DJXQ4886",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 300000000.0,
+      "currency": "USD",
+      "source_document": "tm2511351d1_ex10-1.htm",
+      "source_accession": "0001104659-25-031884",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 19,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 1154766,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 25,
+          "pledged_mentions": 5,
+          "pledged": true,
+          "first_offset": 898222,
+          "excerpt": "Pledged Equity"
+        },
+        "receivables": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 69184,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 157120,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 21,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 1057202,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 1056899,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 10556,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 900391,
+          "excerpt": "GRANTS TO SELLER A SECURITY INTEREST"
+        },
+        "pledge_agreement": {
+          "offset": 51502,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 99029,
+          "excerpt": "financing statement"
+        },
+        "setoff": {
+          "offset": 9156,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 183579,
+          "excerpt": "netting"
+        },
+        "cross_default": {
+          "offset": 589054,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 1111816,
+          "excerpt": "first priority lien"
+        },
+        "senior_secured": {
+          "offset": 108969,
+          "excerpt": "senior secured"
+        }
+      },
+      "grant_clauses": 4,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-AE08E4",
+      "borrower_lei": "5493003J7157VP25NL57",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 100000000.0,
+      "currency": "USD",
+      "source_document": "d927791dex101.htm",
+      "source_accession": "0001193125-25-181880",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 37506,
+          "excerpt": "real properties"
+        },
+        "marketable_securities": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 309972,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113646,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113508,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 113519,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 4,
+          "pledged_mentions": 1,
+          "pledged": true,
+          "first_offset": 436253,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 136147,
+          "excerpt": "security agreement"
+        },
+        "pledge_agreement": {
+          "offset": 136111,
+          "excerpt": "Pledge\n Agreement"
+        },
+        "financing_statement": {
+          "offset": 21978,
+          "excerpt": "Financing Statements"
+        },
+        "negative_pledge": {
+          "offset": 89312,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 22123,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 420,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 92429,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-AE34A9",
+      "borrower_lei": "529900VN48L8QCMVPV36",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 180000000.0,
+      "currency": "USD",
+      "source_document": "tm2612273d1_ex10-1.htm",
+      "source_accession": "0001104659-26-046064",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 499937,
+          "excerpt": "Real Property"
+        },
+        "marketable_securities": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29848,
+          "excerpt": "Pledged Equity"
+        },
+        "receivables": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52423,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 17,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 51300,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52444,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 19,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29607,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 61578,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 500131,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 168679,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 362619,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 26101,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 28288,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 133381,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "subordinated_lien": {
+          "offset": 493503,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-C2497C",
+      "borrower_lei": "549300FHJQTDPPN41627",
+      "facility_type": "Term Loan",
+      "commitment_amount": 900000000.0,
+      "currency": "USD",
+      "source_document": "tm2523061d1_ex10-1.htm",
+      "source_accession": "0001104659-25-076253",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 91496,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 41356,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 355433,
+          "excerpt": "equipment"
+        },
+        "deposit_accounts": {
+          "mentions": 6,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 29547,
+          "excerpt": "deposit\naccount"
+        }
+      },
+      "structure": {
+        "setoff": {
+          "offset": 6397,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 46225,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 3481,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 386663,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 0,
+      "is_secured": false
+    },
+    {
+      "facility_id": "FAC-C46469",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Delayed Draw Term Loan",
+      "commitment_amount": 600000000.0,
+      "currency": "USD",
+      "source_document": "dp239511_ex1001.htm",
+      "source_accession": "0000950103-26-000052",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 17,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323563,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 76060,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323755,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 143046,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 142900,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 82952,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 51320,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 323983,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 728470,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 113475,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 392992,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 48278,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 82464,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 372,
+          "excerpt": "Subsidiary\nGuarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45919,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 55412,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 746962,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-D3D1A4",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Term Loan",
+      "commitment_amount": 2802125000.0,
+      "currency": "USD",
+      "source_document": "dp239511_ex1001.htm",
+      "source_accession": "0000950103-26-000052",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 17,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323563,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 76060,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 323755,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 143046,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 142900,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 82952,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 51320,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 323983,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 728470,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 113475,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 392992,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 48278,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 82464,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 372,
+          "excerpt": "Subsidiary\nGuarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 45919,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 55412,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 746962,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-D49042",
+      "borrower_lei": "549300WRECW11X94UB57",
+      "facility_type": "Term Loan B",
+      "commitment_amount": 35000000.0,
+      "currency": "USD",
+      "source_document": "extr-ex10_1.htm",
+      "source_accession": "0001193125-26-324888",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 127847,
+          "excerpt": "deed of trust"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 148536,
+          "excerpt": "investment property"
+        },
+        "receivables": {
+          "mentions": 7,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 75947,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 4,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 430311,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 58771,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 42373,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 53508,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 250618,
+          "excerpt": "grants to the Administrative Agent, for the benefit of the Secured Parties, a se"
+        },
+        "financing_statement": {
+          "offset": 147943,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 7159,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 133189,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 7680,
+          "excerpt": "Subsidiary Guarantors"
+        },
+        "cross_default": {
+          "offset": 70051,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-DB2C9D",
+      "borrower_lei": "5493004Q1NNH6JXCSI52",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 10000000.0,
+      "currency": "USD",
+      "source_document": "a021126debtamendmentex101.htm",
+      "source_accession": "0001474098-26-000011",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 25,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 33685,
+          "excerpt": "Real Property"
+        },
+        "receivables": {
+          "mentions": 3,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 92062,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 404537,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 432990,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 6,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 64380,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "financing_statement": {
+          "offset": 422986,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 135258,
+          "excerpt": "Negative Pledge"
+        },
+        "setoff": {
+          "offset": 13781,
+          "excerpt": "SETOFF"
+        },
+        "netting": {
+          "offset": 174736,
+          "excerpt": "netting"
+        },
+        "cross_default": {
+          "offset": 450471,
+          "excerpt": "Cross-Default"
+        }
+      },
+      "priority": {},
+      "grant_clauses": 0,
+      "is_secured": false
+    },
+    {
+      "facility_id": "FAC-DFCB72",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Delayed Draw Term Loan",
+      "commitment_amount": 637650000.0,
+      "currency": "USD",
+      "source_document": "d949183dex101.htm",
+      "source_accession": "0001193125-25-149731",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 387921,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 137934,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 388111,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206385,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206239,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 145844,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 37953,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 388340,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 89232,
+          "excerpt": "Pledge Agreement"
+        },
+        "financing_statement": {
+          "offset": 46728,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 459559,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 104309,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 145356,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 88131,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 112729,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 845052,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "borrower_lei": "B3BS7ACMDUWISF18KY76",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 2500000000.0,
+      "currency": "USD",
+      "source_document": "d949183dex101.htm",
+      "source_accession": "0001193125-25-149731",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 387921,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 137934,
+          "excerpt": "marketable securities"
+        },
+        "receivables": {
+          "mentions": 25,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 388111,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206385,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 206239,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 14,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 145844,
+          "excerpt": "Deposit Accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 37953,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 388340,
+          "excerpt": "grant a security interest"
+        },
+        "pledge_agreement": {
+          "offset": 89232,
+          "excerpt": "Pledge Agreement"
+        },
+        "financing_statement": {
+          "offset": 46728,
+          "excerpt": "financing statements"
+        },
+        "negative_pledge": {
+          "offset": 459559,
+          "excerpt": "negative pledge"
+        },
+        "setoff": {
+          "offset": 104309,
+          "excerpt": "Setoff"
+        },
+        "netting": {
+          "offset": 145356,
+          "excerpt": "netting"
+        },
+        "guarantor_schedule": {
+          "offset": 363,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 88131,
+          "excerpt": "First Lien"
+        },
+        "senior_secured": {
+          "offset": 112729,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 845052,
+          "excerpt": "junior Lien"
+        }
+      },
+      "grant_clauses": 2,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-E4D2F8",
+      "borrower_lei": "5493000Q1S5TJIDIQH89",
+      "facility_type": "Term Loan",
+      "commitment_amount": 70000000.0,
+      "currency": "USD",
+      "source_document": "d761586dex101.htm",
+      "source_accession": "0001193125-24-281618",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 20,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 114134,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 441861,
+          "excerpt": "pledged Equity"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 84964,
+          "excerpt": "Receivables"
+        },
+        "equipment": {
+          "mentions": 12,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 59868,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 8,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 74872,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 13,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 61431,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 13541,
+          "excerpt": "Security Agreement"
+        },
+        "grants_security_interest": {
+          "offset": 5644,
+          "excerpt": "grant to the Collateral Agent, for the benefit of the Agents and the Lenders, a "
+        },
+        "pledge_agreement": {
+          "offset": 440346,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 379743,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 26133,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 130135,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 439931,
+          "excerpt": "first-priority Lien"
+        }
+      },
+      "grant_clauses": 1,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-E8D23D",
+      "borrower_lei": "549300D0WZR1VI2QGB24",
+      "facility_type": "Term Loan A",
+      "commitment_amount": 55000000.0,
+      "currency": "USD",
+      "source_document": "ef20054891_ex10-1.htm",
+      "source_accession": "0001140361-25-033513",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 18,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 87710,
+          "excerpt": "real property"
+        },
+        "receivables": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 65577,
+          "excerpt": "receivables"
+        },
+        "equipment": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 34960,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 5,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 47991,
+          "excerpt": "Inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 38196,
+          "excerpt": "deposit accounts"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 43990,
+          "excerpt": "Security Agreement"
+        },
+        "pledge_agreement": {
+          "offset": 99130,
+          "excerpt": "pledge agreement"
+        },
+        "financing_statement": {
+          "offset": 151930,
+          "excerpt": "financing statements"
+        },
+        "setoff": {
+          "offset": 6911,
+          "excerpt": "Set-off"
+        },
+        "netting": {
+          "offset": 138220,
+          "excerpt": "netting"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 160595,
+          "excerpt": "first lien"
+        }
+      },
+      "grant_clauses": 0,
+      "is_secured": true
+    },
+    {
+      "facility_id": "FAC-F98B63",
+      "borrower_lei": "549300EQD0ZXRSMG3549",
+      "facility_type": "Revolving Credit Facility",
+      "commitment_amount": 2500000000.0,
+      "currency": "USD",
+      "source_document": "d108525dex101.htm",
+      "source_accession": "0001193125-26-161564",
+      "asset_categories": {
+        "real_property": {
+          "mentions": 15,
+          "pledged_mentions": 2,
+          "pledged": true,
+          "first_offset": 462424,
+          "excerpt": "real property"
+        },
+        "marketable_securities": {
+          "mentions": 1,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 161922,
+          "excerpt": "Capital Stock of any"
+        },
+        "receivables": {
+          "mentions": 17,
+          "pledged_mentions": 6,
+          "pledged": true,
+          "first_offset": 208867,
+          "excerpt": "accounts receivable"
+        },
+        "equipment": {
+          "mentions": 10,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52470,
+          "excerpt": "equipment"
+        },
+        "inventory": {
+          "mentions": 9,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 52417,
+          "excerpt": "inventory"
+        },
+        "deposit_accounts": {
+          "mentions": 2,
+          "pledged_mentions": 0,
+          "pledged": false,
+          "first_offset": 86676,
+          "excerpt": "deposit account"
+        }
+      },
+      "structure": {
+        "security_agreement": {
+          "offset": 135839,
+          "excerpt": "security agreement"
+        },
+        "grants_security_interest": {
+          "offset": 210073,
+          "excerpt": "grant a security interest"
+        },
+        "financing_statement": {
+          "offset": 184209,
+          "excerpt": "financing\nstatement"
+        },
+        "setoff": {
+          "offset": 35959,
+          "excerpt": "Setoff"
+        },
+        "guarantor_schedule": {
+          "offset": 126879,
+          "excerpt": "Subsidiary Guarantors"
+        }
+      },
+      "priority": {
+        "first_lien": {
+          "offset": 465646,
+          "excerpt": "first priority Lien"
+        },
+        "senior_secured": {
+          "offset": 165357,
+          "excerpt": "senior secured"
+        },
+        "subordinated_lien": {
+          "offset": 165433,
+          "excerpt": "junior lien"
+        }
+      },
+      "grant_clauses": 3,
+      "is_secured": true
+    }
+  ]
+}

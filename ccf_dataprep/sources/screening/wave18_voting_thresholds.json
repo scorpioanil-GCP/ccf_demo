@@ -1,0 +1,243 @@
+{
+  "generated_for": "wave18 \u00b7 syndicated-lending-co-lender \u00b7 Task 11b",
+  "method": "REQUIRED_LENDERS_RE (generic) for the percentage-of-exposure standard; CARVEOUT_SPECS (curated, per-document, verified live) for the elevated per-Lender veto standard",
+  "documents": [
+    {
+      "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+      "facility_ids": [
+        "FAC-6F4065",
+        "FAC-A4A5EE"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-lenders",
+          "consent_standard": "Required Lenders",
+          "consent_percent": "50",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=165132-165234",
+          "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+          "facility_ids": [
+            "FAC-6F4065",
+            "FAC-A4A5EE"
+          ]
+        },
+        {
+          "bucket": "each-affected-lender",
+          "consent_standard": "each affected Lender",
+          "consent_percent": null,
+          "amendment_type": "Extend or increase a Lender's Commitment (or reinstate one terminated); postpone a scheduled payment date; or reduce the principal, interest rate, or fees payable to a Lender -- as to the Lender(s) directly affected (\u00a711.01(a)(i)-(iii)), except that only Required Lenders' consent is needed to amend the Default Rate definition",
+          "source_passage": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=664073-664115",
+          "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+          "facility_ids": [
+            "FAC-6F4065",
+            "FAC-A4A5EE"
+          ]
+        }
+      ]
+    },
+    {
+      "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+      "facility_ids": [
+        "FAC-3DF1D5"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-class-a-lenders",
+          "consent_standard": "Required Class A Lenders",
+          "consent_percent": "50.0",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=147959-148192",
+          "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+          "facility_ids": [
+            "FAC-3DF1D5"
+          ]
+        },
+        {
+          "bucket": "required-class-b-lenders",
+          "consent_standard": "Required Class B Lenders",
+          "consent_percent": "50.0",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=148197-148430",
+          "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+          "facility_ids": [
+            "FAC-3DF1D5"
+          ]
+        },
+        {
+          "bucket": "each-class-a-lender",
+          "consent_standard": "each Class A Lender",
+          "consent_percent": null,
+          "amendment_type": "Change (directly or indirectly) the definition of Class A Final Maturity Date (\u00a712.01(b)(B))",
+          "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=503986-504005",
+          "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+          "facility_ids": [
+            "FAC-3DF1D5"
+          ]
+        },
+        {
+          "bucket": "each-class-b-lender",
+          "consent_standard": "each Class B Lender",
+          "consent_percent": null,
+          "amendment_type": "Change (directly or indirectly) the definition of Class B Final Maturity Date (\u00a712.01(b)(C))",
+          "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=504161-504180",
+          "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+          "facility_ids": [
+            "FAC-3DF1D5"
+          ]
+        },
+        {
+          "bucket": "all-lenders",
+          "consent_standard": "all Lenders",
+          "consent_percent": null,
+          "amendment_type": "Change defined terms affecting the Borrowing Base or Concentration Percentage; reduce or delay payment of Principal or Interest; change the definition of an Event of Default; release Collateral; release the Performance Guarantor; or change \u00a7\u00a72.03(f), 3.02(a), 7.01-7.03, 8.01 -- unanimous, Administrative Agent and every Lender (\u00a712.01(b)(D))",
+          "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=504473-504510",
+          "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+          "facility_ids": [
+            "FAC-3DF1D5"
+          ]
+        }
+      ]
+    },
+    {
+      "document": "1632970_0001193125-26-145647_ahr-ex10_1.htm",
+      "facility_ids": [
+        "FAC-2A2C38",
+        "FAC-405B7A"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-lenders",
+          "consent_standard": "Required Lenders",
+          "consent_percent": "50",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=180184-180346",
+          "document": "1632970_0001193125-26-145647_ahr-ex10_1.htm",
+          "facility_ids": [
+            "FAC-2A2C38",
+            "FAC-405B7A"
+          ]
+        },
+        {
+          "bucket": "each-affected-lender",
+          "consent_standard": "each affected Lender",
+          "consent_percent": null,
+          "amendment_type": "Extend or increase a Lender's Commitment (or reinstate one terminated); waive non-payment or postpone a scheduled payment; or reduce principal, interest, or fees -- as to the Lender(s) directly affected (\u00a711.01(a)(i)-(iii)), except that only Required Lenders' consent is needed to amend the Default Rate definition",
+          "source_passage": "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=473342-473379",
+          "document": "1632970_0001193125-26-145647_ahr-ex10_1.htm",
+          "facility_ids": [
+            "FAC-2A2C38",
+            "FAC-405B7A"
+          ]
+        }
+      ]
+    },
+    {
+      "document": "716643_0001193125-24-281618_d761586dex101.htm",
+      "facility_ids": [
+        "FAC-01BB3F",
+        "FAC-5F29AF"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-lenders",
+          "consent_standard": "Required Lenders",
+          "consent_percent": "50.1",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "716643_0001193125-24-281618_d761586dex101.htm#offset=212552-212699",
+          "document": "716643_0001193125-24-281618_d761586dex101.htm",
+          "facility_ids": [
+            "FAC-01BB3F",
+            "FAC-5F29AF"
+          ]
+        },
+        {
+          "bucket": "each-affected-lender",
+          "consent_standard": "each affected Lender",
+          "consent_percent": null,
+          "amendment_type": "Increase a Lender's Commitment (or reinstate one reduced or terminated); reduce principal or interest on Loans payable to a Lender or any fee payable for its account; or postpone/extend a scheduled payment date -- as to the Lender directly affected (\u00a711.01(i))",
+          "source_passage": "716643_0001193125-24-281618_d761586dex101.htm#offset=571064-571106",
+          "document": "716643_0001193125-24-281618_d761586dex101.htm",
+          "facility_ids": [
+            "FAC-01BB3F",
+            "FAC-5F29AF"
+          ]
+        }
+      ]
+    },
+    {
+      "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+      "facility_ids": [
+        "FAC-E386A4"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-lenders",
+          "consent_standard": "Required Lenders",
+          "consent_percent": "50",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "723531_0001193125-26-021794_payx-ex10_1.htm#offset=139850-140137",
+          "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+          "facility_ids": [
+            "FAC-E386A4"
+          ]
+        },
+        {
+          "bucket": "each-affected-lender",
+          "consent_standard": "each affected Lender",
+          "consent_percent": null,
+          "amendment_type": "Commitment increase (\u00a710.01(b)(i)); reduction of principal, LC disbursement amount, interest rate or fees, or postponement of a scheduled payment -- as to the Lender(s) directly affected (\u00a710.01(b)(ii)-(iii))",
+          "source_passage": "723531_0001193125-26-021794_payx-ex10_1.htm#offset=426876-426918",
+          "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+          "facility_ids": [
+            "FAC-E386A4"
+          ]
+        },
+        {
+          "bucket": "all-lenders",
+          "consent_standard": "all Lenders",
+          "consent_percent": null,
+          "amendment_type": "Change the ratable-reduction/pro-rata-sharing provisions or the payment waterfall (\u00a7\u00a72.09(c), 2.18(b)/(d), 2.22(b)); change this amendment section or the definition of 'Required Lenders' itself; or release the Parent or Subsidiary Guarantors -- unanimous, every Lender, not only those directly affected (\u00a710.01(b)(iv)-(vii))",
+          "source_passage": "723531_0001193125-26-021794_payx-ex10_1.htm#offset=428240-428282",
+          "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+          "facility_ids": [
+            "FAC-E386A4"
+          ]
+        }
+      ]
+    },
+    {
+      "document": "885590_0001193125-25-149731_d949183dex101.htm",
+      "facility_ids": [
+        "FAC-08F1D1",
+        "FAC-E08688"
+      ],
+      "thresholds": [
+        {
+          "bucket": "required-lenders",
+          "consent_standard": "Required Lenders",
+          "consent_percent": "50",
+          "amendment_type": "General amendments and waivers to the Agreement and other Loan Documents not otherwise carved out to a narrower consent standard below",
+          "source_passage": "885590_0001193125-25-149731_d949183dex101.htm#offset=398298-398405",
+          "document": "885590_0001193125-25-149731_d949183dex101.htm",
+          "facility_ids": [
+            "FAC-08F1D1",
+            "FAC-E08688"
+          ]
+        },
+        {
+          "bucket": "each-affected-lender",
+          "consent_standard": "each affected Lender",
+          "consent_percent": null,
+          "amendment_type": "Commitment increases; reduction or forgiveness of principal or amounts due; extension of maturity or postponement of a scheduled payment; reduction of the interest rate -- as to the Lender(s) directly and adversely affected (\u00a710.02(b)(A)(1)-(4))",
+          "source_passage": "885590_0001193125-25-149731_d949183dex101.htm#offset=1117621-1117672",
+          "document": "885590_0001193125-25-149731_d949183dex101.htm",
+          "facility_ids": [
+            "FAC-08F1D1",
+            "FAC-E08688"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_thresholds": 16
+}

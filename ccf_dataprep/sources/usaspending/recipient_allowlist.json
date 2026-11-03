@@ -1,0 +1,110 @@
+{
+ "_note": "Hand-verified 2026-08-24, ratified by Dave. USASpending carries NO LEI and NO CIK, so every row here is a NAME judgement and is recorded as one. Anything not listed is REJECTED BY OMISSION -- the fetcher will not attribute an award it cannot evidence.",
+ "_method": "`exact` = recipient name identical to the anchor legal name after stripping legal-form suffixes (INC, CORP, LLC, LP, HOLDINGS, GROUP, ...). `verified-subsidiary` = the recipient appears in that anchor's OWN Exhibit 21 subsidiary list, checked against sources/screening/exhibit21.json. No other band is admissible: the fetcher's CHECK constraint accepts only these two.",
+ "_known_limitation": "Exhibit 21 is MATERIALITY-FILTERED at source and only 22 of 50 anchors have one indexed, so \"absent from Exhibit 21\" is absence of evidence, NOT evidence of absence. 40 candidate rows totalling $838,433,710 were dropped on this basis, including several that are probably genuine (AeroControlex, Whippany Actuation, XPO Logistics Worldwide Government Services). They are excluded because they could not be evidenced from this estate, not because they were disproved. The concentration measure is therefore a FLOOR.",
+ "_rejected_examples": [
+  {
+   "anchor": "Sabre Corp",
+   "recipient": "SABRE SYSTEMS, LLC",
+   "usd": 295901533,
+   "why": "unrelated defense contractor; largest single false positive in the sweep"
+  },
+  {
+   "anchor": "XPO, Inc.",
+   "recipient": "EXPONENT INC",
+   "usd": 56633809,
+   "why": "unrelated company, substring coincidence"
+  },
+  {
+   "anchor": "REGIS CORP",
+   "recipient": "NORTH AMERICAN ASSOCIATION OF CENTRAL...",
+   "usd": 20222529,
+   "why": "unrelated"
+  },
+  {
+   "anchor": "WATSCO INC",
+   "recipient": "WILLIS TOWERS WATSON US LLC",
+   "usd": 9064602,
+   "why": "unrelated"
+  }
+ ],
+ "entries": [
+  {
+   "lei": "549300D3L3G0R4U4VT04",
+   "anchor_name": "AMPHENOL CORP /DE/",
+   "recipient_name": "AMPHENOL CORPORATION",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "549300D3L3G0R4U4VT04",
+   "anchor_name": "AMPHENOL CORP /DE/",
+   "recipient_name": "AMPHENOL CORP",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "0J0XRGZE3PBRFEZ7MV65",
+   "anchor_name": "CHARTER COMMUNICATIONS, INC. /MO/",
+   "recipient_name": "CHARTER COMMUNICATIONS HOLDINGS LLC",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "549300OM4BWMCIXVCZ39",
+   "anchor_name": "GRANITE CONSTRUCTION INC",
+   "recipient_name": "GRANITE CONSTRUCTION COMPANY",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "0IDE18EMH1CUKQCUYE69",
+   "anchor_name": "SP Plus Corp",
+   "recipient_name": "SP PLUS LLC",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "0IDE18EMH1CUKQCUYE69",
+   "anchor_name": "SP Plus Corp",
+   "recipient_name": "SP PLUS CORPORATION",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "0IDE18EMH1CUKQCUYE69",
+   "anchor_name": "SP Plus Corp",
+   "recipient_name": "CENTRAL PARKING SYSTEM INC",
+   "match_band": "verified-subsidiary",
+   "verified_against": "Exhibit 21 of SP Plus Corp"
+  },
+  {
+   "lei": "JJAX4X60DE65EYFOTY73",
+   "anchor_name": "SUBURBAN PROPANE PARTNERS LP",
+   "recipient_name": "SUBURBAN PROPANE PARTNERS, L.P",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "549300EQD0ZXRSMG3549",
+   "anchor_name": "TransDigm Group INC",
+   "recipient_name": "TRANSDIGM INC",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "549300KTTIRAOGXCRV69",
+   "anchor_name": "Vertiv Holdings Co",
+   "recipient_name": "VERTIV CORPORATION",
+   "match_band": "exact",
+   "verified_against": "recipient name identical to anchor legal name after legal-form suffix stripping"
+  },
+  {
+   "lei": "2P2YLDVPES3BXQ1FRB91",
+   "anchor_name": "ZIMMER BIOMET HOLDINGS, INC.",
+   "recipient_name": "ZIMMER US INC",
+   "match_band": "verified-subsidiary",
+   "verified_against": "Exhibit 21 of ZIMMER BIOMET HOLDINGS, INC."
+  }
+ ]
+}

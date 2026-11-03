@@ -1,0 +1,44 @@
+{
+  "provenance": "synthetic — internal",
+  "note": "Wave 17 Task 16. aml_projection_plan rows -- what each perspective ASSEMBLES, not how it is displayed. Full element-by-element rationale, including which elements were considered and rejected for l1 on SAR-confidentiality grounds, is recorded in docs/ccf_dataprep_v2.md under \"2026-08-25 — Wave 17 Task 16: projection plans for three perspectives\" (the SDD task-16-report.md this note used to point at is deleted when the wave closes).",
+  "plans": [
+    {
+      "perspective": "l1",
+      "provenance": "synthetic — internal",
+      "elements": [
+        "alert_core_facts",
+        "disposition_candidates",
+        "sanctions_screening_result",
+        "typology_pattern_summary"
+      ]
+    },
+    {
+      "perspective": "l2",
+      "provenance": "synthetic — internal",
+      "elements": [
+        "alert_core_facts",
+        "counterparty_network",
+        "ownership_chain",
+        "prior_alert_lineage",
+        "sar_filing_history",
+        "typology_pattern_summary"
+      ]
+    },
+    {
+      "perspective": "examiner",
+      "provenance": "synthetic — internal",
+      "elements": [
+        "alert_core_facts",
+        "counterparty_network",
+        "disposition_candidates",
+        "ownership_chain",
+        "policy_version_attribution",
+        "prior_alert_lineage",
+        "reasoning_trail",
+        "sanctions_screening_result",
+        "sar_filing_history",
+        "typology_pattern_summary"
+      ]
+    }
+  ]
+}

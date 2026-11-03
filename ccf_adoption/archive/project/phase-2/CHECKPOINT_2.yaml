@@ -1,0 +1,27 @@
+checkpoint: 2
+name: Experience Approval
+status: APPROVED WITH AMENDMENTS
+approved_by: David Castillo
+date: 2026-09-13
+branch: phase-2c-prototype
+reviewed_commit: 7a3ebde3ff540a61b78bbda00651051cca729e94
+source_snapshots:
+  ccf: ac81805d0e400da15f860eed8c39a132af3ce945
+  obsidian-vault: e10add2edc85efe8e355844edfecc492bcf9fa65
+  ccf_dataprep: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+  ccf_code: 1a04e565504f712350b51777cfe398be46d5e157
+approved_scope:
+  - information architecture and learning paths
+  - selected dark enterprise visual direction
+  - reusable page system and evidence components
+  - Phase 2C prototype structure across landing, tutorial, reference, and Financial Services use-case pages
+  - horizontal Financial Services catalog behavior
+  - resource-strip and audience-routing model
+amendments:
+  - Full link wiring is intentionally incomplete in Phase 2C and will be completed as substantive content is built in Phases 3 through 8.
+  - Formal Product Design cloud-browser interaction and console verification remains outstanding because the Work runtime blocked the local preview surface.
+  - The browser-verification blocker does not prevent content work from advancing, but it must be closed before final release approval.
+  - Prototype imagery is directional; production should prefer authoritative CCF diagrams and source-controlled assets over generated mock imagery where practical.
+notes:
+  - Phase 2 establishes the approved experience model, not content completeness.
+  - No claim is made that every navigation destination or deep link is implemented at this checkpoint.

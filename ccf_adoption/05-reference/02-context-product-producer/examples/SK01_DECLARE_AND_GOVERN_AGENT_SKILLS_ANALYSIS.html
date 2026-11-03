@@ -1,0 +1,170 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SK-01 — Context Skills analysis</title><style>body{font:16px/1.65 system-ui,sans-serif;color:#172b3a;background:#f4f6f8;margin:0}main{max-width:1120px;margin:auto;padding:32px;background:white}h1{line-height:1.2}h2{border-top:1px solid #dde4e9;padding-top:20px}a{color:#075d9b;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.5;margin:18px 0}th,td{border:1px solid #ced8e0;text-align:left;vertical-align:top;padding:10px;overflow-wrap:anywhere}th{background:#e7eff5}code{background:#edf2f6;padding:2px 4px;overflow-wrap:anywhere}pre{white-space:pre-wrap;padding:14px;background:#f5f7fa}figure{margin:20px 0}svg{width:100%;height:auto}figcaption{font-size:13px;color:#526979}blockquote{border-left:4px solid #266c98;padding:12px;background:#edf5fb}@media(max-width:650px){main{padding:16px}table{font-size:12px}th,td{padding:6px}}</style></head><body><main><h1>SK-01 — Declare and govern agent skills — Analysis</h1>
+<p><strong>SDK source baseline:</strong> <code>drcastillo/ccf_code/v1.0.2@5f85b389efe9e4b1de62e84a5af62ca4b2e12178</code> — reviewed 17 October 2026.</p>
+<p><strong>Audience:</strong> banking SME and Information Architect. <strong>Companion:</strong> <a href="SK01_DECLARE_AND_GOVERN_AGENT_SKILLS.md">implementation walkthrough</a>.</p>
+<p>Unlike the CP examples, SK-01 does <strong>not</strong> ship a <code>spec/</code> folder or a completed CP-SPEC. Its authoritative target is the shipped README, configuration, question mapping, variant and findings. The journey below maps those actual declarations into <a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/public/reference/specifications/Context_Product_Specification_Standard_v0-3.md">Specification Standard v0.3</a>, sections A–G. It is an authoring analysis, not a claim that an unprovided final specification exists or has been approved.</p>
+<h2>A — Define the decision before choosing an agent tool</h2>
+<p>A credit officer needs the bank&#39;s collateral and set-off coverage for one facility, within one obligor&#39;s scope. The value of the example is controlled delegation: the officer must know which agent asked, what authority it held, and whether an attempt to expand that authority was refused.</p>
+<p>The SME frames the decision as “may this analyst obtain the registered collateral product&#39;s answer for this facility?” It does not authorize amending the collateral ledger, creating a new collateral valuation, or executing a credit decision. The Information Architect identifies the answering product and the host product separately. <code>credit-risk.collateral-coverage</code> owns the collateral determination. <code>credit-risk.facility-collateral-brief</code> hosts the composing agent and combines a small obligor identity leg with the admitted answer.</p>
+<p>The host&#39;s own leg exists because the supported SDK path requires it. It should not be mistaken for an additional banking requirement. The source findings track standalone grant-holding agents as unavailable.</p>
+<h2>B — Make the contract and scope explicit</h2>
+<table>
+<thead>
+<tr>
+<th>Specification question</th>
+<th>Shipped declaration</th>
+<th>SME / architect interpretation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Which answer is requested?</td>
+<td>Host class <code>credit-risk.facility-collateral-brief</code>, version <code>1.0.0</code></td>
+<td>A scoped brief, not a replacement collateral calculation</td>
+</tr>
+<tr>
+<td>Which assembly mode?</td>
+<td><code>swarm_assembled</code></td>
+<td>Governed composition of a child product; it does not imply an LLM call</td>
+</tr>
+<tr>
+<td>Who is the subject?</td>
+<td>Parent obligor LEI; required string argument <code>facility_id</code></td>
+<td>Obligor and facility are separate identities</td>
+</tr>
+<tr>
+<td>Which child is indispensable?</td>
+<td><code>credit-risk.collateral-coverage</code>, required, compatible from <code>1.0.0</code></td>
+<td>A refused child cannot be silently dropped or replaced by raw data</td>
+</tr>
+<tr>
+<td>Which caller perspective?</td>
+<td><code>PRIN-CRO-001</code>, role <code>credit-officer</code></td>
+<td>Example perspective, not employee-specific authorization proof</td>
+</tr>
+<tr>
+<td>How is scope passed?</td>
+<td>Child subject/facility = requested facility; <code>borrower_scope</code> = parent LEI</td>
+<td>The mapping constrains the requested answer; caller-chosen scope is not a substitute for employee entitlement</td>
+</tr>
+<tr>
+<td>How is age bounded?</td>
+<td>Decision-scoped parent, 43,200-second TTL; child expiry floors the result</td>
+<td>A fresh host cannot make expired collateral usable</td>
+</tr>
+</tbody></table>
+<p>The Information Architect records the exact request mapping: parent <code>collateral-brief</code> / <code>decision-scoped</code> becomes child <code>lgd-assessment</code> / <code>as-filed</code>, with the same <code>asked_at</code>. The demonstration question names BGC Group LEI <code>2549001IGRCG4F0RLD36</code>, facility <code>FAC-5B8418</code>, at <code>2026-09-07T12:00:00+00:00</code>.</p>
+<p>Before production approval, the bank still has to supply classification/residency, ownership, employee entitlement and production calibration decisions. The example is not evidence that those Standard fields have been resolved.</p>
+<h2>C — Separate business facts from authorization artifacts</h2>
+<p>The host reads <code>legal_entity</code> identity information from Postgres into obligor state: LEI, legal name and jurisdiction. The child owns the collateral/set-off evidence and calculation. Its answer enters through governed child admission, not a shared raw database read by the composing agent.</p>
+<p>The capability decomposition has five declaration groups. The SME chooses the policy envelope; the architect makes producer and class identity unambiguous:</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Exact choice in SK-01</th>
+<th>Why the choice matters</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Policy</td>
+<td>Permit only <code>collateral-coverage.read</code>; no grant approval required</td>
+<td>Defines the allowed envelope for this demonstration</td>
+</tr>
+<tr>
+<td>Producer</td>
+<td><code>collateral-coverage-producer</code>, identity <code>cp-06-canonical-collateral-and-setoff-coverage-egress</code>, tenant <code>cp-06-canonical-demo</code></td>
+<td>A matching class name alone does not establish a trusted producer</td>
+</tr>
+<tr>
+<td>Skill</td>
+<td><code>collateral-ask</code> version <code>1.0.0</code>, produces <code>credit-risk.collateral-coverage</code></td>
+<td>Names the delegated capability independently of a prompt</td>
+</tr>
+<tr>
+<td>Agent</td>
+<td><code>collateral-analyst</code> version <code>1.0.0</code>, archetype <code>context_assembly</code></td>
+<td>Makes the composing identity versioned data</td>
+</tr>
+<tr>
+<td>Grant</td>
+<td><code>grants: [collateral-ask]</code></td>
+<td>Requests the capability through the ledger when opening</td>
+</tr>
+</tbody></table>
+<p><code>required_context_products: []</code> belongs to the skill&#39;s requirement envelope. It does not cancel the host&#39;s required child. Likewise, a <code>.read</code> scope suffix expresses a policy label; the database read-only role is a separate enforcement control.</p>
+<h2>D — Turn the decision into the assembly and evidence journey</h2>
+<p>The SDK opens the declarations, registers the chain and requests the grant. Tier 1 compares the skill requirements with the policy/context contract. Tier 2 applies the approval rule; SK-01&#39;s rule requires no approval. An effective grant permits child acquisition through the SDK-derived binding. The developer&#39;s contribution is the parent-to-child question mapping and the host&#39;s acquisition/projection seams.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" role="img" aria-labelledby="skill-title"><title id="skill-title">Declared grant, refused opening or governed child question and decision evidence</title><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#275c7b"/></marker></defs><rect width="1000" height="470" fill="#f8fbfd"/><rect x="13" y="10" width="174" height="40" rx="4" fill="#dcebf4"/><text x="100" y="35" text-anchor="middle" font-family="sans-serif" font-size="14">Product opening</text><line x1="100" y1="50" x2="100" y2="450" stroke="#adbfc9" stroke-dasharray="5 5"/><rect x="213" y="10" width="174" height="40" rx="4" fill="#dcebf4"/><text x="300" y="35" text-anchor="middle" font-family="sans-serif" font-size="14">Grant ledger</text><line x1="300" y1="50" x2="300" y2="450" stroke="#adbfc9" stroke-dasharray="5 5"/><rect x="413" y="10" width="174" height="40" rx="4" fill="#dcebf4"/><text x="500" y="35" text-anchor="middle" font-family="sans-serif" font-size="14">Parent resolver</text><line x1="500" y1="50" x2="500" y2="450" stroke="#adbfc9" stroke-dasharray="5 5"/><rect x="613" y="10" width="174" height="40" rx="4" fill="#dcebf4"/><text x="700" y="35" text-anchor="middle" font-family="sans-serif" font-size="14">Collateral producer</text><line x1="700" y1="50" x2="700" y2="450" stroke="#adbfc9" stroke-dasharray="5 5"/><rect x="813" y="10" width="174" height="40" rx="4" fill="#dcebf4"/><text x="900" y="35" text-anchor="middle" font-family="sans-serif" font-size="14">Decision evidence</text><line x1="900" y1="50" x2="900" y2="450" stroke="#adbfc9" stroke-dasharray="5 5"/><line x1="100" y1="90" x2="300" y2="90" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="200" y="81" text-anchor="middle" font-family="sans-serif" font-size="13">Request collateral-ask grant</text><rect x="12" y="110" width="976" height="85" fill="#fff4ed" fill-opacity=".7" stroke="#ccb5a4"/><text x="25" y="132" font-family="sans-serif" font-size="14">If scope exceeds policy</text><line x1="300" y1="173" x2="100" y2="173" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="200" y="164" text-anchor="middle" font-family="sans-serif" font-size="13">Refuse and audit; opening stops</text><rect x="12" y="210" width="976" height="240" fill="#edf7f1" fill-opacity=".65" stroke="#aac8b5"/><text x="25" y="232" font-family="sans-serif" font-size="14">If grant is effective</text><line x1="300" y1="270" x2="100" y2="270" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="200" y="261" text-anchor="middle" font-family="sans-serif" font-size="13">Bound skill authority</text><line x1="500" y1="315" x2="700" y2="315" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="600" y="306" text-anchor="middle" font-family="sans-serif" font-size="13">Facility and borrower scope</text><line x1="700" y1="355" x2="500" y2="355" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="600" y="346" text-anchor="middle" font-family="sans-serif" font-size="13">Governed answer or refusal</text><rect x="410" y="373" width="180" height="30" fill="#dcebf4"/><text x="500" y="393" text-anchor="middle" font-family="sans-serif" font-size="12">Verify and admit child</text><line x1="500" y1="430" x2="900" y2="430" stroke="#275c7b" stroke-width="2" marker-end="url(#arr)"/><text x="700" y="421" text-anchor="middle" font-family="sans-serif" font-size="13">Record agent, skill-set identity and outcome</text></svg><figcaption>Grant authorization precedes the child-product question.</figcaption></figure>
+<p>For acceptance, distinguish what is recorded from what can later be reconstructed. Dimension 4 identifies the agent by definition hash, versioned URI and archetypes, and identifies the granted set by hash, even on refusal. Dimension 5 names the producing skill/version and grant hash only when the child is admitted. A refused child row contains refusal evidence; a temporal refusal can precede all child rows.</p>
+<p>The Standard&#39;s replay section must state the retained-evidence dependency. Current SDK composite replay reconstructs using retained child contracts and graphs without asking producers again, but SK-01 has no replay acceptance gate of its own. The record alone cannot enumerate the skill-set or re-evaluate its requirements; the necessary catalog/grant artifacts live in the example&#39;s in-memory Control Plane. A production specification requiring durable authority reconstruction must leave that acceptance item unresolved until it is implemented and tested.</p>
+<h2>E — Specify volatility and debt without inventing production policy</h2>
+<p>The shipped identity half-life is 31,536,000 seconds with <code>gleif-record-refresh</code> decay and <code>lei-record-update</code> supersession. Risk sensitivity is <code>1.0</code>, forced-LLM threshold <code>0.30</code>, fail-closed threshold <code>0.60</code>. The maximum past interval is 3,600 seconds with no permitted clock skew. The declared demonstration serve instant is <code>2026-09-07T12:05:00+00:00</code>.</p>
+<p>These values make the dated teaching estate observable. The SME must justify production thresholds against the actual collateral policy and evidence refresh process; neither a one-year identity half-life nor a twelve-hour host TTL extends the child&#39;s validity. The presence of a forced-LLM threshold does not mean this example invokes a model.</p>
+<h2>F — Bind the sources and expose readiness gaps</h2>
+<p>The deployment references endpoint and credential <strong>variable names</strong>, never their values, for the collateral producer. Four variables are required for SK-01: complete Postgres DSN, schema <code>ccf_v2</code>, producer MCP URL, and producer token. The producer has its own source settings and must be started separately. Use Fluree <strong>4.2.4</strong> for its graph source and a read-only Postgres role. Host-side SQLite is the fabric backend, not the banking estate.</p>
+<p>Readiness is conditional on those dependencies. Missing settings are a setup failure; a governed refusal is a valid recorded result; an unexpected unbound exception is a runtime failure. Keep those three outcomes distinct in the specification and the review evidence.</p>
+<h2>G — Define reviewable acceptance criteria</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Expected result at the source baseline</th>
+<th>Evidence / qualification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Open declared configuration</td>
+<td>Requested then effective grant</td>
+<td>Opening audit in memory</td>
+</tr>
+<tr>
+<td>Add <code>collateral-ledger.write</code> and advance skill artifact to <code>1.1.0</code></td>
+<td><code>DeclaredGrantRefused</code>, <code>tier-1-policy-compatibility</code></td>
+<td>Shipped over-reach variant; original policy unchanged</td>
+</tr>
+<tr>
+<td>Ask the demonstration facility</td>
+<td>Governed answer with composing identity; admitted child names skill/grant</td>
+<td>SDK README reports estate measurement; not rerun here</td>
+</tr>
+<tr>
+<td>Ask <code>FAC-D3D1A4</code> for LEI <code>B3BS7ACMDUWISF18KY76</code></td>
+<td>Parent <code>composite-child-refusal</code>; child <code>ttl-refusal</code> / <code>ttl-bounds</code></td>
+<td>Expired collateral remains unusable</td>
+</tr>
+<tr>
+<td>Ask at <code>2026-09-07T10:00:00+00:00</code></td>
+<td><code>asked-at-outside-temporal-bound</code>, still naming agent/set</td>
+<td>Early refusal need not acquire a child</td>
+</tr>
+<tr>
+<td>Inspect harness tools</td>
+<td>Empty lists</td>
+<td>Correct for <code>mcp_product</code>; no LLM is started</td>
+</tr>
+<tr>
+<td>Recover every granted member from only the record</td>
+<td>Not supported</td>
+<td>Set hash and in-memory artifacts do not satisfy durable enumeration</td>
+</tr>
+<tr>
+<td>Change grants while running / host agent independently</td>
+<td>Not demonstrated through an authorized example entry point</td>
+<td>Parked SDK gaps, not completed acceptance items</td>
+</tr>
+<tr>
+<td>Replay SK-01 after restart</td>
+<td>Not measured by this example</td>
+<td>SDK has composite replay tests; add a scenario-specific gate before claiming acceptance</td>
+</tr>
+</tbody></table>
+<p>The SME can approve the capability&#39;s banking scope; the architect can check exact class, subject, producer, policy and artifact identities. Operations and audit must resolve the retention and authorization gaps before treating the demonstration as a production control.</p>
+<h2>Source trail</h2>
+<ul>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/README.md">README and reported estate outcomes</a></li>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/ccf_config.yaml">Actual final configuration</a> and <a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/variants/over-reach/ccf_config.yaml">over-reach configuration</a></li>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/artifacts/question.yaml">Question</a>, <a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/deployment.py">mapping</a>, <a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/acquisition.py">acquisition</a></li>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/examples/sk-01-declare-and-govern-agent-skills/FINDINGS.md">Findings and unavailable capabilities</a></li>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/public/reference/specifications/Context_Product_Specification_Standard_v0-3.md">Standard v0.3</a>, used as the A–G authoring structure, not as evidence of a missing final spec</li>
+<li><a href="https://github.com/drcastillo/ccf_code/blob/5f85b389efe9e4b1de62e84a5af62ca4b2e12178/docs/surface-changes/389-01-composite-replay-from-the-record.md">Composite replay change</a></li>
+</ul>
+</main></body></html>

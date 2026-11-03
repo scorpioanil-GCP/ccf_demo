@@ -1,0 +1,17 @@
+{
+  "source": "13f",
+  "description": "SEC Form 13F quarterly structured data set \u2014 institutional holders (COVERPAGE + INFOTABLE) filtered to anchor issuers",
+  "licence": "US government work / public filing",
+  "fetches": [
+    {
+      "url": "https://www.sec.gov/files/structureddata/data/form-13f-data-sets/01mar2026-31may2026_form13f.zip",
+      "path": "sources/13f/01mar2026-31may2026_form13f.zip",
+      "retrieved_at": "2026-08-19T04:06:06+00:00",
+      "sha256": "05f4da8f526cd471a387af45661a8cb3bbfaf345d3ec9c2cefd31349aa257e63",
+      "bytes": 99411274,
+      "http_status": 200,
+      "content_type": "application/octet-stream",
+      "notes": ""
+    }
+  ]
+}

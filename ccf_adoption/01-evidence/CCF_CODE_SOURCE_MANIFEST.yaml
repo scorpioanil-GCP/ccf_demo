@@ -1,0 +1,40 @@
+# Original source pins below are historical evidence, not the current execution baseline.
+current_execution_reference:
+  repository: drcastillo/ccf_code
+  ref: v1.0.2
+  commit: 5f85b389efe9e4b1de62e84a5af62ca4b2e12178
+  checked_on: "2026-10-18"
+  fluree_version: "4.2.4"
+  example_inventory: ../examples/SDK_BASELINE.json
+  scope: current run instructions; historical qualification and source pins remain below
+
+repository: drcastillo/ccf_code
+access: read-only
+baseline:
+  branch: main
+  commit: 1a04e565504f712350b51777cfe398be46d5e157
+  latest_approved_context_product: cp-12-fx-post-trade-reconciliation
+  pressure_test_program_status: "working through example 13 of 24; later examples are unfinished and may still change SDK behavior"
+source_roots:
+  sdk_library: src/ccf
+  runtime_host: runtime/ccf_runtime
+  examples: examples
+  tests: tests
+  decisions: docs/DECISIONS.md
+  surface_docs: docs/surface
+  specification_references: public/reference/specifications
+specification_reference_artifacts:
+  standard: public/reference/specifications/Context_Product_Specification_Standard_v0-3.md
+  generation_recipe: public/reference/specifications/spec_generation.md
+  delivery_recipe: public/reference/specifications/example_delivery.md
+canonical_example_selections:
+  cp-04: examples/cp-04-canonical-corporate-family-tree
+historical_or_noncanonical_paths:
+  - examples/cp-04-corporate-family-tree
+learning_candidates:
+  first_context_product: examples/s1-01-hello-context-product
+  harness_consumption: examples/hw1-harness-clients
+maturity_policy: 01-evidence/SDK_MATURITY_AND_BASELINE.md
+capability_inventory: 01-evidence/SDK_CAPABILITY_INVENTORY.md
+financial_services_example_requirements: 01-evidence/FINANCIAL_SERVICES_EXAMPLE_REQUIREMENTS.md
+refresh_rule: "Any approved SDK-changing example requires reconciliation of affected adoption evidence before those artifacts are declared current."

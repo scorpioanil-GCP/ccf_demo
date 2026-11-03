@@ -1,0 +1,16 @@
+checkpoint: 4B
+name: Assembler SDK Path
+status: APPROVED
+approved_by: David Castillo
+date: 2026-09-13
+branch: phase-4b-assembler
+reviewed_commit: c092d3c3d5b3bba3e80364a14e2f70763a6794b8
+source_snapshots:
+  ccf_code: 374a36007bb2fda3e968a83c2ead7d84993c0b23
+  ccf_dataprep: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+notes:
+  - The assembler path is approved through the stable CP-00 through CP-13 evidence surface.
+  - CP-14 composite Context Products are an active major SDK addition and remain outside settled 4B claims.
+  - Operator composition and composite Context Products are distinct concepts and must remain distinct in adoption material.
+  - Phase 4C may proceed with one progressive end-to-end tutorial on the approved pre-CP-14 surface.
+  - The corrective MCP source excerpts added to the 4A consumer page are accepted as a documentation correction, not a change to the approved consumer architecture.

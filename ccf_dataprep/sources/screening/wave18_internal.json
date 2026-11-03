@@ -1,0 +1,221 @@
+{
+  "generated_for": "wave18 \u00b7 syndicated-lending-co-lender \u00b7 Task 6/7/9",
+  "method": "filed JPMorgan rows in wave18_schedules.json, mapped to facility_id via TRANCHE_TO_FACILITIES (see module docstring for the evidence behind each mapping); ratings and postures invented and labelled synthetic \u2014 internal. Amendment event dates extracted from each governing EX-10's own title/preamble recital (Task 9); vote postures invented and labelled synthetic \u2014 internal",
+  "ruling": "T6-R1, T6-R2",
+  "derived_facility_count": 5,
+  "generated_at": "2026-08-26T18:03:20.085457+00:00",
+  "own_positions": [
+    {
+      "facility_id": "FAC-08F1D1",
+      "member_id": "SYNM-80cbe8f1",
+      "share_usd": 1285342270,
+      "internal_rating": "B+",
+      "workout_posture": "watch",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-6F4065",
+      "member_id": "SYNM-80cbe8f1",
+      "share_usd": 61500000,
+      "internal_rating": "BBB-",
+      "workout_posture": "performing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-A4A5EE",
+      "member_id": "SYNM-80cbe8f1",
+      "share_usd": 84000000,
+      "internal_rating": "BBB-",
+      "workout_posture": "performing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E08688",
+      "member_id": "SYNM-80cbe8f1",
+      "share_usd": 115000000,
+      "internal_rating": "B+",
+      "workout_posture": "watch",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "facility_id": "FAC-E386A4",
+      "member_id": "SYNM-80cbe8f1",
+      "share_usd": 145000000,
+      "internal_rating": "A",
+      "workout_posture": "performing",
+      "as_of": "2026-08-26",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "competition_law_rules": [
+    {
+      "rule_id": "CLR-001",
+      "jurisdiction": "US",
+      "constrains": "forward-looking pricing exchange",
+      "rule_text": "A syndicate desk officer must not disclose to another lender in the same syndicate, outside the arranger-run allocation process, any indication of the price or spread this bank intends to bid or hold on a future facility for the same borrower or sector. Coordinating forward pricing among competing lenders is a per se Sherman Act Section 1 concern.",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "rule_id": "CLR-002",
+      "jurisdiction": "US",
+      "constrains": "disclosure of another borrower's terms",
+      "rule_text": "Covenant levels, pricing grids, or fee terms negotiated with one borrower must not be shared with a co-lender to inform that co-lender's negotiation with a DIFFERENT, unrelated borrower, even where both borrowers sit in the same industry and the co-lender is also a lender to this bank elsewhere.",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "rule_id": "CLR-003",
+      "jurisdiction": "US",
+      "constrains": "exchange of unannounced workout intent",
+      "rule_text": "This bank's internal workout_posture and any related restructuring, exit, or amendment intent for a shared facility must not be communicated to a co-lender before it is raised through the formal steering committee or agent bank process -- informal advance coordination among lenders on how they intend to vote or exit risks concerted action against the borrower's and other lenders' interests.",
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "rule_id": "CLR-004",
+      "jurisdiction": "EU",
+      "constrains": "market allocation between competing lenders",
+      "rule_text": "This bank must not agree, formally or informally, with a co-lender to divide prospective borrowers, sectors, or deal flow between them -- Article 101 TFEU treats market or customer allocation between competitors as a restriction of competition by object, regardless of syndicate membership on any individual facility.",
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "projection_plans": [
+    {
+      "perspective": "prospective",
+      "elements": [
+        "syndicate_composition",
+        "administrative_agent",
+        "voting_thresholds"
+      ],
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "perspective": "participant",
+      "elements": [
+        "syndicate_composition",
+        "member_commitment",
+        "own_position",
+        "administrative_agent",
+        "voting_thresholds",
+        "amendment_vote_posture",
+        "peer_position",
+        "divergence_indicator"
+      ],
+      "provenance": "synthetic \u2014 internal"
+    },
+    {
+      "perspective": "agent",
+      "elements": [
+        "syndicate_composition",
+        "member_commitment",
+        "own_position",
+        "administrative_agent",
+        "voting_thresholds",
+        "assignment_terms",
+        "amendment_vote_posture",
+        "member_call_report",
+        "desk_tracker_note",
+        "peer_position",
+        "divergence_indicator"
+      ],
+      "provenance": "synthetic \u2014 internal"
+    }
+  ],
+  "amendment_events": [
+    {
+      "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+      "facility_ids": [
+        "FAC-6F4065",
+        "FAC-A4A5EE"
+      ],
+      "effective_date": "2025-04-03",
+      "date_text": "April 3, 2025",
+      "source_passage": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm#offset=407-420",
+      "provenance": "public"
+    },
+    {
+      "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+      "facility_ids": [
+        "FAC-3DF1D5"
+      ],
+      "effective_date": "2026-08-04",
+      "date_text": "August 4, 2026",
+      "source_passage": "1597033_0001193125-26-340356_d133770dex101.htm#offset=236-250",
+      "provenance": "public"
+    },
+    {
+      "document": "1632970_0001193125-26-145647_ahr-ex10_1.htm",
+      "facility_ids": [
+        "FAC-2A2C38",
+        "FAC-405B7A"
+      ],
+      "effective_date": "2026-04-01",
+      "date_text": "April 1, 2026",
+      "source_passage": "1632970_0001193125-26-145647_ahr-ex10_1.htm#offset=245-258",
+      "provenance": "public"
+    },
+    {
+      "document": "716643_0001193125-24-281618_d761586dex101.htm",
+      "facility_ids": [
+        "FAC-01BB3F",
+        "FAC-25F991",
+        "FAC-5F29AF",
+        "FAC-E4D2F8"
+      ],
+      "effective_date": "2024-12-19",
+      "date_text": "December 19, 2024",
+      "source_passage": "716643_0001193125-24-281618_d761586dex101.htm#offset=184-201",
+      "provenance": "public"
+    },
+    {
+      "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+      "facility_ids": [
+        "FAC-E386A4"
+      ],
+      "effective_date": "2026-01-23",
+      "date_text": "January 23, 2026",
+      "source_passage": "723531_0001193125-26-021794_payx-ex10_1.htm#offset=102-118",
+      "provenance": "public"
+    },
+    {
+      "document": "885590_0001193125-25-149731_d949183dex101.htm",
+      "facility_ids": [
+        "FAC-08F1D1",
+        "FAC-E08688"
+      ],
+      "effective_date": "2025-06-26",
+      "date_text": "June 26, 2025",
+      "source_passage": "885590_0001193125-25-149731_d949183dex101.htm#offset=186-199",
+      "provenance": "public"
+    }
+  ],
+  "amendment_vote": {
+    "facility_id": "FAC-A4A5EE",
+    "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+    "vote_state": "open",
+    "rationale": "RB Global's Revolving Credit Facility (A/B/C combined) ties FAC-6F4065 for the largest Wave 18 syndicate at 18 lenders (measured against the live Fluree graph, not the schedule artifact alone), and its administrative agent (Bank of America) is also a filed lender here, which lets the vote show the agent's own posture rather than merely assert it. 18 voters is enough room for all four closed-vocabulary posture values to appear at once, not just the floor of two.",
+    "postures": {
+      "SYNM-296cd7b6": "consent",
+      "SYNM-2e08b511": "undecided",
+      "SYNM-3e7b26ef": "decline",
+      "SYNM-600395b6": "undecided",
+      "SYNM-6d33e219": "decline",
+      "SYNM-774d74e4": "consent",
+      "SYNM-80cbe8f1": "consent",
+      "SYNM-81d79474": "consent",
+      "SYNM-90ba8afa": "decline",
+      "SYNM-9bc30105": "undecided",
+      "SYNM-9d3fd0fd": "abstain",
+      "SYNM-b61d5481": "consent",
+      "SYNM-bd62e4cb": "consent",
+      "SYNM-d855a7a6": "consent",
+      "SYNM-e7bed519": "decline",
+      "SYNM-ec5e05e6": "consent",
+      "SYNM-fcb706ef": "undecided",
+      "SYNM-ff996510": "abstain"
+    },
+    "provenance": "synthetic \u2014 internal"
+  }
+}

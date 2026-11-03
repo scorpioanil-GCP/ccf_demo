@@ -1,0 +1,72 @@
+# Machine-readable companion to LINEAGE_MODEL.md.
+# One record should be instantiated per Financial Services example during Phase 1C.2.
+
+cp_id: "cp-NN"
+canonical_example_path: "examples/cp-NN-<slug>"
+historical_or_superseded_paths: []
+release_state: "approved | work-in-progress | historical"
+product:
+  registry_name: null
+  version: null
+  tier: null
+  assembly_mode: null
+baselines:
+  whitepaper_commit: null
+  vault_commit: null
+  dataprep_commit: null
+  sdk_commit: null
+business_problem:
+  decision: null
+  trigger: null
+  counterfactual_failure_mode: null
+  consequence: null
+  personas:
+    business_sme: []
+    data_engineer_assembler: []
+    consumer_agent_developer: []
+    controls_governance: []
+    platform_operations: []
+    model_risk: []
+specification_lineage:
+  vault_article: null
+  vault_standard: null
+  sdk_spec: null
+  sdk_standard: null
+  spec_first_status: "prospective | retrospective | unknown"
+  gate_1_status: null
+  gate_2_status: null
+  source_divergences: []
+data_reality:
+  public_observed: []
+  derived: []
+  synthetic_internal: []
+  synthetic_engineered: []
+  synthetic_bridging: []
+  unavailable_or_deferred: []
+  limitations: []
+implementation:
+  stores_and_sources: []
+  request_surface: []
+  operator_or_assembly_path: []
+  projection: null
+  freshness_and_debt: null
+  replay: null
+  run_commands: []
+  tests_and_gates: []
+controls_governance:
+  policy_entitlement: null
+  classification_residency_information_barriers: null
+  provenance_lineage: null
+  temporal_correctness: null
+  debt_refusal_fail_closed: null
+  deterministic_semantic_boundary: null
+  model_risk: null
+  replay_auditability: null
+  change_version_governance: null
+  source_system_separation: null
+claims:
+  proves: []
+  does_not_prove: []
+refresh_status:
+  reviewed_at: null
+  stale_if_source_changes: true

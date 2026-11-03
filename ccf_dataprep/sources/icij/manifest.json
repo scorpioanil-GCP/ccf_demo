@@ -1,0 +1,17 @@
+{
+  "source": "icij",
+  "description": "ICIJ Offshore Leaks Database (full CSV). PROVENANCE ONLY \u2014 the archive is fetched outside the repository, reduced to structural distributions and vocabularies, and deleted. No entity name, officer name, address or node id is retained.",
+  "licence": "ICIJ publishes the Offshore Leaks database under ODbL. ICIJ states that inclusion implies no wrongdoing; this project therefore uses the STRUCTURE only and never attributes a real name to a synthetic relationship.",
+  "fetches": [
+    {
+      "url": "https://offshoreleaks-data.icij.org/offshoreleaks/csv/full-oldb.LATEST.zip",
+      "path": "[outside repo] /tmp/claude-1000/-home-parkave-ccf-dataprep/a76f9e18-95c3-45b9-ae6a-6447d9e1b3dd/scratchpad/icij/full-oldb.zip",
+      "retrieved_at": "2026-08-22T19:50:19+00:00",
+      "sha256": "34475194b6a8c2d683fddc55cca02f88f08f0a538521fb13a324975221624380",
+      "bytes": 71934796,
+      "http_status": 200,
+      "content_type": "application/zip",
+      "notes": ""
+    }
+  ]
+}

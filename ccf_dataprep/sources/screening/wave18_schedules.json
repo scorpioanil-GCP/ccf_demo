@@ -1,0 +1,752 @@
+{
+  "generated_for": "wave18 \u00b7 syndicated-lending-co-lender",
+  "method": "structural parse of filed commitment schedules",
+  "provenance": "public",
+  "source": "SEC EDGAR EX-10 commitment schedules",
+  "retrieved_at": "2026-08-26",
+  "agreements": [
+    {
+      "document": "1046102_0001104659-25-031884_tm2511351d1_ex10-1.htm",
+      "facility_ids": [
+        "FAC-6F4065",
+        "FAC-A4A5EE"
+      ],
+      "rows": [
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 92000000,
+          "offset": 784963,
+          "end": 784984,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Royal Bank of Canada",
+          "amount_usd": 139000000,
+          "offset": 785126,
+          "end": 785146,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Wells Fargo Bank, N.A., Canadian Branch",
+          "amount_usd": 110000000,
+          "offset": 785283,
+          "end": 785322,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "The Bank of Nova Scotia",
+          "amount_usd": 84000000,
+          "offset": 785468,
+          "end": 785491,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Export Development Canada",
+          "amount_usd": 84000000,
+          "offset": 785627,
+          "end": 785652,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "JPMorgan Chase Bank, N.A.",
+          "amount_usd": 44000000,
+          "offset": 785787,
+          "end": 785812,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Canadian Imperial Bank of Commerce",
+          "amount_usd": 67500000,
+          "offset": 785957,
+          "end": 785991,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "U.S. Bank National Association",
+          "amount_usd": 67500000,
+          "offset": 786125,
+          "end": 786155,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "MUFG Bank, Ltd., Canada Branch",
+          "amount_usd": 25000000,
+          "offset": 786298,
+          "end": 786328,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Truist Bank",
+          "amount_usd": 67500000,
+          "offset": 786464,
+          "end": 786475,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Citizens Bank, N.A.",
+          "amount_usd": 51500000,
+          "offset": 786619,
+          "end": 786638,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Goldman Sachs Bank USA",
+          "amount_usd": 60000000,
+          "offset": 786782,
+          "end": 786804,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "The Toronto-Dominion Bank",
+          "amount_usd": 39000000,
+          "offset": 786948,
+          "end": 786973,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "F\u00e9d\u00e9ration des caisses Desjardins du Qu\u00e9bec",
+          "amount_usd": 39000000,
+          "offset": 787108,
+          "end": 787151,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Westpac Banking Corporation",
+          "amount_usd": 5000000,
+          "offset": 787287,
+          "end": 787314,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Bank of Montreal",
+          "amount_usd": 39000000,
+          "offset": 787452,
+          "end": 787468,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "HSBC Bank USA, NA",
+          "amount_usd": 28000000,
+          "offset": 787603,
+          "end": 787620,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "PNC Bank, National Association",
+          "amount_usd": 28000000,
+          "offset": 787764,
+          "end": 787794,
+          "tranche": "Revolving A Commitment"
+        },
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 75000000,
+          "offset": 788429,
+          "end": 788450,
+          "tranche": "Revolving B Commitment"
+        },
+        {
+          "lender_raw": "JPMorgan Chase Bank, N.A.",
+          "amount_usd": 40000000,
+          "offset": 788593,
+          "end": 788618,
+          "tranche": "Revolving B Commitment"
+        },
+        {
+          "lender_raw": "MUFG Bank, Ltd., Canada Branch",
+          "amount_usd": 35000000,
+          "offset": 788764,
+          "end": 788794,
+          "tranche": "Revolving B Commitment"
+        },
+        {
+          "lender_raw": "Westpac Banking Corporation",
+          "amount_usd": 50000000,
+          "offset": 788931,
+          "end": 788958,
+          "tranche": "Revolving B Commitment"
+        },
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 15000000,
+          "offset": 789524,
+          "end": 789545,
+          "tranche": "Revolving C Commitment"
+        },
+        {
+          "lender_raw": "MUFG Bank, Ltd., Chiba Branch",
+          "amount_usd": 7500000,
+          "offset": 789688,
+          "end": 789717,
+          "tranche": "Revolving C Commitment"
+        },
+        {
+          "lender_raw": "Citizens Bank, N.A.",
+          "amount_usd": 7500000,
+          "offset": 789853,
+          "end": 789872,
+          "tranche": "Revolving C Commitment"
+        },
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 187000000,
+          "offset": 790384,
+          "end": 790405,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Royal Bank of Canada",
+          "amount_usd": 102500000,
+          "offset": 790535,
+          "end": 790555,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Wells Fargo Bank, N.A., Canadian Branch",
+          "amount_usd": 83000000,
+          "offset": 790685,
+          "end": 790724,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "The Bank of Nova Scotia",
+          "amount_usd": 61500000,
+          "offset": 790850,
+          "end": 790873,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Export Development Canada",
+          "amount_usd": 61500000,
+          "offset": 790999,
+          "end": 791024,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "JPMorgan Chase Bank, N.A.",
+          "amount_usd": 61500000,
+          "offset": 791150,
+          "end": 791175,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Canadian Imperial Bank of Commerce",
+          "amount_usd": 48500000,
+          "offset": 791421,
+          "end": 791455,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "U.S. Bank National Association",
+          "amount_usd": 48500000,
+          "offset": 791581,
+          "end": 791611,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "MUFG Bank, Ltd., Canada Branch",
+          "amount_usd": 48500000,
+          "offset": 791737,
+          "end": 791767,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Truist Bank",
+          "amount_usd": 48500000,
+          "offset": 791893,
+          "end": 791904,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Citizens Bank, N.A.",
+          "amount_usd": 39000000,
+          "offset": 792030,
+          "end": 792049,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Goldman Sachs Bank USA",
+          "amount_usd": 18000000,
+          "offset": 792175,
+          "end": 792197,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "The Toronto-Dominion Bank",
+          "amount_usd": 29000000,
+          "offset": 792323,
+          "end": 792348,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "F\u00e9d\u00e9ration des caisses Desjardins du Qu\u00e9bec",
+          "amount_usd": 29000000,
+          "offset": 792474,
+          "end": 792517,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Westpac Banking Corporation",
+          "amount_usd": 14000000,
+          "offset": 792643,
+          "end": 792670,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "Bank of Montreal",
+          "amount_usd": 29000000,
+          "offset": 792796,
+          "end": 792812,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "HSBC Bank USA, NA",
+          "amount_usd": 20500000,
+          "offset": 792938,
+          "end": 792955,
+          "tranche": "New Term A Loan Commitment"
+        },
+        {
+          "lender_raw": "PNC Bank Canada Branch",
+          "amount_usd": 20500000,
+          "offset": 793081,
+          "end": 793103,
+          "tranche": "New Term A Loan Commitment"
+        }
+      ]
+    },
+    {
+      "document": "885590_0001193125-25-149731_d949183dex101.htm",
+      "facility_ids": [
+        "FAC-E08688",
+        "FAC-105FC5",
+        "FAC-08F1D1",
+        "FAC-DFCB72"
+      ],
+      "rows": [
+        {
+          "lender_raw": "JPMorgan Chase Bank, N.A.",
+          "amount_usd": 1285342270,
+          "offset": 69109,
+          "end": 69134,
+          "tranche": "REFINANCING TERM LOAN COMMITMENTS"
+        },
+        {
+          "lender_raw": "JPMorgan Chase Bank, N.A.",
+          "amount_usd": 115000000,
+          "offset": 69611,
+          "end": 69636,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Barclays Bank PLC",
+          "amount_usd": 97000000,
+          "offset": 69673,
+          "end": 69690,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Citicorp North America, Inc.",
+          "amount_usd": 97000000,
+          "offset": 69726,
+          "end": 69754,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "HSBC Bank USA, National Association",
+          "amount_usd": 97000000,
+          "offset": 69790,
+          "end": 69825,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Wells Fargo Bank, National Association",
+          "amount_usd": 97000000,
+          "offset": 69861,
+          "end": 69899,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Deutsche Bank AG New York Branch",
+          "amount_usd": 50000000,
+          "offset": 69935,
+          "end": 69967,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "DNB Capital LLC",
+          "amount_usd": 50000000,
+          "offset": 70003,
+          "end": 70018,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Goldman Sachs Bank USA",
+          "amount_usd": 50000000,
+          "offset": 70054,
+          "end": 70076,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Royal Bank of Canada",
+          "amount_usd": 50000000,
+          "offset": 70112,
+          "end": 70132,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Truist Bank",
+          "amount_usd": 50000000,
+          "offset": 70168,
+          "end": 70179,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        },
+        {
+          "lender_raw": "Goldman Sachs Lending Partners",
+          "amount_usd": 47000000,
+          "offset": 70215,
+          "end": 70245,
+          "tranche": "THIRD AMENDMENT REVOLVING CREDIT COMMITMENTS"
+        }
+      ]
+    },
+    {
+      "document": "1632970_0001193125-26-145647_ahr-ex10_1.htm",
+      "facility_ids": [
+        "FAC-405B7A",
+        "FAC-2A2C38"
+      ],
+      "rows": [
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 110000000,
+          "offset": 564076,
+          "end": 564097,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 87000000,
+          "offset": 564076,
+          "end": 564097,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "KeyBank, National Association",
+          "amount_usd": 90000000,
+          "offset": 564198,
+          "end": 564227,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "KeyBank, National Association",
+          "amount_usd": 73000000,
+          "offset": 564198,
+          "end": 564227,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Citizens Bank, N.A.",
+          "amount_usd": 90000000,
+          "offset": 564327,
+          "end": 564346,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Citizens Bank, N.A.",
+          "amount_usd": 73000000,
+          "offset": 564327,
+          "end": 564346,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "BarclaysFifth Third Bank PLC, National Association",
+          "amount_usd": 90000000,
+          "offset": 564447,
+          "end": 564497,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Citibank, N.A.",
+          "amount_usd": 70000000,
+          "offset": 564610,
+          "end": 564624,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Credit Agricole Corporate and Investment Bank",
+          "amount_usd": 70000000,
+          "offset": 564713,
+          "end": 564758,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Morgan Stanley Bank, N.A.",
+          "amount_usd": 70000000,
+          "offset": 564846,
+          "end": 564871,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Royal Bank of Canada",
+          "amount_usd": 70000000,
+          "offset": 564959,
+          "end": 564979,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Fifth Third Bank, National Association",
+          "amount_usd": 45000000,
+          "offset": 565067,
+          "end": 565105,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Fifth Third Bank, National Association",
+          "amount_usd": 60000000,
+          "offset": 565067,
+          "end": 565105,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Truist",
+          "amount_usd": 70000000,
+          "offset": 565182,
+          "end": 565188,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Truist",
+          "amount_usd": 42000000,
+          "offset": 565182,
+          "end": 565188,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Regions Bank",
+          "amount_usd": 70000000,
+          "offset": 565285,
+          "end": 565297,
+          "tranche": "Term Loan Commitment"
+        },
+        {
+          "lender_raw": "Regions Bank",
+          "amount_usd": 42000000,
+          "offset": 565285,
+          "end": 565297,
+          "tranche": "Term Loan Commitment"
+        }
+      ]
+    },
+    {
+      "document": "723531_0001193125-26-021794_payx-ex10_1.htm",
+      "facility_ids": [
+        "FAC-E386A4"
+      ],
+      "rows": [
+        {
+          "lender_raw": "JPMORGAN CHASE BANK, N.A.",
+          "amount_usd": 145000000,
+          "offset": 512064,
+          "end": 512089,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "PNC BANK, NATIONAL ASSOCIATION",
+          "amount_usd": 145000000,
+          "offset": 512126,
+          "end": 512156,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "BANK OF AMERICA, N.A.",
+          "amount_usd": 145000000,
+          "offset": 512193,
+          "end": 512214,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "WELLS FARGO BANK, NATIONAL ASSOCIATION",
+          "amount_usd": 98250000,
+          "offset": 512251,
+          "end": 512289,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "BMO BANK N.A.",
+          "amount_usd": 98250000,
+          "offset": 512325,
+          "end": 512338,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "TRUIST BANK",
+          "amount_usd": 98250000,
+          "offset": 512374,
+          "end": 512385,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "FIFTH THIRD BANK, NATIONAL ASSOCIATION",
+          "amount_usd": 98250000,
+          "offset": 512421,
+          "end": 512459,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "THE HUNTINGTON NATIONAL BANK",
+          "amount_usd": 43000000,
+          "offset": 512495,
+          "end": 512523,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "TD BANK, N.A.",
+          "amount_usd": 43000000,
+          "offset": 512559,
+          "end": 512572,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "KEYBANK NATIONAL ASSOCIATION",
+          "amount_usd": 43000000,
+          "offset": 512627,
+          "end": 512655,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "MIZUHO BANK, LTD.",
+          "amount_usd": 40000000,
+          "offset": 512691,
+          "end": 512708,
+          "tranche": "unspecified"
+        },
+        {
+          "lender_raw": "M&T BANK, N.A.",
+          "amount_usd": 43000000,
+          "offset": 512734,
+          "end": 512748,
+          "tranche": "unspecified"
+        }
+      ]
+    },
+    {
+      "document": "716643_0001193125-24-281618_d761586dex101.htm",
+      "facility_ids": [
+        "FAC-E4D2F8",
+        "FAC-25F991",
+        "FAC-01BB3F",
+        "FAC-5F29AF"
+      ],
+      "rows": [
+        {
+          "lender_raw": "MIDCAP FINANCIAL TRUST",
+          "amount_usd": 2053333,
+          "offset": 631892,
+          "end": 631914,
+          "tranche": "First Amendment Term Loan A Commitment"
+        },
+        {
+          "lender_raw": "MIDCAP FINANCIAL INVESTMENT CORPORATION",
+          "amount_usd": 1166666,
+          "offset": 631949,
+          "end": 631988,
+          "tranche": "First Amendment Term Loan A Commitment"
+        },
+        {
+          "lender_raw": "AP LEAF, LLC",
+          "amount_usd": 1780000,
+          "offset": 632023,
+          "end": 632035,
+          "tranche": "First Amendment Term Loan A Commitment"
+        },
+        {
+          "lender_raw": "TCW RESCUE FINANCING FUND II LP",
+          "amount_usd": 7000000,
+          "offset": 632315,
+          "end": 632346,
+          "tranche": "First Amendment Term Loan B Commitment"
+        },
+        {
+          "lender_raw": "ASILIA CREDIT FUND, LP",
+          "amount_usd": 3000000,
+          "offset": 632381,
+          "end": 632403,
+          "tranche": "First Amendment Term Loan B Commitment"
+        }
+      ]
+    },
+    {
+      "document": "1597033_0001193125-26-340356_d133770dex101.htm",
+      "facility_ids": [
+        "FAC-3DF1D5"
+      ],
+      "rows": [
+        {
+          "lender_raw": "PNC Bank, National Association",
+          "amount_usd": 130000000,
+          "offset": 620233,
+          "end": 620263,
+          "tranche": "Class A Commitment"
+        },
+        {
+          "lender_raw": "Lake Central Fund LP",
+          "amount_usd": 30000000,
+          "offset": 620367,
+          "end": 620387,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "Bank of America, N.A.",
+          "amount_usd": 25000000,
+          "offset": 620423,
+          "end": 620444,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "Massachusetts Mutual Life Insurance Company",
+          "amount_usd": 22686567,
+          "offset": 620480,
+          "end": 620523,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "Centerbridge Credit CS, L.P",
+          "amount_usd": 15734646,
+          "offset": 620559,
+          "end": 620586,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "CB SA Fund, L.P.",
+          "amount_usd": 14736699,
+          "offset": 620688,
+          "end": 620704,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "Metropolitan Life Insurance Company",
+          "amount_usd": 10000000,
+          "offset": 620752,
+          "end": 620787,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "CB NC Centerbridge Special Credit Partners IV \u2013 I Co-Invest, L.P.",
+          "amount_usd": 1184199,
+          "offset": 620823,
+          "end": 620888,
+          "tranche": "Class B Commitment"
+        },
+        {
+          "lender_raw": "Massachusetts Mutual Life Insurance Company",
+          "amount_usd": 2686567,
+          "offset": 621008,
+          "end": 621051,
+          "tranche": "Class B Commitment"
+        }
+      ]
+    }
+  ],
+  "facility_ids_not_covered": []
+}

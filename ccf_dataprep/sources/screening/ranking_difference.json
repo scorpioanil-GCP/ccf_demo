@@ -1,0 +1,24 @@
+{
+  "generated_for": "Wave 7 \u2014 measured Policy-before-Similarity effect",
+  "probe_excerpt": "or amendment of Indebtedness or Capital Stock, whether or not successful. Notwithstanding the foregoing, in calculating Consolidated EBITDA for any period, pro forma effect shall be given to (i)(A)",
+  "top_n": 10,
+  "permitted_corpus_size": 33,
+  "full_corpus_size": 64,
+  "restricted_in_naive_top_n": 10,
+  "permitted_displaced": 10,
+  "served_overlap": 0,
+  "policy_first_ranking": [
+    "RES-0028",
+    "RES-0008",
+    "RES-0012",
+    "RES-0000",
+    "RES-0032",
+    "RES-0040",
+    "RES-0004",
+    "RES-0020",
+    "RES-0024",
+    "RES-0035"
+  ],
+  "naive_then_filtered_ranking": [],
+  "note": "Post-filtering has already ranked against impermissible material -- which in an MNPI context is itself the leak."
+}

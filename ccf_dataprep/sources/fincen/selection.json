@@ -1,0 +1,42 @@
+{
+  "retrieved_at": "2026-08-25T06:11:55+00:00",
+  "index_url": "https://www.fincen.gov/resources/advisoriesbulletinsfact-sheets/advisories",
+  "typologies": [
+    {
+      "typology": "funnel_account",
+      "advisory_number": "FIN-2014-A005",
+      "title": "FinCEN Advisory\u2013FIN-2014-A005",
+      "issued": "2014-05-28",
+      "url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2014-a005",
+      "pdf_url": "https://www.fincen.gov/system/files/advisory/FIN-2014-A005.pdf",
+      "matched_on": "\"funnel account\" in description: \"Update on U.S. Currency Restrictions in Mexico: Funnel Accounts and TBML\""
+    },
+    {
+      "typology": "shell_company_ownership",
+      "advisory_number": "FIN-2017-A003",
+      "title": "FinCEN Advisory - FIN-2017-A003",
+      "issued": "2017-08-22",
+      "url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2017-a003",
+      "pdf_url": "https://www.fincen.gov/system/files/advisory/2017-08-22/Risk%20in%20Real%20Estate%20Advisory_FINAL%20508%20Tuesday%20%28002%29.pdf",
+      "matched_on": "\"shell compan\" in advisory body text: \"...te transactions involving luxury property purchased through shell companies\u2014particularly when conducted with cash and no financing\u2014can be an attractive avenue f...\""
+    },
+    {
+      "typology": "structuring",
+      "advisory_number": "FIN-2009-A003",
+      "title": "FinCEN Advisory \u2013 FIN-2009-A003",
+      "issued": "2009-07-01",
+      "url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2009-a003",
+      "pdf_url": "https://www.fincen.gov/system/files/advisory/fin-2009-a003.pdf",
+      "matched_on": "\"structuring\" in description: \"Structuring by Casino Patrons and Personnel\""
+    },
+    {
+      "typology": "trade_based",
+      "advisory_number": "FIN-2010-A001",
+      "title": "FinCEN Advisory \u2013 FIN-2010-A001",
+      "issued": "2010-02-18",
+      "url": "https://www.fincen.gov/resources/advisories/fincen-advisory-fin-2010-a001",
+      "pdf_url": "https://www.fincen.gov/system/files/advisory/fin-2010-a001.pdf",
+      "matched_on": "\"trade-based money laundering\" in description: \"Advisory to Financial Institutions on Filing Suspicious Activity Reports regarding Trade-Based Money Laundering\""
+    }
+  ]
+}

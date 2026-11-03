@@ -1,0 +1,146 @@
+{
+  "postures": [
+    {
+      "advisory_number": null,
+      "effective_from": "2025-03-01",
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal"
+    },
+    {
+      "advisory_number": null,
+      "effective_from": "2026-01-15",
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal"
+    }
+  ],
+  "rules": [
+    {
+      "disposition": "file-sar",
+      "permitted": false,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-FUNNEL-file-sar",
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": true,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-FUNNEL-monitor",
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "disposition": "escalate-l2",
+      "permitted": false,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-SHELL-escalate-l2",
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": true,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-SHELL-monitor",
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "disposition": "close-no-action",
+      "permitted": true,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-STRUCT-close-no-action",
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "disposition": "escalate-l2",
+      "permitted": false,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-STRUCT-escalate-l2",
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "disposition": "file-sar",
+      "permitted": true,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-TBML-file-sar",
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": false,
+      "posture_id": "POST-2025-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2025-01-TYP-TBML-monitor",
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "disposition": "file-sar",
+      "permitted": false,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-FUNNEL-file-sar",
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": true,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-FUNNEL-monitor",
+      "typology_id": "TYP-FUNNEL"
+    },
+    {
+      "disposition": "escalate-l2",
+      "permitted": false,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-SHELL-escalate-l2",
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": true,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-SHELL-monitor",
+      "typology_id": "TYP-SHELL"
+    },
+    {
+      "disposition": "close-no-action",
+      "permitted": false,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-STRUCT-close-no-action",
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "disposition": "escalate-l2",
+      "permitted": true,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-STRUCT-escalate-l2",
+      "typology_id": "TYP-STRUCT"
+    },
+    {
+      "disposition": "file-sar",
+      "permitted": true,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-TBML-file-sar",
+      "typology_id": "TYP-TBML"
+    },
+    {
+      "disposition": "monitor",
+      "permitted": false,
+      "posture_id": "POST-2026-01",
+      "provenance": "synthetic — internal",
+      "rule_id": "RULE-POST-2026-01-TYP-TBML-monitor",
+      "typology_id": "TYP-TBML"
+    }
+  ]
+}

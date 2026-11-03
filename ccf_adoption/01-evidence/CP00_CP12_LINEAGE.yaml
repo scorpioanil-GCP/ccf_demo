@@ -1,0 +1,252 @@
+version: 1
+purpose: "Machine-readable Phase 1C.2 lineage for the approved CP-00 through CP-12 ladder."
+release_authority:
+  ccf_code:
+    repository: drcastillo/ccf_code
+    branch: main
+    commit: 1a04e565504f712350b51777cfe398be46d5e157
+    latest_approved_rung: cp-12
+  rule: "Specification lifecycle/Gate wording is historical authoring metadata; current release status comes from the approved SDK baseline and gate history."
+source_snapshots:
+  vault:
+    repository: drcastillo/obsidian-vault
+    branch: main
+    commit: e10add2edc85efe8e355844edfecc492bcf9fa65
+  dataprep:
+    repository: drcastillo/ccf_dataprep
+    branch: main
+    commit: fcf7dddf79c7f443300d745e90bf39510ef12ab7
+  ccf_code:
+    repository: drcastillo/ccf_code
+    branch: main
+    commit: 1a04e565504f712350b51777cfe398be46d5e157
+
+products:
+  cp-00:
+    title: Institutional Holders
+    role: warm-up
+    vault_article: null
+    vault_lineage: "none by design; SDK warm-up, not a whitepaper-derived Vault product"
+    dataprep_evidence:
+      - docs/store-catalog.md
+      - docs/store-catalog.json
+      - docs/ccf_dataprep_v2.md
+    example: examples/cp-00-institutional-holders
+    sdk_spec: examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md
+    registry: holdings.institutional-holders.v1
+    business_problem: "Which institutional managers report positions in this issuer above the caller's threshold?"
+    data_reality:
+      public: ["13F/issuer holdings data", "legal-entity reference data"]
+      engineered_or_synthetic: ["surrounding estate contains deliberately engineered/synthetic populations", "deliberately weak issuer matches"]
+      limitations: ["quarterly archive, not a live feed", "displayed figures are teaching measurements, not facts about a real company"]
+    controls: [period_pinning, provenance, match_quality, caller_owned_threshold, freshness, replay]
+    proves: "A low-complexity relational product can still be governed, time-bound and replayable."
+    does_not_prove: "Live/complete beneficial ownership or multi-store composition."
+
+  cp-01:
+    title: Counterparty Reference Snapshot
+    vault_article: wiki/context-products/content/counterparty-reference-snapshot.md
+    dataprep_evidence: [docs/data-acquisition-plan.md, docs/store-catalog.md, docs/known-issues.md]
+    example: examples/cp-01-counterparty-reference-snapshot
+    sdk_spec: examples/cp-01-counterparty-reference-snapshot/spec/CP-SPEC-001_Counterparty_Reference_Snapshot.md
+    registry: reference.counterparty.v1
+    business_problem: "Resolve a counterparty under one identity-authority hierarchy without silently excluding no-LEI borrowers."
+    data_reality:
+      public: [legal_entity]
+      synthetic_internal: [internal_client, crosswalk, principal_jurisdiction]
+      engineered: ["no-LEI borrower population used to make exclusion observable"]
+    controls: [identity_authority, entitlement, jurisdiction_visibility, suppression_rule, lineage, freshness, replay]
+    proves: "Identity resolution/visibility can be explicit, typed and replayable."
+    does_not_prove: "A real institution's client master, entitlements or portfolio prevalence."
+
+  cp-02:
+    title: Facility Terms Snapshot
+    vault_article: wiki/context-products/content/facility-terms-snapshot.md
+    dataprep_evidence: [docs/data-acquisition-plan.md, docs/known-issues.md]
+    example: examples/cp-02-facility-terms-snapshot
+    sdk_spec: examples/cp-02-facility-terms-snapshot/spec/CP-SPEC-002_Facility_Terms_Snapshot.md
+    registry: reference.facility.v1
+    business_problem: "Serve facility terms as signed/amended rather than an overwritten current-state row."
+    data_reality:
+      public: ["EX-10 facility type/commitment/currency/effective/maturity/agent facts"]
+      synthetic_internal: [outstanding_balance, undrawn_availability, internal_risk_rating, pricing_grid_margins, facility_borrower_crosswalk]
+      limitations: ["known extraction defects are disclosed rather than hidden"]
+    controls: [instrument_authority, effective_date, source_provenance, entity_freshness_ttl, refusal]
+    proves: "A product can anchor on an instrument and carry its validity window."
+    does_not_prove: "Real loan-system balances/ratings/pricing or universal extraction quality."
+
+  cp-03:
+    title: Obligor Financial Spread
+    vault_article: wiki/context-products/content/obligor-financial-spread.md
+    dataprep_evidence: [docs/data-acquisition-plan.md, docs/store-catalog.md]
+    example: examples/cp-03-obligor-financial-spread
+    sdk_spec: examples/cp-03-obligor-financial-spread/spec/CP-SPEC-003_Obligor_Financial_Spread.md
+    registry: credit-risk.spread.v1
+    business_problem: "Serve period-aligned financials/ratios without conflating period end, filing date and retrieval date."
+    data_reality:
+      public: [SEC_XBRL_companyfacts, SEC_XBRL_frames]
+      synthetic_internal: [spreading_convention, ratio_definitions, internal_adjustments]
+      limitations: ["single-store, intentionally policy-light Tier-1 demonstration"]
+    controls: [per_attribute_freshness, filing_lineage, restatement_basis, replay]
+    proves: "Temporal validity is a claim-level property rather than one product timestamp."
+    does_not_prove: "Production spreading/adjustment methodology or MNPI-conditioned financials."
+
+  cp-04:
+    title: Corporate Family Tree — canonical
+    vault_article: wiki/context-products/content/corporate-family-tree.md
+    dataprep_evidence: [docs/data-acquisition-plan.md, docs/ccf_dataprep_v2.md, docs/known-issues.md]
+    example: examples/cp-04-canonical-corporate-family-tree
+    sdk_spec: examples/cp-04-canonical-corporate-family-tree/spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+    registry: reference.corporate-family.v2
+    detailed_lineage: 01-evidence/CP04_CANONICAL_LINEAGE.md
+    historical_noncanonical_path: examples/cp-04-corporate-family-tree
+    data_reality:
+      public: [FIBO, GLEIF, EDGAR_Exhibit_21]
+      synthetic_engineered: [cross_shareholding_cycle]
+      synthetic_bridging: [non_LEI_stub_entities]
+      limitations: ["attribute leg is intentionally thin", "canonical SDK spec is retrospective"]
+    controls: [bounded_acquisition, policy_family_set, context_debt, replay, read_only_sources, canonical_path_governance]
+
+  cp-05:
+    title: Credit Exposure Rollup
+    vault_article: wiki/context-products/content/credit-exposure-rollup.md
+    dataprep_evidence: [docs/spec-digest.md, docs/data-acquisition-plan.md, docs/known-issues.md]
+    example: examples/cp-05-credit-exposure-rollup
+    sdk_spec: examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+    registry: credit-risk.exposure-rollup.v1
+    business_problem: "Compute real group exposure across guarantee/cross-default structure instead of a borrower-keyed sum."
+    data_reality:
+      public: [EX10_guarantor_schedules, public_debt_disclosures, XBRL_total_debt_anchor]
+      synthetic_internal_or_engineered: [balances, borrower_edges, limit_definitions, policy_values, topology_where_public_data_is_thin]
+    controls: [versioned_intent_policy, gross_vs_adjusted_evidence, cross_store_lineage, replay]
+    proves: "Traversal plus deterministic aggregation changes the exposure answer explainably."
+    does_not_prove: "Production balances, institutional limits or complete real-world guarantee topology."
+
+  cp-06:
+    title: Collateral & Set-off Coverage
+    vault_article: wiki/context-products/content/collateral-and-setoff-coverage.md
+    dataprep_evidence: [docs/spec-digest.md, docs/known-issues.md, docs/ccf_dataprep_v2.md]
+    example: examples/cp-06-collateral-and-setoff-coverage
+    sdk_spec: examples/cp-06-collateral-and-setoff-coverage/spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+    registry: credit-risk.collateral-coverage.v1
+    specification_process: retrospective
+    business_problem: "Determine what secures exposure, competing priority, set-off rights and enforceability."
+    data_reality:
+      public: [credit_agreement_collateral_schedules, public_lien_register_evidence]
+      synthetic_internal_or_engineered: [valuations, deposit_balances, setoff_netting, haircuts, enforceability, shared_collateral]
+      limitations: ["typed xsd:date writes not relied upon in this Fluree build", "certain counts computed client-side"]
+    controls: [lien_priority, jurisdiction_enforceability, haircut_policy, provenance, freshness, read_only_sources]
+    proves: "Pair-level relationship facts require governed graph structure."
+    does_not_prove: "Production valuations/legal opinions/universal public-lien coverage."
+
+  cp-07:
+    title: Client 360 / Coverage Graph
+    vault_article: wiki/context-products/content/client-360-coverage-graph.md
+    dataprep_evidence: [docs/wave10-design.md, docs/wave10-plan.md, docs/known-issues.md]
+    example: examples/cp-07-client-360-coverage-graph
+    sdk_spec: examples/cp-07-client-360-coverage-graph/spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+    registry: coverage.client-360.v1
+    business_problem: "Find who at the bank knows whom at the client, through what interactions and where relationship gaps exist."
+    data_reality:
+      public: [client_side_people_from_DEF14A_Form4_8K]
+      synthetic_internal: [bankers, coverage_assignments, interactions, deals, scoring_weights]
+      engineered: [name_variants, coverage_gaps, need_to_know_cases, high_fanout_cases]
+    controls: [need_to_know_pre_traversal, bounded_fanout, truncation_disclosure, recency]
+    proves: "Relationship context is a policy-shaped bounded path problem."
+    does_not_prove: "A real CRM/HR interaction estate or full MNPI-wall enforcement."
+
+  cp-08:
+    title: Covenant-in-Force As-Of
+    vault_article: wiki/context-products/content/covenant-in-force-as-of.md
+    dataprep_evidence: [docs/data-acquisition-plan.md, docs/known-issues.md]
+    example: examples/cp-08-covenant-in-force-as-of
+    sdk_spec: examples/cp-08-covenant-in-force-as-of/spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+    measurement_note: examples/cp-08-covenant-in-force-as-of/spec/MEASUREMENT-NOTE.md
+    registry: credit-risk.covenant-in-force.v1
+    business_problem: "Separate what was legally in force from what the institution knew/booked at the decision date."
+    data_reality:
+      public: [covenant_terms, amendment_effective_dates]
+      synthetic_internal: [facility_drawdown_state, policy]
+      synthetic_engineered: [amendment_booking_lags]
+      limitations: ["covenant term values themselves are not historically versioned", "half-lives are illustrative"]
+    controls: [bitemporal_reconstruction, forensic_vs_dispute_view, replay, source_immutability, explicit_unversioned_label]
+    proves: "Valid time and assertion time can yield different governed historical answers."
+    does_not_prove: "Full historical reconstruction of covenant-term values or real booking latency."
+
+  cp-09:
+    title: Treasury Liquidity Position
+    vault_article: wiki/context-products/content/treasury-liquidity-position.md
+    dataprep_evidence: [docs/wave12-design.md, docs/wave12-plan.md, docs/known-issues.md]
+    example: examples/cp-09-treasury-liquidity-position
+    sdk_spec: examples/cp-09-treasury-liquidity-position/spec/CP-SPEC-009_Treasury_Liquidity_Position.md
+    registry: treasury.liquidity-position.v1
+    business_problem: "Assemble intraday cash/rate posture under the policy in force without flattening different signal clocks."
+    data_reality:
+      public: [Treasury_FRED_SOFR_FX_daily_series, XBRL_cash]
+      synthetic_engineered: [intraday_rate_ticks, intraday_fx_ticks, stale_signal_fixture]
+      synthetic_internal: [balances, positions, limits, mandates, regulatory_posture]
+      limitations: ["intraday paths are engineered from real daily anchors", "calibration is illustrative"]
+    controls: [per_signal_freshness, policy_completeness, context_debt, replay, read_only_sources]
+    proves: "Multiple temporal semantics can coexist in one governed decision product."
+    does_not_prove: "Observed intraday microstructure, real balances/policies or recommended production thresholds."
+
+  cp-10:
+    title: Rating & Spread Migration
+    vault_article: wiki/context-products/content/rating-and-spread-migration.md
+    dataprep_evidence: [docs/wave11a-design.md, docs/wave11a-plan.md, docs/known-issues.md]
+    example: examples/cp-10-rating-and-spread-migration
+    sdk_spec: examples/cp-10-rating-and-spread-migration/spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+    registry: credit-risk.rating-migration.v1
+    business_problem: "Detect deterioration and market-versus-credit-file divergence across signals with different clocks."
+    data_reality:
+      public: [Treasury_FRED_benchmark, ICE_BofA_OAS_on_FRED]
+      synthetic_engineered: [issuer_specific_spread_residual, instrument_reference]
+      synthetic_internal: [internal_grade_history, rating_scale]
+      unavailable_or_excluded: [licensed_agency_ratings, FINRA_TRACE]
+    controls: [licensing_boundary, provenance, per_signal_freshness, bitemporal_grade_history, replay, divergence_thresholds]
+    proves: "Decision value can live in signal disagreement rather than a blended score."
+    does_not_prove: "Agency-rating feeds, bond-level TRACE or production internal grades."
+
+  cp-11:
+    title: Credit Surveillance / Early Warning
+    vault_article: wiki/context-products/content/credit-surveillance-early-warning.md
+    dataprep_evidence: [docs/wave11b-design.md, docs/wave11b-plan.md, docs/known-issues.md]
+    example: examples/cp-11-credit-surveillance-early-warning
+    sdk_spec: examples/cp-11-credit-surveillance-early-warning/spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+    registry: credit-risk.early-warning.v1
+    business_problem: "Determine what changed since the last review and whether it matters, including facts ended by supersession rather than age."
+    data_reality:
+      public: [SEC_8K, state_WARN, GDELT, XBRL_deltas]
+      synthetic_engineered: [inherited_issuer_spread]
+      synthetic_internal: [signal_weights, thresholds, prior_observation_anchors, supersession_chain]
+      unavailable_or_excluded: [FINRA_TRACE, per_mention_GDELT_sentiment, dated_Item_4_02_events_in_window]
+    sdk_pressure_test_result: "D-IMPL-334 added serve-time dependency invalidation rather than allowing a local example workaround."
+    controls: [supersession_invalidation, touched_entity_lineage, stale_serve_refusal, decay_regimes, replay]
+    limitations: ["no push recall of already-held copies", "no A2A invalidation in v1"]
+    proves: "A use-case gap can drive a reusable SDK mechanism."
+    does_not_prove: "Push recall, peer invalidation, per-mention sentiment or a production surveillance model."
+
+  cp-12:
+    title: FX Post-Trade Reconciliation
+    vault_article: wiki/context-products/content/fx-post-trade-reconciliation.md
+    dataprep_evidence: [docs/wave12-design.md, docs/wave12-plan.md, docs/known-issues.md]
+    example: examples/cp-12-fx-post-trade-reconciliation
+    sdk_spec: examples/cp-12-fx-post-trade-reconciliation/spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+    registry: markets.fx-reconciliation.v1
+    business_problem: "Classify an FX break as timing artifact versus genuine error by reconstructing each system's observation time and clock offset."
+    data_reality:
+      public: [DTCC_Part43_pattern_sample, FRED_H10_FX_reference_rates]
+      synthetic_engineered: [paired_system_observations, timing_breaks, genuine_breaks, clock_offsets, amendment_states]
+      limitations: ["public sources pattern the scenario but do not provide paired institutional clock/error cases"]
+    controls: [observation_time_reconstruction, clock_offset_governance, explicit_compare_at_axis, materiality_policy, replay, refusal_as_data]
+    proves: "Temporal reconstruction separates discrepancy classes whose magnitudes overlap and preserves historical breaks hidden by current state."
+    does_not_prove: "Real trading/settlement/risk observations, real clock skew or production thresholds."
+
+phase_1c3_inputs:
+  - "Spec lifecycle/Gate metadata is sometimes stale relative to the approved baseline."
+  - "Spec-first is preferred, with disclosed retrospective exceptions at CP-04 canonical and CP-06."
+  - "Data limitation disclosure grows in importance at later rungs and must remain first-class."
+  - "Controls progress from lineage/replay into policy shaping, bitemporality, Debt, invalidation, licensing and reconciliation."
+  - "CP-11 demonstrates the ladder changing the SDK rather than accepting example-local mechanism drift."
+  - "CP-00 remains a warm-up and must not be given invented Vault lineage."
+  - "CP-04 adoption path is canonical only at examples/cp-04-canonical-corporate-family-tree."

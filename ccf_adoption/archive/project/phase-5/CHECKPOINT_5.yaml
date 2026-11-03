@@ -1,0 +1,59 @@
+checkpoint: 5
+name: SDK Developer and Engineer Manual
+status: RELEASE_READY
+branch: decision-replay-finalize
+qualified_sdk:
+  repository: drcastillo/ccf_code
+  branch: main
+  commit: ff470d400976815e9a1e49176ca51f97e4e691b1
+
+repository_rules:
+  ccf_adoption: writable
+  ccf_code: read_only
+
+learning_paths:
+  client_developer:
+    status: complete
+    starts_with: hello_world_of_ccf
+  context_product_producer:
+    status: complete
+    examples: cp00_through_cp24
+    shipped_example_rule: readme_then_completed_spec_then_code
+  decision_replay:
+    status: complete
+    examples:
+      - dr-01-replay-a-governed-determination
+      - dr-02-package-a-context-product
+    context_product_ladder_extended: false
+  create_your_own:
+    status: complete
+    workflow: standard_to_ai_spec_to_gate1_to_codegen_to_validation_to_gate2
+  technical_reference:
+    status: complete
+    public_surface_modules: 208
+
+replay:
+  environment: ccf.replay.environment.RecordedEnvironment
+  served_entrypoint: ccf.replay.engine.replay
+  refusal_entrypoint: ccf.replay.engine.replay_refusal
+  packaging_trace: ccf.replay.record.PackagingTrace
+  deferred: false
+
+qa:
+  reference_markdown_checked: 76
+  broken_relative_links: 0
+  stale_pre_move_path_references: 0
+  final_release_qa: in_progress
+
+release_cleanup:
+  ccf_code_source_docs:
+    status: external_read_only_cleanup
+    issue: >-
+      public/how-to/reconstruct-a-governed-determination.md and
+      public/concepts/replay-anatomy.md still describe a private
+      GovernedResolver._operator_parameters dependency although current
+      RecordedEnvironment uses the public operator_parameters surface.
+
+approval_needed_for:
+  - final_release_qa
+  - promotion_of_decision_replay_finalize_to_main

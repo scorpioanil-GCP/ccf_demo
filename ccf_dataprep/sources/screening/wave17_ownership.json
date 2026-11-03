@@ -1,0 +1,1661 @@
+{
+ "generated_for": "Wave 17 Task 9 — bind aml_party.beneficial_owner_key to the existing PSC-* / bo_chain island. PSC-* only, never a numeric person key (CLAUDE.md rule 2).",
+ "seed": 20260825,
+ "bound_kinds": [
+  "shell",
+  "individual_owned"
+ ],
+ "provenance": "synthetic — engineered",
+ "binding_count": 100,
+ "distinct_owners_reused": 43,
+ "distinct_chains_reused": 47,
+ "bindings": [
+  {
+   "party_id": "AMLP-0001",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0061",
+   "reused_chain_id": "BOC-0005",
+   "reused_entity_id": "ICJ-SPV-037",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 48.9666,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "KY",
+    "MT",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0002",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0089",
+   "reused_chain_id": "BOC-0018",
+   "reused_entity_id": "ICJ-SPV-148",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 4.3209,
+   "reused_chain_jurisdiction_path": [
+    "Vietnamese",
+    "CH",
+    "LU",
+    "IE",
+    "GB",
+    "LU",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0003",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0032",
+   "reused_chain_id": "BOC-0041",
+   "reused_entity_id": "ICJ-SPV-134",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 26.1685,
+   "reused_chain_jurisdiction_path": [
+    "Ukrainian",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0005",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0153",
+   "reused_chain_id": "BOC-0012",
+   "reused_entity_id": "ICJ-SPV-127",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 1.8596,
+   "reused_chain_jurisdiction_path": [
+    "Pakistani",
+    "DE",
+    "DE",
+    "KY",
+    "NL",
+    "GB",
+    "HKG"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0008",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0050",
+   "reused_chain_id": "BOC-0022",
+   "reused_entity_id": "ICJ-SPV-005",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 11.3575,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0011",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0026",
+   "reused_chain_id": "BOC-0028",
+   "reused_entity_id": "ICJ-SPV-137",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 17.5589,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "KY",
+    "LU",
+    "KY",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0016",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0061",
+   "reused_chain_id": "BOC-0005",
+   "reused_entity_id": "ICJ-SPV-037",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 48.9666,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "KY",
+    "MT",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0018",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0113",
+   "reused_chain_id": "BOC-0001",
+   "reused_entity_id": "ICJ-SPV-136",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 40.9781,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "MT",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0019",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0133",
+   "reused_chain_id": "BOC-0013",
+   "reused_entity_id": "ICJ-SPV-130",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 14.016,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "LU",
+    "IE",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0026",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0089",
+   "reused_chain_id": "BOC-0018",
+   "reused_entity_id": "ICJ-SPV-148",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 4.3209,
+   "reused_chain_jurisdiction_path": [
+    "Vietnamese",
+    "CH",
+    "LU",
+    "IE",
+    "GB",
+    "LU",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0027",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0091",
+   "reused_chain_id": "BOC-0043",
+   "reused_entity_id": "ICJ-SPV-007",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 16.0386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0028",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0180",
+   "reused_chain_id": "BOC-0021",
+   "reused_entity_id": "ICJ-SPV-065",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 25.9869,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "SG",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0029",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0128",
+   "reused_chain_id": "BOC-0007",
+   "reused_entity_id": "ICJ-SPV-001",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 35.2922,
+   "reused_chain_jurisdiction_path": [
+    "Indian",
+    "IE",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0030",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0204",
+   "reused_chain_id": "BOC-0004",
+   "reused_entity_id": "ICJ-SPV-147",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 28.3836,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "KY",
+    "JE",
+    "JE",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0031",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0018",
+   "reused_chain_id": "BOC-0023",
+   "reused_entity_id": "ICJ-SPV-099",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 9.8568,
+   "reused_chain_jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0034",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0069",
+   "reused_chain_id": "BOC-0044",
+   "reused_entity_id": "ICJ-SPV-055",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 51.529,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "MT",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0036",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0158",
+   "reused_chain_id": "BOC-0015",
+   "reused_entity_id": "ICJ-SPV-092",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 12.9422,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0038",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0049",
+   "reused_entity_id": "ICJ-SPV-133",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 18.2386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "CH",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0039",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0053",
+   "reused_chain_id": "BOC-0011",
+   "reused_entity_id": "ICJ-SPV-019",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 5.661,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "LU",
+    "CH",
+    "JE",
+    "DE",
+    "ARE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0040",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0125",
+   "reused_chain_id": "BOC-0030",
+   "reused_entity_id": "ICJ-SPV-082",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 37.6903,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "GB",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0041",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0015",
+   "reused_chain_id": "BOC-0017",
+   "reused_entity_id": "ICJ-SPV-012",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 67.2255,
+   "reused_chain_jurisdiction_path": [
+    "Italian",
+    "LU",
+    "MLT"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0042",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0153",
+   "reused_chain_id": "BOC-0012",
+   "reused_entity_id": "ICJ-SPV-127",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 1.8596,
+   "reused_chain_jurisdiction_path": [
+    "Pakistani",
+    "DE",
+    "DE",
+    "KY",
+    "NL",
+    "GB",
+    "HKG"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0043",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0049",
+   "reused_entity_id": "ICJ-SPV-133",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 18.2386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "CH",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0047",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0152",
+   "reused_chain_id": "BOC-0042",
+   "reused_entity_id": "ICJ-SPV-068",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 21.1559,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0048",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0205",
+   "reused_chain_id": "BOC-0046",
+   "reused_entity_id": "ICJ-SPV-050",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 9.6161,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "LU",
+    "CY",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0049",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0001",
+   "reused_chain_id": "BOC-0006",
+   "reused_entity_id": "ICJ-SPV-146",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 33.2685,
+   "reused_chain_jurisdiction_path": [
+    "Chinese",
+    "GB",
+    "SG",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0052",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0037",
+   "reused_chain_id": "BOC-0029",
+   "reused_entity_id": "ICJ-SPV-022",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 23.1557,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "LU",
+    "IE",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0055",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0128",
+   "reused_chain_id": "BOC-0007",
+   "reused_entity_id": "ICJ-SPV-001",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 35.2922,
+   "reused_chain_jurisdiction_path": [
+    "Indian",
+    "IE",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0057",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0037",
+   "reused_chain_id": "BOC-0040",
+   "reused_entity_id": "ICJ-SPV-066",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 14.0439,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "CH",
+    "DE",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0058",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0092",
+   "reused_chain_id": "BOC-0036",
+   "reused_entity_id": "ICJ-SPV-143",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 56.5096,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0059",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0032",
+   "reused_entity_id": "ICJ-SPV-046",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 20.3793,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "CH",
+    "GB",
+    "NL",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0060",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0196",
+   "reused_chain_id": "BOC-0047",
+   "reused_entity_id": "ICJ-SPV-025",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 19.9889,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "JE",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0061",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0026",
+   "reused_chain_id": "BOC-0020",
+   "reused_entity_id": "ICJ-SPV-027",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 12.5935,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "IE",
+    "IE",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0062",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0121",
+   "reused_chain_id": "BOC-0009",
+   "reused_entity_id": "ICJ-SPV-088",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 24.8821,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "CY",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0064",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0023",
+   "reused_chain_id": "BOC-0031",
+   "reused_entity_id": "ICJ-SPV-026",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 63.6171,
+   "reused_chain_jurisdiction_path": [
+    "Libyan",
+    "LU",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0065",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0026",
+   "reused_chain_id": "BOC-0028",
+   "reused_entity_id": "ICJ-SPV-137",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 17.5589,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "KY",
+    "LU",
+    "KY",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0067",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0050",
+   "reused_chain_id": "BOC-0022",
+   "reused_entity_id": "ICJ-SPV-005",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 11.3575,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0073",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0069",
+   "reused_chain_id": "BOC-0044",
+   "reused_entity_id": "ICJ-SPV-055",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 51.529,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "MT",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0074",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0050",
+   "reused_chain_id": "BOC-0003",
+   "reused_entity_id": "ICJ-SPV-033",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 24.7179,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "LU",
+    "JE",
+    "ARE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0078",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0126",
+   "reused_chain_id": "BOC-0037",
+   "reused_entity_id": "ICJ-SPV-038",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 20.3248,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "MT",
+    "LU",
+    "SYC"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0082",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0124",
+   "reused_chain_id": "BOC-0045",
+   "reused_entity_id": "ICJ-SPV-118",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 4.8648,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "KY",
+    "DE",
+    "KY",
+    "NL",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0084",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0041",
+   "reused_chain_id": "BOC-0002",
+   "reused_entity_id": "ICJ-SPV-028",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 43.6811,
+   "reused_chain_jurisdiction_path": [
+    "Singaporean",
+    "GB",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0085",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0077",
+   "reused_chain_id": "BOC-0035",
+   "reused_entity_id": "ICJ-SPV-110",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 7.593,
+   "reused_chain_jurisdiction_path": [
+    "Canadian",
+    "NL",
+    "NL",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0086",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0121",
+   "reused_chain_id": "BOC-0009",
+   "reused_entity_id": "ICJ-SPV-088",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 24.8821,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "CY",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0087",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0092",
+   "reused_chain_id": "BOC-0036",
+   "reused_entity_id": "ICJ-SPV-143",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 56.5096,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0093",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0089",
+   "reused_chain_id": "BOC-0018",
+   "reused_entity_id": "ICJ-SPV-148",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 4.3209,
+   "reused_chain_jurisdiction_path": [
+    "Vietnamese",
+    "CH",
+    "LU",
+    "IE",
+    "GB",
+    "LU",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0094",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0066",
+   "reused_chain_id": "BOC-0019",
+   "reused_entity_id": "ICJ-SPV-142",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 3.0892,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "GB",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0099",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0037",
+   "reused_chain_id": "BOC-0029",
+   "reused_entity_id": "ICJ-SPV-022",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 23.1557,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "LU",
+    "IE",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0100",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0049",
+   "reused_entity_id": "ICJ-SPV-133",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 18.2386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "CH",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0101",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0032",
+   "reused_chain_id": "BOC-0041",
+   "reused_entity_id": "ICJ-SPV-134",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 26.1685,
+   "reused_chain_jurisdiction_path": [
+    "Ukrainian",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0106",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0128",
+   "reused_chain_id": "BOC-0007",
+   "reused_entity_id": "ICJ-SPV-001",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 35.2922,
+   "reused_chain_jurisdiction_path": [
+    "Indian",
+    "IE",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0109",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0018",
+   "reused_chain_id": "BOC-0023",
+   "reused_entity_id": "ICJ-SPV-099",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 9.8568,
+   "reused_chain_jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0110",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0066",
+   "reused_chain_id": "BOC-0019",
+   "reused_entity_id": "ICJ-SPV-142",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 3.0892,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "GB",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0112",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0205",
+   "reused_chain_id": "BOC-0046",
+   "reused_entity_id": "ICJ-SPV-050",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 9.6161,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "LU",
+    "CY",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0116",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0018",
+   "reused_chain_id": "BOC-0023",
+   "reused_entity_id": "ICJ-SPV-099",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 9.8568,
+   "reused_chain_jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0117",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0066",
+   "reused_chain_id": "BOC-0019",
+   "reused_entity_id": "ICJ-SPV-142",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 3.0892,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "GB",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0118",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0137",
+   "reused_chain_id": "BOC-0024",
+   "reused_entity_id": "ICJ-SPV-004",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 11.8102,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "LU",
+    "MT",
+    "CY",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0119",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0125",
+   "reused_chain_id": "BOC-0030",
+   "reused_entity_id": "ICJ-SPV-082",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 37.6903,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "GB",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0120",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0018",
+   "reused_chain_id": "BOC-0023",
+   "reused_entity_id": "ICJ-SPV-099",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 9.8568,
+   "reused_chain_jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0121",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0133",
+   "reused_chain_id": "BOC-0013",
+   "reused_entity_id": "ICJ-SPV-130",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 14.016,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "LU",
+    "IE",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0122",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0113",
+   "reused_chain_id": "BOC-0001",
+   "reused_entity_id": "ICJ-SPV-136",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 40.9781,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "MT",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0123",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0148",
+   "reused_chain_id": "BOC-0034",
+   "reused_entity_id": "ICJ-SPV-135",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 54.7907,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0129",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0125",
+   "reused_chain_id": "BOC-0030",
+   "reused_entity_id": "ICJ-SPV-082",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 37.6903,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "GB",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0130",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0078",
+   "reused_chain_id": "BOC-0038",
+   "reused_entity_id": "ICJ-SPV-018",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 8.1135,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0131",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0204",
+   "reused_chain_id": "BOC-0004",
+   "reused_entity_id": "ICJ-SPV-147",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 28.3836,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "KY",
+    "JE",
+    "JE",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0132",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0196",
+   "reused_chain_id": "BOC-0047",
+   "reused_entity_id": "ICJ-SPV-025",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 19.9889,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "JE",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0135",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0049",
+   "reused_entity_id": "ICJ-SPV-133",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 18.2386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "CH",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0136",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0126",
+   "reused_chain_id": "BOC-0037",
+   "reused_entity_id": "ICJ-SPV-038",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 20.3248,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "MT",
+    "LU",
+    "SYC"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0142",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0037",
+   "reused_chain_id": "BOC-0040",
+   "reused_entity_id": "ICJ-SPV-066",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 14.0439,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "CH",
+    "DE",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0145",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0102",
+   "reused_chain_id": "BOC-0008",
+   "reused_entity_id": "ICJ-SPV-069",
+   "reused_chain_depth": 5,
+   "reused_chain_effective_pct": 5.1127,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "DE",
+    "MT",
+    "CY",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0146",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0157",
+   "reused_chain_id": "BOC-0027",
+   "reused_entity_id": "ICJ-SPV-080",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 5.5109,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "KY",
+    "SG",
+    "CH",
+    "MLT"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0147",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0102",
+   "reused_chain_id": "BOC-0008",
+   "reused_entity_id": "ICJ-SPV-069",
+   "reused_chain_depth": 5,
+   "reused_chain_effective_pct": 5.1127,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "DE",
+    "MT",
+    "CY",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0151",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0196",
+   "reused_chain_id": "BOC-0047",
+   "reused_entity_id": "ICJ-SPV-025",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 19.9889,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "JE",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0159",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0078",
+   "reused_chain_id": "BOC-0038",
+   "reused_entity_id": "ICJ-SPV-018",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 8.1135,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0162",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0137",
+   "reused_chain_id": "BOC-0024",
+   "reused_entity_id": "ICJ-SPV-004",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 11.8102,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "LU",
+    "MT",
+    "CY",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0163",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0113",
+   "reused_chain_id": "BOC-0001",
+   "reused_entity_id": "ICJ-SPV-136",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 40.9781,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "MT",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0164",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0066",
+   "reused_chain_id": "BOC-0019",
+   "reused_entity_id": "ICJ-SPV-142",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 3.0892,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "NL",
+    "GB",
+    "CHE"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0165",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0196",
+   "reused_chain_id": "BOC-0047",
+   "reused_entity_id": "ICJ-SPV-025",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 19.9889,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "JE",
+    "BLZ"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0166",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0088",
+   "reused_chain_id": "BOC-0026",
+   "reused_entity_id": "ICJ-SPV-042",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 5.7936,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "GB",
+    "IE",
+    "GB",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0171",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0135",
+   "reused_chain_id": "BOC-0025",
+   "reused_entity_id": "ICJ-SPV-115",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 58.1225,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "CH",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0172",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0078",
+   "reused_chain_id": "BOC-0038",
+   "reused_entity_id": "ICJ-SPV-018",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 8.1135,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "DE",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0176",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0193",
+   "reused_chain_id": "BOC-0032",
+   "reused_entity_id": "ICJ-SPV-046",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 20.3793,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "CH",
+    "GB",
+    "NL",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0177",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0126",
+   "reused_chain_id": "BOC-0037",
+   "reused_entity_id": "ICJ-SPV-038",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 20.3248,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "MT",
+    "LU",
+    "SYC"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0178",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0091",
+   "reused_chain_id": "BOC-0043",
+   "reused_entity_id": "ICJ-SPV-007",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 16.0386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0179",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0026",
+   "reused_chain_id": "BOC-0028",
+   "reused_entity_id": "ICJ-SPV-137",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 17.5589,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "KY",
+    "LU",
+    "KY",
+    "GBR"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0180",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0205",
+   "reused_chain_id": "BOC-0046",
+   "reused_entity_id": "ICJ-SPV-050",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 9.6161,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "LU",
+    "CY",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0183",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0052",
+   "reused_chain_id": "BOC-0039",
+   "reused_entity_id": "ICJ-SPV-043",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 55.9743,
+   "reused_chain_jurisdiction_path": [
+    "English",
+    "CH",
+    "SG",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0186",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0125",
+   "reused_chain_id": "BOC-0030",
+   "reused_entity_id": "ICJ-SPV-082",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 37.6903,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "GB",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0187",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0092",
+   "reused_chain_id": "BOC-0036",
+   "reused_entity_id": "ICJ-SPV-143",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 56.5096,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0189",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0205",
+   "reused_chain_id": "BOC-0046",
+   "reused_entity_id": "ICJ-SPV-050",
+   "reused_chain_depth": 4,
+   "reused_chain_effective_pct": 9.6161,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "LU",
+    "CY",
+    "BHS"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0190",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0063",
+   "reused_chain_id": "BOC-0014",
+   "reused_entity_id": "ICJ-SPV-006",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 9.5066,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "VGB",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0191",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0151",
+   "reused_chain_id": "BOC-0016",
+   "reused_entity_id": "ICJ-SPV-097",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 5.258,
+   "reused_chain_jurisdiction_path": [
+    "Bangladeshi",
+    "DE",
+    "KY",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0192",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0092",
+   "reused_chain_id": "BOC-0036",
+   "reused_entity_id": "ICJ-SPV-143",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 56.5096,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "NL",
+    "VGB"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0195",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0091",
+   "reused_chain_id": "BOC-0043",
+   "reused_entity_id": "ICJ-SPV-007",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 16.0386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0196",
+   "party_kind": "shell",
+   "beneficial_owner_key": "PSC-0041",
+   "reused_chain_id": "BOC-0002",
+   "reused_entity_id": "ICJ-SPV-028",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 43.6811,
+   "reused_chain_jurisdiction_path": [
+    "Singaporean",
+    "GB",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0197",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0018",
+   "reused_chain_id": "BOC-0023",
+   "reused_entity_id": "ICJ-SPV-099",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 9.8568,
+   "reused_chain_jurisdiction_path": [
+    "Greek",
+    "MT",
+    "LU",
+    "CY",
+    "CH",
+    "LU",
+    "PAN"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0198",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0151",
+   "reused_chain_id": "BOC-0016",
+   "reused_entity_id": "ICJ-SPV-097",
+   "reused_chain_depth": 3,
+   "reused_chain_effective_pct": 5.258,
+   "reused_chain_jurisdiction_path": [
+    "Bangladeshi",
+    "DE",
+    "KY",
+    "SGP"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0199",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0140",
+   "reused_chain_id": "BOC-0033",
+   "reused_entity_id": "ICJ-SPV-107",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 1.9411,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "IE",
+    "MT",
+    "DE",
+    "NL",
+    "MT",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0200",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0037",
+   "reused_chain_id": "BOC-0029",
+   "reused_entity_id": "ICJ-SPV-022",
+   "reused_chain_depth": 6,
+   "reused_chain_effective_pct": 23.1557,
+   "reused_chain_jurisdiction_path": [
+    "Bulgarian",
+    "DE",
+    "LU",
+    "IE",
+    "MT",
+    "SG",
+    "CYM"
+   ],
+   "provenance": "synthetic — engineered"
+  },
+  {
+   "party_id": "AMLP-0201",
+   "party_kind": "individual_owned",
+   "beneficial_owner_key": "PSC-0091",
+   "reused_chain_id": "BOC-0043",
+   "reused_entity_id": "ICJ-SPV-007",
+   "reused_chain_depth": 2,
+   "reused_chain_effective_pct": 16.0386,
+   "reused_chain_jurisdiction_path": [
+    "British",
+    "SG",
+    "USA"
+   ],
+   "provenance": "synthetic — engineered"
+  }
+ ]
+}
